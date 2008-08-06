@@ -1,0 +1,14 @@
+* React on signal HUP resync and rewatch everything.
+* Allow several source->target specifications.
+* Allow more complicated source masks like /home/%1/www/ -> target::%1/
+* Workaround the default 8192 watches kernel limit by opening another inotify
+  instance when needed.
+* React on inotify OVERFLOW messages in resyncing everything, something might
+  have been missed.
+* Allow more complicated exclusion masks.
+* Do not call rsync at all if a file was edited that falls under the exclusion
+  mask (currently it is called, and rsync drops it.
+* When several things happen at once, wait if calls to rsync can be optimized
+* Allow users to specificy more rsync call options.
+* Make a manpage.
+* improve config.h.in generation

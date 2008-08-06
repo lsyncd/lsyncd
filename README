@@ -1,0 +1,121 @@
+lsyncd - Live Syncing (Mirror) Daemon 
+
+DESCRIPTION:
+
+   Lsyncd uses rsync to synchronize local directories with a remote machine
+   running rsyncd.  Lsyncd watches multiple directories trees through inotify.
+   The first step after adding the watches is to, rsync all directories with
+   the remote host, and then sync single file buy collecting the inotify events.
+   
+   So lsyncd is a light-weight live mirror solution that should be easy to
+   install and use while blending well with your system. 
+   
+   See lsyncd --help for detailed command line options.
+
+WHEN TO USE:
+
+   Lsyncd is designed to synchronize a local directory tree with low profile of
+   expected changes to a remote mirror. On the receivers side rsyncd can be
+   configured to also change the uid/gid of the file.  Lsyncd is especially
+   useful to sync data from a secure area to a not-so-secure area (e.g. as a
+   one way connection to allow employees to publish their files to a public
+   accessible web server).
+
+WHEN NOT TO USE:
+ 
+   * File with active file handles (e.g. database files)
+   * Directories where many changes occur (like mail or news servers)
+
+   In these cases e.g. DRBD (see http://www.linux-ha.org/DRBD) might be better
+   for you.
+
+COMPARISONS:
+  
+   Lsyncd vs. DRBD: 
+   
+     DRBD operates on block device level. This makes it useful for
+     synchronizing systems that are under heavy load. Lsyncd on the other hand
+
+     * does not require you to change block devices and/or mount points.
+     * allows you to change uid/gid of the transferred files.
+     * separates the receiver through the one-way nature of rsync.
+     
+     However when using lsyncd a file change can possibly result in a full file
+     transfer (at least for binary files) and is therefore unsuitable for
+     databases. Also a directory rename will result in transferring the whole
+     directory.
+
+   Lsyncd vs. incron: 
+   
+     Incron does not (yet) support recursive directory watching making it
+     unsuitable for described needs (http://inotify.aiken.cz/?section=incron&page=about&lang=en).
+     In fact a different approach would have been to extent incron. However, we
+     decided to stick to the NIH principle (Not Invented Here) :-), because extending
+     the C++ solution seemed to tedious.
+
+   Lsyncd vs. FUSE:
+   
+     This is another interesting idea is to write a daemon that provides a
+     shadow file system through fuse.  When accessing a file the data is synced
+     to local file as well as the remote file. Whit this approach inotify could
+     be replaced. BindFS (see http://www.cs.helsinki.fi/u/partel/bindfs/)
+     does this for local mirroring. We discarded this idea because it would
+     affect performance of normal operations in a negative way.
+
+   Lsyncd vs. cron: 
+   
+     If you find a solution using cron to call rsync over the whole directory
+     tree periodically after every 'X' hours/minutes/seconds more satisfying
+     than lsyncd, please go for it *sulking*.  We don't like it!
+
+LSYNCD USAGE EXAMPLES:
+
+   /usr/sbin/lsyncd /var/www/ remotehost::wwwshare/
+
+   This watches and rsycn's the local directory /var/www/ with all
+   subdirectories and transfers them to 'remotehost' using the rsync-share
+   'wwwshare'.
+     
+	 /usr/sbin/lsyncd --nodaemon --exclude-from /etc/lsycnd/exclude \
+	                  /var/www/ remotehost::wwwshare/
+
+   This will also rsync/watch '/var/www', but it excludes files and directories
+   from '/etc/lsycnd/exclude'.  Additionally this example lsyncd will not fork,
+   and log to stdout/stderr instead.
+
+   /usr/sbin/lsyncd %userwww remotehost::wwwshare/foobar/
+
+   This special target will scan through all directories in /home and syncs all 
+   www subdirectories of the users to wwwshare in the subdirectory foobar. 
+   The user peter having his local data in /home/peter/www/ will have it 
+   rsynced to ::wwwshare/foobar/peter/.
+
+LIMITATIONS:
+  Be aware that the kernel limits the number of watches. You can see the limit 
+  in  
+      /proc/sys/fs/inotify/max_user_watches
+
+  which is usually set to 8192. This means lsyncd cannot watch more than 8192
+  directories unless you change the kernel setting. Lsyncd itself has no
+  limits.
+
+  Because Axel is lazy the maximum possible size a filename is 8192. If you
+  need more, change MAX_PATH in lsyncd.c. Or send me patches that introduce
+  dynamic memory usage.
+  
+SOURCE DOCUMENTATION:
+
+  The only file of interest is 'lsyncd.c' which includes comments.
+  Everything else in the tarball is packaging bushwa.
+
+DISCLAIMER:
+
+  Besides the usual disclaimer in the license, we want to specifically EMPHASIZE
+  that NEITHER the authors NOR any organization the authors are associated with
+  can and will hold responsible for data-loss caused by possible malfunctions
+  of lsyncd. Especially if you run it with root privileges ;-) (we ourselves
+  run lsyncd as www-data).
+
+FEEDBACK:
+
+  Please send praises and feedback to: axel.kittenberger@univie.ac.at
