@@ -1,12 +1,11 @@
 /**
-* lsyncd.c   Live (Mirror) Syncing Demon
-*
-* License: GPLv2 (see COPYING) or any later version
-*
-* Authors: Axel Kittenberger <axel.kittenberger@univie.ac.at>
-*          Eugene Sanivsky <eugenesan@gmail.com>
-*/
-
+ * lsyncd.c   Live (Mirror) Syncing Demon
+ *
+ * License: GPLv2 (see COPYING) or any later version
+ *
+ * Authors: Axel Kittenberger <axel.kittenberger@univie.ac.at>
+ *          Eugene Sanivsky <eugenesan@gmail.com>
+ */
 #include "config.h"
 
 #include <sys/types.h>
@@ -64,7 +63,7 @@ char * option_target = NULL;
 /**
  * Option: rsync binary to call.
  */
-char * rsync_binary = "/usr/local/bin/lsyncd.nice";
+char * rsync_binary = "/usr/bin/rsync";
 
 /**
  * Option: the exclude-file to pass to rsync.
@@ -82,17 +81,17 @@ char * exclude_file = NULL;
 
 struct dir_watch {
 	/**
-	* The watch descriptor returned by kernel.
-	*/
+	 * The watch descriptor returned by kernel.
+	 */
 	int wd;
 
 	/**
-	* The name of the directory.
-	* In case of the root dir to be watched, it is a full path
-	* and parent == NULL. Otherwise its just the name of the
-	* directory and parent points to the parent directory thats
-	* also watched.
-	*/
+	 * The name of the directory.
+	 * In case of the root dir to be watched, it is a full path
+	 * and parent == NULL. Otherwise its just the name of the
+	 * directory and parent points to the parent directory thats
+	 * also watched.
+	 */
 	char * dirname;
 
 	/**
@@ -102,9 +101,9 @@ struct dir_watch {
 	char * destname;
 
 	/**
-	* Points to the index of the parent.
-	* -1 if no parent
-	*/
+	 * Points to the index of the parent.
+	 * -1 if no parent
+	 */
 	int parent;
 };
 
@@ -159,12 +158,14 @@ int dir_watch_num = 0;
 /**
  * lsyncd will log into this file/stream.
  */
-char *logfile = "/var/log/lsyncd";
+char * logfile = "/var/log/lsyncd";
+
 
 /**
  * The inotify instance.
  */
 int inotf;
+
 
 /**
  * Array of strings of directory names to include.
@@ -172,7 +173,7 @@ int inotf;
  * It's not worth to code a dynamic size handling...
  */
 #define MAX_EXCLUDES 256
-char *exclude_dirs[MAX_EXCLUDES] = {NULL, };
+char * exclude_dirs[MAX_EXCLUDES] = {NULL, };
 int exclude_dir_n = 0;
 
 volatile sig_atomic_t keep_going = 1;
@@ -181,7 +182,6 @@ void catch_alarm(int sig)
 {
 	keep_going = 0;
 }
-
 
 /**
  * Prints a message to the log stream, preceding a timestamp.
@@ -236,23 +236,6 @@ void printlogf(int level, const char *fmt, ...)
 
 	if (!flag_nodaemon) {
 		fclose(flog);
-	}
-}
-
-/**
- * Checks if a path is a directory
- * Returns true on success, false on negative and -1 on error
- */
-int is_dir(char const *path)
-{
-
-	struct stat statbuf;
-
-	if (lstat(path, &statbuf) == -1) {
-		printlogf(LOG_ERROR, "[%s]: while calling stat()", (char*)strerror);
-		return -1;
-	} else {
-		return S_ISDIR(statbuf.st_mode);
 	}
 }
 
@@ -316,32 +299,19 @@ void *s_realloc(void *ptr, size_t size)
  * @param dest      Destination string,
  * @param recursive If true -r will be handled on, -d (single directory) otherwise
  */
-bool rsync(char const *src, const char *dest, bool recursive)
+bool rsync(char const * src, const char * dest, bool recursive)
 {
 	pid_t pid;
 	int status;
-	char const *opts, *rsync_debug;
-
-	if (recursive) {
-		opts="--owner --group --devices --specials --super --perms --executability --one-file-system -ltr";
-	} else {
-		opts="--owner --group --devices --specials --super --perms --executability --one-file-system -ltd";
-	}
-
-	if (LOG_DEBUG == 1) {
-		rsync_debug="-P";
-	} else {
-		rsync_debug="";
-	}
+	char const * opts = recursive ? "-ltr" : "-ltd";
 
 	if (exclude_file) {
-		printlogf(LOG_DEBUG, "exec %s(%s,%s,%s,%s,%s,%s,%s)", rsync_binary, rsync_debug, "--delete", opts, "--exclude-from", exclude_file, src, dest);
+		printlogf(LOG_DEBUG, "exec %s(%s,%s,%s,%s,%s,%s)", rsync_binary, "--delete", opts, "--exclude-from", exclude_file, src, dest);
 	} else {
-		printlogf(LOG_DEBUG, "exec %s(%s,%s,%s,%s,%s)", rsync_binary, rsync_debug, "--delete", opts, src, dest);
+		printlogf(LOG_DEBUG, "exec %s(%s,%s,%s,%s)", rsync_binary, "--delete", opts, src, dest);
 	}
 
 	if (flag_dryrun) {
-		printlogf(LOG_DEBUG, "Rsync skipped due to dry mode.");
 		return true;
 	}
 
@@ -356,7 +326,7 @@ bool rsync(char const *src, const char *dest, bool recursive)
 		if (exclude_file) {
 			execl(rsync_binary, rsync_binary, "--delete", opts, "--exclude-from", exclude_file, src, dest, NULL);
 		} else {
-			e xecl(rsync_binary, rsync_binary, "--delete", opts, src, dest, NULL);
+			execl(rsync_binary, rsync_binary, "--delete", opts, src, dest, NULL);
 		}
 
 		printlogf(LOG_ERROR, "oh my god, execl returned!");
@@ -366,9 +336,10 @@ bool rsync(char const *src, const char *dest, bool recursive)
 
 	waitpid(pid, &status, 0);
 
-	printlogf(LOG_DEBUG, "Rsync of [%s] -> [%s] finished", src, dest);
 	return true;
 }
+
+
 
 /**
  * Adds a directory to watch
@@ -380,7 +351,7 @@ bool rsync(char const *src, const char *dest, bool recursive)
  *
  * @return index to dir_watches of the new dir, -1 on error.
  */
-int add_watch(char const *pathname, char const *dirname, char const *destname, int parent)
+int add_watch(char const * pathname, char const * dirname, char const * destname, int parent)
 {
 	int wd;
 	char * nn;
@@ -430,6 +401,7 @@ int add_watch(char const *pathname, char const *dirname, char const *destname, i
 	return newdw;
 }
 
+
 /**
  * Builds the abolute path name of a given directory beeing watched.
  *
@@ -443,10 +415,10 @@ bool buildpath(char *pathname,
 	       int pathsize,
 	       int watch,
 	       char const *name,
-	       char const *prefix)
+	       char const * prefix)
 {
-
 	int j, k, p, ps;
+
 	pathname[0] = 0;
 
 	if (prefix) {
@@ -454,14 +426,16 @@ bool buildpath(char *pathname,
 	}
 
 	// count how big the parent stack is
-	for (p = watch, ps = 0; p != -1; p = dir_watches[p].parent, ps++) {}
+	for (p = watch, ps = 0; p != -1; p = dir_watches[p].parent, ps++) {
+	}
 
 	// now add the parent paths from back to front
 	for (j = ps; j > 0; j--) {
 		char * name;
 		// go j steps behind stack
 
-		for (p = watch, k = 0; k + 1 < j; p = dir_watches[p].parent, k++) {}
+		for (p = watch, k = 0; k + 1 < j; p = dir_watches[p].parent, k++) {
+		}
 
 		name = (prefix && dir_watches[p].destname) ? dir_watches[p].destname : dir_watches[p].dirname;
 
@@ -496,35 +470,31 @@ bool buildpath(char *pathname,
  * @param parent    If not -1, the index in dir_watches to the parent directory already watched.
  *                  Must have absolute path if parent == -1.
  */
-bool add_dirwatch(char const *dirname, char const *destname, bool recursive, int parent)
+bool add_dirwatch(char const * dirname, char const * destname, bool recursive, int parent)
 {
 	DIR *d;
 
 	struct dirent *de;
 	int dw, i;
-	char pathname[MAX_PATH], fullpath[MAX_PATH];
+	char pathname[MAX_PATH];
+
+	printlogf(LOG_DEBUG, "add_dirwatch(%s, %s, %d, p->dirname:%s)", dirname, destname, recursive, parent >= 0 ? dir_watches[parent].dirname : "NULL");
 
 	if (!buildpath(pathname, sizeof(pathname), parent, dirname, NULL)) {
-		printlogf(LOG_ERROR, "Building path for [%s] failed.", dirname);
 		return false;
 	}
 
 	for (i = 0; i < exclude_dir_n; i++) {
-		// TODO explain
-		if ( (strstr(pathname, exclude_dirs[i]) - pathname) == (strlen(pathname) - strlen(exclude_dirs[i])) ) {
-			printlogf(LOG_DEBUG, "add_dirwatch::excluded(%s[%s], %s)", dirname, pathname, exclude_dirs[i]);
-			return false;
+		if (!strcmp(dirname, exclude_dirs[i])) {
+			return true;
 		}
 	}
 
 	dw = add_watch(pathname, dirname, destname, parent);
 
 	if (dw == -1) {
-		printlogf(LOG_ERROR, "add_watch(%s)failed.", dirname);
 		return false;
 	}
-
-	printlogf(LOG_DEBUG, "add_dirwatch::added(%s[%s], %s, %d, p->dirname:%s)", dirname, pathname, destname, recursive, parent >= 0 ? dir_watches[parent].dirname : "NULL");
 
 	if (strlen(pathname) + strlen(dirname) + 2 > sizeof(pathname)) {
 		printlogf(LOG_ERROR, "pathname too long %s//%s", pathname, dirname);
@@ -538,20 +508,16 @@ bool add_dirwatch(char const *dirname, char const *destname, bool recursive, int
 		return false;
 	}
 
-	while (de = readdir(d)) {
-		sprintf(fullpath, "%s/%s", pathname, de->d_name);
-		//printlogf(LOG_DEBUG, "Checking if [%s] is a folder.", fullpath);
-		// why was DT_DIR not good?
+	while (keep_going) {
+		de = readdir(d);
 
-		if ((is_dir(fullpath) == true) && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
-			//printlogf(LOG_DEBUG, "Going deeper to %s.", de->d_name);
-			add_dirwatch(de->d_name, NULL, true, dw);
+		if (de == NULL) {
+			break;
 		}
 
-		/*else
-		{
-		 printlogf(LOG_DEBUG, "Not going deeper, since object %s is not folder.", de->d_name);
-		}*/
+		if (de->d_type == DT_DIR && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
+			add_dirwatch(de->d_name, NULL, true, dw);
+		}
 	}
 
 	closedir(d);
@@ -575,8 +541,7 @@ bool remove_dirwatch(const char * name, int parent)
 		// look for the child with the name
 		for (i = 0; i < dir_watch_num; i++) {
 			if (dir_watches[i].wd >= 0 && dir_watches[i].parent == parent &&
-					!strcmp(name, dir_watches[i].dirname)
-			   ) {
+					!strcmp(name, dir_watches[i].dirname)) {
 				dw = i;
 				break;
 			}
@@ -633,7 +598,6 @@ bool handle_event(struct inotify_event *event)
 
 	for (i = 0; i < exclude_dir_n; i++) {
 		if (!strcmp(event->name, exclude_dirs[i])) {
-			printlogf(LOG_DEBUG, "Event on [%s] ignored due to exclude rules", event->name);
 			return true;
 		}
 	}
@@ -664,12 +628,9 @@ bool handle_event(struct inotify_event *event)
 		return false;
 	}
 
-	if (((IN_CREATE) & event->mask) && (IN_ISDIR & event->mask)) {
-		add_dirwatch(event->name, NULL, false, i);
-	}
 
-	if (((IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		add_dirwatch(event->name, NULL, true, i);
+	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
+		add_dirwatch(event->name, NULL, false, i);
 	}
 
 	if (((IN_DELETE | IN_MOVED_FROM) & event->mask) && (IN_ISDIR & event->mask)) {
@@ -687,12 +648,7 @@ bool handle_event(struct inotify_event *event)
 	// call rsync to propagate changes in the directory
 	if ((IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM) & event->mask) {
 		printlogf(LOG_NORMAL, "%s of %s in %s --> %s", masktext, event->name, pathname, destname);
-
-		if (IN_MOVED_TO & event->mask) {
-			rsync(pathname, destname, true);
-		} else {
-			rsync(pathname, destname, false);
-		}
+		rsync(pathname, destname, false);
 	}
 
 	return 0;
@@ -724,9 +680,7 @@ bool master_loop()
 		while (i < len) {
 
 			struct inotify_event *event = (struct inotify_event *) &buf[i];
-			printlogf(LOG_DEBUG, "Event [%d] started", i);
 			handle_event(event);
-			printlogf(LOG_DEBUG, "Event [%d] finished", i);
 			i += sizeof(struct inotify_event) + event->len;
 		}
 	}
@@ -738,72 +692,51 @@ bool master_loop()
  * Scans all dirs in /home, looking if a www subdir exists.
  * Syncs this dir immediately, and adds watches to it.
  */
-bool scan_users(char *users_path, char *user_priv)
+bool scan_homes()
 {
 	DIR *d;
 	DIR *d2;
-	char user_path[MAX_PATH], src_path[MAX_PATH], dest_path[MAX_PATH], dest_rel_path[MAX_PATH], src_mask[MAX_PATH], prepare_target_path[MAX_PATH];
-	char prepare_target_cmd[8192];
-
-	struct stat *de_stat;
+	char path[MAX_PATH];
+	char destpath[MAX_PATH];
 
 	struct dirent *de;
-	int sl;
 
-	printlogf(LOG_DEBUG, "Scanning in [%s] for available users", users_path);
-	d = opendir(users_path);
+	d = opendir("/home");
 
 	if (d == NULL) {
-		printlogf(LOG_ERROR, "Cannot open [%s]", users_path);
+		printlogf(LOG_ERROR, "Cannot open /home");
 		return false;
-	} else {
-		snprintf(prepare_target_path, sizeof(prepare_target_path), "%s/%s", option_target, users_path);
-		snprintf(prepare_target_cmd, sizeof(prepare_target_cmd), "mkdir -p %s; chmod 777 %s;", prepare_target_path, prepare_target_path);
-		printlogf(LOG_DEBUG, "exec [%s]", prepare_target_cmd);
-		system(prepare_target_cmd);
 	}
 
-	while (de = readdir(d)) {
-		snprintf(user_path, sizeof(user_path), "%s/%s", users_path, de->d_name);
+	while (keep_going) {
+		de = readdir(d);
 
-		if ((is_dir(user_path) == true) && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
-			snprintf(src_mask, sizeof(src_mask), "%s/%s/%s", users_path, de->d_name, user_priv);
-			snprintf(src_path, sizeof(src_path), src_mask, de->d_name);
-			sl = strlen(src_path);
+		if (de == NULL) {
+			break;
+		}
 
-			if (src_path[sl - 1] == '/') {
-				src_path[sl - 1] = 0;
-				sl--;
+		if (de->d_type == DT_DIR && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
+			snprintf(path, sizeof(path), "/home/%s/www/", de->d_name);
+			d2 = opendir(path);
 
-				if (sl == 0) {
-					continue;
-				}
-			}
-
-			if (!(d2 = opendir(src_path))) {
-				printlogf(LOG_NORMAL, "Skipping %s. Can not read priv directory.", src_path);
+			if (d2 == NULL) {
+				//has no www dir or is not readable
+				printlogf(LOG_NORMAL, "skipping %s. it has no readable www directory.", de->d_name);
 				continue;
-			} else {
-				printlogf(LOG_NORMAL, "Proccessing priv directory [%s:%s].", src_mask, src_path);
 			}
 
 			closedir(d2);
 
-			snprintf(dest_path, sizeof(dest_path), "%s%s/%s/", option_target, users_path, de->d_name);
-			snprintf(dest_rel_path, sizeof(dest_rel_path), "%s/%s/", users_path, de->d_name);
+			printlogf(LOG_NORMAL, "watching %s's www directory (%s)", de->d_name, path);
+			add_dirwatch(path, de->d_name, true, -1);
 
-			if (add_dirwatch(src_path, dest_rel_path, true, -1)) {
-				// Not syncing if skipped
-				rsync(src_path, dest_path, true);
-			}
-		} else {
-			printlogf(LOG_DEBUG, "*\tSkipping [%s]", de->d_name);
+			snprintf(destpath, sizeof(destpath), "%s/%s/", option_target, de->d_name);
+			rsync(path, destpath, true);
 		}
 	}
 
-	printlogf(LOG_DEBUG, "Finished scanning in [%s] for users", users_path);
-
 	closedir(d);
+
 	return true;
 }
 
@@ -818,7 +751,7 @@ void print_help(char *arg0)
 	printf("USAGE: %s [OPTION]... SOURCE TARGET\n", arg0);
 	printf("\n");
 	printf("SOURCE: a directory to watch and rsync.\n");
-	printf("        specify special \"%users%\" to monitor all users folders. \n");
+	printf("        specify special \"%%userwww\" to scan all users in /home and watch their www directories. \n");
 	printf("\n");
 	printf("TARGET: can be any name accepted by rsync. e.g. \"foohost::barmodule/\"\n");
 	printf("\n");
@@ -964,11 +897,11 @@ bool parse_exclude_file()
 				continue;
 			}
 
-			exclude_dirs[exclude_dir_n] = s_malloc(strlen(line) + 1);
+			printlogf(LOG_NORMAL, "Excluding directories of the name '%s'", line);
 
+			exclude_dirs[exclude_dir_n] = s_malloc(strlen(line) + 1);
 			strcpy(exclude_dirs[exclude_dir_n], line);
 			exclude_dir_n++;
-			printlogf(LOG_NORMAL, "Excluding directory [%s] from syncing.", line);
 		}
 	}
 
@@ -981,7 +914,6 @@ bool parse_exclude_file()
 int main(int argc, char **argv)
 {
 	if (!parse_options(argc, argv)) {
-		printlogf(LOG_ERROR, "Invalid parameters specified!");
 		return -1;
 	}
 
@@ -1005,22 +937,16 @@ int main(int argc, char **argv)
 	dir_watch_size = 2;
 	dir_watches = s_calloc(dir_watch_size, sizeof(struct dir_watch));
 
-	if (!strcmp(option_source, "%users%")) {
-		printlogf(LOG_NORMAL, "Switching to users mode");
-		scan_users("/home", "");
-		scan_users("/scratchbox/users", "home/%s/");
+	if (!strcmp(option_source, "%userwww")) {
+		printlogf(LOG_NORMAL, "do userwww");
+		scan_homes();
 	} else {
-		printlogf(LOG_NORMAL, "Watching %s", option_source);
-
-		if (add_dirwatch(option_source, "", true, -1) == -2) {
-			printlogf(LOG_ERROR, "Adding folder skipped, probably excluded. Nothing left to to, exiting.");
-			exit (-1);
-		}
-
+		printlogf(LOG_NORMAL, "watching %s", option_source);
+		add_dirwatch(option_source, "", true, -1);
 		rsync(option_source, option_target, true);
 	}
 
-	printlogf(LOG_NORMAL, "--- Entering normal operation with [%d] monitored directories ---", dir_watch_num);
+	printlogf(LOG_NORMAL, "---entering normal operation---");
 
 	signal(SIGTERM, catch_alarm);
 	master_loop();
