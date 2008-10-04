@@ -336,6 +336,7 @@ bool rsync(char const * src, const char * dest, bool recursive)
 
 	waitpid(pid, &status, 0);
 
+	printlogf(LOG_DEBUG, "Rsync of [%s] -> [%s] finished", src, dest);
 	return true;
 }
 
@@ -788,8 +789,16 @@ bool parse_options(int argc, char **argv)
 {
 
 	static struct option long_options[] = {
-		{"debug",        0, &loglevel,      1
-		}, {"dryrun",       0, &flag_dryrun,   1}, {"exclude-from", 1, NULL,           0}, {"help",         0, NULL,           0}, {"logfile",      1, NULL,           0}, {"no-daemon",    0, &flag_nodaemon, 1}, {"rsync-binary", 1, NULL,           0}, {"scarce",       0, &loglevel,      3}, {"version",      0, NULL,           0}, {0, 0, 0, 0}
+		{"debug",        0, &loglevel,      1}, 
+		{"dryrun",       0, &flag_dryrun,   1}, 
+		{"exclude-from", 1, NULL,           0}, 
+		{"help",         0, NULL,           0}, 
+		{"logfile",      1, NULL,           0}, 
+		{"no-daemon",    0, &flag_nodaemon, 1}, 
+		{"rsync-binary", 1, NULL,           0}, 
+		{"scarce",       0, &loglevel,      3}, 
+		{"version",      0, NULL,           0}, 
+		{0, 0, 0, 0}
 	};
 
 	int c;
@@ -852,7 +861,7 @@ bool parse_exclude_file()
 	ef = fopen(exclude_file, "r");
 
 	if (ef == NULL) {
-		printlogf(LOG_ERROR, "Meh, cannot open open exclude file '%s'\n", exclude_file);
+		printlogf(LOG_ERROR, "Meh, cannot open exclude file '%s'\n", exclude_file);
 		exit(-1);
 	}
 
@@ -946,7 +955,7 @@ int main(int argc, char **argv)
 		rsync(option_source, option_target, true);
 	}
 
-	printlogf(LOG_NORMAL, "---entering normal operation---");
+    printlogf(LOG_NORMAL, "--- Entering normal operation with [%d] monitored directories ---", dir_watch_num);
 
 	signal(SIGTERM, catch_alarm);
 	master_loop();
