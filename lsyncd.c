@@ -28,6 +28,7 @@
 #include <time.h>
 #include <dirent.h>
 #include <getopt.h>
+#include <assert.h>
 
 #define INOTIFY_BUF_LEN     (512 * (sizeof(struct inotify_event) + 16))
 
@@ -202,7 +203,7 @@ void printlogf(int level, const char *fmt, ...)
 		flog = fopen(logfile, "a");
 
 		if (flog == NULL) {
-			printf("cannot open logfile!\n");
+			printf("cannot open logfile [%s]!\n", logfile);
 			exit(-1);
 		}
 	} else {
@@ -269,7 +270,7 @@ void *s_calloc(size_t nmemb, size_t size)
 	void *r = calloc(nmemb, size);
 
 	if (r == NULL) {
-		printlogf(LOG_ERROR, "out of memory!");
+		printlogf(LOG_ERROR, "Out of memory!");
 		exit(-1);
 	}
 
@@ -284,7 +285,7 @@ void *s_realloc(void *ptr, size_t size)
 	void *r = realloc(ptr, size);
 
 	if (r == NULL) {
-		printlogf(LOG_ERROR, "out of memory!");
+		printlogf(LOG_ERROR, "Out of memory!");
 		exit(-1);
 	}
 
@@ -329,12 +330,18 @@ bool rsync(char const * src, const char * dest, bool recursive)
 			execl(rsync_binary, rsync_binary, "--delete", opts, src, dest, NULL);
 		}
 
-		printlogf(LOG_ERROR, "oh my god, execl returned!");
+		printlogf(LOG_ERROR, "Failed executing [%s]", rsync_binary);
 
 		exit(-1);
 	}
 
 	waitpid(pid, &status, 0);
+	assert(WIFEXITED(status));
+	if (WEXITSTATUS(status)){
+		printlogf(LOG_ERROR, "Forked rsync process returned non-zero return code");
+		//TODO: dispute, to we really want to terminate in this case?
+		//exit(-1);
+	}
 
 	printlogf(LOG_DEBUG, "Rsync of [%s] -> [%s] finished", src, dest);
 	return true;
@@ -761,9 +768,9 @@ void print_help(char *arg0)
 	printf("  --dryrun               Do not call rsync, run dry only\n");
 	printf("  --exclude-from FILE    Exclude file handlet to rsync (DEFAULT: None)\n");
 	printf("  --help                 Print this help text and exit.\n");
-	printf("  --logfile FILE         Put log here (DEFAULT: /var/log/lsyncd)\n");
+	printf("  --logfile FILE         Put log here (DEFAULT: %s)\n", logfile);
 	printf("  --no-daemon            Do not detach, log to stdout/stderr\n");
-	printf("  --rsync-binary FILE    Call this binary to sync (DEFAULT: /usr/bin/rsync)\n");
+	printf("  --rsync-binary FILE    Call this binary to sync (DEFAULT: %s)\n", rsync_binary);
 	printf("  --scarce               Only log errors\n");
 	printf("  --version              Print version an exit.\n");
 	printf("\n");
@@ -938,6 +945,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!flag_nodaemon) {
+		// this will make this process child of init, close stdin/stdout/stderr and chdir to /
 		daemon(0, 0);
 	}
 
