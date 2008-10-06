@@ -332,7 +332,7 @@ char *realdir(const char * dir)
 		return NULL;
 	}
 
-	strcat(cs, '/');
+	strcat(cs, "/");
 	return cs;
 }
 
