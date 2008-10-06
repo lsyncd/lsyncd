@@ -7,6 +7,7 @@
  *          Eugene Sanivsky <eugenesan@gmail.com>
  */
 #include "config.h"
+#define _GNU_SOURCE
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -293,6 +294,49 @@ void *s_realloc(void *ptr, size_t size)
 }
 
 /**
+ * "secured" strdup.
+ */
+char *s_strdup(const char* src)
+{
+	char *s = strdup(src);
+
+	if (s == NULL) {
+		printlogf(LOG_ERROR, "Out of memory!");
+		exit(-1);
+	}
+
+	return s;
+}
+
+/**
+ * Returns the canonicalized path of a directory with a final '/', 
+ * Makes sure it is a directory.
+ */
+char *realdir(const char * dir) 
+{
+	char* cs = canonicalize_file_name(dir);
+
+	if (cs == NULL) {
+		return NULL;
+	}
+
+	if (strlen(cs) + 2 >= MAX_PATH) {
+		// at systems maxpath already, we cannot add a '/' anyway.
+		return NULL;
+	}
+
+	struct stat st;
+	stat(cs, &st);
+	if (!S_ISDIR(st.st_mode)) {
+		free(cs);
+		return NULL;
+	}
+
+	strcat(cs, '/');
+	return cs;
+}
+
+/**
  * Calls rsync to sync from src to dest.
  * Returns after rsync has finished.
  *
@@ -338,9 +382,10 @@ bool rsync(char const * src, const char * dest, bool recursive)
 	waitpid(pid, &status, 0);
 	assert(WIFEXITED(status));
 	if (WEXITSTATUS(status)){
-		printlogf(LOG_ERROR, "Forked rsync process returned non-zero return code");
-		//TODO: dispute, to we really want to terminate in this case?
-		//exit(-1);
+		printlogf(LOG_ERROR, "Forked rsync process returned non-zero return code: %i", WEXITSTATUS(status));
+		//TODO:  really philosophize a little more what to do when rsync fails.
+		//       this could also be just a temp. network error while running.
+		exit(-1);
 	}
 
 	printlogf(LOG_DEBUG, "Rsync of [%s] -> [%s] finished", src, dest);
@@ -833,14 +878,17 @@ bool parse_options(int argc, char **argv)
 			}
 
 			if (!strcmp("logfile", long_options[oi].name)) {
-				logfile = s_malloc(strlen(optarg) + 1);
-				strcpy(logfile, optarg);
+				logfile = s_strdup(optarg);
 			}
 
 			if (!strcmp("exclude-from", long_options[oi].name)) {
-				exclude_file = s_malloc(strlen(optarg) + 1);
-				strcpy(exclude_file, optarg);
+				exclude_file = s_strdup(optarg);
 			}
+
+			if (!strcmp("rsync-binary", long_options[oi].name)) {
+				rsync_binary = s_strdup(optarg);
+			}
+
 		}
 	}
 
@@ -849,10 +897,16 @@ bool parse_options(int argc, char **argv)
 		exit(-1);
 	}
 
-	option_source = argv[optind];
-
+	/* Resolves relative source path, lsyncd might chdir to / later. */
+	option_source = realdir(argv[optind]);
 	option_target = argv[optind + 1];
-	printf("syncing %s -> %s\n", option_source, option_target);
+
+	if (!option_source) {
+		printf("Error: Source [%s] not found or not a directory.\n", argv[optind]);
+		exit(-1);
+	}
+
+	printlogf(LOG_NORMAL, "syncing %s -> %s\n", option_source, option_target);
 	return true;
 }
 
@@ -963,7 +1017,7 @@ int main(int argc, char **argv)
 		rsync(option_source, option_target, true);
 	}
 
-    printlogf(LOG_NORMAL, "--- Entering normal operation with [%d] monitored directories ---", dir_watch_num);
+	printlogf(LOG_NORMAL, "--- Entering normal operation with [%d] monitored directories ---", dir_watch_num);
 
 	signal(SIGTERM, catch_alarm);
 	master_loop();
