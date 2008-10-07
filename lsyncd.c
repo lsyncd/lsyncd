@@ -314,7 +314,8 @@ char *s_strdup(const char* src)
  */
 char *realdir(const char * dir) 
 {
-	char* cs = canonicalize_file_name(dir);
+	char* cs = s_malloc(MAX_PATH);
+	cs = realpath(dir, cs);
 
 	if (cs == NULL) {
 		return NULL;
