@@ -1,32 +1,15 @@
 AC_INIT(lsyncd.c)
-PACKAGE=lsyncd
-VERSION=1.0
-AM_INIT_AUTOMAKE($PACKAGE,$VERSION)
+m4_define(LSYNCD_PACKAGE,lsyncd)
+m4_define(LSYNCD_VERSION,1.0)
+AM_INIT_AUTOMAKE(LSYNCD_PACKAGE,LSYNCD_VERSION)
 
 AM_MAINTAINER_MODE
 
 AC_PROG_CC
 AC_PROG_LIBTOOL
 AC_PROG_INSTALL
-AC_CHECK_HEADERS(\
-sys/types.h \
-sys/stat.h \
-sys/wait.h \
-sys/inotify.h \
-stdio.h \
-stdlib.h \
-stdarg.h \
-stdbool.h \
-string.h \
-unistd.h \
-errno.h \
-time.h \
-dirent.h \
-getopt.h
-)
+AC_CHECK_HEADERS([sys/inotify.h])
 
-AC_CONFIG_HEADERS(\
-config.h
-)
+AC_CONFIG_HEADERS([config.h])
 
 AC_OUTPUT(Makefile)
