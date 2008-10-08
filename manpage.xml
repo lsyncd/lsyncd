@@ -1,0 +1,281 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+
+<!--
+
+`xsltproc -''-nonet \
+          -''-param man.charmap.use.subset "0" \
+          -''-param make.year.ranges "1" \
+          -''-param make.single.year.ranges "1" \
+          /usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
+          manpage.xml'
+
+A manual page <package>.<section> will be generated. You may view the
+manual page with: nroff -man <package>.<section> | less'. A typical entry
+in a Makefile or Makefile.am is:
+
+DB2MAN = /usr/share/sgml/docbook/stylesheet/xsl/nwalsh/manpages/docbook.xsl
+XP     = xsltproc -''-nonet -''-param man.charmap.use.subset "0"
+
+manpage.1: manpage.xml
+        $(XP) $(DB2MAN) $<
+
+The xsltproc binary is found in the xsltproc package. The XSL files are in
+docbook-xsl. A description of the parameters you can use can be found in the
+docbook-xsl-doc-* packages. Please remember that if you create the nroff
+version in one of the debian/rules file targets (such as build), you will need
+to include xsltproc and docbook-xsl in your Build-Depends control field.
+Alternatively use the xmlto command/package. That will also automatically
+pull in xsltproc and docbook-xsl.
+
+Notes for using docbook2x: docbook2x-man does not automatically create the
+AUTHOR(S) and COPYRIGHT sections. In this case, please add them manually as
+<refsect1> ... </refsect1>.
+
+To disable the automatic creation of the AUTHOR(S) and COPYRIGHT sections
+read /usr/share/doc/docbook-xsl/doc/manpages/authors.html. This file can be
+found in the docbook-xsl-doc-html package.
+
+Validation can be done using: `xmllint -''-noout -''-valid manpage.xml`
+
+General documentation about man-pages and man-page-formatting:
+man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
+
+-->
+
+  <!-- Fill in your name for FIRSTNAME and SURNAME. -->
+  <!ENTITY dhfirstname "Junichi">
+  <!ENTITY dhsurname   "Uekawa">
+  <!-- dhusername could also be set to "&firstname; &surname;". -->  
+  <!ENTITY dhusername  "Junichi Uekawa">
+  <!ENTITY dhemail     "dancer@debian.org">
+  <!-- SECTION should be 1-8, maybe w/ subsection other parameters are
+       allowed: see man(7), man(1) and
+       http://www.tldp.org/HOWTO/Man-Page/q2.html. -->
+  <!ENTITY dhsection   "1">
+  <!-- TITLE should be something like "User commands" or similar (see
+       http://www.tldp.org/HOWTO/Man-Page/q2.html). -->
+  <!ENTITY dhtitle     "lsyncd User Manual">
+  <!ENTITY dhucpackage "LSYNCD">
+  <!ENTITY dhpackage   "lsyncd">
+]>
+
+<refentry>
+  <refentryinfo>
+    <title>&dhtitle;</title>
+    <productname>&dhpackage;</productname>
+    <authorgroup>
+      <author>
+       <firstname>&dhfirstname;</firstname>
+        <surname>&dhsurname;</surname>
+        <contrib>Wrote this manpage for the Debian system.</contrib>
+        <address>
+          <email>&dhemail;</email>
+        </address>
+      </author>
+    </authorgroup>
+    <copyright>
+      <year>2008</year>
+      <holder>&dhusername;</holder>
+    </copyright>
+    <legalnotice>
+      <para>This manual page was written for the Debian system
+        (but may be used by others).</para>
+      <para>Permission is granted to copy, distribute and/or modify this
+        document under the terms of the GNU General Public License,
+        Version 2 or (at your option) any later version published by
+        the Free Software Foundation.</para>
+      <para>On Debian systems, the complete text of the GNU General Public
+        License can be found in
+	<filename>/usr/share/common-licenses/GPL</filename>.</para>
+    </legalnotice>
+  </refentryinfo>
+  <refmeta>
+    <refentrytitle>&dhucpackage;</refentrytitle>
+    <manvolnum>&dhsection;</manvolnum>
+  </refmeta>
+  <refnamediv>
+    <refname>&dhpackage;</refname>
+    <refpurpose>A rsync-based tool to monitor a directory and update modifications</refpurpose>
+  </refnamediv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>&dhpackage;</command>
+      <!-- These are several examples, how syntaxes could look -->
+      <arg choice="opt"><option>--debug</option></arg>
+      <arg choice="opt"><option>--dryrun</option></arg>
+      <arg choice="opt"><option>--exclude-file <parameter>FILE</parameter></option></arg>
+      <arg choice="opt"><option>--logfile <parameter>FILE</parameter></option></arg>
+      <arg choice="opt"><option>--no-daemon</option></arg>
+      <arg choice="opt"><option>--rsync-binary <parameter>FILE</parameter></option></arg>
+      <arg choice="opt"><option>--pidfile <parameter>FILE</parameter></option></arg>
+      <arg choice="opt"><option>--scarce</option></arg>
+      <arg choice="plain"><replaceable>source</replaceable></arg>
+      <arg choice="plain"><replaceable>target</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>&dhpackage;</command>
+      <!-- Normally the help and version options make the programs stop
+           right after outputting the requested information. -->
+      <group choice="opt">
+        <arg choice="plain">
+          <group choice="req">
+            <arg choice="plain"><option>--help</option></arg>
+          </group>
+        </arg>
+        <arg choice="plain">
+          <group choice="req">
+            <arg choice="plain"><option>--version</option></arg>
+          </group>
+        </arg>
+      </group>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1 id="description">
+    <title>DESCRIPTION</title>
+    <para>This manual page documents briefly the
+      <command>&dhpackage;</command>
+      command.</para>
+    <para>This manual page was written for the Debian distribution
+      because the original program does not have a manual page.
+      Instead, it has a README documentation in plain text.</para>
+
+    <para><command>&dhpackage;</command> is a program that uses rsync
+      to synchronize local directories with a remote machine running
+      rsyncd.  Lsyncd watches multiple directory trees through
+      inotify.  It will first rsync all directories with the remote
+      host, and then sync single files by collecting the inotify
+      events.  This tool is a light-weight live mirror solution.
+    </para>
+  </refsect1>
+  <refsect1 id="options">
+    <title>OPTIONS</title>
+    <para>The program takes options starting with two dashes (`-').  A summary of
+      options is included below.</para>
+    <variablelist>
+      <!-- Use the variablelist.term.separator and the
+           variablelist.term.break.after parameters to
+           control the term elements. -->
+      <varlistentry>
+	<term><option>--debug</option></term>
+        <listitem>
+          <para>Log debug messages</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><option>--dryrun</option></term>
+        <listitem>
+          <para>Do not call rsync, run dry only</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><option>--exclude-file <parameter>FILE</parameter></option></term>
+        <listitem>
+          <para>Exclude file handlet to rsync (DEFAULT: None).</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><option>--logfile <parameter>FILE</parameter></option></term>
+        <listitem>
+          <para>Put log here (DEFAULT: /var/log/lsyncd).</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><option>--no-daemon</option></term>
+        <listitem>
+          <para>Do not detach, log to stdout/stderr.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><option>--rsync-binary <parameter>FILE</parameter></option></term>
+        <listitem>
+          <para>Call this binary to sync (DEFAULT: /usr/bin/rsync).</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><option>--pidfile <parameter>FILE</parameter></option></term>
+        <listitem>
+          <para>Create a file with pid of application.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+	<term><option>--scarce</option></term>
+        <listitem>
+          <para>Only log errors.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--help</option></term>
+        <listitem>
+          <para>Show summary of options.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--version</option></term>
+        <listitem>
+          <para>Show version of program.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1 id="files">
+    <title>FILES</title>
+    <variablelist>
+      <varlistentry>
+        <term><filename>/var/log/lsyncd</filename></term>
+        <listitem>
+          <para>The default location of log file.  Make sure the
+	    running user has write access to this file, or specify a
+	    different log file name.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1 id="diagnostics">
+    <title>DIAGNOSTICS</title>
+    <para>The following diagnostics may be issued
+      on <filename class="devicefile">stderr</filename>:</para>
+    <variablelist>
+      <varlistentry>
+        <term><errortext>Out of memory!</errortext></term>
+        <listitem>
+          <para>It might get out of memory.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para><command>&dhpackage;</command> provides some return codes, that can
+      be used in scripts:</para>
+    <segmentedlist>
+      <segtitle>Code</segtitle>
+      <segtitle>Diagnostic</segtitle>
+      <seglistitem>
+        <seg><errorcode>0</errorcode></seg>
+        <seg>Program exited successfully.</seg>
+      </seglistitem>
+      <seglistitem>
+        <seg><errorcode>-1 (255)</errorcode></seg>
+        <seg>Something bad has happened.</seg>
+      </seglistitem>
+    </segmentedlist>
+  </refsect1>
+  <refsect1 id="bugs">
+    <!-- Or use this section to tell about upstream BTS. -->
+    <title>BUGS</title>
+    <para>TBD.</para>
+  </refsect1>
+  <refsect1 id="see_also">
+    <title>SEE ALSO</title>
+    <!-- In alpabetical order. -->
+    <para><citerefentry>
+        <refentrytitle>rsync</refentrytitle>
+        <manvolnum>1</manvolnum>
+      </citerefentry></para>
+
+    <para>The programs are documented fully in README file available
+      in <filename>/usr/share/doc/lsyncd/README.gz</filename>.</para>
+  </refsect1>
+</refentry>
+

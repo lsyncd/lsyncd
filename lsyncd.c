@@ -74,6 +74,11 @@ char * rsync_binary = "/usr/bin/rsync";
 char * exclude_file = NULL;
 
 /**
+ * Option: pidfile, which holds the PID of the running daemon process
+ */
+char * pidfile = NULL;
+
+/**
  * The maximum character length paths may take
  */
 #define MAX_PATH             (8*1024)
@@ -820,6 +825,7 @@ void print_help(char *arg0)
 	printf("  --no-daemon            Do not detach, log to stdout/stderr\n");
 	printf("  --rsync-binary FILE    Call this binary to sync (DEFAULT: %s)\n", 
 				 rsync_binary);
+	printf("  --pidfile FILE         Create a file containing pid of the daemon\n");
 	printf("  --scarce               Only log errors\n");
 	printf("  --version              Print version an exit.\n");
 	printf("\n");
@@ -852,6 +858,7 @@ bool parse_options(int argc, char **argv)
 		{"logfile",      1, NULL,           0}, 
 		{"no-daemon",    0, &flag_nodaemon, 1}, 
 		{"rsync-binary", 1, NULL,           0}, 
+		{"pidfile",      1, NULL,           0}, 
 		{"scarce",       0, &loglevel,      3}, 
 		{"version",      0, NULL,           0}, 
 		{0, 0, 0, 0}
@@ -891,6 +898,10 @@ bool parse_options(int argc, char **argv)
 
 			if (!strcmp("rsync-binary", long_options[oi].name)) {
 				rsync_binary = s_strdup(optarg);
+			}
+
+			if (!strcmp("pidfile", long_options[oi].name)) {
+				pidfile = s_strdup(optarg);
 			}
 
 		}
@@ -982,6 +993,17 @@ bool parse_exclude_file()
 	return true;
 }
 
+void write_pidfile() {
+	FILE* f = fopen(pidfile, "w");
+	if (!f) {
+		printlogf(LOG_ERROR, "Error: cannot write pidfile [%s]\n", pidfile);
+		exit(-1);
+	}
+	
+	fprintf(f, "%i\n", getpid());
+	fclose(f); 
+}
+
 /**
  * main
  */
@@ -1008,6 +1030,10 @@ int main(int argc, char **argv)
 	}
 
 	printlogf(LOG_NORMAL, "Starting up");
+
+	if (pidfile) {
+		write_pidfile();
+	}
 
 	dir_watch_size = 2;
 	dir_watches = s_calloc(dir_watch_size, sizeof(struct dir_watch));
