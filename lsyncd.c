@@ -1,4 +1,4 @@
-/**
+/** -*- tab-width: 2; -*-
  * lsyncd.c   Live (Mirror) Syncing Demon
  *
  * License: GPLv2 (see COPYING) or any later version
@@ -6,6 +6,7 @@
  * Authors: Axel Kittenberger <axel.kittenberger@univie.ac.at>
  *          Eugene Sanivsky <eugenesan@gmail.com>
  */
+
 #include "config.h"
 #define _GNU_SOURCE
 
