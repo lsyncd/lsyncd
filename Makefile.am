@@ -9,3 +9,6 @@ TESTS = tests/help.sh \
 datarootdir = @datarootdir@
 
 EXTRA_DIST = config.h.in inotify-nosys.h
+
+check-syntax:
+	$(CC) -c -O2 -Wall $(CHK_SOURCES)  -o/dev/null 
