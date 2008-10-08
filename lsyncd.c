@@ -801,6 +801,35 @@ bool scan_homes()
 }
 
 /**
+ * Utility function to check file exists. Print out error message and die.
+ *
+ * @param filename  filename to check
+ */
+void check_file_exists(const char* filename)
+{
+	struct stat st;
+	if (-1==stat(filename, &st)) {
+		printlogf(LOG_ERROR, "File [%s] does not exist\n", filename);
+		exit (-1);
+	}
+}
+
+
+/**
+ * Utility function to check given path is absolute path.
+ *
+ * @param filename  filename to check
+ */
+void check_absolute_path(const char* filename)
+{
+	if (filename[0] != '/') {
+		printlogf(LOG_ERROR, "Filename [%s] is not an absolute path\n", filename);
+		exit (-1);
+	}
+}
+
+
+/**
  * Prints the help text and exits 0.
  *
  * @param arg0   argv[0] to show what lsyncd was called with.
@@ -907,6 +936,7 @@ bool parse_options(int argc, char **argv)
 		}
 	}
 
+
 	if (optind + 2 != argc) {
 		printf("Error: please specify SOURCE and TARGET (see --help)\n");
 		exit(-1);
@@ -922,6 +952,15 @@ bool parse_options(int argc, char **argv)
 	}
 
 	printlogf(LOG_NORMAL, "syncing %s -> %s\n", option_source, option_target);
+
+	/* sanity checking here */
+	if (exclude_file) {
+		check_absolute_path(exclude_file);
+		check_file_exists(exclude_file);
+	}
+	if (pidfile) {
+		check_absolute_path(pidfile);
+	}
 	return true;
 }
 
