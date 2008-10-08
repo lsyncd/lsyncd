@@ -814,9 +814,11 @@ void print_help(char *arg0)
 	printf("  --dryrun               Do not call rsync, run dry only\n");
 	printf("  --exclude-from FILE    Exclude file handlet to rsync (DEFAULT: None)\n");
 	printf("  --help                 Print this help text and exit.\n");
-	printf("  --logfile FILE         Put log here (DEFAULT: %s)\n", logfile);
+	printf("  --logfile FILE         Put log here (DEFAULT: %s)\n", 
+				 logfile);
 	printf("  --no-daemon            Do not detach, log to stdout/stderr\n");
-	printf("  --rsync-binary FILE    Call this binary to sync (DEFAULT: %s)\n", rsync_binary);
+	printf("  --rsync-binary FILE    Call this binary to sync (DEFAULT: %s)\n", 
+				 rsync_binary);
 	printf("  --scarce               Only log errors\n");
 	printf("  --version              Print version an exit.\n");
 	printf("\n");
