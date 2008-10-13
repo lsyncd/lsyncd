@@ -38,9 +38,6 @@
 #define LOG_NORMAL 2
 #define LOG_ERROR  3
 
-#define VER_MAJOR 1
-#define VER_MINOR 0
-
 int loglevel = LOG_NORMAL;
 
 /**
@@ -913,7 +910,7 @@ bool parse_options(int argc, char **argv)
 			}
 
 			if (!strcmp("version", long_options[oi].name)) {
-				printf("Version: %d.%d\n", VER_MAJOR, VER_MINOR);
+				printf("Version: %s\n", VERSION);
 				exit(0);
 			}
 
