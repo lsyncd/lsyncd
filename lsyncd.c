@@ -38,6 +38,8 @@
 #define LOG_NORMAL 2
 #define LOG_ERROR  3
 
+const char* userwww_string = "%userwww";
+
 int loglevel = LOG_NORMAL;
 
 /**
@@ -230,7 +232,7 @@ void printlogf(int level, const char *fmt, ...)
 		break;
 
 	case LOG_ERROR  :
-		fprintf(flog, "ERROR :");
+		fprintf(flog, "ERROR: ");
 		break;
 	}
 
@@ -347,6 +349,7 @@ char *realdir(const char * dir)
  * @param src       Source string.
  * @param dest      Destination string,
  * @param recursive If true -r will be handled on, -d (single directory) otherwise
+ * @return true if successful, false if not.
  */
 bool rsync(char const * src, const char * dest, bool recursive)
 {
@@ -386,10 +389,8 @@ bool rsync(char const * src, const char * dest, bool recursive)
 	waitpid(pid, &status, 0);
 	assert(WIFEXITED(status));
 	if (WEXITSTATUS(status)){
-		printlogf(LOG_ERROR, "Forked rsync process returned non-zero return code: %i", WEXITSTATUS(status));
-		//TODO:  really philosophize a little more what to do when rsync fails.
-		//       this could also be just a temp. network error while running.
-		exit(-1);
+		printlogf(LOG_NORMAL, "Forked rsync process returned non-zero return code: %i", WEXITSTATUS(status));
+		return false;
 	}
 
 	printlogf(LOG_DEBUG, "Rsync of [%s] -> [%s] finished", src, dest);
@@ -460,25 +461,27 @@ int add_watch(char const * pathname, char const * dirname, char const * destname
 
 
 /**
- * Builds the abolute path name of a given directory beeing watched.
+ * Builds the abolute path name of a given directory beeing watched from the dir_watches information.
  *
  * @param pathname      destination buffer to store the result to.
  * @param pathsize      max size of this buffer
  * @param watch         the index in dir_watches to the directory.
- * @param name          if not null, this beeing the watch dir itself is appended.
- * @param prefix        if not NULL it is added at the bein of pathname
+ * @param dirname       if not NULL it is added at the end of pathname
+ * @param prefix        if not NULL it is added at the beginning of pathname
  */
 bool buildpath(char *pathname,
 	       int pathsize,
 	       int watch,
-	       char const *name,
-	       char const * prefix)
+	       char const *dirname,
+	       char const *prefix)
 {
 	int j, k, p, ps;
 
 	pathname[0] = 0;
 
 	if (prefix) {
+		// make sure nobody calls me with %wwwuser option set
+		assert(strcmp(prefix, "%wwwuser"));
 		strcat(pathname, prefix);
 	}
 
@@ -488,31 +491,31 @@ bool buildpath(char *pathname,
 
 	// now add the parent paths from back to front
 	for (j = ps; j > 0; j--) {
-		char * name;
+		char * tmpname;
 		// go j steps behind stack
 
 		for (p = watch, k = 0; k + 1 < j; p = dir_watches[p].parent, k++) {
 		}
 
-		name = (prefix && dir_watches[p].destname) ? dir_watches[p].destname : dir_watches[p].dirname;
+		tmpname = (prefix && dir_watches[p].destname) ? dir_watches[p].destname : dir_watches[p].dirname;
 
-		if (strlen(pathname) + strlen(name) + 2 >= pathsize) {
-			printlogf(LOG_ERROR, "path too long %s/...", name);
+		if (strlen(pathname) + strlen(tmpname) + 2 >= pathsize) {
+			printlogf(LOG_ERROR, "path too long %s/...", tmpname);
 			return false;
 		}
 
-		strcat(pathname, name);
+		strcat(pathname, tmpname);
 
 		strcat(pathname, "/");
 	}
 
-	if (name) {
-		if (strlen(pathname) + strlen(name) + 2 >= pathsize) {
-			printlogf(LOG_ERROR, "path too long %s//%s", pathname, name);
+	if (dirname) {
+		if (strlen(pathname) + strlen(dirname) + 2 >= pathsize) {
+			printlogf(LOG_ERROR, "path too long %s//%s", pathname, dirname);
 			return false;
 		}
 
-		strcat(pathname, name);
+		strcat(pathname, dirname);
 	}
 
 	return true;
@@ -634,6 +637,28 @@ bool remove_dirwatch(const char * name, int parent)
 }
 
 /**
+ * Find the matching dw entry from wd (watch descriptor), and return
+ * the offset in the table.
+ *
+ * @param wd   The wd (watch descriptor) given by inotify
+ * @return offset, or -1 if not found
+ */
+int get_dirwatch_offset(int wd) {
+	int i;
+	for (i = 0; i < dir_watch_num; i++) {
+		if (dir_watches[i].wd == wd) {
+			break;
+		}
+	}
+
+	if (i >= dir_watch_num) {
+		return -1;
+	} else {
+		return i;
+	}	
+}
+
+/**
  * Handles an inotify event.
  *
  * @param event   The event to handle
@@ -674,17 +699,11 @@ bool handle_event(struct inotify_event *event)
 		}
 	}
 
-	for (i = 0; i < dir_watch_num; i++) {
-		if (dir_watches[i].wd == event->wd) {
-			break;
-		}
-	}
-
-	if (i >= dir_watch_num) {
+	i = get_dirwatch_offset(event->wd);
+	if (i == -1) {
 		printlogf(LOG_ERROR, "received unkown inotify event :-(%d)", event->mask);
 		return false;
 	}
-
 
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
 		add_dirwatch(event->name, NULL, false, i);
@@ -698,6 +717,7 @@ bool handle_event(struct inotify_event *event)
 		return false;
 	}
 
+	// FIXME: this will break %wwwuser because of option_target usage.
 	if (!buildpath(destname, sizeof(destname), i, NULL, option_target)) {
 		return false;
 	}
@@ -705,7 +725,20 @@ bool handle_event(struct inotify_event *event)
 	// call rsync to propagate changes in the directory
 	if ((IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM) & event->mask) {
 		printlogf(LOG_NORMAL, "%s of %s in %s --> %s", masktext, event->name, pathname, destname);
-		rsync(pathname, destname, false);
+		if (!rsync(pathname, destname, false)) {
+			// if error on partial rsync, retry with parent dir rsync 
+			if (dir_watches[i].parent != -1) {
+				buildpath(pathname, sizeof(pathname), dir_watches[i].parent, NULL, NULL);
+				buildpath(destname, sizeof(destname), dir_watches[i].parent, NULL, option_target);
+
+				printlogf(LOG_NORMAL, "Retry Directory resync with %s to %s", 
+									pathname, destname);
+				if (!rsync(pathname, destname, true)) {
+					printlogf(LOG_ERROR, "Retry of rsync from %s to %s failed", pathname, destname);
+					exit(-1);
+				}
+			}
+		}
 	}
 
 	return 0;
@@ -788,7 +821,10 @@ bool scan_homes()
 			add_dirwatch(path, de->d_name, true, -1);
 
 			snprintf(destpath, sizeof(destpath), "%s/%s/", option_target, de->d_name);
-			rsync(path, destpath, true);
+			if (!rsync(path, destpath, true)) {
+				printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", path, destpath);
+				exit(-1);
+			}			
 		}
 	}
 
@@ -1074,13 +1110,16 @@ int main(int argc, char **argv)
 	dir_watch_size = 2;
 	dir_watches = s_calloc(dir_watch_size, sizeof(struct dir_watch));
 
-	if (!strcmp(option_source, "%userwww")) {
+	if (!strcmp(option_source, userwww_string)) {
 		printlogf(LOG_NORMAL, "do userwww");
 		scan_homes();
 	} else {
 		printlogf(LOG_NORMAL, "watching %s", option_source);
 		add_dirwatch(option_source, "", true, -1);
-		rsync(option_source, option_target, true);
+		if (!rsync(option_source, option_target, true)) {
+			printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", option_source, option_target);
+			exit(-1);
+		}
 	}
 
 	printlogf(LOG_NORMAL, "--- Entering normal operation with [%d] monitored directories ---", dir_watch_num);
