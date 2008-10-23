@@ -354,11 +354,30 @@ bool rsync(char const * src, const char * dest, bool recursive)
 	pid_t pid;
 	int status;
 	char const * opts = recursive ? "-ltr" : "-ltd";
+	const int MAX_ARGS = 100;
+	char * argv[MAX_ARGS];
+	int argc=0;
+	int i;
 
+	argv[argc++] = s_strdup(rsync_binary);
+	argv[argc++] = s_strdup("--delete");
+	argv[argc++] = s_strdup(opts);
 	if (exclude_file) {
-		printlogf(LOG_DEBUG, "exec %s(%s,%s,%s,%s,%s,%s)", rsync_binary, "--delete", opts, "--exclude-from", exclude_file, src, dest);
-	} else {
-		printlogf(LOG_DEBUG, "exec %s(%s,%s,%s,%s)", rsync_binary, "--delete", opts, src, dest);
+		argv[argc++] = s_strdup("--exclude-from");
+		argv[argc++] = s_strdup(exclude_file);
+	}
+	argv[argc++] = s_strdup(src);
+	argv[argc++] = s_strdup(dest);
+	argv[argc++] = NULL;
+
+	if (argc > MAX_ARGS) {				/* check for error condition */
+		printlogf(LOG_ERROR, "Internal error: too many (%i) options passed", argc);
+		return false;
+	}
+
+	/* debug dump of command-line options */
+	for (i=0; i<argc; ++i) {
+		printlogf(LOG_DEBUG, "exec parameter %i:%s", i, argv[i]);
 	}
 
 	if (flag_dryrun) {
@@ -373,17 +392,18 @@ bool rsync(char const * src, const char * dest, bool recursive)
 			freopen(logfile, "a", stderr);
 		}
 
-		if (exclude_file) {
-			execl(rsync_binary, rsync_binary, "--delete", opts, "--exclude-from", exclude_file, src, dest, NULL);
-		} else {
-			execl(rsync_binary, rsync_binary, "--delete", opts, src, dest, NULL);
-		}
+		execv(rsync_binary, argv);
 
 		printlogf(LOG_ERROR, "Failed executing [%s]", rsync_binary);
 
 		exit(-1);
 	}
 
+	for (i=0; i<argc; ++i) {
+		if (argv[i])
+			free(argv[i]);
+	}
+	
 	waitpid(pid, &status, 0);
 	assert(WIFEXITED(status));
 	if (WEXITSTATUS(status)){
