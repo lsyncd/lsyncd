@@ -38,8 +38,6 @@
 #define LOG_NORMAL 2
 #define LOG_ERROR  3
 
-const char* userwww_string = "%userwww";
-
 int loglevel = LOG_NORMAL;
 
 /**
@@ -717,7 +715,6 @@ bool handle_event(struct inotify_event *event)
 		return false;
 	}
 
-	// FIXME: this will break %wwwuser because of option_target usage.
 	if (!buildpath(destname, sizeof(destname), i, NULL, option_target)) {
 		return false;
 	}
@@ -779,61 +776,6 @@ bool master_loop()
 }
 
 /**
- * Scans all dirs in /home, looking if a www subdir exists.
- * Syncs this dir immediately, and adds watches to it.
- */
-bool scan_homes()
-{
-	DIR *d;
-	DIR *d2;
-	char path[MAX_PATH];
-	char destpath[MAX_PATH];
-
-	struct dirent *de;
-
-	d = opendir("/home");
-
-	if (d == NULL) {
-		printlogf(LOG_ERROR, "Cannot open /home");
-		return false;
-	}
-
-	while (keep_going) {
-		de = readdir(d);
-
-		if (de == NULL) {
-			break;
-		}
-
-		if (de->d_type == DT_DIR && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
-			snprintf(path, sizeof(path), "/home/%s/www/", de->d_name);
-			d2 = opendir(path);
-
-			if (d2 == NULL) {
-				//has no www dir or is not readable
-				printlogf(LOG_NORMAL, "skipping %s. it has no readable www directory.", de->d_name);
-				continue;
-			}
-
-			closedir(d2);
-
-			printlogf(LOG_NORMAL, "watching %s's www directory (%s)", de->d_name, path);
-			add_dirwatch(path, de->d_name, true, -1);
-
-			snprintf(destpath, sizeof(destpath), "%s/%s/", option_target, de->d_name);
-			if (!rsync(path, destpath, true)) {
-				printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", path, destpath);
-				exit(-1);
-			}			
-		}
-	}
-
-	closedir(d);
-
-	return true;
-}
-
-/**
  * Utility function to check file exists. Print out error message and die.
  *
  * @param filename  filename to check
@@ -873,7 +815,6 @@ void print_help(char *arg0)
 	printf("USAGE: %s [OPTION]... SOURCE TARGET\n", arg0);
 	printf("\n");
 	printf("SOURCE: a directory to watch and rsync.\n");
-	printf("        specify special \"%%userwww\" to scan all users in /home and watch their www directories. \n");
 	printf("\n");
 	printf("TARGET: can be any name accepted by rsync. e.g. \"foohost::barmodule/\"\n");
 	printf("\n");
@@ -1110,16 +1051,11 @@ int main(int argc, char **argv)
 	dir_watch_size = 2;
 	dir_watches = s_calloc(dir_watch_size, sizeof(struct dir_watch));
 
-	if (!strcmp(option_source, userwww_string)) {
-		printlogf(LOG_NORMAL, "do userwww");
-		scan_homes();
-	} else {
-		printlogf(LOG_NORMAL, "watching %s", option_source);
-		add_dirwatch(option_source, "", true, -1);
-		if (!rsync(option_source, option_target, true)) {
-			printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", option_source, option_target);
-			exit(-1);
-		}
+	printlogf(LOG_NORMAL, "watching %s", option_source);
+	add_dirwatch(option_source, "", true, -1);
+	if (!rsync(option_source, option_target, true)) {
+		printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", option_source, option_target);
+		exit(-1);
 	}
 
 	printlogf(LOG_NORMAL, "--- Entering normal operation with [%d] monitored directories ---", dir_watch_num);
