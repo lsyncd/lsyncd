@@ -171,6 +171,21 @@ char * logfile = "/var/log/lsyncd";
  */
 int inotf;
 
+/**
+ * Possible Exit codes for this application
+ */
+enum lsyncd_exit_code
+{
+	LSYNCD_SUCCESS = 0, 
+	LSYNCD_OUTOFMEMORY = 1, 			/* out-of memory */
+	LSYNCD_FILENOTFOUND = 2, 			/* file was not found, or failed to write */
+	LSYNCD_EXECRSYNCFAIL = 3,			/* rsync execution somehow failed */
+	LSYNCD_NOTENOUGHARGUMENTS = 4, /* Not enough command-line arguments were given to lsyncd invocation */
+	LSYNCD_TOOMANYDIRECTORYEXCLUDES = 5, /* Too many excludes files were specified */
+};
+
+	
+
 
 /**
  * Array of strings of directory names to include.
@@ -208,7 +223,7 @@ void printlogf(int level, const char *fmt, ...)
 
 		if (flog == NULL) {
 			printf("cannot open logfile [%s]!\n", logfile);
-			exit(-1);
+			exit(LSYNCD_FILENOTFOUND);
 		}
 	} else {
 		flog = stdout;
@@ -260,7 +275,7 @@ void *s_malloc(size_t size)
 
 	if (r == NULL) {
 		printlogf(LOG_ERROR, "Out of memory!");
-		exit(-1);
+		exit(LSYNCD_OUTOFMEMORY);
 	}
 
 	return r;
@@ -275,7 +290,7 @@ void *s_calloc(size_t nmemb, size_t size)
 
 	if (r == NULL) {
 		printlogf(LOG_ERROR, "Out of memory!");
-		exit(-1);
+		exit(LSYNCD_OUTOFMEMORY);
 	}
 
 	return r;
@@ -290,7 +305,7 @@ void *s_realloc(void *ptr, size_t size)
 
 	if (r == NULL) {
 		printlogf(LOG_ERROR, "Out of memory!");
-		exit(-1);
+		exit(LSYNCD_OUTOFMEMORY);
 	}
 
 	return r;
@@ -305,7 +320,7 @@ char *s_strdup(const char* src)
 
 	if (s == NULL) {
 		printlogf(LOG_ERROR, "Out of memory!");
-		exit(-1);
+		exit(LSYNCD_OUTOFMEMORY);
 	}
 
 	return s;
@@ -396,7 +411,7 @@ bool rsync(char const * src, const char * dest, bool recursive)
 
 		printlogf(LOG_ERROR, "Failed executing [%s]", rsync_binary);
 
-		exit(-1);
+		exit(LSYNCD_EXECRSYNCFAIL);
 	}
 
 	for (i=0; i<argc; ++i) {
@@ -752,7 +767,7 @@ bool handle_event(struct inotify_event *event)
 									pathname, destname);
 				if (!rsync(pathname, destname, true)) {
 					printlogf(LOG_ERROR, "Retry of rsync from %s to %s failed", pathname, destname);
-					exit(-1);
+					exit(LSYNCD_EXECRSYNCFAIL);
 				}
 			}
 		}
@@ -805,7 +820,7 @@ void check_file_exists(const char* filename)
 	struct stat st;
 	if (-1==stat(filename, &st)) {
 		printlogf(LOG_ERROR, "File [%s] does not exist\n", filename);
-		exit (-1);
+		exit (LSYNCD_FILENOTFOUND);
 	}
 }
 
@@ -819,7 +834,7 @@ void check_absolute_path(const char* filename)
 {
 	if (filename[0] != '/') {
 		printlogf(LOG_ERROR, "Filename [%s] is not an absolute path\n", filename);
-		exit (-1);
+		exit (LSYNCD_FILENOTFOUND);
 	}
 }
 
@@ -908,7 +923,7 @@ bool parse_options(int argc, char **argv)
 
 			if (!strcmp("version", long_options[oi].name)) {
 				printf("Version: %s\n", VERSION);
-				exit(0);
+				exit(LSYNCD_SUCCESS);
 			}
 
 			if (!strcmp("logfile", long_options[oi].name)) {
@@ -933,7 +948,7 @@ bool parse_options(int argc, char **argv)
 
 	if (optind + 2 != argc) {
 		printf("Error: please specify SOURCE and TARGET (see --help)\n");
-		exit(-1);
+		exit(LSYNCD_NOTENOUGHARGUMENTS);
 	}
 
 	/* Resolves relative source path, lsyncd might chdir to / later. */
@@ -942,7 +957,7 @@ bool parse_options(int argc, char **argv)
 
 	if (!option_source) {
 		printf("Error: Source [%s] not found or not a directory.\n", argv[optind]);
-		exit(-1);
+		exit(LSYNCD_FILENOTFOUND);
 	}
 
 	printlogf(LOG_NORMAL, "syncing %s -> %s\n", option_source, option_target);
@@ -971,7 +986,7 @@ bool parse_exclude_file()
 
 	if (ef == NULL) {
 		printlogf(LOG_ERROR, "Meh, cannot open exclude file '%s'\n", exclude_file);
-		exit(-1);
+		exit(LSYNCD_FILENOTFOUND);
 	}
 
 	while (1) {
@@ -983,7 +998,7 @@ bool parse_exclude_file()
 
 			printlogf(LOG_ERROR, "Reading file '%s' (%d=%s)\n", exclude_file, errno, strerror(errno));
 
-			exit(-1);
+			exit(LSYNCD_FILENOTFOUND);
 		}
 
 		sl = strlen(line);
@@ -1004,7 +1019,7 @@ bool parse_exclude_file()
 		if (line[sl - 1] == '/') {
 			if (exclude_dir_n + 1 >= MAX_EXCLUDES) {
 				printlogf(LOG_ERROR, "Too many directory excludes, can only have %d at the most", MAX_EXCLUDES);
-				exit(-1);
+				exit(LSYNCD_TOOMANYDIRECTORYEXCLUDES);
 			}
 
 			line[sl - 1] = 0;
@@ -1030,7 +1045,7 @@ void write_pidfile() {
 	FILE* f = fopen(pidfile, "w");
 	if (!f) {
 		printlogf(LOG_ERROR, "Error: cannot write pidfile [%s]\n", pidfile);
-		exit(-1);
+		exit(LSYNCD_FILENOTFOUND);
 	}
 	
 	fprintf(f, "%i\n", getpid());
@@ -1075,7 +1090,7 @@ int main(int argc, char **argv)
 	add_dirwatch(option_source, "", true, -1);
 	if (!rsync(option_source, option_target, true)) {
 		printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", option_source, option_target);
-		exit(-1);
+		exit(LSYNCD_EXECRSYNCFAIL);
 	}
 
 	printlogf(LOG_NORMAL, "--- Entering normal operation with [%d] monitored directories ---", dir_watch_num);

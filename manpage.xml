@@ -256,9 +256,26 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
         <seg>Program exited successfully.</seg>
       </seglistitem>
       <seglistitem>
-        <seg><errorcode>-1 (255)</errorcode></seg>
-        <seg>Something bad has happened.</seg>
+        <seg><errorcode>1</errorcode></seg>
+        <seg>Out of memory.</seg>
       </seglistitem>
+      <seglistitem>
+        <seg><errorcode>2</errorcode></seg>
+        <seg>File was not found, or failed to write.</seg>
+      </seglistitem>
+      <seglistitem>
+        <seg><errorcode>3</errorcode></seg>
+        <seg>rsync execution somehow failed.</seg>
+      </seglistitem>
+      <seglistitem>
+        <seg><errorcode>4</errorcode></seg>
+        <seg>Not enough command-line arguments were given to lsyncd invocation.</seg>
+      </seglistitem>
+      <seglistitem>
+        <seg><errorcode>5</errorcode></seg>
+        <seg>Too many exclude files were specified.</seg>
+      </seglistitem>
+
     </segmentedlist>
   </refsect1>
   <refsect1 id="bugs">
