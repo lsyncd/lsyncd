@@ -41,7 +41,7 @@
 int loglevel = LOG_NORMAL;
 
 /**
- * Option: if true rsync will not be actually called.
+ * Option: if true action will not be actually called.
  */
 int flag_dryrun = 0;
 
@@ -63,7 +63,7 @@ char * option_target = NULL;
 /**
  * Option: rsync binary to call.
  */
-char * rsync_binary = "/usr/bin/rsync";
+char * action_binary = "./lsyncd-action";
 
 /**
  * Option: the exclude-file to pass to rsync.
@@ -83,7 +83,6 @@ char * pidfile = NULL;
 /**
  * Structure to store the directory watches of the deamon.
  */
-
 struct dir_watch {
 	/**
 	 * The watch descriptor returned by kernel.
@@ -172,19 +171,27 @@ char * logfile = "/var/log/lsyncd";
 int inotf;
 
 /**
- * Possible Exit codes for this application
+ * Possible exit codes for this application.
  */
 enum lsyncd_exit_code
 {
 	LSYNCD_SUCCESS = 0, 
-	LSYNCD_OUTOFMEMORY = 1, 			/* out-of memory */
-	LSYNCD_FILENOTFOUND = 2, 			/* file was not found, or failed to write */
-	LSYNCD_EXECRSYNCFAIL = 3,			/* rsync execution somehow failed */
-	LSYNCD_NOTENOUGHARGUMENTS = 4, /* Not enough command-line arguments were given to lsyncd invocation */
+	LSYNCD_OUTOFMEMORY = 1, 			 /* out-of memory */
+	LSYNCD_FILENOTFOUND = 2, 			 /* file was not found, or failed to write */
+	LSYNCD_EXECFAIL = 3,			     /* action execution somehow failed */
+	LSYNCD_NOTENOUGHARGUMENTS = 4,       /* Not enough command-line arguments were given to lsyncd invocation */
 	LSYNCD_TOOMANYDIRECTORYEXCLUDES = 5, /* Too many excludes files were specified */
 };
 
-	
+/**
+ * Reason why calling the action script.
+ */
+enum action_reason
+{
+	ACTION_STARTUP = 0,
+	ACTION_CHANGE
+};
+
 
 
 /**
@@ -356,44 +363,31 @@ char *realdir(const char * dir)
 }
 
 /**
- * Calls rsync to sync from src to dest.
+ * Calls the action script to sync from src to dest.
  * Returns after rsync has finished.
  *
+ * @param state     Reason why action is called, 0: startup, 1: change
  * @param src       Source string.
  * @param dest      Destination string,
- * @param recursive If true -r will be handled on, -d (single directory) otherwise
  * @return true if successful, false if not.
  */
-bool rsync(char const * src, const char * dest, bool recursive)
+bool action(int reason, char * src, char * dest)
 {
 	pid_t pid;
-	int status;
-	char const * opts = recursive ? "-ltr" : "-ltd";
-	const int MAX_ARGS = 100;
-	char * argv[MAX_ARGS];
-	int argc=0;
-	int i;
+	int status = 0;
+	//char const * opts = recursive ? "-ltr" : "-ltd";
+	const int MAX_ARGS = 10;
+	char * const argv[] = {action_binary,
+						   reason == ACTION_STARTUP ? "startup" : "change",
+	                       src,
+						   dest,
+						   NULL};
 
-	argv[argc++] = s_strdup(rsync_binary);
-	argv[argc++] = s_strdup("--delete");
-	argv[argc++] = s_strdup(opts);
-	if (exclude_file) {
-		argv[argc++] = s_strdup("--exclude-from");
-		argv[argc++] = s_strdup(exclude_file);
-	}
-	argv[argc++] = s_strdup(src);
-	argv[argc++] = s_strdup(dest);
-	argv[argc++] = NULL;
-
-	if (argc > MAX_ARGS) {				/* check for error condition */
-		printlogf(LOG_ERROR, "Internal error: too many (%i) options passed", argc);
-		return false;
-	}
-
-	/* debug dump of command-line options */
-	for (i=0; i<argc; ++i) {
-		printlogf(LOG_DEBUG, "exec parameter %i:%s", i, argv[i]);
-	}
+	//argv[argc++] = s_strdup("--delete");
+	//if (exclude_file) {
+	//	argv[argc++] = s_strdup("--exclude-from");
+	//	argv[argc++] = s_strdup(exclude_file);
+	//}
 
 	if (flag_dryrun) {
 		return true;
@@ -406,23 +400,19 @@ bool rsync(char const * src, const char * dest, bool recursive)
 			freopen(logfile, "a", stdout);
 			freopen(logfile, "a", stderr);
 		}
-
-		execv(rsync_binary, argv);
-
-		printlogf(LOG_ERROR, "Failed executing [%s]", rsync_binary);
-
-		exit(LSYNCD_EXECRSYNCFAIL);
-	}
-
-	for (i=0; i<argc; ++i) {
-		if (argv[i])
-			free(argv[i]);
-	}
 	
+		setenv("EXCLUDE_FILE", exclude_file, 1);
+		execv(action_binary, argv);
+
+		printlogf(LOG_ERROR, "Failed executing [%s]", action_binary);
+		exit(LSYNCD_EXECFAIL);
+	}
+
 	waitpid(pid, &status, 0);
 	assert(WIFEXITED(status));
+
 	if (WEXITSTATUS(status)){
-		printlogf(LOG_NORMAL, "Forked rsync process returned non-zero return code: %i", WEXITSTATUS(status));
+		printlogf(LOG_ERROR, "Action process returned non-zero, non-repeat error code: %i", WEXITSTATUS(status));
 		return false;
 	}
 
@@ -757,7 +747,7 @@ bool handle_event(struct inotify_event *event)
 	// call rsync to propagate changes in the directory
 	if ((IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM) & event->mask) {
 		printlogf(LOG_NORMAL, "%s of %s in %s --> %s", masktext, event->name, pathname, destname);
-		if (!rsync(pathname, destname, false)) {
+		if (!action(ACTION_CHANGE, pathname, destname)) {
 			// if error on partial rsync, retry with parent dir rsync 
 			if (dir_watches[i].parent != -1) {
 				buildpath(pathname, sizeof(pathname), dir_watches[i].parent, NULL, NULL);
@@ -765,9 +755,9 @@ bool handle_event(struct inotify_event *event)
 
 				printlogf(LOG_NORMAL, "Retry Directory resync with %s to %s", 
 									pathname, destname);
-				if (!rsync(pathname, destname, true)) {
+				if (!action(ACTION_CHANGE, pathname, destname)) {
 					printlogf(LOG_ERROR, "Retry of rsync from %s to %s failed", pathname, destname);
-					exit(LSYNCD_EXECRSYNCFAIL);
+					exit(LSYNCD_EXECFAIL);
 				}
 			}
 		}
@@ -861,8 +851,7 @@ void print_help(char *arg0)
 	printf("  --logfile FILE         Put log here (DEFAULT: %s)\n", 
 				 logfile);
 	printf("  --no-daemon            Do not detach, log to stdout/stderr\n");
-	printf("  --rsync-binary FILE    Call this binary to sync (DEFAULT: %s)\n", 
-				 rsync_binary);
+	printf("  --action-binary FILE   Call this binary to sync (DEFAULT: %s)\n", action_binary);
 	printf("  --pidfile FILE         Create a file containing pid of the daemon\n");
 	printf("  --scarce               Only log errors\n");
 	printf("  --version              Print version an exit.\n");
@@ -889,16 +878,16 @@ bool parse_options(int argc, char **argv)
 {
 
 	static struct option long_options[] = {
-		{"debug",        0, &loglevel,      1}, 
-		{"dryrun",       0, &flag_dryrun,   1}, 
-		{"exclude-from", 1, NULL,           0}, 
-		{"help",         0, NULL,           0}, 
-		{"logfile",      1, NULL,           0}, 
-		{"no-daemon",    0, &flag_nodaemon, 1}, 
-		{"rsync-binary", 1, NULL,           0}, 
-		{"pidfile",      1, NULL,           0}, 
-		{"scarce",       0, &loglevel,      3}, 
-		{"version",      0, NULL,           0}, 
+		{"debug",         0, &loglevel,      1}, 
+		{"dryrun",        0, &flag_dryrun,   1}, 
+		{"exclude-from",  1, NULL,           0}, 
+		{"help",          0, NULL,           0}, 
+		{"logfile",       1, NULL,           0}, 
+		{"no-daemon",     0, &flag_nodaemon, 1}, 
+		{"action-binary", 1, NULL,           0}, 
+		{"pidfile",       1, NULL,           0}, 
+		{"scarce",        0, &loglevel,      3}, 
+		{"version",       0, NULL,           0}, 
 		{0, 0, 0, 0}
 	};
 
@@ -934,17 +923,15 @@ bool parse_options(int argc, char **argv)
 				exclude_file = s_strdup(optarg);
 			}
 
-			if (!strcmp("rsync-binary", long_options[oi].name)) {
-				rsync_binary = s_strdup(optarg);
+			if (!strcmp("action-binary", long_options[oi].name)) {
+				action_binary = s_strdup(optarg);
 			}
 
 			if (!strcmp("pidfile", long_options[oi].name)) {
 				pidfile = s_strdup(optarg);
 			}
-
 		}
 	}
-
 
 	if (optind + 2 != argc) {
 		printf("Error: please specify SOURCE and TARGET (see --help)\n");
@@ -1061,6 +1048,8 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	action_binary = realpath(action_binary, NULL);
+
 	if (exclude_file) {
 		parse_exclude_file();
 	}
@@ -1088,9 +1077,9 @@ int main(int argc, char **argv)
 
 	printlogf(LOG_NORMAL, "watching %s", option_source);
 	add_dirwatch(option_source, "", true, -1);
-	if (!rsync(option_source, option_target, true)) {
-		printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", option_source, option_target);
-		exit(LSYNCD_EXECRSYNCFAIL);
+	if (!action(ACTION_STARTUP, option_source, option_target)) {
+		printlogf(LOG_ERROR, "Initial sync action from %s to %s failed", option_source, option_target);
+		exit(LSYNCD_EXECFAIL);
 	}
 
 	printlogf(LOG_NORMAL, "--- Entering normal operation with [%d] monitored directories ---", dir_watch_num);

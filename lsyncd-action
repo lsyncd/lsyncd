@@ -1,0 +1,60 @@
+#!/bin/bash
+
+### 
+# lsyncd-action
+#
+# This script will be called by lsyncd whenever it wants to sync something.
+# It is supposed to be configured or even completly exchanged by you, to fit your needs.
+# 
+# First parameter is "startup" in case lsyncd startups, "change" in normal operation.
+# Second parameter is rsync source 
+# Third parameter is rsync destition.
+#
+# When this script returns a non-zero error code, lsyncd will either die
+# or in the current implementation call it again with the parant directory if not in startup mode.
+#
+# This script is GPLv2 or later licensed like everything here.
+#
+set -e
+
+### 
+# You can add additional options you want to call rsync here.
+#
+RSYNC_OPTIONS="--delete -lt"; 
+
+###
+# Adds -r (recursive) option in case of startup, or "-d" in case of normal operations.
+# 
+case $1 in 
+	"startup")	SCOPE="r";;
+	"change")   SCOPE="d";;
+	*) echo "Unknown action reason option ($1)"; exit 1;;
+esac
+
+###
+# The environment variable EXCLUDE_FILE will be set by lsyncd if an exclude file is configured.
+#
+if test $EXCLUDE_FILE != ""; then
+	EXCLUDE_FILE="--exclude-from $EXCLUDE_FILE"
+fi
+
+while true; do 
+	EXITVAL=0
+	echo /usr/bin/rsync $RSYNC_OPTIONS$SCOPE $EXCLUDE_FILE $2 $3 || EXITVAL=$?
+	/usr/bin/rsync $RSYNC_OPTIONS$SCOPE $EXCLUDE_FILE $2 $3 || EXITVAL=$?
+	case $EXITVAL in
+	0)				# everything okay
+			break;;
+	5|10|12)		# on temporary errors recall rsync
+			echo "recalling rsync on non-fatal error ($EXITVAL)"
+			sleep 10
+			;;
+	*)				# really bad error
+			exit $EXITVAL;;
+	esac
+done
+
+###
+# If you want to add some actions to be performed after rsync you can do here...
+#
+
