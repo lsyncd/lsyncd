@@ -6,9 +6,9 @@
 # This script will be called by lsyncd whenever it wants to sync something.
 # It is supposed to be configured or even completly exchanged by you, to fit your needs.
 # 
-# First parameter is "startup" in case lsyncd startups, "change" in normal operations.
+# First parameter is "startup" in case lsyncd startups, "change" in normal operation.
 # Second parameter is rsync source 
-# Third parameter is rsync destination.
+# Third parameter is rsync destition.
 #
 # When this script returns a non-zero error code, lsyncd will either die
 # or in the current implementation call it again with the parant directory if not in startup mode.
@@ -18,7 +18,7 @@
 set -e
 
 ### 
-# You can add additional options you want to call rsync with here.
+# You can add additional options you want to call rsync here.
 #
 RSYNC_OPTIONS="--delete -lt"; 
 
@@ -40,6 +40,7 @@ fi
 
 while true; do 
 	EXITVAL=0
+	echo /usr/bin/rsync $RSYNC_OPTIONS$SCOPE $EXCLUDE_FILE $2 $3 || EXITVAL=$?
 	/usr/bin/rsync $RSYNC_OPTIONS$SCOPE $EXCLUDE_FILE $2 $3 || EXITVAL=$?
 	case $EXITVAL in
 	0)				# everything okay
@@ -54,6 +55,6 @@ while true; do
 done
 
 ###
-# If you want to add some actions to be performed after rsync you can do here.
+# If you want to add some actions to be performed after rsync you can do here...
 #
 

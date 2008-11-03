@@ -383,6 +383,12 @@ bool action(int reason, char * src, char * dest)
 						   dest,
 						   NULL};
 
+	//argv[argc++] = s_strdup("--delete");
+	//if (exclude_file) {
+	//	argv[argc++] = s_strdup("--exclude-from");
+	//	argv[argc++] = s_strdup(exclude_file);
+	//}
+
 	if (flag_dryrun) {
 		return true;
 	}
