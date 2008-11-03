@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 #include <errno.h>
 #include <time.h>
 #include <dirent.h>
@@ -74,11 +75,6 @@ char * exclude_file = NULL;
  * Option: pidfile, which holds the PID of the running daemon process
  */
 char * pidfile = NULL;
-
-/**
- * The maximum character length paths may take
- */
-#define MAX_PATH             (8*1024)
 
 /**
  * Structure to store the directory watches of the deamon.
@@ -332,14 +328,14 @@ char *s_strdup(const char* src)
  */
 char *realdir(const char * dir) 
 {
-	char* cs = s_malloc(MAX_PATH);
+	char* cs = s_malloc(PATH_MAX+1);
 	cs = realpath(dir, cs);
 
 	if (cs == NULL) {
 		return NULL;
 	}
 
-	if (strlen(cs) + 2 >= MAX_PATH) {
+	if (strlen(cs) + 1 >= PATH_MAX) {
 		// at systems maxpath already, we cannot add a '/' anyway.
 		return NULL;
 	}
@@ -569,7 +565,7 @@ bool add_dirwatch(char const * dirname, char const * destname, bool recursive, i
 
 	struct dirent *de;
 	int dw, i;
-	char pathname[MAX_PATH];
+	char pathname[PATH_MAX+1];
 
 	printlogf(LOG_DEBUG, "add_dirwatch(%s, %s, %d, p->dirname:%s)", dirname, destname, recursive, parent >= 0 ? dir_watches[parent].dirname : "NULL");
 
@@ -699,8 +695,8 @@ int get_dirwatch_offset(int wd) {
 bool handle_event(struct inotify_event *event)
 {
 	char masktext[255] = {0,};
-	char pathname[MAX_PATH];
-	char destname[MAX_PATH];
+	char pathname[PATH_MAX+1];
+	char destname[PATH_MAX+1];
 
 	int mask = event->mask;
 	int i;
@@ -979,7 +975,7 @@ bool parse_options(int argc, char **argv)
 bool parse_exclude_file()
 {
 	FILE * ef;
-	char line[MAX_PATH];
+	char line[PATH_MAX+1];
 	int sl;
 
 	ef = fopen(exclude_file, "r");
