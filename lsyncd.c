@@ -132,6 +132,7 @@ struct inotify_mask_text mask_texts[] = {
 	{ IN_CREATE,        "CREATE"        }, 
 	{ IN_DELETE,        "DELETE"        }, 
 	{ IN_DELETE_SELF,   "DELETE_SELF"   }, 
+	{ IN_IGNORED,       "IGNORED"       }, 
 	{ IN_MODIFY,        "MODIFY"        }, 
 	{ IN_MOVE_SELF,     "MOVE_SELF"     }, 
 	{ IN_MOVED_FROM,    "MOVED_FROM"    }, 
@@ -606,6 +607,7 @@ bool add_dirwatch(char const * dirname, char const * destname, bool recursive, i
 
 		if (de->d_type == DT_DIR && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
 			add_dirwatch(de->d_name, NULL, true, dw);
+			//TODO call sync_dir() to sync the new directory.
 		}
 	}
 
@@ -702,17 +704,7 @@ bool handle_event(struct inotify_event *event)
 	int i;
 
 	struct inotify_mask_text *p;
-
-	if (IN_IGNORED & event->mask) {
-		return true;
-	}
-
-	for (i = 0; i < exclude_dir_n; i++) {
-		if (!strcmp(event->name, exclude_dirs[i])) {
-			return true;
-		}
-	}
-
+	
 	for (p = mask_texts; p->mask; p++) {
 		if (mask & p->mask) {
 			if (strlen(masktext) + strlen(p->text) + 3 >= sizeof(masktext)) {
@@ -727,10 +719,21 @@ bool handle_event(struct inotify_event *event)
 			strcat(masktext, p->text);
 		}
 	}
+	printlogf(LOG_DEBUG, "inotfy event: %s:%s", masktext, event->name);
+
+	if (IN_IGNORED & event->mask) {
+		return true;
+	}
+
+	for (i = 0; i < exclude_dir_n; i++) {
+		if (!strcmp(event->name, exclude_dirs[i])) {
+			return true;
+		}
+	}
 
 	i = get_dirwatch_offset(event->wd);
 	if (i == -1) {
-		printlogf(LOG_ERROR, "received unkown inotify event :-(%d)", event->mask);
+		printlogf(LOG_ERROR, "received an inotify event that doesnt match any watched directory :-(%d,%d)", event->mask, event->wd);
 		return false;
 	}
 
@@ -742,6 +745,7 @@ bool handle_event(struct inotify_event *event)
 		remove_dirwatch(event->name, i);
 	}
 
+	// TODO move this part of function to a new function like "sync_dir"
 	if (!buildpath(pathname, sizeof(pathname), i, NULL, NULL)) {
 		return false;
 	}
@@ -755,6 +759,7 @@ bool handle_event(struct inotify_event *event)
 		printlogf(LOG_NORMAL, "%s of %s in %s --> %s", masktext, event->name, pathname, destname);
 		if (!rsync(pathname, destname, false)) {
 			// if error on partial rsync, retry with parent dir rsync 
+			// TODO once we fix cp -r, MOVE_TO should be fixed also.
 			if (dir_watches[i].parent != -1) {
 				buildpath(pathname, sizeof(pathname), dir_watches[i].parent, NULL, NULL);
 				buildpath(destname, sizeof(destname), dir_watches[i].parent, NULL, option_target);
@@ -796,7 +801,6 @@ bool master_loop()
 		i = 0;
 
 		while (i < len) {
-
 			struct inotify_event *event = (struct inotify_event *) &buf[i];
 			handle_event(event);
 			i += sizeof(struct inotify_event) + event->len;
