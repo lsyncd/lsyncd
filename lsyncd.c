@@ -35,6 +35,11 @@
 
 #define INOTIFY_BUF_LEN     (512 * (sizeof(struct inotify_event) + 16))
 
+/**
+ * Utterly fail if tosync list exceeds this.
+ */
+#define MAX_TOSYNC 100
+
 #define LOG_DEBUG  1
 #define LOG_NORMAL 2
 #define LOG_ERROR  3
@@ -77,9 +82,18 @@ char * exclude_file = NULL;
 char * pidfile = NULL;
 
 /**
+ * A stack of offset pointers to dir_watches to directories to sync.
+ */
+int tosync[MAX_TOSYNC];
+
+/**
+ * The pointer of the current tosync position.
+ */
+int tosync_pos = 0; 
+
+/**
  * Structure to store the directory watches of the deamon.
  */
-
 struct dir_watch {
 	/**
 	 * The watch descriptor returned by kernel.
@@ -181,8 +195,6 @@ enum lsyncd_exit_code
 	LSYNCD_TOOMANYDIRECTORYEXCLUDES = 5, /* Too many excludes files were specified */
 	LSYNCD_INTERNALFAIL = 255,    /* Internal exit code to denote that execv failed */
 };
-
-	
 
 
 /**
@@ -354,6 +366,47 @@ char *realdir(const char * dir)
 }
 
 /**
+ * Adds a directory to sync.
+ *
+ * @param watch         the index in dir_watches to the directory.
+ */
+bool append_tosync_watch(int watch) {
+    int i;
+
+    printlogf(LOG_DEBUG, "append_tosync_watch(%d)", watch);
+    // look if its already in the tosync list.
+    for(i = 0; i < tosync_pos; i++) {
+        if (tosync[i] == watch) {
+            return true;
+        } 
+    }
+
+    if (tosync_pos + 1 == MAX_TOSYNC) {
+        printlogf(LOG_ERROR, "Utter fail! tosync stack exceeded (max is %d).", MAX_TOSYNC);
+        exit(LSYNCD_INTERNALFAIL);
+    }
+
+    tosync[tosync_pos++] = watch;
+    return true;
+}
+
+
+/**
+ * Removes a tosync entry in the stack at the position p.
+ */
+bool remove_tosync_pos(int p) {
+    int i;
+    assert(p < tosync_pos);
+
+    //TODO improve performance by using memcpy.
+    for(i = p; i < tosync_pos; i++) {
+        tosync[i] = tosync[i + 1];
+    }
+    tosync_pos--;
+    return true;
+}
+
+/**
  * Calls rsync to sync from src to dest.
  * Returns after rsync has finished.
  *
@@ -389,9 +442,9 @@ bool rsync(char const * src, const char * dest, bool recursive)
 	}
 
 	/* debug dump of command-line options */
-	for (i=0; i<argc; ++i) {
-		printlogf(LOG_DEBUG, "exec parameter %i:%s", i, argv[i]);
-	}
+	//for (i=0; i<argc; ++i) {
+	//	printlogf(LOG_DEBUG, "exec parameter %i:%s", i, argv[i]);
+	//}
 
 	if (flag_dryrun) {
 		return true;
@@ -556,6 +609,48 @@ bool buildpath(char *pathname,
 }
 
 /**
+ * Syncs a directory.
+ *
+ * @param watch         the index in dir_watches to the directory.
+ */
+bool rsync_dir(int watch)
+{
+	char pathname[PATH_MAX+1];
+	char destname[PATH_MAX+1];
+
+	if (!buildpath(pathname, sizeof(pathname), watch, NULL, NULL)) {
+		return false;
+	}
+
+	if (!buildpath(destname, sizeof(destname), watch, NULL, option_target)) {
+		return false;
+	}
+	printlogf(LOG_NORMAL, "rsyncing %s --> %s", pathname, destname);
+
+	// call rsync to propagate changes in the directory
+	if (!rsync(pathname, destname, false)) {
+		// if error on partial rsync, retry with parent dir rsync 
+		// TODO once we fix cp -r, MOVE_TO should be fixed also.
+    	printlogf(LOG_ERROR, "Rsync from %s to %s failed", pathname, destname);
+        return false;
+//		exit(LSYNCD_EXECRSYNCFAIL);
+
+//		if (dir_watches[i].parent != -1) {
+//			buildpath(pathname, sizeof(pathname), dir_watches[i].parent, NULL, NULL);
+//			buildpath(destname, sizeof(destname), dir_watches[i].parent, NULL, option_target);
+//
+//			printlogf(LOG_NORMAL, "Retry Directory resync with %s to %s", 
+//								pathname, destname);
+//			if (!rsync(pathname, destname, true)) {
+//				printlogf(LOG_ERROR, "Retry of rsync from %s to %s failed", pathname, destname);
+//				exit(LSYNCD_EXECRSYNCFAIL);
+//			}
+//		}
+	}
+    return true;
+}
+
+/**
  * Adds a dir to watch.
  *
  * @param dirname   The name or absolute path of the directory to watch.
@@ -563,8 +658,13 @@ bool buildpath(char *pathname,
  * @param recursive If true, will also watch all sub-directories.
  * @param parent    If not -1, the index in dir_watches to the parent directory already watched.
  *                  Must have absolute path if parent == -1.
+ *
+ * @return the index in dir_watches off the directory or -1 on fail.
+ *
+ * TODO there is actually no useful situation where recursive should be false, parameter should 
+ *      be removed.
  */
-bool add_dirwatch(char const * dirname, char const * destname, bool recursive, int parent)
+int add_dirwatch(char const * dirname, char const * destname, bool recursive, int parent)
 {
 	DIR *d;
 
@@ -575,31 +675,30 @@ bool add_dirwatch(char const * dirname, char const * destname, bool recursive, i
 	printlogf(LOG_DEBUG, "add_dirwatch(%s, %s, %d, p->dirname:%s)", dirname, destname, recursive, parent >= 0 ? dir_watches[parent].dirname : "NULL");
 
 	if (!buildpath(pathname, sizeof(pathname), parent, dirname, NULL)) {
-		return false;
+		return -1;
 	}
 
 	for (i = 0; i < exclude_dir_n; i++) {
 		if (!strcmp(dirname, exclude_dirs[i])) {
-			return true;
+			return -1;
 		}
 	}
 
 	dw = add_watch(pathname, dirname, destname, parent);
-
 	if (dw == -1) {
-		return false;
+		return -1;
 	}
 
 	if (strlen(pathname) + strlen(dirname) + 2 > sizeof(pathname)) {
 		printlogf(LOG_ERROR, "pathname too long %s//%s", pathname, dirname);
-		return false;
+		return -1;
 	}
 
 	d = opendir(pathname);
 
 	if (d == NULL) {
 		printlogf(LOG_ERROR, "cannot open dir %s.", dirname);
-		return false;
+		return -1;
 	}
 
 	while (keep_going) {
@@ -610,14 +709,16 @@ bool add_dirwatch(char const * dirname, char const * destname, bool recursive, i
 		}
 
 		if (de->d_type == DT_DIR && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
-			add_dirwatch(de->d_name, NULL, true, dw);
-			//TODO call sync_dir() to sync the new directory.
+			int ndw;
+            ndw = add_dirwatch(de->d_name, NULL, true, dw);
+
+            printlogf(LOG_NORMAL, "found new directory: %s/%s -- added on tosync stack.", dirname, de->d_name);
+            append_tosync_watch(ndw);
 		}
 	}
 
 	closedir(d);
-
-	return true;
+	return dw;
 }
 
 /**
@@ -694,6 +795,22 @@ int get_dirwatch_offset(int wd) {
 }
 
 /**
+ * Processes through the tosync stack, rysncing all its directories.
+ *
+ * TODO: make special logic to determine who is a subdirectory of whom, and maybe optimizie calls.
+ */
+bool process_tosync_stack()
+{
+    printlogf(LOG_DEBUG, "Processing through tosync stack.");
+    while(tosync_pos > 0) {
+        rsync_dir(tosync[--tosync_pos]);
+    }
+    printlogf(LOG_DEBUG, "being done with tosync stack");
+    return true;
+}
+
+
+/**
  * Handles an inotify event.
  *
  * @param event   The event to handle
@@ -701,11 +818,10 @@ int get_dirwatch_offset(int wd) {
 bool handle_event(struct inotify_event *event)
 {
 	char masktext[255] = {0,};
-	char pathname[PATH_MAX+1];
-	char destname[PATH_MAX+1];
 
 	int mask = event->mask;
 	int i;
+    int subwatch = -1;
 
 	struct inotify_mask_text *p;
 	
@@ -742,43 +858,25 @@ bool handle_event(struct inotify_event *event)
 	}
 
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		add_dirwatch(event->name, NULL, false, i);
+		subwatch = add_dirwatch(event->name, NULL, true, i);
 	}
 
 	if (((IN_DELETE | IN_MOVED_FROM) & event->mask) && (IN_ISDIR & event->mask)) {
 		remove_dirwatch(event->name, i);
 	}
+	
+    if ((IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM) & event->mask) {
+        printlogf(LOG_NORMAL, "event %s:%s triggered a rsync", masktext, event->name);
+        rsync_dir(i);            // TODO, worry about errors?
+        if (subwatch >= 0) {     // sync through the new created directory as well.
+            rsync_dir(subwatch);
+        }
+    } else {
+        printlogf(LOG_DEBUG, "... ignored this event.");
+    }
+    process_tosync_stack();
 
-	// TODO move this part of function to a new function like "sync_dir"
-	if (!buildpath(pathname, sizeof(pathname), i, NULL, NULL)) {
-		return false;
-	}
-
-	if (!buildpath(destname, sizeof(destname), i, NULL, option_target)) {
-		return false;
-	}
-
-	// call rsync to propagate changes in the directory
-	if ((IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM) & event->mask) {
-		printlogf(LOG_NORMAL, "%s of %s in %s --> %s", masktext, event->name, pathname, destname);
-		if (!rsync(pathname, destname, false)) {
-			// if error on partial rsync, retry with parent dir rsync 
-			// TODO once we fix cp -r, MOVE_TO should be fixed also.
-			if (dir_watches[i].parent != -1) {
-				buildpath(pathname, sizeof(pathname), dir_watches[i].parent, NULL, NULL);
-				buildpath(destname, sizeof(destname), dir_watches[i].parent, NULL, option_target);
-
-				printlogf(LOG_NORMAL, "Retry Directory resync with %s to %s", 
-									pathname, destname);
-				if (!rsync(pathname, destname, true)) {
-					printlogf(LOG_ERROR, "Retry of rsync from %s to %s failed", pathname, destname);
-					exit(LSYNCD_EXECRSYNCFAIL);
-				}
-			}
-		}
-	}
-
-	return 0;
+    return true;
 }
 
 /**
@@ -1092,6 +1190,11 @@ int main(int argc, char **argv)
 
 	printlogf(LOG_NORMAL, "watching %s", option_source);
 	add_dirwatch(option_source, "", true, -1);
+
+    // clear tosync stack again, because the startup super recursive rsync will handle it eitherway.
+    printlogf(LOG_DEBUG, "dumped tosync stack.");
+    tosync_pos = 0;
+
 	if (!rsync(option_source, option_target, true)) {
 		printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", option_source, option_target);
 		exit(LSYNCD_EXECRSYNCFAIL);
