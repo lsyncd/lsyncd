@@ -38,13 +38,15 @@
 /**
  * Utterly fail if tosync list exceeds this.
  */
-#define MAX_TOSYNC 100
+#define MAX_TOSYNC 1024
 
 #define LOG_DEBUG  1
 #define LOG_NORMAL 2
 #define LOG_ERROR  3
 
 int loglevel = LOG_NORMAL;
+
+const char* userwww_string = "%userwww";
 
 /**
  * Option: if true rsync will not be actually called.
@@ -382,6 +384,7 @@ bool append_tosync_watch(int watch) {
     }
 
     if (tosync_pos + 1 == MAX_TOSYNC) {
+		// TODO lsyncd does not have to fail in that case, it simply could resync everything.
         printlogf(LOG_ERROR, "Utter fail! tosync stack exceeded (max is %d).", MAX_TOSYNC);
         exit(LSYNCD_INTERNALFAIL);
     }
@@ -710,10 +713,10 @@ int add_dirwatch(char const * dirname, char const * destname, bool recursive, in
 
 		if (de->d_type == DT_DIR && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
 			int ndw;
-            ndw = add_dirwatch(de->d_name, NULL, true, dw);
+      ndw = add_dirwatch(de->d_name, NULL, true, dw);
 
-            printlogf(LOG_NORMAL, "found new directory: %s/%s -- added on tosync stack.", dirname, de->d_name);
-            append_tosync_watch(ndw);
+      printlogf(LOG_NORMAL, "found new directory: %s/%s -- added on tosync stack.", dirname, de->d_name);
+      append_tosync_watch(ndw);
 		}
 	}
 
@@ -913,6 +916,62 @@ bool master_loop()
 }
 
 /**
+ * Scans all dirs in /home, looking if a www subdir exists.
+ * Syncs this dir immediately, and adds watches to it.
+ */
+bool scan_homes()
+{
+	DIR *d;
+	DIR *d2;
+	char path[PATH_MAX];
+	char destpath[PATH_MAX];
+
+	struct dirent *de;
+
+	d = opendir("/home");
+
+	if (d == NULL) {
+		printlogf(LOG_ERROR, "Cannot open /home");
+		return false;
+	}
+
+	while (keep_going) {
+		de = readdir(d);
+
+		if (de == NULL) {
+			break;
+		}
+
+		if (de->d_type == DT_DIR && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
+			snprintf(path, sizeof(path), "/home/%s/www/", de->d_name);
+			d2 = opendir(path);
+
+			if (d2 == NULL) {
+				//has no www dir or is not readable
+				printlogf(LOG_NORMAL, "skipping %s. it has no readable www directory.", de->d_name);
+				continue;
+			}
+
+			closedir(d2);
+
+			printlogf(LOG_NORMAL, "watching %s's www directory (%s)", de->d_name, path);
+			add_dirwatch(path, de->d_name, true, -1);
+			tosync_pos = 0; // forget tosync stack, since doing a full rsync soon.
+
+			snprintf(destpath, sizeof(destpath), "%s/%s/", option_target, de->d_name);
+			if (!rsync(path, destpath, true)) {
+				printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", path, destpath);
+				exit(-1);
+			}			
+		}
+	}
+
+	closedir(d);
+
+	return true;
+}
+
+/**
  * Utility function to check file exists. Print out error message and die.
  *
  * @param filename  filename to check
@@ -1054,7 +1113,11 @@ bool parse_options(int argc, char **argv)
 	}
 
 	/* Resolves relative source path, lsyncd might chdir to / later. */
-	option_source = realdir(argv[optind]);
+	if (strcmp(argv[optind], userwww_string)) {
+		option_source = realdir(argv[optind]);
+	} else {
+		option_source = argv[optind];
+	}
 	option_target = argv[optind + 1];
 
 	if (!option_source) {
@@ -1188,16 +1251,21 @@ int main(int argc, char **argv)
 	dir_watch_size = 2;
 	dir_watches = s_calloc(dir_watch_size, sizeof(struct dir_watch));
 
-	printlogf(LOG_NORMAL, "watching %s", option_source);
-	add_dirwatch(option_source, "", true, -1);
+	if (!strcmp(option_source, userwww_string)) {
+		printlogf(LOG_NORMAL, "do userwww");
+		scan_homes();
+	} else {
+		printlogf(LOG_NORMAL, "watching %s", option_source);
+		add_dirwatch(option_source, "", true, -1);
 
-    // clear tosync stack again, because the startup super recursive rsync will handle it eitherway.
-    printlogf(LOG_DEBUG, "dumped tosync stack.");
-    tosync_pos = 0;
+    	// clear tosync stack again, because the startup super recursive rsync will handle it eitherway.
+	    printlogf(LOG_DEBUG, "dumped tosync stack.");
+    	tosync_pos = 0;
 
-	if (!rsync(option_source, option_target, true)) {
-		printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", option_source, option_target);
-		exit(LSYNCD_EXECRSYNCFAIL);
+		if (!rsync(option_source, option_target, true)) {
+			printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", option_source, option_target);
+			exit(LSYNCD_EXECRSYNCFAIL);
+		}
 	}
 
 	printlogf(LOG_NORMAL, "--- Entering normal operation with [%d] monitored directories ---", dir_watch_num);
