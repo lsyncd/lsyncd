@@ -3,6 +3,7 @@ bin_PROGRAMS = lsyncd
 lsyncd_SOURCES = lsyncd.c 
 TESTS = tests/help.sh \
 	tests/directorymv.sh \
+	tests/directorycpr.sh \
 	tests/pidfile.sh \
 	tests/version.sh \
 	tests/wrong-logfile.sh \
