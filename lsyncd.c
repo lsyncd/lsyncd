@@ -179,6 +179,7 @@ enum lsyncd_exit_code
 	LSYNCD_EXECRSYNCFAIL = 3,			/* rsync execution somehow failed */
 	LSYNCD_NOTENOUGHARGUMENTS = 4, /* Not enough command-line arguments were given to lsyncd invocation */
 	LSYNCD_TOOMANYDIRECTORYEXCLUDES = 5, /* Too many excludes files were specified */
+	LSYNCD_INTERNALFAIL = 255,    /* Internal exit code to denote that execv failed */
 };
 
 	
@@ -408,7 +409,7 @@ bool rsync(char const * src, const char * dest, bool recursive)
 
 		printlogf(LOG_ERROR, "Failed executing [%s]", rsync_binary);
 
-		exit(LSYNCD_EXECRSYNCFAIL);
+		exit(LSYNCD_INTERNALFAIL);
 	}
 
 	for (i=0; i<argc; ++i) {
@@ -418,7 +419,10 @@ bool rsync(char const * src, const char * dest, bool recursive)
 	
 	waitpid(pid, &status, 0);
 	assert(WIFEXITED(status));
-	if (WEXITSTATUS(status)){
+	if (WEXITSTATUS(status)==LSYNCD_INTERNALFAIL){
+		printlogf(LOG_ERROR, "Fork exit code of %i, execv failure", WEXITSTATUS(status));
+		return false;
+	} else if (WEXITSTATUS(status)) {
 		printlogf(LOG_NORMAL, "Forked rsync process returned non-zero return code: %i", WEXITSTATUS(status));
 		return false;
 	}
