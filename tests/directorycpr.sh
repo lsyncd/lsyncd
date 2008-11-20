@@ -15,7 +15,7 @@ echo 'test' > "${WORKSOURCE}"/a/a/file
 ./lsyncd --logfile "${LOGFILE}" --pidfile "${PIDFILE}" "${WORKSOURCE}" "${WORKTARGET}"
 
 # try to wait until lsyncd starts and rsyncs initial file, hope 1s is enough.
-sleep 2s
+sleep 4s
 
 # cp -r the directory, this sometimes succeeds, sometimes fails.
 for A in 1 2 3 4 5 6 7 8 9 10; do
@@ -35,7 +35,7 @@ for A in 1 2 3 4 5 6 7 8 9 10; do
 done
 
 # try to wait until lsyncd does the job.
-sleep 2s
+sleep 10s
 
 LSYNCPID=$(cat "${PIDFILE}")
 if ! kill "${LSYNCPID}"; then

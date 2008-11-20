@@ -6,7 +6,7 @@
 # wrong.
 
 WORKTARGET=$(mktemp -d)
-./lsyncd --no-daemon --rsync-binary /wrong/path/to/rsync . "${WORKTARGET}"
+./lsyncd --no-daemon --binary /wrong/path/to/rsync . "${WORKTARGET}"
 if [[ $? = 3 ]]; then
     rmdir "${WORKTARGET}"
     exit 0;

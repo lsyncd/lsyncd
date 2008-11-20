@@ -25,3 +25,12 @@ lsyncd.1: manpage.xml
           -''-param make.single.year.ranges "1" \
           /usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
           manpage.xml
+
+AM_CFLAGS=-Wall 
+AM_LIBS=
+if XML_CONFIG
+DEFS+=-DXML_CONFIG
+AM_CFLAGS += `xml2-config --cflags`
+AM_CFLAGS += `xml2-config --libs`
+endif
+
