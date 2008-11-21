@@ -915,16 +915,27 @@ int add_dirwatch(char const * dirname,
 	}
 
 	while (keep_going) {
+		struct stat st;
+		char subdir[PATH_MAX+1];
+		bool isdir;
 		de = readdir(d);
 
 		if (de == NULL) {
 			break;
 		}
 
-		if (de->d_type == DT_DIR && 
-		    strcmp(de->d_name, "..") && 
-		    strcmp(de->d_name, ".")
-		   ) {
+		if (de->d_type == DT_DIR) {
+			isdir = true;
+		} else if (de->d_type == DT_UNKNOWN) {
+			// in case of reiserfs, d_type will be UNKNOWN, how evil! :-(
+			// use traditional means to determine if its a directory.
+			isdir = buildpath(subdir, sizeof(subdir), dw, de->d_name, NULL) && 
+			        !stat(subdir, &st) && 
+					S_ISDIR(st.st_mode);
+		} else {
+			isdir = false;
+		}
+		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
 			int ndw = add_dirwatch(de->d_name, NULL, dw, dir_conf);
 			printlogf(LOG_NORMAL, 
 			          "found new directory: %s/%s -- added on tosync stack.", 
@@ -1156,13 +1167,25 @@ bool scan_homes()
 	}
 
 	while (keep_going) {
+		bool isdir;
 		de = readdir(d);
 
 		if (de == NULL) {
 			break;
 		}
 
-		if (de->d_type == DT_DIR && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
+		if (de->d_type == DT_DIR) {
+			isdir = true;
+		} else if (de->d_type == DT_UNKNOWN) {
+			// in case of reiserfs, d_type will be UNKNOWN, how evil! :-(
+			// use traditional means to determine if its a directory.
+			isdir = buildpath(subdir, sizeof(subdir), dw, de->d_name, NULL) && 
+			        !stat(subdir, &st) && 
+					S_ISDIR(st.st_mode);
+		} else {
+			isdir = false;
+		}
+		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
 			snprintf(path, sizeof(path), "/home/%s/www/", de->d_name);
 			d2 = opendir(path);
 
