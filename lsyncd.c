@@ -364,7 +364,7 @@ void printlogf(int level, const char *fmt, ...)
 		flog = fopen(logfile, "a");
 
 		if (flog == NULL) {
-			printf("cannot open logfile [%s]!\n", logfile);
+			fprintf(stderr, "cannot open logfile [%s]!\n", logfile);
 			exit(LSYNCD_FILENOTFOUND);
 		}
 	} else {
@@ -1304,7 +1304,7 @@ struct call_option * parse_callopts(xmlNodePtr node) {
 		    xmlStrcmp(cnode->name, BAD_CAST "source") &&
 		    xmlStrcmp(cnode->name, BAD_CAST "destination")
 		   ) {
-			printf("error unknown call option type \"%s\"", cnode->name);
+			fprintf(stderr, "error unknown call option type \"%s\"", cnode->name);
 			exit(LSYNCD_BADCONFIGFILE);
 		}
 		opt_n++;
@@ -1322,7 +1322,7 @@ struct call_option * parse_callopts(xmlNodePtr node) {
 		if (!xmlStrcmp(cnode->name, BAD_CAST "option")) {
 			xc = xmlGetProp(cnode, BAD_CAST "text");
 			if (xc == NULL) {
-				printf("error in config file: text attribute missing from <option/>\n");
+				fprintf(stderr, "error in config file: text attribute missing from <option/>\n");
 		        exit(LSYNCD_BADCONFIGFILE);
 			}
 			asw[opt_n].kind = CO_TEXT;
@@ -1357,34 +1357,50 @@ bool parse_directory(xmlNodePtr node) {
 		if (!xmlStrcmp(dnode->name, BAD_CAST "source")) {
 			xc = xmlGetProp(dnode, BAD_CAST "path");
 			if (xc == NULL) {
-				printf("error in config file: attribute path missing from <source>\n");
+				fprintf(stderr, "error in config file: attribute path missing from <source>\n");
+		        exit(LSYNCD_BADCONFIGFILE);
+			}
+			if (dc->source) {
+				fprintf(stderr, "error in config file: cannot have more than one source in one <directory>\n");
 		        exit(LSYNCD_BADCONFIGFILE);
 			}
 			dc->source = s_strdup((char *) xc);
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "target")) {
 			xc = xmlGetProp(dnode, BAD_CAST "path");
 			if (xc == NULL) {
-				printf("error in config file: attribute path missing from <target>\n");
+				fprintf(stderr, "error in config file: attribute path missing from <target>\n");
+		        exit(LSYNCD_BADCONFIGFILE);
+			}
+			if (dc->target) {
+				fprintf(stderr, "error in config file: cannot have more than one target in one <directory>\n");
 		        exit(LSYNCD_BADCONFIGFILE);
 			}
 			dc->target = s_strdup((char *) xc);
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "binary")) {
 			xc = xmlGetProp(dnode, BAD_CAST "filename");
 			if (xc == NULL) {
-				printf("error in config file: attribute filename missing from <binary>\n");
+				fprintf(stderr, "error in config file: attribute filename missing from <binary>\n");
 		        exit(LSYNCD_BADCONFIGFILE);
 			}
 			dc->exclude_file = s_strdup((char *) xc);
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "callopts")) {
 			if (dc->callopts) {
-				printf("error in config file: there is more than one <callopts> in a <directory>\n");
+				fprintf(stderr, "error in config file: there is more than one <callopts> in a <directory>\n");
 		        exit(LSYNCD_BADCONFIGFILE);
 			}
 			dc->callopts = parse_callopts(dnode);
 		} else {
-			printf("error in config file: unknown node in <directory> \"%s\"\n", dnode->name);
+			fprintf(stderr, "error in config file: unknown node in <directory> \"%s\"\n", dnode->name);
 			exit(LSYNCD_BADCONFIGFILE);
 		}
+	}
+	if (!dc->source) {
+		fprintf(stderr, "error in config file: source missing from <directory>\n");
+		exit(LSYNCD_BADCONFIGFILE);
+	}
+	if (!dc->target) {
+		fprintf(stderr, "error in config file: target missing from <directory>\n");
+		exit(LSYNCD_BADCONFIGFILE);
 	}
 	return true;
 }
@@ -1407,28 +1423,28 @@ bool parse_settings(xmlNodePtr node) {
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "exclude-from")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
-				printf("error in config file: attribute filename missing from <exclude-from/>\n");
+				fprintf(stderr, "error in config file: attribute filename missing from <exclude-from/>\n");
 		        exit(LSYNCD_BADCONFIGFILE);
 			}
 			default_exclude_file = s_strdup((char *) xc);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "logfile")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
-				printf("error in config file: attribute filename missing from <logfile/>\n");
+				fprintf(stderr, "error in config file: attribute filename missing from <logfile/>\n");
 		        exit(LSYNCD_BADCONFIGFILE);
 			}
 			logfile = s_strdup((char *) xc);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "binary")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
-				printf("error in config file: attribute filename missing from <binary/>\n");
+				fprintf(stderr, "error in config file: attribute filename missing from <binary/>\n");
 		        exit(LSYNCD_BADCONFIGFILE);
 			}
 			default_binary = s_strdup((char *) xc);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "pidfile")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
-				printf("error in config file: attribute filename missing from <pidfile/>\n");
+				fprintf(stderr, "error in config file: attribute filename missing from <pidfile/>\n");
 		        exit(LSYNCD_BADCONFIGFILE);
 			}
 			pidfile = s_strdup((char *) xc);
@@ -1439,7 +1455,7 @@ bool parse_settings(xmlNodePtr node) {
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "no-daemon")) {
 			flag_nodaemon = 1;
 		} else {
-			printf("error unknown node in <settings> \"%s\"", snode->name);
+			fprintf(stderr, "error unknown node in <settings> \"%s\"", snode->name);
 			exit(LSYNCD_BADCONFIGFILE);
 		}
 	}
@@ -1462,23 +1478,23 @@ bool parse_config(bool fullparse) {
 
 	doc = xmlReadFile(conf_filename, NULL, 0);
 	if (doc == NULL) {
-		printf("error: could not parse config file \"%s\"\n", conf_filename);
+		fprintf(stderr, "error: could not parse config file \"%s\"\n", conf_filename);
 		exit(LSYNCD_BADCONFIGFILE);
 	}
 	root_element = xmlDocGetRootElement(doc);
 
 	// check version specifier
 	if (xmlStrcmp(root_element->name, BAD_CAST "lsyncd")) {
-		printf("error in config file: root node is not \"lsyncd\".\n");
+		fprintf(stderr, "error in config file: root node is not \"lsyncd\".\n");
 		exit(LSYNCD_BADCONFIGFILE);
 	}
 	xc = xmlGetProp(root_element, BAD_CAST "version");
 	if (xc == NULL) {
-		printf("error in config file: version specifier missing in \"%s\",\n", conf_filename);
+		fprintf(stderr, "error in config file: version specifier missing in \"%s\",\n", conf_filename);
 		exit(LSYNCD_BADCONFIGFILE);
 	}
 	if (xmlStrcmp(xc, BAD_CAST "1.24")) {
-		printf("error in config file: expected a \"1.24\" versioned file, found \"%s\"\n", xc);
+		fprintf(stderr, "error in config file: expected a \"1.24\" versioned file, found \"%s\"\n", xc);
 		exit(LSYNCD_BADCONFIGFILE);
 	}
 
@@ -1493,7 +1509,7 @@ bool parse_config(bool fullparse) {
 				parse_directory(node);
 			}
 		} else {
-			printf("error in config file: unknown node in <lsyncd> \"%s\"\n", node->name);
+			fprintf(stderr, "error in config file: unknown node in <lsyncd> \"%s\"\n", node->name);
 			exit(LSYNCD_BADCONFIGFILE);
 		}
 	}
@@ -1618,9 +1634,9 @@ bool parse_options(int argc, char **argv)
 	if (dir_conf_n == 0) {
 		struct dir_conf * odc;    // dir_conf specified by command line options.
 		if (optind + 2 != argc) {
-			printf("Error: please specify SOURCE and TARGET (see --help)\n");
+			fprintf(stderr, "Error: please specify SOURCE and TARGET (see --help)\n");
 #ifdef XML_CONFIG
-			printf("       or at least one <directory> entry in the conf file.\n");
+			fprintf(stderr, "       or at least one <directory> entry in the conf file.\n");
 #endif
 			exit(LSYNCD_BADPARAMETERS);
 		}
@@ -1633,7 +1649,7 @@ bool parse_options(int argc, char **argv)
 		}
 		odc->target = s_strdup(argv[optind + 1]);
 		if (!odc->source) {
-			printf("Error: Source [%s] not found or not a directory.\n", argv[optind]);
+			fprintf(stderr, "Error: Source [%s] not found or not a directory.\n", argv[optind]);
 			exit(LSYNCD_FILENOTFOUND);
 		}
 		printlogf(LOG_NORMAL, "command line options: syncing %s -> %s\n", 
