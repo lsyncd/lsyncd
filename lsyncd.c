@@ -197,11 +197,6 @@ struct inotify_mask_text {
 int loglevel = LOG_NORMAL;
 
 /**
- * TODO: Some hack the will have to be improved to be more generic.
- */
-const char* userwww_string = "%userwww";
-
-/**
  * Global Option: if true no action will actually be called.
  */
 int flag_dryrun = 0;
@@ -1144,76 +1139,6 @@ bool master_loop()
 }
 
 /**
- * Scans all dirs in /home, looking if a www subdir exists.
- * Syncs this dir immediately, and adds watches to it.
- *
- * TODO replace by more generic routine.
- */
-/*
-bool scan_homes()
-{
-	DIR *d;
-	DIR *d2;
-	char path[PATH_MAX];
-	char destpath[PATH_MAX];
-
-	struct dirent *de;
-
-	d = opendir("/home");
-
-	if (d == NULL) {
-		printlogf(LOG_ERROR, "Cannot open /home");
-		return false;
-	}
-
-	while (keep_going) {
-		bool isdir;
-		de = readdir(d);
-
-		if (de == NULL) {
-			break;
-		}
-
-		if (de->d_type == DT_DIR) {
-			isdir = true;
-		} else if (de->d_type == DT_UNKNOWN) {
-			// in case of reiserfs, d_type will be UNKNOWN, how evil! :-(
-			// use traditional means to determine if its a directory.
-			isdir = buildpath(subdir, sizeof(subdir), dw, de->d_name, NULL) && 
-			        !stat(subdir, &st) && 
-					S_ISDIR(st.st_mode);
-		} else {
-			isdir = false;
-		}
-		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
-			snprintf(path, sizeof(path), "/home/%s/www/", de->d_name);
-			d2 = opendir(path);
-
-			if (d2 == NULL) {
-				//has no www dir or is not readable
-				printlogf(LOG_NORMAL, "skipping %s. it has no readable www directory.", de->d_name);
-				continue;
-			}
-
-			closedir(d2);
-
-			printlogf(LOG_NORMAL, "watching %s's www directory (%s)", de->d_name, path);
-			add_dirwatch(path, de->d_name, -1);
-			tosync_pos = 0; // forget tosync stack, since doing a full rsync soon.
-
-			snprintf(destpath, sizeof(destpath), "%s/%s/", option_target, de->d_name);
-			if (!rsync(path, destpath, true)) {
-				printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", path, destpath);
-				exit(-1);
-			}
-		}
-	}
-
-	closedir(d);
-	return true;
-}*/
-
-/**
  * Utility function to check file exists. Print out error message and die.
  *
  * @param filename  filename to check
@@ -1665,11 +1590,7 @@ bool parse_options(int argc, char **argv)
 		}
 		odc = new_dir_conf();
 		/* Resolves relative source path, lsyncd might chdir to / later. */
-		if (strcmp(argv[optind], userwww_string)) {
-			odc->source = realdir(argv[optind]);
-		} else {
-			odc->source = s_strdup(argv[optind]);
-		}
+		odc->source = realdir(argv[optind]);
 		odc->target = s_strdup(argv[optind + 1]);
 		if (!odc->source) {
 			fprintf(stderr, "Error: Source [%s] not found or not a directory.\n", argv[optind]);
@@ -1811,11 +1732,6 @@ int main(int argc, char **argv)
 	dir_watch_size = 2;
 	dir_watches = s_calloc(dir_watch_size, sizeof(struct dir_watch));
 
-	/*TODOif (!strcmp(option_source, userwww_string)) {
-		printlogf(LOG_NORMAL, "do userwww");
-		scan_homes();
-	} else*/ 
-	
 	// add all watches
 	for (i = 0; i < dir_conf_n; i++) {
 		printlogf(LOG_NORMAL, "watching %s", dir_confs[i].source);
