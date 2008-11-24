@@ -27,7 +27,7 @@ This is a default config file template for lsyncd.
 	<!--exclude-from filename="/tmp/exclude"/-->
 
 	<!-- the file to log messages -->
-	<logfile      filename="/var/log/messages"/>
+	<logfile      filename="/var/log/lsyncd"/>
 
 	<!--Specify the rsync (or other) binary to call-->
 	<binary       filename="/usr/bin/rsync"/>
