@@ -39,11 +39,6 @@
 
 #define INOTIFY_BUF_LEN     (512 * (sizeof(struct inotify_event) + 16))
 
-/**
- * Utterly fail if tosync list exceeds this.
- */
-#define MAX_TOSYNC 1024
-
 #define LOG_DEBUG  1
 #define LOG_NORMAL 2
 #define LOG_ERROR  3
@@ -258,7 +253,12 @@ int dir_conf_n = 0;
 /**
  * A stack of offset pointers to dir_watches to directories to sync.
  */
-int tosync[MAX_TOSYNC];
+int *tosync = NULL;
+
+/**
+ * Number of ints allocaetd for tosync stack
+ */
+int tosync_size = 0;
 
 /**
  * The pointer of the current tosync position.
@@ -537,12 +537,9 @@ bool append_tosync_watch(int watch) {
 		} 
 	}
 
-	if (tosync_pos + 1 == MAX_TOSYNC) {
-		// TODO lsyncd does not have to fail in that case, 
-		// it simply could resync everything.
-		printlogf(LOG_ERROR, "Utter fail! Tosync stack exceeded (max is %d).", 
-		          MAX_TOSYNC);
-		exit(LSYNCD_INTERNALFAIL);
+	if (tosync_pos + 1 >= tosync_size) {
+		tosync_size *= 2;
+		tosync = s_realloc(tosync, tosync_size*sizeof(int));
 	}
 
 	tosync[tosync_pos++] = watch;
@@ -1731,6 +1728,9 @@ int main(int argc, char **argv)
 
 	dir_watch_size = 2;
 	dir_watches = s_calloc(dir_watch_size, sizeof(struct dir_watch));
+
+	tosync_size = 2;
+	tosync = s_calloc(tosync_size, sizeof(int));
 
 	// add all watches
 	for (i = 0; i < dir_conf_n; i++) {

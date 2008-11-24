@@ -33,7 +33,7 @@ This is a default config file template for lsyncd.
 	<binary       filename="/usr/bin/rsync"/>
 
 	<!--uncomment to create a file containing pid of the daemon-->
-	<!--pidfile      filename="/tmp/pid"/-->
+	<!--pidfile      filename="/var/run/lsyncd.pid"/-->
 
 	<!--this specifies the arguments handled to the rsync (or other)
 		binary.
