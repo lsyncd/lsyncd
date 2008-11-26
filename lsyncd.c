@@ -1084,7 +1084,7 @@ bool handle_event(struct inotify_event *event)
 	}
 
 	if (((IN_DELETE | IN_MOVED_FROM) & event->mask) && (IN_ISDIR & event->mask)) {
-		remove_dirwatch(event->name, i);
+		remove_dirwatch(event->name, watch);
 	}
 	
 	if ((IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | 
