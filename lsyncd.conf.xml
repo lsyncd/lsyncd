@@ -42,7 +42,7 @@ This is a default config file template for lsyncd.
 		only '%r' will be replaced with r when recursive 
 		operation is wanted, d when not.
 
-		exclude file will be replaced with -exclude-from FILE 
+		exclude-file will be replaced with -exclude-from FILE 
 
 		source will be the source path to sync from
 

@@ -43,76 +43,65 @@ General documentation about man-pages and man-page-formatting:
 man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
 
 -->
-
-  <!-- Fill in your name for FIRSTNAME and SURNAME. -->
-  <!ENTITY dhfirstname "Junichi">
-  <!ENTITY dhsurname   "Uekawa">
-  <!-- dhusername could also be set to "&firstname; &surname;". -->  
-  <!ENTITY dhusername  "Junichi Uekawa">
-  <!ENTITY dhemail     "dancer@debian.org">
-  <!-- SECTION should be 1-8, maybe w/ subsection other parameters are
-       allowed: see man(7), man(1) and
-       http://www.tldp.org/HOWTO/Man-Page/q2.html. -->
-  <!ENTITY dhsection   "1">
-  <!-- TITLE should be something like "User commands" or similar (see
-       http://www.tldp.org/HOWTO/Man-Page/q2.html). -->
-  <!ENTITY dhtitle     "lsyncd User Manual">
-  <!ENTITY dhucpackage "LSYNCD">
   <!ENTITY dhpackage   "lsyncd">
 ]>
 
 <refentry>
   <refentryinfo>
-    <title>&dhtitle;</title>
-    <productname>&dhpackage;</productname>
+    <title>lsyncd User Manual</title>
+    <productname>lsyncd</productname>
     <authorgroup>
       <author>
-       <firstname>&dhfirstname;</firstname>
-        <surname>&dhsurname;</surname>
+       <firstname>Junichi</firstname>
+        <surname>Uekawa</surname>
         <contrib>Wrote this manpage for the Debian system.</contrib>
         <address>
-          <email>&dhemail;</email>
+          <email>dancer@debian.org</email>
+        </address>
+      </author>
+      <author>
+       <firstname>Axel</firstname>
+        <surname>Kittenberger</surname>
+        <contrib>Strives to keep this uptodate.</contrib>
+        <address>
+          <email>axel.kittenberger@univie.ac.at</email>
         </address>
       </author>
     </authorgroup>
     <copyright>
       <year>2008</year>
-      <holder>&dhusername;</holder>
+      <holder>Junichi Uekawa, Axel Kittenberger</holder>
     </copyright>
     <legalnotice>
-      <para>This manual page was written for the Debian system
-        (but may be used by others).</para>
       <para>Permission is granted to copy, distribute and/or modify this
         document under the terms of the GNU General Public License,
         Version 2 or (at your option) any later version published by
         the Free Software Foundation.</para>
-      <para>On Debian systems, the complete text of the GNU General Public
-        License can be found in
-	<filename>/usr/share/common-licenses/GPL</filename>.</para>
     </legalnotice>
   </refentryinfo>
   <refmeta>
-    <refentrytitle>&dhucpackage;</refentrytitle>
-    <manvolnum>&dhsection;</manvolnum>
+    <refentrytitle>LSYNCD</refentrytitle>
+    <manvolnum>1</manvolnum>
   </refmeta>
   <refnamediv>
     <refname>&dhpackage;</refname>
-    <refpurpose>A rsync-based tool to monitor a directory and update modifications</refpurpose>
+    <refpurpose>A rsync-based tool to monitor a directory including subdirectories and update modifications.</refpurpose>
   </refnamediv>
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>&dhpackage;</command>
       <!-- These are several examples, how syntaxes could look -->
+      <arg choice="opt"><option>--conf <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--debug</option></arg>
       <arg choice="opt"><option>--dryrun</option></arg>
       <arg choice="opt"><option>--exclude-file <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--logfile <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--no-daemon</option></arg>
-      <arg choice="opt"><option>--rsync-binary <parameter>FILE</parameter></option></arg>
+      <arg choice="opt"><option>--binary <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--pidfile <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--scarce</option></arg>
-      <arg choice="plain"><replaceable>source</replaceable></arg>
-      <arg choice="plain"><replaceable>target</replaceable></arg>
+      <arg choice="opt"><replaceable>source</replaceable></arg>
+      <arg choice="opt"><replaceable>target</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&dhpackage;</command>
@@ -134,18 +123,11 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
   </refsynopsisdiv>
   <refsect1 id="description">
     <title>DESCRIPTION</title>
-    <para>This manual page documents briefly the
-      <command>&dhpackage;</command>
-      command.</para>
-    <para>This manual page was written for the Debian distribution
-      because the original program does not have a manual page.
-      Instead, it has a README documentation in plain text.</para>
-
     <para><command>&dhpackage;</command> is a program that uses rsync
       to synchronize local directories with a remote machine running
       rsyncd.  Lsyncd watches multiple directory trees through
-      inotify.  It will first rsync all directories with the remote
-      host, and then sync single files by collecting the inotify
+      inotify.  On startup it will rsync all directories with the remote
+      host(s), and then sync single directories by collecting the inotify
       events.  This tool is a light-weight live mirror solution.
     </para>
   </refsect1>
@@ -158,49 +140,65 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
            variablelist.term.break.after parameters to
            control the term elements. -->
       <varlistentry>
-	<term><option>--debug</option></term>
+        <term><option>--conf <parameter>FILE</parameter></option></term>
+        <listitem>
+          <para>config file to read config from. See <citerefentry> <refentrytitle>lsyncd.conf.xml</refentrytitle><manvolnum>5</manvolnum></citerefentry></para>
+		  <para>Default: <filename>/etc/lsyncd.conf.xml</filename> if no <option>source</option>, <option>target</option> is given in the commandline. If they are given and <arg>--conf</arg> is not given no config file will be loaded.
+		  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--debug</option></term>
         <listitem>
           <para>Log debug messages</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
-	<term><option>--dryrun</option></term>
+        <term><option>--dryrun</option></term>
         <listitem>
           <para>Do not call rsync, run dry only</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
-	<term><option>--exclude-file <parameter>FILE</parameter></option></term>
+        <term><option>--exclude-file <parameter>FILE</parameter></option></term>
         <listitem>
           <para>Exclude file handlet to rsync (DEFAULT: None).</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
-	<term><option>--logfile <parameter>FILE</parameter></option></term>
+        <term><option>--logfile <parameter>FILE</parameter></option></term>
         <listitem>
           <para>Put log here (DEFAULT: /var/log/lsyncd).</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
-	<term><option>--no-daemon</option></term>
+        <term><option>--no-daemon</option></term>
         <listitem>
           <para>Do not detach, log to stdout/stderr.</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
-	<term><option>--rsync-binary <parameter>FILE</parameter></option></term>
+        <term><option>--rsync-binary <parameter>FILE</parameter></option></term>
         <listitem>
           <para>Call this binary to sync (DEFAULT: /usr/bin/rsync).</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
-	<term><option>--pidfile <parameter>FILE</parameter></option></term>
+        <term><option>--pidfile <parameter>FILE</parameter></option></term>
         <listitem>
           <para>Create a file with pid of application.</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
-	<term><option>--scarce</option></term>
+        <term><option>--scarce</option></term>
         <listitem>
           <para>Only log errors.</para>
         </listitem>
@@ -212,6 +210,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
           <para>Show summary of options.</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--version</option></term>
         <listitem>
@@ -224,6 +223,12 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
     <title>FILES</title>
     <variablelist>
       <varlistentry>
+        <term><filename>/etc/lsyncd.conf.xml</filename></term>
+        <listitem>
+          <para>The default location of configuration file.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><filename>/var/log/lsyncd</filename></term>
         <listitem>
           <para>The default location of log file.  Make sure the
@@ -235,7 +240,10 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
   </refsect1>
   <refsect1 id="diagnostics">
     <title>DIAGNOSTICS</title>
-    <para>The following diagnostics may be issued
+	<!-- There are actually now a lot of errors that can be present at 
+	     stderr if something is wrong in the config file. Leave this 
+		 section for now. -->
+    <!--para>The following diagnostics may be issued
       on <filename class="devicefile">stderr</filename>:</para>
     <variablelist>
       <varlistentry>
@@ -245,7 +253,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
           </para>
         </listitem>
       </varlistentry>
-    </variablelist>
+    </variablelist-->
     <para><command>&dhpackage;</command> provides some return codes, that can
       be used in scripts:</para>
     <segmentedlist>
@@ -255,44 +263,62 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
         <seg><errorcode>0</errorcode></seg>
         <seg>Program exited successfully.</seg>
       </seglistitem>
+
       <seglistitem>
         <seg><errorcode>1</errorcode></seg>
         <seg>Out of memory.</seg>
       </seglistitem>
+
       <seglistitem>
         <seg><errorcode>2</errorcode></seg>
         <seg>File was not found, or failed to write.</seg>
       </seglistitem>
+
       <seglistitem>
         <seg><errorcode>3</errorcode></seg>
-        <seg>rsync execution somehow failed.</seg>
+        <seg>binary (most likely rsync) returned non-zero result on startup.</seg>
       </seglistitem>
+
       <seglistitem>
         <seg><errorcode>4</errorcode></seg>
-        <seg>Not enough command-line arguments were given to lsyncd invocation.</seg>
+        <seg>Something wrong the command-line arguments in the lsyncd invocation.</seg>
       </seglistitem>
+
       <seglistitem>
         <seg><errorcode>5</errorcode></seg>
         <seg>Too many exclude files were specified.</seg>
       </seglistitem>
 
+      <seglistitem>
+        <seg><errorcode>6</errorcode></seg>
+        <seg>Something wrong with the config file.</seg>
+      </seglistitem>
+
+      <seglistitem>
+        <seg><errorcode>255</errorcode></seg>
+        <seg>Internal failure.</seg>
+      </seglistitem>
     </segmentedlist>
   </refsect1>
-  <refsect1 id="bugs">
-    <!-- Or use this section to tell about upstream BTS. -->
+  <!--refsect1 id="bugs">
+    <!- Or use this section to tell about upstream BTS. ->
     <title>BUGS</title>
     <para>TBD.</para>
-  </refsect1>
+  </refsect1-->
   <refsect1 id="see_also">
     <title>SEE ALSO</title>
     <!-- In alpabetical order. -->
-    <para><citerefentry>
+    <para>
+	  <citerefentry>
+        <refentrytitle>lsyncd.conf.xml</refentrytitle>
+        <manvolnum>5</manvolnum>
+      </citerefentry>
+	  <citerefentry>
         <refentrytitle>rsync</refentrytitle>
         <manvolnum>1</manvolnum>
-      </citerefentry></para>
-
+      </citerefentry>
+	 </para>
     <para>The programs are documented fully in README file available
       in <filename>/usr/share/doc/lsyncd/README.gz</filename>.</para>
   </refsect1>
 </refentry>
-

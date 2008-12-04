@@ -13,18 +13,26 @@ datarootdir = @datarootdir@
 
 EXTRA_DIST = config.h.in inotify-nosys.h manpage.xml lsyncd.conf.xml
 
-nodist_man1_MANS = lsyncd.1
+nodist_man1_MANS = lsyncd.1 lsyncd.conf.xml.5
 
 check-syntax:
 	$(CC) -c -O2 -Wall $(CHK_SOURCES)  -o/dev/null 
 
-lsyncd.1: manpage.xml
+lsyncd.1: manpage.lsyncd.xml
 	xsltproc -''-nonet \
           -''-param man.charmap.use.subset "0" \
           -''-param make.year.ranges "1" \
           -''-param make.single.year.ranges "1" \
           /usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
-          manpage.xml
+          $<
+
+lsyncd.conf.xml.5: manpage.lsyncd.conf.xml
+	xsltproc -''-nonet \
+          -''-param man.charmap.use.subset "0" \
+          -''-param make.year.ranges "1" \
+          -''-param make.single.year.ranges "1" \
+          /usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
+          $<
 
 AM_CFLAGS=-Wall 
 AM_LIBS=
