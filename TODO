@@ -1,5 +1,4 @@
 * React on signal HUP resync and rewatch everything.
-* Allow more complicated source masks like /home/%1/www/ -> target::%1/
 * Workaround the kernel watches limit by opening another inotify
   instance when needed.
 * React on inotify OVERFLOW messages in resyncing everything, something might
