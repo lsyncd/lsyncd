@@ -115,9 +115,9 @@ struct dir_conf {
 	char * source;
 
 	/**
-	 * target to rsync to (no default value)
+	 * NULL terminated list of targets to rsync to (no default value).
 	 */
-	char * target;
+	char ** targets;
 
 	/**
 	 * binary to call (defaults to global default setting)
@@ -510,11 +510,36 @@ struct dir_conf * new_dir_conf() {
 		dir_conf_n++;
 		dir_confs = s_realloc(dir_confs, dir_conf_n * sizeof(struct dir_conf));
 		memset(&dir_confs[dir_conf_n - 1], 0, sizeof(struct dir_conf));
+		// creates targets NULL terminator (no targets yet)
+		dir_confs[dir_conf_n - 1].targets = s_calloc(1, sizeof(char *));
 		return &dir_confs[dir_conf_n - 1];
 	}
 	dir_conf_n++;
 	dir_confs = s_calloc(dir_conf_n, sizeof(struct dir_conf));
+	// creates targets NULL terminator (no targets yet)
+	dir_confs[0].targets = s_calloc(1, sizeof(char *));
 	return dir_confs;
+}
+
+/**
+ * Adds a target to a dir_conf. target string will duped.
+ *
+ * @param dir_conf   dir_conf to add the target to.
+ * @param target     target to add.
+ */
+void dir_conf_add_target(struct dir_conf * dir_conf, char *target)
+{
+	char **t;
+	int target_n = 0;
+
+	/* count current targets */
+	for (t = dir_conf->targets; *t; ++t) {
+		target_n++;
+	}
+
+	dir_conf->targets = s_realloc(dir_conf->targets, (target_n + 1) * sizeof(char *));
+	dir_conf->targets[target_n] = s_strdup(target);
+	dir_conf->targets[target_n + 1] = NULL;
 }
 
 /*--------------------------------------------------------------------------*
@@ -830,27 +855,34 @@ bool buildpath(char *pathname,
  * Syncs a directory.
  *
  * @param watch         the index in dir_watches to the directory.
+ *
+ * @returns true when all targets were successful.
  */
 bool rsync_dir(int watch)
 {
 	char pathname[PATH_MAX+1];
 	char destname[PATH_MAX+1];
+	bool status = true;
+	char ** target;
 
 	if (!buildpath(pathname, sizeof(pathname), watch, NULL, NULL)) {
 		return false;
 	}
 
-	if (!buildpath(destname, sizeof(destname), watch, NULL, dir_watches[watch].dir_conf->target)) {
-		return false;
-	}
-	printlogf(LOG_NORMAL, "rsyncing %s --> %s", pathname, destname);
+	for (target = dir_watches[watch].dir_conf->targets; *target; target++) {
+		if (!buildpath(destname, sizeof(destname), watch, NULL, *target)) {
+			status = false;
+			continue;
+		}
+		printlogf(LOG_NORMAL, "rsyncing %s --> %s", pathname, destname);
 
-	// call rsync to propagate changes in the directory
-	if (!action(dir_watches[watch].dir_conf, pathname, destname, false)) {
-		printlogf(LOG_ERROR, "Rsync from %s to %s failed", pathname, destname);
-		return false;
+		// call rsync to propagate changes in the directory
+		if (!action(dir_watches[watch].dir_conf, pathname, destname, false)) {
+			printlogf(LOG_ERROR, "Rsync from %s to %s failed", pathname, destname);
+			status = false;
+		}
 	}
-	return true;
+	return status;
 }
 
 /**
@@ -1173,9 +1205,9 @@ void print_help(char *arg0)
 {
 	printf("\n");
 #ifdef XML_CONFIG
-	printf("USAGE: %s [OPTION]... [SOURCE] [TARGET]\n", arg0);
+	printf("USAGE: %s [OPTION]... [SOURCE] [TARGET 1] [TARGET 2] ...\n", arg0);
 #else
-	printf("USAGE: %s [OPTION]... SOURCE TARGET\n", arg0);
+	printf("USAGE: %s [OPTION]... SOURCE TARGET-1 TARGET-2 ...\n", arg0);
 #endif
 	printf("\n");
 	printf("SOURCE: a directory to watch and rsync.\n");
@@ -1316,11 +1348,7 @@ bool parse_directory(xmlNodePtr node) {
 				fprintf(stderr, "error in config file: attribute path missing from <target>\n");
 		        exit(LSYNCD_BADCONFIGFILE);
 			}
-			if (dc->target) {
-				fprintf(stderr, "error in config file: cannot have more than one target in one <directory>\n");
-		        exit(LSYNCD_BADCONFIGFILE);
-			}
-			dc->target = s_strdup((char *) xc);
+			dir_conf_add_target(dc, (char *) xc);
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "binary")) {
 			xc = xmlGetProp(dnode, BAD_CAST "filename");
 			if (xc == NULL) {
@@ -1343,7 +1371,7 @@ bool parse_directory(xmlNodePtr node) {
 		fprintf(stderr, "error in config file: source missing from <directory>\n");
 		exit(LSYNCD_BADCONFIGFILE);
 	}
-	if (!dc->target) {
+	if (dc->targets[0] == NULL) {
 		fprintf(stderr, "error in config file: target missing from <directory>\n");
 		exit(LSYNCD_BADCONFIGFILE);
 	}
@@ -1469,6 +1497,7 @@ bool parse_config(bool fullparse) {
  */
 bool parse_options(int argc, char **argv)
 {
+	char **target;
 
 	static struct option long_options[] = {
 		{"binary",       1, NULL,           0}, 
@@ -1578,8 +1607,10 @@ bool parse_options(int argc, char **argv)
 	// dir_conf_n will already be > 0
 	if (dir_conf_n == 0) {
 		struct dir_conf * odc;    // dir_conf specified by command line options.
-		if (optind + 2 != argc) {
-			fprintf(stderr, "Error: please specify SOURCE and TARGET (see --help)\n");
+		bool first_target = true;
+
+		if (optind + 2 > argc) {
+			fprintf(stderr, "Error: please specify SOURCE and at least one TARGET (see --help)\n");
 #ifdef XML_CONFIG
 			fprintf(stderr, "       or at least one <directory> entry in the conf file.\n");
 #endif
@@ -1588,13 +1619,21 @@ bool parse_options(int argc, char **argv)
 		odc = new_dir_conf();
 		/* Resolves relative source path, lsyncd might chdir to / later. */
 		odc->source = realdir(argv[optind]);
-		odc->target = s_strdup(argv[optind + 1]);
 		if (!odc->source) {
 			fprintf(stderr, "Error: Source [%s] not found or not a directory.\n", argv[optind]);
 			exit(LSYNCD_FILENOTFOUND);
 		}
-		printlogf(LOG_NORMAL, "command line options: syncing %s -> %s\n", 
-		          odc->source, odc->target);
+		for (target = &argv[optind + 1]; *target; target++) {
+			dir_conf_add_target(odc, *target);
+			if (first_target) {
+				printlogf(LOG_NORMAL, "command line options: syncing %s -> %s\n",
+			    	      odc->source, *target);
+				first_target = false;
+			} else {
+				printlogf(LOG_NORMAL, "                             and -> %s\n", 
+			    	      *target);
+			}
+		}
 	}
 
 	/* sanity checking here */
@@ -1745,10 +1784,13 @@ int main(int argc, char **argv)
 
 	// startup recursive sync.
 	for (i = 0; i < dir_conf_n; i++) {
-		if (!action(&dir_confs[i], dir_confs[i].source, dir_confs[i].target, true)) {
-			printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", 
-			          dir_confs[i].source, dir_confs[i].target);
-			exit(LSYNCD_EXECFAIL);
+		char **target;
+		for (target = dir_confs[i].targets; *target; ++target) {
+			if (!action(&dir_confs[i], dir_confs[i].source, *target, true)) {
+				printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", 
+									dir_confs[i].source, *target);
+				exit(LSYNCD_EXECFAIL);
+			}
 		}
 	}
 
