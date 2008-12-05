@@ -49,10 +49,10 @@
 enum lsyncd_exit_code
 {
 	LSYNCD_SUCCESS = 0,
-	
+
 	/* out-of memory */
 	LSYNCD_OUTOFMEMORY = 1,
-	
+
 	/* file was not found, or failed to write */
 	LSYNCD_FILENOTFOUND = 2,
 
@@ -61,7 +61,7 @@ enum lsyncd_exit_code
 
 	/* command-line arguments given to lsyncd are bad */
 	LSYNCD_BADPARAMETERS = 4,
-	
+
 	/* Too many excludes files were specified */
 	LSYNCD_TOOMANYDIRECTORYEXCLUDES = 5,
 
@@ -580,7 +580,7 @@ bool remove_tosync_pos(int p) {
 	tosync_pos--;
 	return true;
 }
-			
+
 /**
  * Parses an option text, replacing all '%' specifiers with 
  * elaborated stuff. duh, currently there is only one, so this 
@@ -714,7 +714,7 @@ bool action(struct dir_conf * dir_conf,
 	} else if (WEXITSTATUS(status)) {
 		printlogf(LOG_NORMAL, 
 		          "Forked binary process returned non-zero return code: %i", 
-				  WEXITSTATUS(status));
+		          WEXITSTATUS(status));
 		return false;
 	}
 
@@ -955,7 +955,7 @@ int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
 			// use traditional means to determine if its a directory.
 			isdir = buildpath(subdir, sizeof(subdir), dw, de->d_name, NULL) && 
 			        !stat(subdir, &st) && 
-					S_ISDIR(st.st_mode);
+			        S_ISDIR(st.st_mode);
 		} else {
 			isdir = false;
 		}
@@ -988,7 +988,8 @@ bool remove_dirwatch(const char * name, int parent)
 		// look for the child with the name
 		for (i = 0; i < dir_watch_num; i++) {
 			if (dir_watches[i].wd >= 0 && dir_watches[i].parent == parent &&
-					!strcmp(name, dir_watches[i].dirname)) {
+			    !strcmp(name, dir_watches[i].dirname)
+			   ) {
 				dw = i;
 				break;
 			}
@@ -1071,7 +1072,7 @@ bool handle_event(struct inotify_event *event)
 	int subwatch = -1;
 
 	struct inotify_mask_text *p;
-	
+
 	for (p = mask_texts; p->mask; p++) {
 		if (mask & p->mask) {
 			if (strlen(masktext) + strlen(p->text) + 3 >= sizeof(masktext)) {
@@ -1295,7 +1296,7 @@ struct call_option * parse_callopts(xmlNodePtr node) {
 			xc = xmlGetProp(cnode, BAD_CAST "text");
 			if (xc == NULL) {
 				fprintf(stderr, "error in config file: text attribute missing from <option/>\n");
-		        exit(LSYNCD_BADCONFIGFILE);
+				exit(LSYNCD_BADCONFIGFILE);
 			}
 			asw[opt_n].kind = CO_TEXT;
 			asw[opt_n].text = s_strdup((char *) xc);
@@ -1330,11 +1331,11 @@ bool parse_directory(xmlNodePtr node) {
 			xc = xmlGetProp(dnode, BAD_CAST "path");
 			if (xc == NULL) {
 				fprintf(stderr, "error in config file: attribute path missing from <source>\n");
-		        exit(LSYNCD_BADCONFIGFILE);
+				exit(LSYNCD_BADCONFIGFILE);
 			}
 			if (dc->source) {
 				fprintf(stderr, "error in config file: cannot have more than one source in one <directory>\n");
-		        exit(LSYNCD_BADCONFIGFILE);
+				exit(LSYNCD_BADCONFIGFILE);
 			}
 			// TODO: use realdir() on xc
 			dc->source = s_strdup((char *) xc);
@@ -1349,13 +1350,13 @@ bool parse_directory(xmlNodePtr node) {
 			xc = xmlGetProp(dnode, BAD_CAST "filename");
 			if (xc == NULL) {
 				fprintf(stderr, "error in config file: attribute filename missing from <binary>\n");
-		        exit(LSYNCD_BADCONFIGFILE);
+				exit(LSYNCD_BADCONFIGFILE);
 			}
 			dc->exclude_file = s_strdup((char *) xc);
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "callopts")) {
 			if (dc->callopts) {
 				fprintf(stderr, "error in config file: there is more than one <callopts> in a <directory>\n");
-		        exit(LSYNCD_BADCONFIGFILE);
+				exit(LSYNCD_BADCONFIGFILE);
 			}
 			dc->callopts = parse_callopts(dnode);
 		} else {
@@ -1623,11 +1624,11 @@ bool parse_options(int argc, char **argv)
 			dir_conf_add_target(odc, *target);
 			if (first_target) {
 				printlogf(LOG_NORMAL, "command line options: syncing %s -> %s\n",
-			    	      odc->source, *target);
+				          odc->source, *target);
 				first_target = false;
 			} else {
 				printlogf(LOG_NORMAL, "                             and -> %s\n", 
-			    	      *target);
+				          *target);
 			}
 		}
 	}
@@ -1784,7 +1785,7 @@ int main(int argc, char **argv)
 		for (target = dir_confs[i].targets; *target; ++target) {
 			if (!action(&dir_confs[i], dir_confs[i].source, *target, true)) {
 				printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", 
-									dir_confs[i].source, *target);
+				                     dir_confs[i].source, *target);
 				exit(LSYNCD_EXECFAIL);
 			}
 		}
