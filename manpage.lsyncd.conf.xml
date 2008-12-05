@@ -3,7 +3,6 @@
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 
 <!--
-
 `xsltproc -''-nonet \
           -''-param man.charmap.use.subset "0" \
           -''-param make.year.ranges "1" \
@@ -77,13 +76,13 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para><filename>lsyncd.conf.xml</filename> is used to configure the <command>lsyncd</command> daemon. </para>
-	<para>Note that any command line options can overrule settings in the config file. A <command>lsyncd</command> configuration file has an XML grammar. That means tags have to be closed with a / and the such. Following explanations will be provided with an example for each. </para> 
-    <para>The config file must start with <option>&lt;lsyncd&gt;</option> as root node. A &quot;version&quot; parameter has to be present which specifies the lsyncd version the config file is written for, currently this is 1.25.</para>
+	<para>Note that any command line options can overrule settings in the config file. A <command>lsyncd</command> configuration file has an XML grammar. That means tags have to be closed with a / and the such. Following explanations will be provided with an examples. </para> 
+    <para>The config file must start with a <option>&lt;lsyncd&gt;</option> root node. A &quot;version&quot; parameter has to be present which specifies the lsyncd version the config file is written for. Currently this is 1.25.</para>
 	<programlisting>&lt;lsyncd version=&quot;1.25&quot;&gt;</programlisting>
 
     <refsect2 id="settings">
     <title>SETTINGS</title>
-     <para>Next is optionally a <option>&lt;settings&gt;</option> node. It controls lsyncd global settings. Any setting is optional.</para>
+     <para>Next is optionally a <option>&lt;settings&gt;</option> node. It controls lsyncd global settings. All settings are optional.</para>
      <programlisting>  &lt;settings&gt;</programlisting>
      <para>If a <option>&lt;debug/&gt;</option> node is present all debug messages will be logged. Default is a normal verbosity.</para>
      <programlisting>    &lt;debug/&gt;</programlisting>
@@ -101,7 +100,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
      <programlisting>    &lt;binary filename=&quot;/usr/bin/rsync&quot;/&gt;</programlisting>
      <para>If a <option>&lt;pidfile&gt;</option> node is present lsyncd will write its pid there. Default is not to write a pidfile.</para>
      <programlisting>    &lt;pidfile filename=&quot;/var/run/lsyncd.pid&quot;/&gt;</programlisting>
-     <para>With a <option>&lt;callopts&gt;</option> node you can control the arguments lsyncd will call the &lt;binary&gt; (rsync) with. Each child node will specify one argument. &lt;option&gt; specifies a literal argument. Only %r will be replaced with 'r' when rsycnd is supposed to work recursive (on startup of lsyncd) or 'd' on normal operations. &lt;exclude-file&gt; will be replaced with <option>--exclude-from [FILE]</option> if an &lt;exclude-from&gt; file is specified. &lt;source&gt; will be replaced the source directory to sync from. &lt;destination&gt; will be replace to the target to sync to. Default arguments are <option>-lt%r --exclude-from [FILE] [SOURCE] [DIRECTORY]</option>.</para>
+     <para>With a <option>&lt;callopts&gt;</option> node you can control the arguments lsyncd will call the &lt;binary&gt; (rsync) with. Each child node will specify one argument. &lt;option&gt; specifies a literal argument. Only %r will be replaced with 'r' when rsycnd is supposed to work recursive (on startup of lsyncd) or 'd' on normal operations. &lt;exclude-file&gt; will be replaced with <option>--exclude-from [FILE]</option> if an &lt;exclude-from&gt; file is specified. &lt;source&gt; will be replaced the source directory to sync from. &lt;destination&gt; will be replace to the target to sync to. Default arguments are <option>-lt%r --delete {--exclude-from [FILE]} [SOURCE] [DIRECTORY]</option>.</para>
 <programlisting>    &lt;callopts&gt;
         &lt;option text=&quot;-lt%r&quot;/&gt;
         &lt;option text=&quot;--delete&quot;/&gt;
@@ -115,8 +114,8 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
 
     <refsect2 id="directory">
     <title>DIRECTORIES</title>
-     <para>With <option>&lt;directory&gt;</option> nodes arbitrarily many sources to be watched can be specified. Within a &lt;directory&gt; entry you can again specify <option>&lt;binary&gt;</option>, <option>&lt;exclude-from&gt;</option> and a <option>&lt;callopt&gt;</option> node which will override global settings just for this source. See SETTINGS for details on this options.</para>
-	 <para> The mandatory <option>&lt;source&gt;</option> node specifies with the paramater &quot;path&quot; the directory to watch and sync. (once in a while something is mandatory :-). Also at least one <option>&lt;target;&gt;</option> node has to specified where to sync to. This has to be a format accepted by rsync.</para>
+     <para>With <option>&lt;directory&gt;</option> nodes arbitrarily many sources to be watched can be specified. Within a &lt;directory&gt; entry you can again specify a <option>&lt;binary&gt;</option>, <option>&lt;exclude-from&gt;</option> or a <option>&lt;callopt&gt;</option> node which will override global settings just for this source. See SETTINGS for details on this options.</para>
+	 <para> The mandatory <option>&lt;source&gt;</option> node specifies with the paramater &quot;path&quot; the directory to watch and sync. (once in a while something is mandatory. Also at least one <option>&lt;target;&gt;</option> node has to specified where to sync to. This has to be a format accepted by rsync.</para>
      <programlisting>  &lt;directory&gt;
     &lt;source path=&quot;/absolute/path/to/source&quot;/&gt;
     &lt;target path=&quot;desthost::module/&quot;/&gt;
