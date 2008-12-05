@@ -841,10 +841,12 @@ bool buildpath(char *pathname,
 {
 	int len = builddir(pathname, pathsize, watch, prefix);
 	if (len < 0) {
+		printlogf(LOG_ERROR, "path too long!");
 		return false;
 	}
 	if (dirname) {
 		if (pathsize < len + strlen(dirname) + 1) {
+			printlogf(LOG_ERROR, "path too long!");
 			return false;
 		}
 		strcat(pathname, dirname);
