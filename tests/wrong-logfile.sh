@@ -6,9 +6,11 @@
 # message
 
 WORKTARGET=$(mktemp -d)
-if [[ $( ./lsyncd --logfile /nonexisting/path/name . "${WORKTARGET}" ) =~ "cannot open logfile" ]]; then
+if [[ $( ./lsyncd --logfile /nonexisting/path/name . "${WORKTARGET}" 2>&1 ) =~ "cannot open logfile [/nonexisting/path/name]!" ]]; then
     rmdir "${WORKTARGET}"
     exit 0;
 else
+    rmdir "${WORKTARGET}"
     exit 1;
 fi
+
