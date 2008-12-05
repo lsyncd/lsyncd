@@ -101,7 +101,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
       <arg choice="opt"><option>--pidfile <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--scarce</option></arg>
       <arg choice="opt"><replaceable>source</replaceable></arg>
-      <arg choice="opt"><replaceable>target</replaceable></arg>
+      <arg choice="opt"><replaceable>target...</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>&dhpackage;</command>
@@ -124,8 +124,8 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
   <refsect1 id="description">
     <title>DESCRIPTION</title>
     <para><command>&dhpackage;</command> is a program that uses rsync
-      to synchronize local directories with a remote machine running
-      rsyncd.  Lsyncd watches multiple directory trees through
+      to synchronize local directories with a or several remote machine(s) 
+	  running rsyncd.  Lsyncd watches multiple directory trees through
       inotify.  On startup it will rsync all directories with the remote
       host(s), and then sync single directories by collecting the inotify
       events.  This tool is a light-weight live mirror solution.
