@@ -1,4 +1,4 @@
-/** -*- tab-width: 2; -*-
+/** 
  * lsyncd.c   Live (Mirror) Syncing Demon
  *
  * License: GPLv2 (see COPYING) or any later version
@@ -153,12 +153,6 @@ struct dir_watch {
 	 * also watched.
 	 */
 	char * dirname;
-
-	/**
-	 * Call this directory that way on destiation.
-	 * if NULL call it like dirname.
-	 */
-	char * destname;
 
 	/**
 	 * Points to the index of the parent.
@@ -728,24 +722,20 @@ bool action(struct dir_conf * dir_conf,
 	return true;
 }
 
-
-
 /**
- * Adds a directory to watch
+ * Adds a directory to watch.
  *
  * @param pathname the absolute path of the directory to watch.
  * @param dirname  the name of the directory only (yes this is a bit redudant, but oh well)
- * @param destname if not NULL call this dir that way on destionation.
  * @param parent   if not -1 the index to the parent directory that is already watched
  * @param dir_conf the applicateable configuration
  *
  * @return index to dir_watches of the new dir, -1 on error.
  */
 int add_watch(char const * pathname, 
-	char const * dirname, 
-	char const * destname, 
-	int parent, 
-	struct dir_conf * dir_conf)
+              char const * dirname, 
+              int parent, 
+              struct dir_conf * dir_conf)
 {
 	int wd;
 	int newdw;
@@ -781,12 +771,58 @@ int add_watch(char const * pathname,
 	dir_watches[newdw].wd = wd;
 	dir_watches[newdw].parent = parent;
 	dir_watches[newdw].dirname = s_strdup(dirname);
-	dir_watches[newdw].destname = destname ? s_strdup(destname) : NULL;
 	dir_watches[newdw].dir_conf = dir_conf;
 
 	return newdw;
 }
 
+/**
+ * Writes the path of a watched directory into pathname.
+ *
+ * @param pathname path to write to
+ * @param pathsize size of the pathname buffer
+ * @param watch index of watched dir to build path for
+ * @param prefix replace root dir with this (as target)
+ *
+ * @return -1 if pathname buffer was too small 
+ *            contents of pathname will be garbled then.
+ *         strlen(pathname) if successful
+ */
+int builddir(char *pathname, int pathsize, int watch, char const * prefix)
+{
+	int len = 0;
+	if (watch == -1) {
+		// When is this called this way???
+		char const * p = prefix ? prefix : "";
+		len = strlen(p);
+		if (pathsize <= len) {
+			return -1;
+		}
+		strcpy(pathname, p);
+	} else if (dir_watches[watch].parent == -1) {
+		// this is a watch root.
+		char const * p = prefix ? prefix : dir_watches[watch].dirname;
+		len = strlen(p);
+		if (pathsize <= len) {
+			return -1;
+		}
+		strcpy(pathname, p);
+	} else {
+		// this is some sub dir
+		len = builddir(pathname, pathsize, dir_watches[watch].parent, prefix); /* recurse */
+		len += strlen(dir_watches[watch].dirname);
+		if (pathsize <= len) {
+			return -1;
+		}
+		strcat(pathname, dir_watches[watch].dirname);
+	}
+	/* add the trailing slash if it is missing */
+	if (*pathname && pathname[strlen(pathname)-1] != '/') {
+		strcat(pathname, "/");
+		len++;
+	}
+	return len;
+}
 
 /**
  * Builds the abolute path name of a given directory beeing watched from the dir_watches information.
@@ -798,56 +834,22 @@ int add_watch(char const * pathname,
  * @param prefix        if not NULL it is added at the beginning of pathname
  */
 bool buildpath(char *pathname,
-	       int pathsize,
-	       int watch,
-	       char const *dirname,
-	       char const *prefix)
+               int pathsize,
+               int watch,
+               const char *dirname,
+               const char *prefix)
 {
-	int j, k, p, ps;
-
-	pathname[0] = 0;
-
-	if (prefix) {
-		// make sure nobody calls me with %wwwuser option set
-		assert(strcmp(prefix, "%wwwuser"));
-		strcat(pathname, prefix);
+	int len = builddir(pathname, pathsize, watch, prefix);
+	if (len < 0) {
+		return false;
 	}
-
-	// count how big the parent stack is
-	for (p = watch, ps = 0; p != -1; p = dir_watches[p].parent, ps++) {
-	}
-
-	// now add the parent paths from back to front
-	for (j = ps; j > 0; j--) {
-		char * tmpname;
-		// go j steps behind stack
-
-		for (p = watch, k = 0; k + 1 < j; p = dir_watches[p].parent, k++) {
-		}
-
-		tmpname = (prefix && dir_watches[p].destname) ? 
-		           dir_watches[p].destname : 
-				   dir_watches[p].dirname;
-
-		if (strlen(pathname) + strlen(tmpname) + 2 >= pathsize) {
-			printlogf(LOG_ERROR, "path too long %s/...", tmpname);
-			return false;
-		}
-
-		strcat(pathname, tmpname);
-
-		strcat(pathname, "/");
-	}
-
 	if (dirname) {
-		if (strlen(pathname) + strlen(dirname) + 2 >= pathsize) {
-			printlogf(LOG_ERROR, "path too long %s//%s", pathname, dirname);
+		if (pathsize < len + strlen(dirname) + 1) {
 			return false;
 		}
-
 		strcat(pathname, dirname);
 	}
-
+	printlogf(LOG_NORMAL, "  BUILDPATH(%d, %s, %s) -> %s", watch, dirname, prefix, pathname);
 	return true;
 }
 
@@ -889,17 +891,13 @@ bool rsync_dir(int watch)
  * Adds a dir to watch.
  *
  * @param dirname   The name or absolute path of the directory to watch.
- * @param destname  If not NULL call this dir that way on sync destination.
  * @param parent    If not -1, the index in dir_watches to the parent directory already watched.
  *                  Must have absolute path if parent == -1.
  *
  * @return the index in dir_watches off the directory or -1 on fail.
  *
  */
-int add_dirwatch(char const * dirname, 
-                 char const * destname, 
-                 int parent, 
-                 struct dir_conf * dir_conf)
+int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
 {
 	DIR *d;
 
@@ -907,8 +905,8 @@ int add_dirwatch(char const * dirname,
 	int dw, i;
 	char pathname[PATH_MAX+1];
 
-	printlogf(LOG_DEBUG, "add_dirwatch(%s, %s, p->dirname:%s, ...)", 
-	          dirname, destname, 
+	printlogf(LOG_DEBUG, "add_dirwatch(%s, p->dirname:%s, ...)", 
+	          dirname,
 	          parent >= 0 ? dir_watches[parent].dirname : "NULL");
 
 	if (!buildpath(pathname, sizeof(pathname), parent, dirname, NULL)) {
@@ -921,7 +919,7 @@ int add_dirwatch(char const * dirname,
 		}
 	}
 
-	dw = add_watch(pathname, dirname, destname, parent, dir_conf);
+	dw = add_watch(pathname, dirname, parent, dir_conf);
 	if (dw == -1) {
 		return -1;
 	}
@@ -960,10 +958,10 @@ int add_dirwatch(char const * dirname,
 			isdir = false;
 		}
 		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
-			int ndw = add_dirwatch(de->d_name, NULL, dw, dir_conf);
+			int ndw = add_dirwatch(de->d_name, dw, dir_conf);
 			printlogf(LOG_NORMAL, 
-			          "found new directory: %s/%s -- added on tosync stack.", 
-			          dirname, de->d_name);
+			          "found new directory: %s in %s -- added on tosync stack.", 
+			          de->d_name, dirname);
 			append_tosync_watch(ndw);
 		}
 	}
@@ -1015,11 +1013,6 @@ bool remove_dirwatch(const char * name, int parent)
 
 	free(dir_watches[dw].dirname);
 	dir_watches[dw].dirname = NULL;
-
-	if (dir_watches[dw].destname) {
-		free(dir_watches[dw].destname);
-		dir_watches[dw].destname = NULL;
-	}
 
 	return true;
 }
@@ -1112,7 +1105,7 @@ bool handle_event(struct inotify_event *event)
 	}
 
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		subwatch = add_dirwatch(event->name, NULL, watch, dir_watches[watch].dir_conf);
+		subwatch = add_dirwatch(event->name, watch, dir_watches[watch].dir_conf);
 	}
 
 	if (((IN_DELETE | IN_MOVED_FROM) & event->mask) && (IN_ISDIR & event->mask)) {
@@ -1341,6 +1334,7 @@ bool parse_directory(xmlNodePtr node) {
 				fprintf(stderr, "error in config file: cannot have more than one source in one <directory>\n");
 		        exit(LSYNCD_BADCONFIGFILE);
 			}
+			// TODO: use realdir() on xc
 			dc->source = s_strdup((char *) xc);
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "target")) {
 			xc = xmlGetProp(dnode, BAD_CAST "path");
@@ -1774,7 +1768,7 @@ int main(int argc, char **argv)
 	// add all watches
 	for (i = 0; i < dir_conf_n; i++) {
 		printlogf(LOG_NORMAL, "watching %s", dir_confs[i].source);
-		add_dirwatch(dir_confs[i].source, "", -1, &dir_confs[i]);
+		add_dirwatch(dir_confs[i].source, -1, &dir_confs[i]);
 	}
 
 	// clears tosync stack again, because the startup 
