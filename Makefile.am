@@ -11,7 +11,9 @@ TESTS = tests/help.sh \
 
 datarootdir = @datarootdir@
 
-EXTRA_DIST = config.h.in inotify-nosys.h manpage.xml lsyncd.conf.xml
+EXTRA_DIST = config.h.in inotify-nosys.h \
+	manpage.lsyncd.xml manpage.lsyncd.conf.xml lsyncd.conf.xml \
+	lsyncd.1 lsyncd.conf.xml.5
 
 nodist_man1_MANS = lsyncd.1 lsyncd.conf.xml.5
 

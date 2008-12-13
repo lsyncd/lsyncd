@@ -1494,6 +1494,9 @@ bool parse_config(bool fullparse) {
 			exit(LSYNCD_BADCONFIGFILE);
 		}
 	}
+
+	xmlFreeDoc(doc);
+	xmlCleanupParser();
 	return true;
 }
 

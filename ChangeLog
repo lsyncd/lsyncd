@@ -1,1 +1,12 @@
+13-12-2008:  Release of lsyncd 1.25
+	fix: mv dir and cp -r working
+	fix: working with reiserfs
+	enhancement: config files
+	enhancement: multiple targets
+	enhancement: pidfiles
+	optimized: memory usage
+	improved documentation
+	lots of smaller stuff here and there ...
+	Thanks to all contributers!
+
 05-12-2007:  Release of lsyncd 1.0 
