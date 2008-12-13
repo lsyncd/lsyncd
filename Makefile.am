@@ -31,10 +31,10 @@ lsyncd.conf.xml.5: manpage.lsyncd.conf.xml
 	$(XP) $(DB2MAN) $<
 
 AM_CFLAGS=-Wall 
-AM_LIBS=
+AM_LDFLAGS=
 if XML_CONFIG
 DEFS+=-DXML_CONFIG
 AM_CFLAGS += `xml2-config --cflags`
-AM_CFLAGS += `xml2-config --libs`
+AM_LDFLAGS += `xml2-config --libs`
 endif
 

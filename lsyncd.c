@@ -196,6 +196,14 @@ int flag_dryrun = 0;
 int flag_nodaemon = 0;
 
 /**
+ * Global Option: if true, ignore rsync errors on startup.
+ *                (during normal operations they have to be ignored eitherway,
+ *                 since rsync may also fail due e.g. the directory already
+ *                 beeing deleted when lsyncd wants to sync it.)
+ */
+int flag_stubborn = 0;
+
+/**
  * Global Option: pidfile, which holds the PID of the running daemon process.
  */
 char * pidfile = NULL;
@@ -851,7 +859,7 @@ bool buildpath(char *pathname,
 		}
 		strcat(pathname, dirname);
 	}
-	printlogf(LOG_NORMAL, "  BUILDPATH(%d, %s, %s) -> %s", watch, dirname, prefix, pathname);
+	printlogf(LOG_DEBUG, "  BUILDPATH(%d, %s, %s) -> %s", watch, dirname, prefix, pathname);
 	return true;
 }
 
@@ -1231,6 +1239,7 @@ void print_help(char *arg0)
 	printf("  --no-daemon            Do not detach, log to stdout/stderr\n");
 	printf("  --pidfile FILE         Create a file containing pid of the daemon\n");
 	printf("  --scarce               Only log errors\n");
+	printf("  --stubborn             Ignore rsync errors on startup.\n");
 	printf("  --version              Print version an exit.\n");
 	printf("\n");
 	printf("Take care that lsyncd is allowed to write to the logfile specified.\n");
@@ -1424,6 +1433,8 @@ bool parse_settings(xmlNodePtr node) {
 			loglevel = 3;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "no-daemon")) {
 			flag_nodaemon = 1;
+		} else if (!xmlStrcmp(snode->name, BAD_CAST "stubborn")) {
+			flag_stubborn = 1;
 		} else {
 			fprintf(stderr, "error unknown node in <settings> \"%s\"", snode->name);
 			exit(LSYNCD_BADCONFIGFILE);
@@ -1508,7 +1519,8 @@ bool parse_options(int argc, char **argv)
 		{"logfile",      1, NULL,           0}, 
 		{"no-daemon",    0, &flag_nodaemon, 1}, 
 		{"pidfile",      1, NULL,           0}, 
-		{"scarce",       0, &loglevel,      3}, 
+		{"scarce",       0, &loglevel,      3},
+		{"stubborn",     0, &flag_stubborn, 1},
 		{"version",      0, NULL,           0}, 
 		{NULL, 0, NULL, 0}
 	};
@@ -1784,9 +1796,12 @@ int main(int argc, char **argv)
 		char **target;
 		for (target = dir_confs[i].targets; *target; ++target) {
 			if (!action(&dir_confs[i], dir_confs[i].source, *target, true)) {
-				printlogf(LOG_ERROR, "Initial rsync from %s to %s failed", 
-				                     dir_confs[i].source, *target);
-				exit(LSYNCD_EXECFAIL);
+				printlogf(LOG_ERROR, "Initial rsync from %s to %s failed%s", 
+				          dir_confs[i].source, *target,
+				          flag_stubborn ? ", but continuing because being stubborn." : ".");
+				if (!flag_stubborn) {
+					exit(LSYNCD_EXECFAIL);
+				} 
 			}
 		}
 	}

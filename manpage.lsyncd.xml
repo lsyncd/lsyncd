@@ -91,15 +91,16 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
     <cmdsynopsis>
       <command>&dhpackage;</command>
       <!-- These are several examples, how syntaxes could look -->
+      <arg choice="opt"><option>--binary <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--conf <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--debug</option></arg>
       <arg choice="opt"><option>--dryrun</option></arg>
       <arg choice="opt"><option>--exclude-file <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--logfile <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--no-daemon</option></arg>
-      <arg choice="opt"><option>--binary <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--pidfile <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--scarce</option></arg>
+      <arg choice="opt"><option>--stubborn</option></arg>
       <arg choice="opt"><replaceable>source</replaceable></arg>
       <arg choice="opt"><replaceable>target...</replaceable></arg>
     </cmdsynopsis>
@@ -139,6 +140,13 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
       <!-- Use the variablelist.term.separator and the
            variablelist.term.break.after parameters to
            control the term elements. -->
+      <varlistentry>
+        <term><option>--binary <parameter>FILE</parameter></option></term>
+        <listitem>
+          <para>Call this binary to sync (DEFAULT: /usr/bin/rsync).</para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><option>--conf <parameter>FILE</parameter></option></term>
         <listitem>
@@ -184,13 +192,6 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
       </varlistentry>
 
       <varlistentry>
-        <term><option>--rsync-binary <parameter>FILE</parameter></option></term>
-        <listitem>
-          <para>Call this binary to sync (DEFAULT: /usr/bin/rsync).</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--pidfile <parameter>FILE</parameter></option></term>
         <listitem>
           <para>Create a file with pid of application.</para>
@@ -201,6 +202,13 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
         <term><option>--scarce</option></term>
         <listitem>
           <para>Only log errors.</para>
+        </listitem>
+      </varlistentry>
+      
+	  <varlistentry>
+        <term><option>--stubborn</option></term>
+        <listitem>
+          <para>Continue even if startup sync fails.</para>
         </listitem>
       </varlistentry>
 
