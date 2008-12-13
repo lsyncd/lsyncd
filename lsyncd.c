@@ -68,7 +68,10 @@ enum lsyncd_exit_code
 	/* something wrong with the config file */
 	LSYNCD_BADCONFIGFILE = 6,
 
-	/* Internal exit code to denote that execv failed */
+	/* cannot open inotify instance */
+	LSYNCD_NOINOTIFY = 7,
+
+	/* something internal went really wrong */
 	LSYNCD_INTERNALFAIL = 255,
 };
 
@@ -697,8 +700,12 @@ bool action(struct dir_conf * dir_conf,
 	if (pid == 0) {
 		char * binary = dir_conf->binary ? dir_conf->binary : default_binary;
 		if (!flag_nodaemon) {
-			freopen(logfile, "a", stdout);
-			freopen(logfile, "a", stderr);
+			if (!freopen(logfile, "a", stdout)) {
+				printlogf(LOG_ERROR, "cannot redirect stdout to [%s].", logfile);
+			}
+			if (!freopen(logfile, "a", stderr)) {
+				printlogf(LOG_ERROR, "cannot redirect stderr to [%s].", logfile);
+			}
 		}
 
 		execv(binary, argv);          // in a sane world does not return!
@@ -1505,8 +1512,11 @@ bool parse_config(bool fullparse) {
 
 /**
  * Parses the command line options.
+ *
+ * exits() in some cases of badparameters, or on 
+ * --version or --help
  */
-bool parse_options(int argc, char **argv)
+void parse_options(int argc, char **argv)
 {
 	char **target;
 
@@ -1546,7 +1556,7 @@ bool parse_options(int argc, char **argv)
 			break;
 		}
 		if (c == '?') {
-			return false;
+			exit(LSYNCD_BADPARAMETERS);
 		}
 		if (c == 0) { // longoption
 			if (!strcmp("conf", long_options[oi].name)) {
@@ -1584,7 +1594,7 @@ bool parse_options(int argc, char **argv)
 		}
 
 		if (c == '?') {
-			return false;
+			exit(LSYNCD_BADPARAMETERS);
 		}
 
 		if (c == 0) { // longoption
@@ -1656,7 +1666,6 @@ bool parse_options(int argc, char **argv)
 	if (pidfile) {
 		check_absolute_path(pidfile);
 	}
-	return true;
 }
 
 /**
@@ -1748,27 +1757,28 @@ int main(int argc, char **argv)
 {
 	int i;
 
-	if (!parse_options(argc, argv)) {
-		return -1;
-	}
+	parse_options(argc, argv);
 
 	if (default_exclude_file) {
 		parse_exclude_file(default_exclude_file);
 	}
 
 	inotf = inotify_init();
-
 	if (inotf == -1) {
 		printlogf(LOG_ERROR, "Cannot create inotify instance! (%d:%s)", 
 		          errno, strerror(errno));
-		return -1;
+		return LSYNCD_NOINOTIFY;
 	}
 
 	if (!flag_nodaemon) {
 		// this will make this process child of init
 		// close stdin/stdout/stderr and 
 		// chdir to /
-		daemon(0, 0);
+		if (daemon(0, 0)) {
+			printlogf(LOG_ERROR, "Cannot daemonize! (%d:%s)",
+			          errno, strerror(errno));
+			return LSYNCD_INTERNALFAIL;
+		}
 	}
 
 	printlogf(LOG_NORMAL, "Starting up");
@@ -1814,6 +1824,7 @@ int main(int argc, char **argv)
 	          dir_watch_num);
 
 	signal(SIGTERM, catch_alarm);
+
 	master_loop();
 
 	return 0;

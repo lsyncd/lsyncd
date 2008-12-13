@@ -62,7 +62,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
       <author>
        <firstname>Axel</firstname>
         <surname>Kittenberger</surname>
-        <contrib>Strives to keep this uptodate.</contrib>
+        <contrib>Strives to keep this up to date.</contrib>
         <address>
           <email>axel.kittenberger@univie.ac.at</email>
         </address>
@@ -300,6 +300,11 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
       <seglistitem>
         <seg><errorcode>6</errorcode></seg>
         <seg>Something wrong with the config file.</seg>
+      </seglistitem>
+      
+      <seglistitem>
+        <seg><errorcode>7</errorcode></seg>
+        <seg>Kernel cannot do inotify.</seg>
       </seglistitem>
 
       <seglistitem>

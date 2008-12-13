@@ -11,11 +11,11 @@ TESTS = tests/help.sh \
 
 datarootdir = @datarootdir@
 
-EXTRA_DIST = config.h.in inotify-nosys.h \
-	manpage.lsyncd.xml manpage.lsyncd.conf.xml lsyncd.conf.xml \
-	lsyncd.1 lsyncd.conf.xml.5
+EXTRA_DIST = config.h.in inotify-nosys.h lsyncd.conf.xml \
+	doc/manpage.lsyncd.xml doc/manpage.lsyncd.conf.xml \
+	doc/lsyncd.1 doc/lsyncd.conf.xml.5
 
-nodist_man1_MANS = lsyncd.1 lsyncd.conf.xml.5
+nodist_man1_MANS = doc/lsyncd.1 doc/lsyncd.conf.xml.5
 
 check-syntax:
 	$(CC) -c -O2 -Wall $(CHK_SOURCES)  -o/dev/null 
@@ -26,11 +26,11 @@ XP     = xsltproc -''-nonet \
           -''-param make.year.ranges "1" \
           -''-param make.single.year.ranges "1"
 
-lsyncd.1: manpage.lsyncd.xml
-	$(XP) $(DB2MAN) $<
+doc/lsyncd.1: doc/manpage.lsyncd.xml
+	$(XP) -o $@ $(DB2MAN) $<
 
-lsyncd.conf.xml.5: manpage.lsyncd.conf.xml
-	$(XP) $(DB2MAN) $<
+doc/lsyncd.conf.xml.5: doc/manpage.lsyncd.conf.xml
+	$(XP) -o $@ $(DB2MAN) $< 
 
 AM_CFLAGS=-Wall 
 AM_LDFLAGS=
