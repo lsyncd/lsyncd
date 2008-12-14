@@ -1,4 +1,4 @@
-13-12-2008:  Release of lsyncd 1.25
+14-12-2008:  Release of lsyncd 1.25
 	fix: mv dir and cp -r working
 	fix: working with reiserfs
 	enhancement: config files
