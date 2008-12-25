@@ -542,7 +542,7 @@ void dir_conf_add_target(struct dir_conf * dir_conf, char *target)
 		target_n++;
 	}
 
-	dir_conf->targets = s_realloc(dir_conf->targets, (target_n + 1) * sizeof(char *));
+	dir_conf->targets = s_realloc(dir_conf->targets, (target_n + 2) * sizeof(char *));
 	dir_conf->targets[target_n] = s_strdup(target);
 	dir_conf->targets[target_n + 1] = NULL;
 }
