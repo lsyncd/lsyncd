@@ -1481,8 +1481,8 @@ bool parse_config(bool fullparse) {
 		fprintf(stderr, "error in config file: version specifier missing in \"%s\",\n", conf_filename);
 		exit(LSYNCD_BADCONFIGFILE);
 	}
-	if (xmlStrcmp(xc, BAD_CAST "1.25")) {
-		fprintf(stderr, "error in config file: expected a \"1.25\" versioned file, found \"%s\"\n", xc);
+	if (xmlStrcmp(xc, BAD_CAST "1") && xmlStrcmp(xc, BAD_CAST "1.25")) { //1.25, backward stuff
+		fprintf(stderr, "error in config file: expected a \"1\" versioned file, found \"%s\"\n", xc);
 		exit(LSYNCD_BADCONFIGFILE);
 	}
 
