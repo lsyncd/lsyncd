@@ -1,5 +1,6 @@
 05-01-2009:  Release of lsyncd 1.26
 	fix: segfault on multitargets
+	changed meaning of "version" tag in lsyncd.conf.xml 
 
 14-12-2008:  Release of lsyncd 1.25
 	fix: mv dir and cp -r working
