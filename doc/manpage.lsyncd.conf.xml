@@ -77,8 +77,8 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
     <title>DESCRIPTION</title>
     <para><filename>lsyncd.conf.xml</filename> is used to configure the <command>lsyncd</command> daemon. </para>
 	<para>Note that any command line options can overrule settings in the config file. A <command>lsyncd</command> configuration file has an XML grammar. That means tags have to be closed with a / and the such. Following explanations will be provided with an examples. </para> 
-    <para>The config file must start with a <option>&lt;lsyncd&gt;</option> root node. A &quot;version&quot; parameter has to be present which specifies the lsyncd version the config file is written for. Currently this is 1.25.</para>
-	<programlisting>&lt;lsyncd version=&quot;1.25&quot;&gt;</programlisting>
+    <para>The config file must start with a <option>&lt;lsyncd&gt;</option> root node. A &quot;version&quot; parameter has to be present which specifies the lsyncd version of the config file format. Currently this is 1.</para>
+	<programlisting>&lt;lsyncd version=&quot;1&quot;&gt;</programlisting>
 
     <refsect2 id="settings">
     <title>SETTINGS</title>
