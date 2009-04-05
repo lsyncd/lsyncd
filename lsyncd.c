@@ -1200,7 +1200,7 @@ bool handle_event(struct inotify_event *event)
 		remove_dirwatch(event->name, watch);
 	}
 	
-	if ((IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | 
+	if ((IN_ATTRIB | IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | 
 	     IN_MOVED_TO | IN_MOVED_FROM) & event->mask
 	   ) {
 		printlogf(NORMAL, "event %s:%s triggered.", masktext, event->name);
