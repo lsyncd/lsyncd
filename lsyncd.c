@@ -730,13 +730,16 @@ bool action(struct dir_conf * dir_conf,
 			argv[argc++] = parse_option_text(optp->text, recursive);
 			continue;
 		case CO_EXCLUDE :
+			printf("!!!!\n");
 		    // --exclude-from and the exclude file
 		    // insert only when the exclude file is present otherwise skip it.
-			if (dir_conf->exclude_file == NULL) {
+			if (dir_conf->exclude_file == NULL && default_exclude_file == NULL) { //AXK
+				printf("??\n");
 				continue;
 			}
+			printf("?!!\n");
 			argv[argc++] = s_strdup("--exclude-from");
-			argv[argc++] = s_strdup(dir_conf->exclude_file);
+			argv[argc++] = s_strdup(dir_conf->exclude_file ? dir_conf->exclude_file : default_exclude_file); //AXK
 			continue;
 		case CO_SOURCE :
 			argv[argc++] = s_strdup(src);
@@ -757,9 +760,9 @@ bool action(struct dir_conf * dir_conf,
 	argv[argc++] = NULL;
 
 	/* debug dump of command-line options */
-	//for (i=0; i<argc; ++i) {
-	//  printlogf(DEBUG, "exec parameter %i:%s", i, argv[i]);
-	//}
+	for (i=0; i<argc; ++i) {
+	  printlogf(DEBUG, "exec parameter %i:%s", i, argv[i]);
+	}
 
 	if (flag_dryrun) {
 		return true;
@@ -1001,6 +1004,7 @@ int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
 	}
 
 	for (i = 0; i < exclude_dir_n; i++) {
+		printf("comparing %s with %s\n", dirname, exclude_dirs[i]);
 		if (!strcmp(dirname, exclude_dirs[i])) {
 			return -1;
 		}
@@ -1435,7 +1439,7 @@ bool parse_directory(xmlNodePtr node) {
 				printlogf(ERROR, "error in config file: attribute filename missing from <binary>\n");
 				terminate(LSYNCD_BADCONFIGFILE);
 			}
-			dc->exclude_file = s_strdup((char *) xc);
+			dc->binary = s_strdup((char *) xc); //AXK
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "callopts")) {
 			if (dc->callopts) {
 				printlogf(ERROR, "error in config file: there is more than one <callopts> in a <directory>\n");
@@ -1760,7 +1764,7 @@ bool parse_exclude_file(char *filename) {
 
 			terminate(LSYNCD_FILENOTFOUND);
 		}
-
+		printf("eread %s\n", line);
 		sl = strlen(line);
 
 		if (sl == 0) {
@@ -1823,13 +1827,19 @@ void write_pidfile() {
 int main(int argc, char **argv)
 {
 	int i;
+	printf("1\n");
 	openlog("lsyncd", LOG_CONS | LOG_PID, LOG_DAEMON);
+	printf("2\n");
 
 	parse_options(argc, argv);
+	printf("3\n");
+
 
 	if (default_exclude_file) {
 		parse_exclude_file(default_exclude_file);
 	}
+	printf("4\n");
+
 
 	inotf = inotify_init();
 	if (inotf == -1) {
@@ -1837,6 +1847,7 @@ int main(int argc, char **argv)
 		          errno, strerror(errno));
 		return LSYNCD_NOINOTIFY;
 	}
+	printf("4\n");
 
 	if (!flag_nodaemon) {
 		// this will make this process child of init
