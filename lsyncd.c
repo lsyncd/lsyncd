@@ -1001,9 +1001,11 @@ int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
 	}
 
 	for (i = 0; i < exclude_dir_n; i++) {
-		if (!strcmp(dirname, exclude_dirs[i])) {
+		if (!strcmp(pathname, exclude_dirs[i])) {
+			printlogf(NORMAL, "Excluding %s", pathname);
 			return -1;
 		}
+		printlogf(DEBUG, "comparing %s with %s not an exclude so far.", pathname, exclude_dirs[i]);
 	}
 
 	dw = add_watch(pathname, dirname, parent, dir_conf);
