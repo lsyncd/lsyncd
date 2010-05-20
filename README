@@ -26,7 +26,7 @@ WHEN NOT TO USE:
    * File with active file handles (e.g. database files)
    * Directories where many changes occur (like mail or news servers)
 
-   In these cases e.g. DRBD (see http://www.linux-ha.org/DRBD) might be better
+   In these cases e.g. DRBD (see http://www.drbd.org/) might be better
    for you.
 
 COMPARISONS:
@@ -58,9 +58,10 @@ COMPARISONS:
      This is another interesting idea is to write a daemon that provides a
      shadow file system through fuse.  When accessing a file the data is synced
      to local file as well as the remote file. Whit this approach inotify could
-     be replaced. BindFS (see http://www.cs.helsinki.fi/u/partel/bindfs/)
-     does this for local mirroring. We discarded this idea because it would
-     affect performance of normal operations in a negative way.
+     be replaced. GlusterFS does exactly this and more (see http://www.gluster.org).
+	 BindFS (see http://www.cs.helsinki.fi/u/partel/bindfs/) does this for local 
+	 mirroring. We discarded this idea because it would affect performance of 
+	 normal operations in a negative way.
 
    Lsyncd vs. cron: 
    
