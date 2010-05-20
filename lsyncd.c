@@ -1049,8 +1049,8 @@ int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
 		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
 			int ndw = add_dirwatch(de->d_name, dw, dir_conf);
 			printlogf(NORMAL, 
-			          "found new directory: %s in %s -- added on tosync stack.", 
-			          de->d_name, dirname);
+			          "found new directory: %s in %s -- %s", 
+			          de->d_name, dirname, ndw >= 0 ? "added on tosync stack" : "ignored it");
 			append_tosync_watch(ndw);
 		}
 	}
