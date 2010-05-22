@@ -14,7 +14,7 @@ echo 'test' > "${WORKSOURCE}"/a/a/file
 
 ./lsyncd --logfile "${LOGFILE}" --pidfile "${PIDFILE}" "${WORKSOURCE}" "${WORKTARGET}"
 
-# try to wait until lsyncd starts and rsyncs initial file, hope 1s is enough.
+# try to wait until lsyncd starts and rsyncs initial file, hope 4s is enough.
 sleep 4s
 
 # cp -r the directory, this sometimes succeeds, sometimes fails.
