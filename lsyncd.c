@@ -1372,7 +1372,6 @@ bool master_loop()
 			printlogf(ERROR, "Clocks per seoond invalid! %d", printlogf);
 			terminate(LSYNCD_INTERNALFAIL);
 		}
-		printf("clockspersec: %ld\n", clocks_per_sec);
 		tackle_size = 2;
 		tackles = s_calloc(tackle_size, sizeof(int));
 		tackle_len = 0;
