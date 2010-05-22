@@ -1079,6 +1079,7 @@ void tackle_dir(int watch, clock_t alarm)
 	
 	if (delay == 0) {
 		rsync_dir(watch);
+		return;
 	}
 
 	if (!buildpath(pathname, sizeof(pathname), watch, NULL, NULL)) {
