@@ -910,7 +910,8 @@ int builddir(char *pathname, int pathsize, int watch, char const * prefix)
 }
 
 /**
- * Builds the abolute path name of a given directory beeing watched from the dir_watches information.
+ * Builds the abolute path name of a given directory beeing 
+ * watched from the dir_watches information.
  *
  * @param pathname      destination buffer to store the result to.
  * @param pathsize      max size of this buffer
@@ -1438,6 +1439,13 @@ bool parse_directory(xmlNodePtr node) {
 				terminate(LSYNCD_BADCONFIGFILE);
 			}
 			dc->binary = s_strdup((char *) xc); 
+		} else if (!xmlStrcmp(dnode->name, BAD_CAST "exclude-from")) {
+			xc = xmlGetProp(dnode, BAD_CAST "filename");
+			if (xc == NULL) {
+				printlogf(ERROR, "error in config file: attribute filename missing from <exclude-from>\n");
+				terminate(LSYNCD_BADCONFIGFILE);
+			}
+			dc->exclude_file = s_strdup((char *) xc); 
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "callopts")) {
 			if (dc->callopts) {
 				printlogf(ERROR, "error in config file: there is more than one <callopts> in a <directory>\n");
