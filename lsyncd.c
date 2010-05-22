@@ -1026,16 +1026,17 @@ int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
 		return -1;
 	}
 
-	while (keep_going) {
+	while (keep_going) {    // terminate early on KILL signal
 		struct stat st;
 		char subdir[PATH_MAX+1];
 		bool isdir;
 		de = readdir(d);
 
-		if (de == NULL) {
+		if (de == NULL) {   // finished reading the directory
 			break;
 		}
 
+		// detemine if an entry is a directory or file
 		if (de->d_type == DT_DIR) {
 			isdir = true;
 		} else if (de->d_type == DT_UNKNOWN) {
@@ -1047,6 +1048,8 @@ int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
 		} else {
 			isdir = false;
 		}
+
+		// add watches if its a directory and not . or ..
 		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
 			int ndw = add_dirwatch(de->d_name, dw, dir_conf);
 			printlogf(NORMAL, 
@@ -1063,9 +1066,11 @@ int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
 /**
  * Removes a watched dir, including recursevily all subdirs.
  *
- * @param name   Optionally. If not NULL, the directory name to remove which is a child of parent.
- * @param parent The index to the parent directory of the directory 'name' to remove,
- *               or to be removed itself if name == NULL.
+ * @param name   Optionally. If not NULL, the directory name 
+ *               to remove which is a child of parent.
+ * @param parent The index to the parent directory of the 
+ *               directory 'name' to remove, or to be removed 
+ *               itself if name == NULL.
  */
 bool remove_dirwatch(const char * name, int parent)
 {
