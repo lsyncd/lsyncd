@@ -295,9 +295,9 @@ int *tackles;
 int tackle_size = 0;
 
 /**
- * Actual list of tackles.
+ * Number of tackles.
  */
-int tackle_len = 0;
+int tackle_num = 0;
 
 /**
  * A constant that assigns every inotify mask a printable string.
@@ -668,11 +668,11 @@ bool append_tackle(int watch, clock_t alarm) {
 	dir_watches[watch].tackled = true;
 	dir_watches[watch].alarm = alarm;
 
-	if (tackle_len + 1 >= tackle_size) {
+	if (tackle_num + 1 >= tackle_size) {
 		tackle_size *= 2;
 		tackles = s_realloc(tackles, tackle_size*sizeof(int));
 	}
-	tackles[tackle_len++] = watch;
+	tackles[tackle_num++] = watch;
 	return true;
 }
 
@@ -681,7 +681,7 @@ bool append_tackle(int watch, clock_t alarm) {
  */
 void remove_first_tackle() {
 	int tw = tackles[0];
-	memmove(tackles, tackles + 1, (--tackle_len) * sizeof(int));
+	memmove(tackles, tackles + 1, (--tackle_num) * sizeof(int));
 	dir_watches[tw].tackled = false;
 }
 
@@ -1222,11 +1222,22 @@ bool remove_dirwatch(const char * name, int parent)
 	}
 
 	inotify_rm_watch(inotf, dir_watches[dw].wd);
-
 	dir_watches[dw].wd = -1;
-
 	free(dir_watches[dw].dirname);
 	dir_watches[dw].dirname = NULL;
+
+	// remove a possible tackle
+	// (this dir is on the delay list)
+	if (delay > 0 && dir_watches[dw].tackled) {
+		for(i = 0; i < tackle_num; i++) {
+			if (tackles[i] == dw) {
+				// move the list up.
+				memmove(tackles + i, tackles + i + 1, (tackle_num - i - 1) * sizeof(int));
+				tackle_num--;
+				break;
+			}
+		}
+	}
 
 	return true;
 }
@@ -1375,11 +1386,11 @@ bool master_loop()
 		}
 		tackle_size = 2;
 		tackles = s_calloc(tackle_size, sizeof(int));
-		tackle_len = 0;
+		tackle_num = 0;
 	}
 
 	while (keep_going) {
-		if (delay > 0 && tackle_len > 0) {
+		if (delay > 0 && tackle_num > 0) {
 			// use select() to determine what happens first
 			// a new event or "alarm" of an event to actually
 			// call its binary.
@@ -1417,8 +1428,8 @@ bool master_loop()
 			i += sizeof(struct inotify_event) + event->len;
 		}
 
-		while (tackle_len > 0 && dir_watches[tackles[0]].alarm <= times(NULL)) {
-			printlogf(DEBUG, "time for %d arrived!", tackles[0]);
+		while (tackle_num > 0 && dir_watches[tackles[0]].alarm <= times(NULL)) {
+			printlogf(DEBUG, "time for %d arrived.", tackles[0]);
 			rsync_dir(tackles[0]);
 			remove_first_tackle();
 		}
