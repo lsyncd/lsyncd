@@ -94,6 +94,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
       <arg choice="opt"><option>--binary <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--conf <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--debug</option></arg>
+      <arg choice="opt"><option>--delay <parameter>SECS</parameter></option></arg>
       <arg choice="opt"><option>--dryrun</option></arg>
       <arg choice="opt"><option>--exclude-file <parameter>FILE</parameter></option></arg>
       <arg choice="opt"><option>--logfile <parameter>FILE</parameter></option></arg>
@@ -162,6 +163,15 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
           <para>Log debug messages</para>
         </listitem>
       </varlistentry>
+      
+	  <varlistentry>
+        <term><option>--deleay <parameter>SECS</parameter></option></term>
+        <listitem>
+	 		<para>If <option>&lt;delay/&gt;</option> is greater than zero, lsyncd waits this amount of seconds between an event and calling the binary. All events for a directory in this timeframe will be aggregated to one call. Default is 5 seconds.</para>
+     <programlisting>    &lt;delay/&gt;</programlisting>
+        </listitem>
+      </varlistentry>
+	 
 
       <varlistentry>
         <term><option>--dryrun</option></term>

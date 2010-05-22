@@ -1,3 +1,10 @@
+??-05-2009:  1.33
+	fix: exlude file argument passing to rsync	
+	fix: allow exlude files specified for individual sources
+	fix/enhancement: exlusions will be compared with extended
+	                 path files allowing sub dirs to be excluded.
+	enhancement: allow delays and call aggregation
+
 05-01-2009:  Release of lsyncd 1.26
 	fix: segfault on multitargets
 	changed meaning of "version" tag in lsyncd.conf.xml 

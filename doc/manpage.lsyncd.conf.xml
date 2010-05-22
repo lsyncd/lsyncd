@@ -87,6 +87,9 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
 
      <para>If a <option>&lt;debug/&gt;</option> node is present all debug messages will be logged. Default is a normal verbosity.</para>
      <programlisting>    &lt;debug/&gt;</programlisting>
+     
+	 <para>If <option>&lt;delay/&gt;</option> is greater than zero, lsyncd waits this amount of seconds between an event and calling the binary. All events for a directory in this timeframe will be aggregated to one call. Default is 5 seconds.</para>
+     <programlisting>    &lt;delay/&gt;</programlisting>
 
      <para>If a <option>&lt;scarce&gt;</option> node is present only error messages will be logged. Default is a normal verbosity.</para>
      <programlisting>    &lt;scarce/&gt;</programlisting>

@@ -6,5 +6,4 @@
 * Allow more complicated exclusion masks.
 * Do not call rsync at all if a file was edited that falls under the exclusion
   mask (currently it is called, and rsync drops it.
-* When several things happen at once, wait if calls to rsync can be optimized
 * improve config.h.in generation

@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/times.h>
 
 #ifdef HAVE_SYS_INOTIFY_H
 #  include <sys/inotify.h>
@@ -166,10 +167,21 @@ struct dir_watch {
 	int parent;
 
 	/**
+	 * On a delay to be handled.
+	 */
+	bool tackled;
+
+	/**
+	 * Point in time when rsync should be called.
+	 */
+	clock_t alarm;
+
+	/**
 	 * The applicable configuration for this directory
 	 */
 	struct dir_conf * dir_conf;
 };
+
 
 /**
  * Structure to store strings for the diversve inotfy masked events.
@@ -273,6 +285,21 @@ int tosync_size = 0;
 int tosync_pos = 0; 
 
 /**
+ * List of directories on a delay.
+ */
+int *tackles;
+
+/**
+ * Size allocated of the tackle list.
+ */
+int tackle_size = 0;
+
+/**
+ * Actual list of tackles.
+ */
+int tackle_len = 0;
+
+/**
  * A constant that assigns every inotify mask a printable string.
  * Used for debugging.
  */
@@ -324,6 +351,11 @@ char * logfile = NULL;
  * The inotify instance.
  */
 int inotf;
+
+/**
+ * Seconds of delay between event and action
+ */
+clock_t delay = 5;
 
 /**
  * Array of strings of directory names to include.
@@ -618,6 +650,58 @@ void dir_conf_add_target(struct dir_conf * dir_conf, char *target)
 }
 
 /*--------------------------------------------------------------------------*
+ * Tackle list handling. 
+ *--------------------------------------------------------------------------*/
+
+/**
+ * Adds a directory on the tackle len (on a delay)
+ *
+ * @param watch         the index in dir_watches to the directory.
+ * @param alarm         times() when the directory should be acted.
+ */
+bool append_tackle(int watch, clock_t alarm) {
+	printlogf(DEBUG, "add tackle(%d)", watch);
+	if (dir_watches[watch].tackled) {
+		printlogf(DEBUG, "ignored since already tackled.", watch);
+		return false;
+	}
+	dir_watches[watch].tackled = true;
+	dir_watches[watch].alarm = alarm;
+
+	if (tackle_len + 1 >= tackle_size) {
+		tackle_size *= 2;
+		tackles = s_realloc(tackles, tackle_size*sizeof(int));
+	}
+	tackles[tackle_len++] = watch;
+	return true;
+}
+
+/**
+ * Removes the first directory on the tackle list.
+ */
+void remove_first_tackle() {
+	int tw = tackles[0];
+	memmove(tackles, tackles + 1, (--tackle_len) * sizeof(int));
+	dir_watches[tw].tackled = false;
+}
+
+/**
+ * Removes a tosync entry in the stack at the position p.
+ */
+//bool remove_tosync_pos(int p) {
+//	int i;
+//	assert(p < tosync_pos);
+//
+//	//TODO improve performance by using memcpy.
+//	for(i = p; i < tosync_pos; i++) {
+//		tosync[i] = tosync[i + 1];
+//	}
+//	tosync_pos--;
+//	return true;
+//}
+
+
+/*--------------------------------------------------------------------------*
  * ToSync Stack handling. 
  *--------------------------------------------------------------------------*/
 
@@ -650,17 +734,17 @@ bool append_tosync_watch(int watch) {
 /**
  * Removes a tosync entry in the stack at the position p.
  */
-bool remove_tosync_pos(int p) {
-	int i;
-	assert(p < tosync_pos);
-
-	//TODO improve performance by using memcpy.
-	for(i = p; i < tosync_pos; i++) {
-		tosync[i] = tosync[i + 1];
-	}
-	tosync_pos--;
-	return true;
-}
+//bool remove_tosync_pos(int p) {
+//	int i;
+//	assert(p < tosync_pos);
+//
+//	//TODO improve performance by using memcpy.
+//	for(i = p; i < tosync_pos; i++) {
+//		tosync[i] = tosync[i + 1];
+//	}
+//	tosync_pos--;
+//	return true;
+//}
 
 /**
  * Parses an option text, replacing all '%' specifiers with 
@@ -857,6 +941,8 @@ int add_watch(char const * pathname,
 	dir_watches[newdw].parent = parent;
 	dir_watches[newdw].dirname = s_strdup(dirname);
 	dir_watches[newdw].dir_conf = dir_conf;
+	dir_watches[newdw].alarm = 0; // not needed, just to be clear
+	dir_watches[newdw].tackled = false;
 
 	return newdw;
 }
@@ -943,8 +1029,11 @@ bool buildpath(char *pathname,
 
 /**
  * Syncs a directory.
+ *   TODO: make better error handling (differ between
+ *         directory gone away, and thus cannot work, or network
+ *         failed)
  *
- * @param watch         the index in dir_watches to the directory.
+ * @param watch   the index in dir_watches to the directory.
  *
  * @returns true when all targets were successful.
  */
@@ -973,6 +1062,34 @@ bool rsync_dir(int watch)
 		}
 	}
 	return status;
+}
+
+/**
+ * Puts a directory on the TO-DO list. Waiting for its delay 
+ * to be actually executed.
+ *
+ * Directly calls rsync_dir if delay == 0;
+ *
+ * @param watch   the index in dir_watches to the directory.
+ * @param alarm   times() when the directory handling should be fired.
+ */
+void tackle_dir(int watch, clock_t alarm)
+{
+	char pathname[PATH_MAX+1];
+	
+	if (delay == 0) {
+		rsync_dir(watch);
+	}
+
+	if (!buildpath(pathname, sizeof(pathname), watch, NULL, NULL)) {
+		return;
+	}
+
+	if (append_tackle(watch, alarm)) {
+		printlogf(NORMAL, "Putted %s on a delay", pathname);
+	} else {
+		printlogf(NORMAL, "Not acted on %s already on delay", pathname);
+	}
 }
 
 /**
@@ -1140,11 +1257,11 @@ int get_dirwatch_offset(int wd) {
  *
  * TODO: make special logic to determine who is a subdirectory of whom, and maybe optimizie calls.
  */
-bool process_tosync_stack()
+bool process_tosync_stack(clock_t alarm)
 {
 	printlogf(DEBUG, "Processing through tosync stack.");
 	while(tosync_pos > 0) {
-		rsync_dir(tosync[--tosync_pos]);
+		tackle_dir(tosync[--tosync_pos], alarm);
 	}
 	printlogf(DEBUG, "being done with tosync stack");
 	return true;
@@ -1155,8 +1272,9 @@ bool process_tosync_stack()
  * Handles an inotify event.
  *
  * @param event   The event to handle
+ * @param alarm   times() moment t
  */
-bool handle_event(struct inotify_event *event)
+bool handle_event(struct inotify_event *event, clock_t alarm)
 {
 	char masktext[255] = {0,};
 
@@ -1166,6 +1284,8 @@ bool handle_event(struct inotify_event *event)
 
 	struct inotify_mask_text *p;
 
+	// creates a string for logging that shows which flags 
+	// were raised in the event
 	for (p = mask_texts; p->mask; p++) {
 		if (mask & p->mask) {
 			if (strlen(masktext) + strlen(p->text) + 3 >= sizeof(masktext)) {
@@ -1186,6 +1306,7 @@ bool handle_event(struct inotify_event *event)
 		return true;
 	}
 
+	// TODO, is this needed?
 	for (i = 0; i < exclude_dir_n; i++) {
 		if (!strcmp(event->name, exclude_dirs[i])) {
 			return true;
@@ -1194,32 +1315,37 @@ bool handle_event(struct inotify_event *event)
 
 	watch = get_dirwatch_offset(event->wd);
 	if (watch == -1) {
+		// this should not happen!
 		printlogf(ERROR, 
 		          "received an inotify event that doesnt match any watched directory :-(%d,%d)", 
 		          event->mask, event->wd);
 		return false;
 	}
 
+	// in case of a new directory create new watches
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
 		subwatch = add_dirwatch(event->name, watch, dir_watches[watch].dir_conf);
 	}
 
+	// in case of a removed directory remove watches
 	if (((IN_DELETE | IN_MOVED_FROM) & event->mask) && (IN_ISDIR & event->mask)) {
 		remove_dirwatch(event->name, watch);
 	}
 	
+	// call the binary if something changed
 	if ((IN_ATTRIB | IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | 
 	     IN_MOVED_TO | IN_MOVED_FROM) & event->mask
 	   ) {
 		printlogf(NORMAL, "event %s:%s triggered.", masktext, event->name);
-		rsync_dir(watch);            // TODO, worry about errors?
+
+		tackle_dir(watch, alarm); 
 		if (subwatch >= 0) {     // sync through the new created directory as well.
-			rsync_dir(subwatch);
+			tackle_dir(subwatch, alarm);
 		}
 	} else {
 		printlogf(DEBUG, "... ignored this event.");
 	}
-	process_tosync_stack();
+	process_tosync_stack(alarm);
 	return true;
 }
 
@@ -1230,26 +1356,71 @@ bool master_loop()
 {
 	char buf[INOTIFY_BUF_LEN];
 	int len, i = 0;
+	long clocks_per_sec = sysconf(_SC_CLK_TCK);
+
+	struct timeval tv;
+	fd_set readfds;
+	clock_t now;
+	clock_t alarm;
+	int ready;
+			
+	FD_ZERO(&readfds);
+	FD_SET(inotf, &readfds);
+
+	if (delay > 0) {
+		if (clocks_per_sec <= 0) {
+			printlogf(ERROR, "Clocks per seoond invalid! %d", printlogf);
+			terminate(LSYNCD_INTERNALFAIL);
+		}
+		printf("clockspersec: %ld\n", clocks_per_sec);
+		tackle_size = 2;
+		tackles = s_calloc(tackle_size, sizeof(int));
+		tackle_len = 0;
+	}
 
 	while (keep_going) {
-		len = read (inotf, buf, INOTIFY_BUF_LEN);
+		if (delay > 0 && tackle_len > 0) {
+			// use select() to determine what happens first
+			// a new event or "alarm" of an event to actually
+			// call its binary.
+			alarm = dir_watches[tackles[0]].alarm;
+			now = times(NULL);
+			tv.tv_sec  = (alarm - now) / clocks_per_sec;
+			tv.tv_usec = (alarm - now) * 1000000 / clocks_per_sec % 1000000;
+			ready = select(inotf + 1, &readfds, NULL, NULL, &tv);
+		} else {
+			// if nothing to wait for, enter a blocking read
+			// (sorry this variable is named a bit confusing
+			//  in this case)
+			ready = 1;
+		}
+
+		if (ready) {
+			len = read (inotf, buf, INOTIFY_BUF_LEN);
+		} else {
+			len = 0;
+		}
 
 		if (len < 0) {
 			printlogf(ERROR, "failed to read from inotify (%d:%s)", errno, strerror(errno));
 			return false;
 		}
 
-		if (len == 0) {
-			printlogf(ERROR, "eof?");
-			return false;
-		}
+		now = times(NULL);
+		alarm = now + delay * clocks_per_sec;
 
+		// first handle all events that might have happened
 		i = 0;
-
 		while (i < len) {
 			struct inotify_event *event = (struct inotify_event *) &buf[i];
-			handle_event(event);
+			handle_event(event, alarm);
 			i += sizeof(struct inotify_event) + event->len;
+		}
+
+		while (tackle_len > 0 && dir_watches[tackles[0]].alarm <= times(NULL)) {
+			printlogf(DEBUG, "time for %d arrived!", tackles[0]);
+			rsync_dir(tackles[0]);
+			remove_first_tackle();
 		}
 	}
 
@@ -1316,6 +1487,7 @@ void print_help(char *arg0)
 	printf("                         (DEFAULT: %s if called without SOURCE/TARGET)\n", conf_filename);
 #endif
 	printf("  --debug                Log debug messages\n");
+	printf("  --delay SECS           Delay between event and action\n");
 	printf("  --dryrun               Do not call any actions, run dry only\n");
 	printf("  --exclude-from FILE    Exclude file handled to rsync (DEFAULT: None)\n");
 	printf("  --help                 Print this help text and exit.\n");
@@ -1487,6 +1659,22 @@ bool parse_settings(xmlNodePtr node) {
 		}
 		if (!xmlStrcmp(snode->name, BAD_CAST "debug")) {
 			loglevel = 1;
+		} else if (!xmlStrcmp(snode->name, BAD_CAST "delay")) {
+			char *p;
+			xc = xmlGetProp(snode, BAD_CAST "value");
+			if (xc == NULL) {
+				printlogf(ERROR, "error in config file: attribute value missing from <delay/>\n");
+		        terminate(LSYNCD_BADCONFIGFILE);
+			}
+			delay = strtol((char *) xc, &p, 10);
+			if (*p) {
+				printlogf(ERROR, "<delay> value %s is not an integer.\n", xc);
+		        terminate(LSYNCD_BADCONFIGFILE);
+			}
+			if (delay < 0) {
+				printlogf(ERROR, "<delay> value may not be negative.\n");
+		        terminate(LSYNCD_BADCONFIGFILE);
+			}
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "dryrun")) {
 			flag_dryrun = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "exclude-from")) {
@@ -1609,6 +1797,7 @@ void parse_options(int argc, char **argv)
 		{"conf",         1, NULL,           0}, 
 #endif
 		{"debug",        0, &loglevel,      1}, 
+		{"delay",        1, NULL,           0}, 
 		{"dryrun",       0, &flag_dryrun,   1}, 
 		{"exclude-from", 1, NULL,           0}, 
 		{"help",         0, NULL,           0}, 
@@ -1683,6 +1872,19 @@ void parse_options(int argc, char **argv)
 		if (c == 0) { // longoption
 			if (!strcmp("binary", long_options[oi].name)) {
 				default_binary = s_strdup(optarg);
+			}
+			
+			if (!strcmp("delay", long_options[oi].name)) {
+				char *p;
+				delay = strtol(optarg, &p, 10);
+				if (*p) {
+					printf("%s is not an integer.\n", optarg);
+					terminate(LSYNCD_BADPARAMETERS);
+				}
+				if (delay < 0) {
+					printf("delay may not be negative.\n");
+					terminate(LSYNCD_BADPARAMETERS);
+				}
 			}
 			
 			if (!strcmp("exclude-from", long_options[oi].name)) {
