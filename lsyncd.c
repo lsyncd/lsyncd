@@ -41,6 +41,19 @@
 
 #define INOTIFY_BUF_LEN     (512 * (sizeof(struct inotify_event) + 16))
 
+/**
+ * Macros to compare times() values
+ * (borrowed from linux/jiffies.h)
+ *
+ * time_after(a,b) returns true if the time a is after time b.
+ */
+
+#define time_after(a,b)         ((long)(b) - (long)(a) < 0)
+#define time_before(a,b)        time_after(b,a)
+#define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
+#define time_before_eq(a,b)     time_after_eq(b,a)
+
+
 enum log_code {
 	DEBUG  = 1,
 	NORMAL = 2,
@@ -1398,6 +1411,11 @@ bool master_loop()
 			now = times(NULL);
 			tv.tv_sec  = (alarm - now) / clocks_per_sec;
 			tv.tv_usec = (alarm - now) * 1000000 / clocks_per_sec % 1000000;
+			if (tv.tv_sec > delay) {
+					// security boundary in case of times() wrap around.
+					tv.tv_sec = delay;
+					tv.tv_usec = 0;
+			}
 			ready = select(inotf + 1, &readfds, NULL, NULL, &tv);
 		} else {
 			// if nothing to wait for, enter a blocking read
@@ -1428,7 +1446,7 @@ bool master_loop()
 			i += sizeof(struct inotify_event) + event->len;
 		}
 
-		while (tackle_num > 0 && dir_watches[tackles[0]].alarm <= times(NULL)) {
+		while (tackle_num > 0 && time_after(times(NULL), dir_watches[tackles[0]].alarm)) {
 			printlogf(DEBUG, "time for %d arrived.", tackles[0]);
 			rsync_dir(tackles[0]);
 			remove_first_tackle();
