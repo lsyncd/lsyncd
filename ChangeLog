@@ -1,4 +1,4 @@
-??-05-2009:  1.33
+05-06-2009:  1.33
 	fix: exlude file argument passing to rsync	
 	fix: allow exlude files specified for individual sources
 	fix/enhancement: exlusions will be compared with extended
