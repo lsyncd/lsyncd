@@ -452,8 +452,6 @@ void printlogf(int level, const char *fmt, ...)
 		}
 	}
 
-	va_start(ap, fmt);
-
 	time(&mtime);
 	ct = ctime(&mtime);
 	ct[strlen(ct) - 1] = 0; // cut trailing linefeed
@@ -495,12 +493,18 @@ void printlogf(int level, const char *fmt, ...)
 	}
 
 	if (flog1) {
+		va_start(ap, fmt);
 		vfprintf(flog1, fmt, ap);
+		va_end(ap);
 	} else {
+		va_start(ap, fmt);
 		vsyslog(sysp, fmt, ap);
+		va_end(ap);
 	}
 	if (flog2) {
+		va_start(ap, fmt);
 		vfprintf(flog2, fmt, ap);
+		va_end(ap);
 	}
 
 	if (flog1) {
@@ -509,7 +513,6 @@ void printlogf(int level, const char *fmt, ...)
 	if (flog2) {
 		fprintf(flog2, "\n");
 	}
-	va_end(ap);
 
 	if (flog1) {
 		fclose(flog1);
