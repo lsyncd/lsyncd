@@ -1,4 +1,8 @@
-05-06-2009:  1.33
+11-07-2010:  1.34
+	fix: logging segfault on 64bit systems
+	changed: man page location, spellings
+
+05-06-2010:  1.33
 	fix: exlude file argument passing to rsync	
 	fix: allow exlude files specified for individual sources
 	fix/enhancement: exlusions will be compared with extended
