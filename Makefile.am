@@ -15,7 +15,8 @@ EXTRA_DIST = config.h.in inotify-nosys.h lsyncd.conf.xml \
 	doc/manpage.lsyncd.xml doc/manpage.lsyncd.conf.xml \
 	doc/lsyncd.1 doc/lsyncd.conf.xml.5
 
-nodist_man1_MANS = doc/lsyncd.1 doc/lsyncd.conf.xml.5
+nodist_man1_MANS = doc/lsyncd.1
+nodist_man5_MANS = doc/lsyncd.conf.xml.5
 
 check-syntax:
 	$(CC) -c -O2 -Wall $(CHK_SOURCES)  -o/dev/null 

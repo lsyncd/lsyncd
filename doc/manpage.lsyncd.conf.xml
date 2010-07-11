@@ -130,7 +130,7 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
     <refsect2 id="directory">
     <title>DIRECTORIES</title>
      <para>With <option>&lt;directory&gt;</option> nodes arbitrarily many sources to be watched can be specified. Within a &lt;directory&gt; entry you can again specify a <option>&lt;binary&gt;</option>, <option>&lt;exclude-from&gt;</option> or a <option>&lt;callopt&gt;</option> node which will override global settings just for this source. See SETTINGS for details on this options.</para>
-	 <para> The mandatory <option>&lt;source&gt;</option> node specifies with the paramater &quot;path&quot; the directory to watch and sync. (once in a while something is mandatory. Also at least one <option>&lt;target;&gt;</option> node has to specified where to sync to. This has to be a format accepted by rsync.</para>
+	 <para> The mandatory <option>&lt;source&gt;</option> node specifies with the parameter &quot;path&quot; the directory to watch and sync. (once in a while something is mandatory. Also at least one <option>&lt;target;&gt;</option> node has to specified where to sync to. This has to be a format accepted by rsync.</para>
      <programlisting>  &lt;directory&gt;
     &lt;source path=&quot;/absolute/path/to/source&quot;/&gt;
     &lt;target path=&quot;desthost::module/&quot;/&gt;
