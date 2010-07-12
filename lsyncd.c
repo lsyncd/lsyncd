@@ -746,22 +746,6 @@ bool append_tosync_watch(int watch) {
 	return true;
 }
 
-
-/**
- * Removes a tosync entry in the stack at the position p.
- */
-//bool remove_tosync_pos(int p) {
-//	int i;
-//	assert(p < tosync_pos);
-//
-//	//TODO improve performance by using memcpy.
-//	for(i = p; i < tosync_pos; i++) {
-//		tosync[i] = tosync[i + 1];
-//	}
-//	tosync_pos--;
-//	return true;
-//}
-
 /**
  * Parses an option text, replacing all '%' specifiers with 
  * elaborated stuff. duh, currently there is only one, so this 
@@ -817,14 +801,15 @@ bool action(struct dir_conf * dir_conf,
 	int status;
 	const int MAX_ARGS = 100;
 	char * argv[MAX_ARGS];
-	int argc=0;
+	char * dryargs;
+	int argc = 0;
 	int i;
 	struct call_option* optp;
 	
 	optp = dir_conf->callopts ? dir_conf->callopts : default_callopts;
 	
 	argv[argc++] = s_strdup(dir_conf->binary ? dir_conf->binary : default_binary);
-	for(;optp->kind != CO_EOL; optp++) {
+	for(; optp->kind != CO_EOL; optp++) {
 		switch (optp->kind) {
 		case CO_TEXT :
 			argv[argc++] = parse_option_text(optp->text, recursive);
@@ -862,6 +847,7 @@ bool action(struct dir_conf * dir_conf,
 	//}
 
 	if (flag_dryrun) {
+		// TODO memfree, debug message
 		return true;
 	}
 
@@ -883,7 +869,7 @@ bool action(struct dir_conf * dir_conf,
 		terminate(LSYNCD_INTERNALFAIL);
 	}
 
-	for (i=0; i<argc; ++i) {
+	for (i = 0; i < argc; ++i) {
 		if (argv[i]) {
 			free(argv[i]);
 		}
@@ -891,7 +877,7 @@ bool action(struct dir_conf * dir_conf,
 	
 	waitpid(pid, &status, 0);
 	assert(WIFEXITED(status));
-	if (WEXITSTATUS(status)==LSYNCD_INTERNALFAIL){
+	if (WEXITSTATUS(status) == LSYNCD_INTERNALFAIL){
 		printlogf(ERROR, 
 		          "Fork exit code of %i, execv failure", 
 		          WEXITSTATUS(status));
