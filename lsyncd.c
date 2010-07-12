@@ -783,6 +783,34 @@ char *parse_option_text(char *text, bool recursive)
 }
 
 /**
+ * Creates one string with all argument concated
+ * @param argv the arguments
+ * @param argc number of arguments
+ */
+char* get_arg_str(char **argv, int argc) {
+	int i;
+	int len = 0;
+	char * str;
+
+	// calc length
+	for (i = 0; i < argc; i++) {
+		len += strlen(argv[i]);
+	}
+
+    // alloc 
+	str = s_malloc(len + 2 * argc + 1);
+		
+	str[0] = 0;
+	for(i = 0; i < argc; i++) {
+		if (i > 0) {
+			strcat(str, ", ");
+		}
+		strcat(str, argv[i]);
+	}
+	return str;
+}
+
+/**
  * Calls the specified action (most likely rsync) to sync from src to dest.
  * Returns after the forked process has finished.
  *
@@ -801,7 +829,6 @@ bool action(struct dir_conf * dir_conf,
 	int status;
 	const int MAX_ARGS = 100;
 	char * argv[MAX_ARGS];
-	char * dryargs;
 	int argc = 0;
 	int i;
 	struct call_option* optp;
@@ -847,7 +874,16 @@ bool action(struct dir_conf * dir_conf,
 	//}
 
 	if (flag_dryrun) {
-		// TODO memfree, debug message
+		// just make a nice log message
+		char * binary = dir_conf->binary ? dir_conf->binary : default_binary;
+		char * argall = get_arg_str(argv, argc);
+		printlogf(NORMAL, "dry run: would call %s(%s)", binary, argall); 
+		free(argall);
+		for (i = 0; i < argc; ++i) {
+			if (argv[i]) {
+				free(argv[i]);
+			}
+		}
 		return true;
 	}
 
