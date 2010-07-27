@@ -404,7 +404,6 @@ void catch_alarm(int sig)
 
 /**
  * Just like exit, but logs the exit.
- *
  * Does not return!
  */
 void terminate(int status) 
@@ -706,22 +705,6 @@ void remove_first_tackle() {
 	dir_watches[tw].tackled = false;
 }
 
-/**
- * Removes a tosync entry in the stack at the position p.
- */
-//bool remove_tosync_pos(int p) {
-//	int i;
-//	assert(p < tosync_pos);
-//
-//	//TODO improve performance by using memcpy.
-//	for(i = p; i < tosync_pos; i++) {
-//		tosync[i] = tosync[i + 1];
-//	}
-//	tosync_pos--;
-//	return true;
-//}
-
-
 /*--------------------------------------------------------------------------*
  * ToSync Stack handling. 
  *--------------------------------------------------------------------------*/
@@ -788,7 +771,8 @@ char *parse_option_text(char *text, bool recursive)
 }
 
 /**
- * Creates one string with all argument concated
+ * Creates one string with all arguments concated.
+ *
  * @param argv the arguments
  * @param argc number of arguments
  */
@@ -905,11 +889,13 @@ bool action(struct dir_conf * dir_conf,
 			}
 		}
 
-		execv(binary, argv);          // in a sane world does not return!
+		execv(binary, argv);
+		// in a sane world execv does not return!
 		printlogf(ERROR, "Failed executing [%s]", binary);
 		terminate(LSYNCD_INTERNALFAIL);
 	}
 
+	// free the memory from the arguments.
 	for (i = 0; i < argc; ++i) {
 		if (argv[i]) {
 			free(argv[i]);
