@@ -660,7 +660,7 @@ void dir_conf_add_target(struct dir_conf * dir_conf, char *target)
 	char **t;
 	int target_n = 0;
 
-	/* count current targets */
+	// count current targets
 	for (t = dir_conf->targets; *t; ++t) {
 		target_n++;
 	}
@@ -1491,11 +1491,11 @@ bool master_loop()
  *
  * @param filename  filename to check
  */
-void check_file_exists(const char* filename)
+void check_file_exists(const char* filename, const char *errmsg)
 {
 	struct stat st;
 	if (-1==stat(filename, &st)) {
-		printlogf(ERROR, "File [%s] does not exist\n", filename);
+		printlogf(ERROR, "%s [%s] does not exist.\n", filename);
 		terminate(LSYNCD_FILENOTFOUND);
 	}
 }
@@ -1506,10 +1506,10 @@ void check_file_exists(const char* filename)
  *
  * @param filename  filename to check
  */
-void check_absolute_path(const char* filename)
+void check_absolute_path(const char* filename, const char *errmsg)
 {
 	if (filename[0] != '/') {
-		printlogf(ERROR, "Filename [%s] is not an absolute path\n", filename);
+		printlogf(ERROR, "%s [%s] has do be an absolute path.\n", errmsg, filename);
 		terminate(LSYNCD_FILENOTFOUND);
 	}
 }
@@ -2011,11 +2011,11 @@ void parse_options(int argc, char **argv)
 
 	// some sanity checks
 	if (default_exclude_file) {
-		check_absolute_path(default_exclude_file);
-		check_file_exists(default_exclude_file);
+		check_absolute_path(default_exclude_file, "Exclude file");
+		check_file_exists(default_exclude_file, "Exclude file");
 	}
 	if (pidfile) {
-		check_absolute_path(pidfile);
+		check_absolute_path(pidfile, "Pid file");
 	}
 	if (flag_stubborn && flag_nostartup) {
 		printlogf(NORMAL, "Warning: specifying 'stubborn' when skipping with 'no-startup' has no effect.");
