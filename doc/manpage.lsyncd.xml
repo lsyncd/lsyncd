@@ -200,6 +200,14 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
           <para>Do not detach, log to stdout/stderr.</para>
         </listitem>
       </varlistentry>
+      
+	  <varlistentry>
+        <term><option>--no-startup</option></term>
+        <listitem>
+          <para>Skips the inital recursive rsync. This option is not adviced and may lead to failures if the target
+		        is missing directories. Know what you are doing if you use it.</para>
+        </listitem>
+      </varlistentry>
 
       <varlistentry>
         <term><option>--pidfile <parameter>FILE</parameter></option></term>

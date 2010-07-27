@@ -100,6 +100,9 @@ man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
      <para>If a <option>&lt;no-daemon&gt;</option> node is present lsyncd will not detach and log to stdout/stderr. Default is to detach as daemon.</para>
      <programlisting>    &lt;no-daemon/&gt;</programlisting>
 
+     <para>If a <option>&lt;no-startup&gt;</option> node is present lsyncd will not initiate the recursive rsync call on startup. Not adviced, know what you are doing if using this.</para>
+     <programlisting>    &lt;no-startup/&gt;</programlisting>
+
      <para>If a <option>&lt;dry-run&gt;</option> node is present lsyncd will not call any actions (rsync) for test purposes. Default is not to run dry.</para>
      <programlisting>    &lt;dry-run/&gt;</programlisting>
 

@@ -234,6 +234,11 @@ int flag_nodaemon = 0;
 int flag_stubborn = 0;
 
 /**
+ * Global Option: if true, lsyncd will not perform the startup sync.
+ */
+int flag_nostartup = 0;
+
+/**
  * Global Option: pidfile, which holds the PID of the running daemon process.
  */
 char * pidfile = NULL;
@@ -1547,6 +1552,7 @@ void print_help(char *arg0)
 	printf("  --help                 Print this help text and exit.\n");
 	printf("  --logfile FILE         Put log here (DEFAULT: uses syslog if not specified)\n"); 
 	printf("  --no-daemon            Do not detach, log to stdout/stderr\n");
+	printf("  --no-startup           Do not execute a startup sync (disadviced, know what you doing)\n");
 	printf("  --pidfile FILE         Create a file containing pid of the daemon\n");
 	printf("  --scarce               Only log errors\n");
 	printf("  --stubborn             Ignore rsync errors on startup.\n");
@@ -1765,6 +1771,8 @@ bool parse_settings(xmlNodePtr node) {
 			loglevel = 3;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "no-daemon")) {
 			flag_nodaemon = 1;
+		} else if (!xmlStrcmp(snode->name, BAD_CAST "no-startup")) {
+			flag_nostartup = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "stubborn")) {
 			flag_stubborn = 1;
 		} else {
@@ -1846,30 +1854,33 @@ void parse_options(int argc, char **argv)
 	char **target;
 
 	static struct option long_options[] = {
-		{"binary",       1, NULL,           0}, 
+		{"binary",       1, NULL,            0}, 
 #ifdef XML_CONFIG
-		{"conf",         1, NULL,           0}, 
+		{"conf",         1, NULL,            0}, 
 #endif
-		{"debug",        0, &loglevel,      1}, 
-		{"delay",        1, NULL,           0}, 
-		{"dryrun",       0, &flag_dryrun,   1}, 
-		{"exclude-from", 1, NULL,           0}, 
-		{"help",         0, NULL,           0}, 
-		{"logfile",      1, NULL,           0}, 
-		{"no-daemon",    0, &flag_nodaemon, 1}, 
-		{"pidfile",      1, NULL,           0}, 
-		{"scarce",       0, &loglevel,      3},
-		{"stubborn",     0, &flag_stubborn, 1},
-		{"version",      0, NULL,           0}, 
+		{"debug",        0, &loglevel,       1}, 
+		{"delay",        1, NULL,            0}, 
+		{"dryrun",       0, &flag_dryrun,    1}, 
+		{"exclude-from", 1, NULL,            0}, 
+		{"help",         0, NULL,            0}, 
+		{"logfile",      1, NULL,            0}, 
+		{"no-daemon",    0, &flag_nodaemon,  1}, 
+		{"no-startup",   0, &flag_nostartup, 1}, 
+		{"pidfile",      1, NULL,            0}, 
+		{"scarce",       0, &loglevel,       3},
+		{"stubborn",     0, &flag_stubborn,  1},
+		{"version",      0, NULL,            0}, 
 		{NULL, 0, NULL, 0}
 	};
 
+	bool read_conf = false;
 
 #ifdef XML_CONFIG
-	bool read_conf = false;
-	// First determine if the config file should be read at all. If read it
-	// before parsing all options in detail, because command line options
-	// should overwrite global settings in the conf file.
+	// First determine if the config file should be read at all. 
+	// If so, read it before parsing all other options in detail, 
+	// because command line options should overwrite settings in 
+	// the confing file.
+	//
 	// There are 2 conditions in which the conf file is read, either 
 	// --conf FILE is given as option, or there isn't a SOURCE and 
 	// DESTINATION given, in which getting the config from the conf
@@ -1911,7 +1922,8 @@ void parse_options(int argc, char **argv)
 	/* reset get option parser*/
 	optind = 1;
 #endif
-	
+
+	// now parse all the other options normally.
 	while (1) {
 		int oi = 0;
 		int c = getopt_long_only(argc, argv, "", long_options, &oi);
@@ -1997,13 +2009,16 @@ void parse_options(int argc, char **argv)
 		}
 	}
 
-	/* sanity checking here */
+	// some sanity checks
 	if (default_exclude_file) {
 		check_absolute_path(default_exclude_file);
 		check_file_exists(default_exclude_file);
 	}
 	if (pidfile) {
 		check_absolute_path(pidfile);
+	}
+	if (flag_stubborn && flag_nostartup) {
+		printlogf(NORMAL, "Warning: specifying 'stubborn' when skipping with 'no-startup' has no effect.");
 	}
 }
 
@@ -2017,7 +2032,7 @@ bool parse_exclude_file(char *filename) {
 
 	ef = fopen(filename, "r");
 	if (ef == NULL) {
-		printlogf(ERROR, "Meh, cannot open exclude file '%s'\n", filename);
+		printlogf(ERROR, "Cannot open exclude file '%s'\n", filename);
 		terminate(LSYNCD_FILENOTFOUND);
 	}
 
@@ -2140,23 +2155,28 @@ int main(int argc, char **argv)
 	}
 
 	// clears tosync stack again, because the startup 
-	// super recursive rsync will handle it eitherway.
+	// super recursive rsync will handle it eitherway
+	// or if nostartup user decided already to ignore it.
 	printlogf(DEBUG, "dumped tosync stack.");
 	tosync_pos = 0;
 
 	// startup recursive sync.
-	for (i = 0; i < dir_conf_n; i++) {
-		char **target;
-		for (target = dir_confs[i].targets; *target; ++target) {
-			if (!action(&dir_confs[i], dir_confs[i].source, *target, true)) {
-				printlogf(ERROR, "Initial rsync from %s to %s failed%s", 
-				          dir_confs[i].source, *target,
-				          flag_stubborn ? ", but continuing because being stubborn." : ".");
-				if (!flag_stubborn) {
-					terminate(LSYNCD_EXECFAIL);
-				} 
+	if (!flag_nostartup) {
+		for (i = 0; i < dir_conf_n; i++) {
+			char **target;
+			for (target = dir_confs[i].targets; *target; ++target) {
+				if (!action(&dir_confs[i], dir_confs[i].source, *target, true)) {
+					printlogf(ERROR, "Initial rsync from %s to %s failed%s", 
+					          dir_confs[i].source, *target,
+					          flag_stubborn ? ", but continuing because being stubborn." : ".");
+					if (!flag_stubborn) {
+						terminate(LSYNCD_EXECFAIL);
+					} 
+				}
 			}
 		}
+	} else {
+		printlogf(NORMAL, "Skipped startup since nostartup flag is turned on.");
 	}
 
 	printlogf(NORMAL, 
