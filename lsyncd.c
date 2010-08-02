@@ -192,7 +192,7 @@ struct dir_watch {
 	/**
 	 * The applicable configuration for this directory
 	 */
-	struct dir_conf * dir_conf;
+	struct dir_conf *dir_conf;
 };
 
 
@@ -206,59 +206,102 @@ struct inotify_mask_text {
 };
 
 
+
+
 /*--------------------------------------------------------------------------*
  * Global variables
  *--------------------------------------------------------------------------*/
 
 /**
- * Global Option: The loglevel is how eloquent lsyncd will be.
+ * Options relevant for logging.
+ * Part of global options.
  */
-int loglevel = NORMAL;
+struct log {
+	/**
+	 * Global Option: The loglevel is how eloquent lsyncd will be.
+	 */
+	int loglevel;
 
-/**
- * Global Option: if true no action will actually be called.
- */
-int flag_dryrun = 0;
+	/**
+	 * Global Option: if true, do not detach and log to stdout/stderr.
+	 */
+	int flag_nodaemon;
+	
+	/**
+	 * If not NULL, this file will be accessed directly to write log messages to.
+	 * If NULL, syslog will be used.
+	 *
+	 * Not as difference that the output of child processes (rsync) will be redirected
+	 * to the logfile if specified, if syslogging the child-output will run into /dev/null.
+	 *
+	 * If flag_nodaemon is present stdout/stderr will be used.
+	 */
+	char * logfile;
+};
 
-/**
- * Global Option: if true, do not detach and log to stdout/stderr.
- */
-int flag_nodaemon = 0;
+struct global_options {
+	/**
+	 * Options relevant for logging.
+	 */
+	struct log log;
 
-/**
- * Global Option: if true, ignore rsync errors on startup.
- *                (during normal operations they have to be ignored eitherway,
- *                 since rsync may also fail due e.g. the directory already
- *                 beeing deleted when lsyncd wants to sync it.)
- */
-int flag_stubborn = 0;
+	/**
+	 * Global Option: if true no action will actually be called.
+	 */
+	int flag_dryrun;
 
-/**
- * Global Option: if true, lsyncd will not perform the startup sync.
- */
-int flag_nostartup = 0;
+	/**
+	 * Global Option: if true, ignore rsync errors on startup.
+	 *                (during normal operations they have to be ignored eitherway,
+	 *                 since rsync may also fail due e.g. the directory already
+	 *                 beeing deleted when lsyncd wants to sync it.)
+	 */
+	int flag_stubborn;
 
-/**
- * Global Option: pidfile, which holds the PID of the running daemon process.
- */
-char * pidfile = NULL;
+	/**
+	 * Global Option: if true, lsyncd will not perform the startup sync.
+	 */
+	int flag_nostartup;
+
+	/**
+	 * Global Option: pidfile, which holds the PID of the running daemon process.
+	 */
+	char *pidfile;
 
 #ifdef XML_CONFIG
-/**
- * Global Option: the filename to read config from.
- */
-char * conf_filename = "/etc/lsyncd.conf.xml";
+	/**
+	 * Global Option: the filename to read config from.
+	 */
+	char *conf_filename;
 #endif
 
-/**
- * Global Option: this binary is used if no other specified in dir_conf.
- */
-char * default_binary = "/usr/bin/rsync"; 
+	/**
+	 * Global Option: this binary is used if no other specified in dir_conf.
+	 */
+	char *default_binary;
 
-/**
- * Global Option: default exclude file
- */
-char * default_exclude_file = NULL;
+	/**
+	 * Global Option: default exclude file
+	 */
+	char *default_exclude_file;
+
+	/**
+	 * Global Option: default options to call the binary with.
+	 *
+	 * TODO copy on init.
+	 */
+	struct call_option *default_callopts;
+
+	/**
+	 * The configuratiton for dirs to synchronize
+	 */
+	struct dir_conf *dir_confs;
+
+	/**
+	 * The number of configurated dirs to sync.
+	 */
+	int dir_conf_n;
+};
 
 /**
  * Standard default options to call the binary with.
@@ -273,27 +316,12 @@ struct call_option standard_callopts[] = {
 };
 
 /**
- * Global Option: default options to call the binary with.
- */
-struct call_option * default_callopts = standard_callopts;
-
-/**
- * The configuratiton for dirs to synchronize
- */
-struct dir_conf * dir_confs = NULL;
-
-/**
- * The number of configurated dirs to sync.
- */
-int dir_conf_n = 0;
-
-/**
  * A stack of offset pointers to dir_watches to directories to sync.
  */
 int *tosync = NULL;
 
 /**
- * Number of ints allocaetd for tosync stack
+ * Number of ints allocated for tosync stack
  */
 int tosync_size = 0;
 
@@ -354,16 +382,6 @@ int dir_watch_size = 0;
  */
 int dir_watch_num = 0;
 
-/**
- * If not NULL, this file will be accessed directly to write log messages to.
- * If NULL, syslog will be used.
- *
- * Not as difference that the output of child processes (rsync) will be redirected
- * to the logfile if specified, if syslogging the child-output will run into /dev/null.
- *
- * If flag_nodaemon is present stdout/stderr will be used.
- */
-char * logfile = NULL;
 
 /**
  * The inotify instance.
@@ -383,6 +401,38 @@ clock_t delay = 5;
 #define MAX_EXCLUDES 256
 char * exclude_dirs[MAX_EXCLUDES] = {NULL, };
 int exclude_dir_n = 0;
+
+
+
+/**
+ * Defaults values #defined
+ */
+#define DEFAULT_BINARY "/usr/bin/rsync"
+#define DEFAULT_CONF_FILENAME "/etc/lsyncd.conf.xml"
+
+/**
+ * (Re)sets global options to default values.
+ *
+ * TODO memfree's
+ */
+void reset_options(struct global_options *opts) {
+	opts->log.loglevel = NORMAL;
+	opts->log.flag_nodaemon = 0;
+	opts->log.logfile = NULL;
+	
+	opts->flag_dryrun = 0;
+	opts->flag_stubborn = 0;
+	opts->flag_nostartup = 0;
+	opts->pidfile = NULL;
+#ifdef XML_CONFIG
+	opts->conf_filename = DEFAULT_CONF_FILENAME;
+#endif
+	opts->default_binary = DEFAULT_BINARY;
+	opts->default_exclude_file = NULL;
+	opts->default_callopts = standard_callopts;
+	opts->dir_confs = NULL;
+	opts->dir_conf_n = 0;
+};
 
 /*--------------------------------------------------------------------------*
  * Small generic helper routines. 
@@ -406,12 +456,12 @@ void catch_alarm(int sig)
  * Just like exit, but logs the exit.
  * Does not return!
  */
-void terminate(int status) 
+void terminate(const struct log *log, int status) 
 {
-	if (!flag_nodaemon) {
-		if (logfile) {
+	if (log && !log->flag_nodaemon) {
+		if (log->logfile) {
 			FILE * flog;
-			flog = fopen(logfile, "a");
+			flog = fopen(log->logfile, "a");
 			if (flog) {
 				fprintf(flog, "exit!");
 				fclose(flog);
@@ -435,7 +485,7 @@ void terminate(int status)
  * _and_ displayed on screen. If lsyncd daemonized already, 
  * stderr will be run into the void of /dev/null.
  */
-void printlogf(int level, const char *fmt, ...)
+void printlogf(const struct log *log, int level, const char *fmt, ...)
 {
 	va_list ap;
 	char * ct;
@@ -443,16 +493,16 @@ void printlogf(int level, const char *fmt, ...)
 	FILE * flog1 = NULL, * flog2 = NULL;
 	int sysp = 0;
 
-	if (level < loglevel) {
+	if (log && level < log->loglevel) {
 		return;
 	}
 
-	if (!flag_nodaemon && logfile) {
-		flog1 = fopen(logfile, "a");
+	if (log && !log->flag_nodaemon && log->logfile) {
+		flog1 = fopen(log->logfile, "a");
 
 		if (flog1 == NULL) {
-			fprintf(stderr, "cannot open logfile [%s]!\n", logfile);
-			terminate(LSYNCD_FILENOTFOUND);
+			fprintf(stderr, "cannot open logfile [%s]!\n", log->logfile);
+			terminate(log, LSYNCD_FILENOTFOUND);
 		}
 	}
 
@@ -463,14 +513,14 @@ void printlogf(int level, const char *fmt, ...)
 	switch (level) {
 	case DEBUG  :
 		sysp = LOG_DEBUG;
-		if (flag_nodaemon) {
+		if (!log || log->flag_nodaemon) {
 			flog2 = stdout;
 		}
 		break;
 
 	case NORMAL :
 		sysp = LOG_NOTICE;
-		if (flag_nodaemon) {
+		if (!log || log->flag_nodaemon) {
 			flog2 = stdout;
 		}
 		break;
@@ -533,13 +583,13 @@ void printlogf(int level, const char *fmt, ...)
  * memory, but kill a process to ensure memory will be
  * available.
  */
-void *s_malloc(size_t size)
+void *s_malloc(const struct log *log, size_t size)
 {
 	void *r = malloc(size);
 
 	if (r == NULL) {
-		printlogf(ERROR, "Out of memory!");
-		terminate(LSYNCD_OUTOFMEMORY);
+		printlogf(log, ERROR, "Out of memory!");
+		terminate(log, LSYNCD_OUTOFMEMORY);
 	}
 
 	return r;
@@ -548,13 +598,13 @@ void *s_malloc(size_t size)
 /**
  * "secured" calloc.
  */
-void *s_calloc(size_t nmemb, size_t size)
+void *s_calloc(const struct log *log, size_t nmemb, size_t size)
 {
 	void *r = calloc(nmemb, size);
 
 	if (r == NULL) {
-		printlogf(ERROR, "Out of memory!");
-		terminate(LSYNCD_OUTOFMEMORY);
+		printlogf(log, ERROR, "Out of memory!");
+		terminate(log, LSYNCD_OUTOFMEMORY);
 	}
 
 	return r;
@@ -563,13 +613,13 @@ void *s_calloc(size_t nmemb, size_t size)
 /**
  * "secured" realloc.
  */
-void *s_realloc(void *ptr, size_t size)
+void *s_realloc(const struct log *log, void *ptr, size_t size)
 {
 	void *r = realloc(ptr, size);
 
 	if (r == NULL) {
-		printlogf(ERROR, "Out of memory!");
-		terminate(LSYNCD_OUTOFMEMORY);
+		printlogf(log, ERROR, "Out of memory!");
+		terminate(log, LSYNCD_OUTOFMEMORY);
 	}
 
 	return r;
@@ -578,13 +628,13 @@ void *s_realloc(void *ptr, size_t size)
 /**
  * "secured" strdup.
  */
-char *s_strdup(const char* src)
+char *s_strdup(const struct log *log, const char *src)
 {
 	char *s = strdup(src);
 
 	if (s == NULL) {
-		printlogf(ERROR, "Out of memory!");
-		terminate(LSYNCD_OUTOFMEMORY);
+		printlogf(log, ERROR, "Out of memory!");
+		terminate(log, LSYNCD_OUTOFMEMORY);
 	}
 
 	return s;
@@ -594,9 +644,9 @@ char *s_strdup(const char* src)
  * Returns the canonicalized path of a directory with a final '/', 
  * Makes sure it is a directory.
  */
-char *realdir(const char * dir) 
+char *realdir(const struct log *log, const char *dir) 
 {
-	char* cs = s_malloc(PATH_MAX+1);
+	char* cs = s_malloc(log, PATH_MAX+1);
 	cs = realpath(dir, cs);
 
 	if (cs == NULL) {
@@ -632,29 +682,35 @@ char *realdir(const char * dir)
  *
  * @return the pointer to the newly allocated dir_conf
  */
-struct dir_conf * new_dir_conf() {
-	if (dir_conf_n > 0) {
-		dir_conf_n++;
-		dir_confs = s_realloc(dir_confs, dir_conf_n * sizeof(struct dir_conf));
-		memset(&dir_confs[dir_conf_n - 1], 0, sizeof(struct dir_conf));
+struct dir_conf * new_dir_conf(struct global_options *opts) {
+	const struct log* log = &opts->log;
+
+	if (opts->dir_conf_n > 0) {
+		// enhance allocated space by 1.
+		opts->dir_conf_n++;
+		opts->dir_confs = s_realloc(log, opts->dir_confs, opts->dir_conf_n * sizeof(struct dir_conf));
+		memset(opts->dir_confs + opts->dir_conf_n - 1, 0, sizeof(struct dir_conf));
 		// creates targets NULL terminator (no targets yet)
-		dir_confs[dir_conf_n - 1].targets = s_calloc(1, sizeof(char *));
-		return &dir_confs[dir_conf_n - 1];
+		opts->dir_confs[opts->dir_conf_n - 1].targets = s_calloc(log, 1, sizeof(char *));
+		return opts->dir_confs + opts->dir_conf_n - 1;
+	} else {
+		// create the memory.
+		opts->dir_conf_n = 1;
+		opts->dir_confs = s_calloc(log, opts->dir_conf_n, sizeof(struct dir_conf));
+		// creates targets NULL terminator (no targets yet)
+		opts->dir_confs[0].targets = s_calloc(log, 1, sizeof(char *));
+		return opts->dir_confs;
 	}
-	dir_conf_n++;
-	dir_confs = s_calloc(dir_conf_n, sizeof(struct dir_conf));
-	// creates targets NULL terminator (no targets yet)
-	dir_confs[0].targets = s_calloc(1, sizeof(char *));
-	return dir_confs;
 }
 
 /**
- * Adds a target to a dir_conf. target string will duped.
+ * Adds a target to a dir_conf.target.
+ * *target string will duped.
  *
  * @param dir_conf   dir_conf to add the target to.
  * @param target     target to add.
  */
-void dir_conf_add_target(struct dir_conf * dir_conf, char *target)
+void dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *target)
 {
 	char **t;
 	int target_n = 0;
@@ -664,8 +720,8 @@ void dir_conf_add_target(struct dir_conf * dir_conf, char *target)
 		target_n++;
 	}
 
-	dir_conf->targets = s_realloc(dir_conf->targets, (target_n + 2) * sizeof(char *));
-	dir_conf->targets[target_n] = s_strdup(target);
+	dir_conf->targets = s_realloc(log, dir_conf->targets, (target_n + 2) * sizeof(char *));
+	dir_conf->targets[target_n] = s_strdup(log, target);
 	dir_conf->targets[target_n + 1] = NULL;
 }
 
@@ -679,10 +735,10 @@ void dir_conf_add_target(struct dir_conf * dir_conf, char *target)
  * @param watch         the index in dir_watches to the directory.
  * @param alarm         times() when the directory should be acted.
  */
-bool append_tackle(int watch, clock_t alarm) {
-	printlogf(DEBUG, "add tackle(%d)", watch);
+bool append_tackle(const struct log *log, int watch, clock_t alarm) {
+	printlogf(log, DEBUG, "add tackle(%d)", watch);
 	if (dir_watches[watch].tackled) {
-		printlogf(DEBUG, "ignored since already tackled.", watch);
+		printlogf(log, DEBUG, "ignored since already tackled.", watch);
 		return false;
 	}
 	dir_watches[watch].tackled = true;
@@ -690,7 +746,7 @@ bool append_tackle(int watch, clock_t alarm) {
 
 	if (tackle_num + 1 >= tackle_size) {
 		tackle_size *= 2;
-		tackles = s_realloc(tackles, tackle_size*sizeof(int));
+		tackles = s_realloc(log, tackles, tackle_size*sizeof(int));
 	}
 	tackles[tackle_num++] = watch;
 	return true;
@@ -714,10 +770,10 @@ void remove_first_tackle() {
  *
  * @param watch         the index in dir_watches to the directory.
  */
-bool append_tosync_watch(int watch) {
+bool append_tosync_watch(const struct log *log, int watch) {
 	int i;
 
-	printlogf(DEBUG, "append_tosync_watch(%d)", watch);
+	printlogf(log, DEBUG, "append_tosync_watch(%d)", watch);
 	// look if its already in the tosync list.
 	for(i = 0; i < tosync_pos; i++) {
 		if (tosync[i] == watch) {
@@ -727,7 +783,7 @@ bool append_tosync_watch(int watch) {
 
 	if (tosync_pos + 1 >= tosync_size) {
 		tosync_size *= 2;
-		tosync = s_realloc(tosync, tosync_size*sizeof(int));
+		tosync = s_realloc(log, tosync, tosync_size*sizeof(int));
 	}
 
 	tosync[tosync_pos++] = watch;
@@ -744,9 +800,9 @@ bool append_tosync_watch(int watch) {
  *
  * @return a newly allocated string.
  */
-char *parse_option_text(char *text, bool recursive)
+char *parse_option_text(const struct log *log, char *text, bool recursive)
 {
-	char * str = s_strdup(text);
+	char * str = s_strdup(log, text);
 	char * chr; // search result for %.
 
 	// replace all '%' specifiers with there special meanings
@@ -762,9 +818,9 @@ char *parse_option_text(char *text, bool recursive)
 			break;
 		case 0:    // wtf, '%' was at the end of the string!
 		default :  // unknown char
-			printlogf(ERROR, 
+			printlogf(log, ERROR, 
 			          "don't know how to handle '\%' specifier in \"%s\"!", *text);
-			terminate(LSYNCD_BADPARAMETERS);
+			terminate(log, LSYNCD_BADPARAMETERS);
 		}
 	}
 	return str;
@@ -776,7 +832,7 @@ char *parse_option_text(char *text, bool recursive)
  * @param argv the arguments
  * @param argc number of arguments
  */
-char* get_arg_str(char **argv, int argc) {
+char* get_arg_str(const struct log *log, char **argv, int argc) {
 	int i;
 	int len = 0;
 	char * str;
@@ -787,7 +843,7 @@ char* get_arg_str(char **argv, int argc) {
 	}
 
     // alloc 
-	str = s_malloc(len + 2 * argc + 1);
+	str = s_malloc(log, len + 2 * argc + 1);
 		
 	str[0] = 0;
 	for(i = 0; i < argc; i++) {
@@ -808,8 +864,11 @@ char* get_arg_str(char **argv, int argc) {
  * @param dest      Destination string,
  * @param recursive If true -r will be handled on, -d (single directory) otherwise
  * @return true if successful, false if not.
+ *
+ * TODO change dir_conf and src pointer simply to index offset.
  */
-bool action(struct dir_conf * dir_conf, 
+bool action(const struct global_options *opts,
+            struct dir_conf * dir_conf, 
             char const * src, 
             const char * dest, 
             bool recursive)
@@ -821,52 +880,51 @@ bool action(struct dir_conf * dir_conf,
 	int argc = 0;
 	int i;
 	struct call_option* optp;
+	const struct log* log = &opts->log;
 	
-	optp = dir_conf->callopts ? dir_conf->callopts : default_callopts;
-	
-	argv[argc++] = s_strdup(dir_conf->binary ? dir_conf->binary : default_binary);
+	optp = dir_conf->callopts ? dir_conf->callopts : opts->default_callopts;
+
+	// makes a copy of all call parameters
+	// step 1 binary itself
+	argv[argc++] = s_strdup(log, dir_conf->binary ? dir_conf->binary : opts->default_binary);
+	// now all other parameters
 	for(; optp->kind != CO_EOL; optp++) {
 		switch (optp->kind) {
 		case CO_TEXT :
-			argv[argc++] = parse_option_text(optp->text, recursive);
+			argv[argc++] = parse_option_text(log, optp->text, recursive);
 			continue;
 		case CO_EXCLUDE :
 		    // --exclude-from and the exclude file
 		    // insert only when the exclude file is present otherwise skip it.
-			if (dir_conf->exclude_file == NULL && default_exclude_file == NULL) {
+			if (dir_conf->exclude_file == NULL && opts->default_exclude_file == NULL) {
 				continue;
 			}
-			argv[argc++] = s_strdup("--exclude-from");
-			argv[argc++] = s_strdup(dir_conf->exclude_file ? dir_conf->exclude_file : default_exclude_file); 
+			argv[argc++] = s_strdup(log, "--exclude-from");
+			argv[argc++] = s_strdup(log, dir_conf->exclude_file ? dir_conf->exclude_file : opts->default_exclude_file); 
 			continue;
 		case CO_SOURCE :
-			argv[argc++] = s_strdup(src);
+			argv[argc++] = s_strdup(log, src);
 			continue;
 		case CO_DEST :
-			argv[argc++] = s_strdup(dest);
+			argv[argc++] = s_strdup(log, dest);
 			continue;
 		default:
 			assert(false);
 		}
 		if (argc >= MAX_ARGS) {
 			/* check for error condition */
-			printlogf(ERROR, 
+			printlogf(log, ERROR, 
 			          "Internal error: too many (>%i) options passed", argc);
 			return false;
 		}
 	}
 	argv[argc++] = NULL;
 
-	/* debug dump of command-line options */
-	//for (i=0; i<argc; ++i) {
-	//  printlogf(DEBUG, "exec parameter %i:%s", i, argv[i]);
-	//}
-
-	if (flag_dryrun) {
+	if (opts->flag_dryrun) {
 		// just make a nice log message
-		char * binary = dir_conf->binary ? dir_conf->binary : default_binary;
-		char * argall = get_arg_str(argv, argc);
-		printlogf(NORMAL, "dry run: would call %s(%s)", binary, argall); 
+		char * binary = dir_conf->binary ? dir_conf->binary : opts->default_binary;
+		char * argall = get_arg_str(log, argv, argc);
+		printlogf(log, NORMAL, "dry run: would call %s(%s)", binary, argall); 
 		free(argall);
 		for (i = 0; i < argc; ++i) {
 			if (argv[i]) {
@@ -879,20 +937,20 @@ bool action(struct dir_conf * dir_conf,
 	pid = fork();
 
 	if (pid == 0) {
-		char * binary = dir_conf->binary ? dir_conf->binary : default_binary;
-		if (!flag_nodaemon && logfile) {
-			if (!freopen(logfile, "a", stdout)) {
-				printlogf(ERROR, "cannot redirect stdout to [%s].", logfile);
+		char * binary = dir_conf->binary ? dir_conf->binary : opts->default_binary;
+		if (!log->flag_nodaemon && log->logfile) {
+			if (!freopen(log->logfile, "a", stdout)) {
+				printlogf(log, ERROR, "cannot redirect stdout to [%s].", log->logfile);
 			}
-			if (!freopen(logfile, "a", stderr)) {
-				printlogf(ERROR, "cannot redirect stderr to [%s].", logfile);
+			if (!freopen(log->logfile, "a", stderr)) {
+				printlogf(log, ERROR, "cannot redirect stderr to [%s].", log->logfile);
 			}
 		}
 
 		execv(binary, argv);
 		// in a sane world execv does not return!
-		printlogf(ERROR, "Failed executing [%s]", binary);
-		terminate(LSYNCD_INTERNALFAIL);
+		printlogf(log, ERROR, "Failed executing [%s]", binary);
+		terminate(log, LSYNCD_INTERNALFAIL);
 	}
 
 	// free the memory from the arguments.
@@ -905,18 +963,18 @@ bool action(struct dir_conf * dir_conf,
 	waitpid(pid, &status, 0);
 	assert(WIFEXITED(status));
 	if (WEXITSTATUS(status) == LSYNCD_INTERNALFAIL){
-		printlogf(ERROR, 
+		printlogf(log, ERROR, 
 		          "Fork exit code of %i, execv failure", 
 		          WEXITSTATUS(status));
 		return false;
 	} else if (WEXITSTATUS(status)) {
-		printlogf(NORMAL, 
+		printlogf(log, NORMAL, 
 		          "Forked binary process returned non-zero return code: %i", 
 		          WEXITSTATUS(status));
 		return false;
 	}
 
-	printlogf(DEBUG, "Rsync of [%s] -> [%s] finished", src, dest);
+	printlogf(log, DEBUG, "Rsync of [%s] -> [%s] finished", src, dest);
 	return true;
 }
 
@@ -930,7 +988,8 @@ bool action(struct dir_conf * dir_conf,
  *
  * @return index to dir_watches of the new dir, -1 on error.
  */
-int add_watch(char const * pathname, 
+int add_watch(const struct log *log,
+              char const * pathname, 
               char const * dirname, 
               int parent, 
               struct dir_conf * dir_conf)
@@ -944,7 +1003,7 @@ int add_watch(char const * pathname,
 	                       IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR);
 
 	if (wd == -1) {
-		printlogf(ERROR, "Cannot add watch %s (%d:%s)", 
+		printlogf(log, ERROR, "Cannot add watch %s (%d:%s)", 
 		          pathname, errno, strerror(errno));
 		return -1;
 	}
@@ -959,7 +1018,7 @@ int add_watch(char const * pathname,
 	if (newdw == dir_watch_num) {
 		if (dir_watch_num + 1 >= dir_watch_size) {
 			dir_watch_size *= 2;
-			dir_watches = s_realloc(dir_watches, 
+			dir_watches = s_realloc(log, dir_watches, 
 			                        dir_watch_size * sizeof(struct dir_watch));
 		}
 
@@ -968,7 +1027,7 @@ int add_watch(char const * pathname,
 
 	dir_watches[newdw].wd = wd;
 	dir_watches[newdw].parent = parent;
-	dir_watches[newdw].dirname = s_strdup(dirname);
+	dir_watches[newdw].dirname = s_strdup(log, dirname);
 	dir_watches[newdw].dir_conf = dir_conf;
 	dir_watches[newdw].alarm = 0; // not needed, just to be clear
 	dir_watches[newdw].tackled = false;
@@ -1034,7 +1093,8 @@ int builddir(char *pathname, int pathsize, int watch, char const * prefix)
  * @param dirname       if not NULL it is added at the end of pathname
  * @param prefix        if not NULL it is added at the beginning of pathname
  */
-bool buildpath(char *pathname,
+bool buildpath(const struct log *log, 
+               char *pathname,
                int pathsize,
                int watch,
                const char *dirname,
@@ -1042,17 +1102,17 @@ bool buildpath(char *pathname,
 {
 	int len = builddir(pathname, pathsize, watch, prefix);
 	if (len < 0) {
-		printlogf(ERROR, "path too long!");
+		printlogf(log, ERROR, "path too long!");
 		return false;
 	}
 	if (dirname) {
 		if (pathsize < len + strlen(dirname) + 1) {
-			printlogf(ERROR, "path too long!");
+			printlogf(log, ERROR, "path too long!");
 			return false;
 		}
 		strcat(pathname, dirname);
 	}
-	printlogf(DEBUG, "  BUILDPATH(%d, %s, %s) -> %s", watch, dirname, prefix, pathname);
+	printlogf(log, DEBUG, "  BUILDPATH(%d, %s, %s) -> %s", watch, dirname, prefix, pathname);
 	return true;
 }
 
@@ -1066,27 +1126,28 @@ bool buildpath(char *pathname,
  *
  * @returns true when all targets were successful.
  */
-bool rsync_dir(int watch)
+bool rsync_dir(const struct global_options *opts, int watch)
 {
 	char pathname[PATH_MAX+1];
 	char destname[PATH_MAX+1];
 	bool status = true;
 	char ** target;
+	const struct log *log = &opts->log;
 
-	if (!buildpath(pathname, sizeof(pathname), watch, NULL, NULL)) {
+	if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
 		return false;
 	}
 
 	for (target = dir_watches[watch].dir_conf->targets; *target; target++) {
-		if (!buildpath(destname, sizeof(destname), watch, NULL, *target)) {
+		if (!buildpath(log, destname, sizeof(destname), watch, NULL, *target)) {
 			status = false;
 			continue;
 		}
-		printlogf(NORMAL, "rsyncing %s --> %s", pathname, destname);
+		printlogf(log, NORMAL, "rsyncing %s --> %s", pathname, destname);
 
 		// call rsync to propagate changes in the directory
-		if (!action(dir_watches[watch].dir_conf, pathname, destname, false)) {
-			printlogf(ERROR, "Rsync from %s to %s failed", pathname, destname);
+		if (!action(opts, dir_watches[watch].dir_conf, pathname, destname, false)) {
+			printlogf(log, ERROR, "Rsync from %s to %s failed", pathname, destname);
 			status = false;
 		}
 	}
@@ -1102,23 +1163,24 @@ bool rsync_dir(int watch)
  * @param watch   the index in dir_watches to the directory.
  * @param alarm   times() when the directory handling should be fired.
  */
-void tackle_dir(int watch, clock_t alarm)
+void tackle_dir(const struct global_options *opts, int watch, clock_t alarm)
 {
 	char pathname[PATH_MAX+1];
+	const struct log *log = &opts->log;
 	
 	if (delay == 0) {
-		rsync_dir(watch);
+		rsync_dir(opts, watch);
 		return;
 	}
 
-	if (!buildpath(pathname, sizeof(pathname), watch, NULL, NULL)) {
+	if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
 		return;
 	}
 
-	if (append_tackle(watch, alarm)) {
-		printlogf(NORMAL, "Putted %s on a delay", pathname);
+	if (append_tackle(log, watch, alarm)) {
+		printlogf(log, NORMAL, "Putted %s on a delay", pathname);
 	} else {
-		printlogf(NORMAL, "Not acted on %s already on delay", pathname);
+		printlogf(log, NORMAL, "Not acted on %s already on delay", pathname);
 	}
 }
 
@@ -1128,11 +1190,12 @@ void tackle_dir(int watch, clock_t alarm)
  * @param dirname   The name or absolute path of the directory to watch.
  * @param parent    If not -1, the index in dir_watches to the parent directory already watched.
  *                  Must have absolute path if parent == -1.
+ * @param dir_conf  ???  TODO
  *
- * @return the index in dir_watches off the directory or -1 on fail.
+ * @returns the index in dir_watches of the directory or -1 on fail.
  *
  */
-int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
+int add_dirwatch(const struct log *log, char const *dirname, int parent, struct dir_conf *dir_conf)
 {
 	DIR *d;
 
@@ -1140,36 +1203,36 @@ int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
 	int dw, i;
 	char pathname[PATH_MAX+1];
 
-	printlogf(DEBUG, "add_dirwatch(%s, p->dirname:%s, ...)", 
+	printlogf(log, DEBUG, "add_dirwatch(%s, p->dirname:%s, ...)", 
 	          dirname,
 	          parent >= 0 ? dir_watches[parent].dirname : "NULL");
 
-	if (!buildpath(pathname, sizeof(pathname), parent, dirname, NULL)) {
+	if (!buildpath(log, pathname, sizeof(pathname), parent, dirname, NULL)) {
 		return -1;
 	}
 
 	for (i = 0; i < exclude_dir_n; i++) {
 		if (!strcmp(pathname, exclude_dirs[i])) {
-			printlogf(NORMAL, "Excluding %s", pathname);
+			printlogf(log, NORMAL, "Excluding %s", pathname);
 			return -1;
 		}
-		printlogf(DEBUG, "comparing %s with %s not an exclude so far.", pathname, exclude_dirs[i]);
+		printlogf(log, DEBUG, "comparing %s with %s not an exclude so far.", pathname, exclude_dirs[i]);
 	}
 
-	dw = add_watch(pathname, dirname, parent, dir_conf);
+	dw = add_watch(log, pathname, dirname, parent, dir_conf);
 	if (dw == -1) {
 		return -1;
 	}
 
 	if (strlen(pathname) + strlen(dirname) + 2 > sizeof(pathname)) {
-		printlogf(ERROR, "pathname too long %s//%s", pathname, dirname);
+		printlogf(log, ERROR, "pathname too long %s//%s", pathname, dirname);
 		return -1;
 	}
 
 	d = opendir(pathname);
 
 	if (d == NULL) {
-		printlogf(ERROR, "cannot open dir %s.", dirname);
+		printlogf(log, ERROR, "cannot open dir %s.", dirname);
 		return -1;
 	}
 
@@ -1189,7 +1252,7 @@ int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
 		} else if (de->d_type == DT_UNKNOWN) {
 			// in case of reiserfs, d_type will be UNKNOWN, how evil! :-(
 			// use traditional means to determine if its a directory.
-			isdir = buildpath(subdir, sizeof(subdir), dw, de->d_name, NULL) && 
+			isdir = buildpath(log, subdir, sizeof(subdir), dw, de->d_name, NULL) && 
 			        !stat(subdir, &st) && 
 			        S_ISDIR(st.st_mode);
 		} else {
@@ -1198,11 +1261,11 @@ int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
 
 		// add watches if its a directory and not . or ..
 		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
-			int ndw = add_dirwatch(de->d_name, dw, dir_conf);
-			printlogf(NORMAL, 
+			int ndw = add_dirwatch(log, de->d_name, dw, dir_conf);
+			printlogf(log, NORMAL, 
 			          "found new directory: %s in %s -- %s", 
 			          de->d_name, dirname, ndw >= 0 ? "added on tosync stack" : "ignored it");
-			append_tosync_watch(ndw);
+			append_tosync_watch(log, ndw);
 		}
 	}
 
@@ -1219,7 +1282,7 @@ int add_dirwatch(char const * dirname, int parent, struct dir_conf * dir_conf)
  *               directory 'name' to remove, or to be removed 
  *               itself if name == NULL.
  */
-bool remove_dirwatch(const char * name, int parent)
+bool remove_dirwatch(const struct log *log, const char * name, int parent)
 {
 	int i;
 	int dw;
@@ -1236,7 +1299,7 @@ bool remove_dirwatch(const char * name, int parent)
 		}
 
 		if (i >= dir_watch_num) {
-			printlogf(ERROR, "Cannot find entry for %s:/:%s :-(", 
+			printlogf(log, ERROR, "Cannot find entry for %s:/:%s :-(", 
 			          dir_watches[parent].dirname, name);
 			return false;
 		}
@@ -1246,7 +1309,7 @@ bool remove_dirwatch(const char * name, int parent)
 
 	for (i = 0; i < dir_watch_num; i++) {
 		if (dir_watches[i].wd >= 0 && dir_watches[i].parent == dw) {
-			remove_dirwatch(NULL, i);
+			remove_dirwatch(log, NULL, i);
 		}
 	}
 
@@ -1296,41 +1359,44 @@ int get_dirwatch_offset(int wd) {
 /**
  * Processes through the tosync stack, rysncing all its directories.
  *
- * TODO: make special logic to determine who is a subdirectory of whom, and maybe optimizie calls.
+ * @param alarm   times() when the directory handling should be fired.
  */
-bool process_tosync_stack(clock_t alarm)
+bool process_tosync_stack(const struct global_options *opts, clock_t alarm)
 {
-	printlogf(DEBUG, "Processing through tosync stack.");
+	const struct log *log = &opts->log;
+
+	printlogf(log, DEBUG, "Processing through tosync stack.");
 	while(tosync_pos > 0) {
-		tackle_dir(tosync[--tosync_pos], alarm);
+		tackle_dir(opts, tosync[--tosync_pos], alarm);
 	}
-	printlogf(DEBUG, "being done with tosync stack");
+	printlogf(log, DEBUG, "being done with tosync stack");
+
 	return true;
 }
 
 
 /**
  * Handles an inotify event.
- *
+ * 
+ * @param opts    Global options.
  * @param event   The event to handle
- * @param alarm   times() moment t
+ * @param alarm   times() moment when it should fire.
  */
-bool handle_event(struct inotify_event *event, clock_t alarm)
+bool handle_event(const struct global_options *opts, struct inotify_event *event, clock_t alarm)
 {
 	char masktext[255] = {0,};
-
 	int mask = event->mask;
 	int i, watch;
 	int subwatch = -1;
-
 	struct inotify_mask_text *p;
+	const struct log *log = &opts->log;
 
 	// creates a string for logging that shows which flags 
 	// were raised in the event
 	for (p = mask_texts; p->mask; p++) {
 		if (mask & p->mask) {
 			if (strlen(masktext) + strlen(p->text) + 3 >= sizeof(masktext)) {
-				printlogf(ERROR, "bufferoverflow in handle_event");
+				printlogf(log, ERROR, "bufferoverflow in handle_event");
 				return false;
 			}
 
@@ -1341,7 +1407,7 @@ bool handle_event(struct inotify_event *event, clock_t alarm)
 			strcat(masktext, p->text);
 		}
 	}
-	printlogf(DEBUG, "inotfy event: %s:%s", masktext, event->name);
+	printlogf(log, DEBUG, "inotfy event: %s:%s", masktext, event->name);
 
 	if (IN_IGNORED & event->mask) {
 		return true;
@@ -1357,7 +1423,7 @@ bool handle_event(struct inotify_event *event, clock_t alarm)
 	watch = get_dirwatch_offset(event->wd);
 	if (watch == -1) {
 		// this should not happen!
-		printlogf(ERROR, 
+		printlogf(log, ERROR, 
 		          "received an inotify event that doesnt match any watched directory :-(%d,%d)", 
 		          event->mask, event->wd);
 		return false;
@@ -1365,35 +1431,37 @@ bool handle_event(struct inotify_event *event, clock_t alarm)
 
 	// in case of a new directory create new watches
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		subwatch = add_dirwatch(event->name, watch, dir_watches[watch].dir_conf);
+		subwatch = add_dirwatch(log, event->name, watch, dir_watches[watch].dir_conf);
 	}
 
 	// in case of a removed directory remove watches
 	if (((IN_DELETE | IN_MOVED_FROM) & event->mask) && (IN_ISDIR & event->mask)) {
-		remove_dirwatch(event->name, watch);
+		remove_dirwatch(log, event->name, watch);
 	}
 	
 	// call the binary if something changed
 	if ((IN_ATTRIB | IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | 
 	     IN_MOVED_TO | IN_MOVED_FROM) & event->mask
 	   ) {
-		printlogf(NORMAL, "event %s:%s triggered.", masktext, event->name);
+		printlogf(log, NORMAL, "event %s:%s triggered.", masktext, event->name);
 
-		tackle_dir(watch, alarm); 
+		tackle_dir(opts, watch, alarm); 
 		if (subwatch >= 0) {     // sync through the new created directory as well.
-			tackle_dir(subwatch, alarm);
+			tackle_dir(opts, subwatch, alarm);
 		}
 	} else {
-		printlogf(DEBUG, "... ignored this event.");
+		printlogf(log, DEBUG, "... ignored this event.");
 	}
-	process_tosync_stack(alarm);
+	process_tosync_stack(opts, alarm);
 	return true;
 }
 
 /**
  * The control loop waiting for inotify events.
+ *
+ * @param opts    Global options.
  */
-bool master_loop()
+bool master_loop(const struct global_options *opts)
 {
 	char buf[INOTIFY_BUF_LEN];
 	int len, i = 0;
@@ -1404,17 +1472,18 @@ bool master_loop()
 	clock_t now;
 	clock_t alarm;
 	int ready;
+	const struct log *log = &opts->log;
 			
 	FD_ZERO(&readfds);
 	FD_SET(inotf, &readfds);
 
 	if (delay > 0) {
 		if (clocks_per_sec <= 0) {
-			printlogf(ERROR, "Clocks per seoond invalid! %d", printlogf);
-			terminate(LSYNCD_INTERNALFAIL);
+			printlogf(log, ERROR, "Clocks per seoond invalid! %d", printlogf);
+			terminate(log, LSYNCD_INTERNALFAIL);
 		}
 		tackle_size = 2;
-		tackles = s_calloc(tackle_size, sizeof(int));
+		tackles = s_calloc(log, tackle_size, sizeof(int));
 		tackle_num = 0;
 	}
 
@@ -1447,7 +1516,7 @@ bool master_loop()
 		}
 
 		if (len < 0) {
-			printlogf(ERROR, "failed to read from inotify (%d:%s)", errno, strerror(errno));
+			printlogf(log, ERROR, "failed to read from inotify (%d:%s)", errno, strerror(errno));
 			return false;
 		}
 
@@ -1458,13 +1527,15 @@ bool master_loop()
 		i = 0;
 		while (i < len) {
 			struct inotify_event *event = (struct inotify_event *) &buf[i];
-			handle_event(event, alarm);
+			handle_event(opts, event, alarm);
 			i += sizeof(struct inotify_event) + event->len;
 		}
 
+		// then check through all events on the 
+		// "tackle FIFO" if they expired.
 		while (tackle_num > 0 && time_after(times(NULL), dir_watches[tackles[0]].alarm)) {
-			printlogf(DEBUG, "time for %d arrived.", tackles[0]);
-			rsync_dir(tackles[0]);
+			printlogf(log, DEBUG, "time for %d arrived.", tackles[0]);
+			rsync_dir(opts, tackles[0]);
 			remove_first_tackle();
 		}
 	}
@@ -1477,12 +1548,12 @@ bool master_loop()
  *
  * @param filename  filename to check
  */
-void check_file_exists(const char* filename, const char *errmsg)
+void check_file_exists(const struct log* log, const char* filename, const char *errmsg)
 {
 	struct stat st;
 	if (-1==stat(filename, &st)) {
-		printlogf(ERROR, "%s [%s] does not exist.\n", filename);
-		terminate(LSYNCD_FILENOTFOUND);
+		printlogf(log, ERROR, "%s [%s] does not exist.\n", filename);
+		terminate(log, LSYNCD_FILENOTFOUND);
 	}
 }
 
@@ -1490,16 +1561,16 @@ void check_file_exists(const char* filename, const char *errmsg)
 /**
  * Utility function to check given path is absolute path.
  *
- * @param filename  filename to check
+ * @param filename  Filename to check
+ * @param errmsg    Filetype text to prepend to the error message.
  */
-void check_absolute_path(const char* filename, const char *errmsg)
+void check_absolute_path(const struct log* log, const char* filename, const char *filetype)
 {
 	if (filename[0] != '/') {
-		printlogf(ERROR, "%s [%s] has do be an absolute path.\n", errmsg, filename);
-		terminate(LSYNCD_FILENOTFOUND);
+		printlogf(log, ERROR, "%s [%s] has do be an absolute path.\n", filetype, filename);
+		terminate(log, LSYNCD_FILENOTFOUND);
 	}
 }
-
 
 /**
  * Prints the help text and exits 0.
@@ -1525,11 +1596,10 @@ void print_help(char *arg0)
 #endif
 	printf("\n");
 	printf("OPTIONS:\n");
-	printf("  --binary FILE          Call this binary to sync (DEFAULT: %s)\n", 
-	       default_binary);
+	printf("  --binary FILE          Call this binary to sync " "(DEFAULT: %s)\n", DEFAULT_BINARY);
 #ifdef XML_CONFIG
 	printf("   --conf FILE           Load configuration from this file\n");
-	printf("                         (DEFAULT: %s if called without SOURCE/TARGET)\n", conf_filename);
+	printf("                         (DEFAULT: %s if called without SOURCE/TARGET)\n", DEFAULT_CONF_FILENAME);
 #endif
 	printf("  --debug                Log debug messages\n");
 	printf("  --delay SECS           Delay between event and action\n");
@@ -1570,7 +1640,7 @@ void print_help(char *arg0)
  *
  * @return the allocated and filled calloptions structure
  */
-struct call_option * parse_callopts(xmlNodePtr node) {
+struct call_option * parse_callopts(struct global_options *opts, xmlNodePtr node) {
 	xmlNodePtr cnode;
 	xmlChar *xc;
 	int opt_n = 0;
@@ -1586,13 +1656,13 @@ struct call_option * parse_callopts(xmlNodePtr node) {
 		    xmlStrcmp(cnode->name, BAD_CAST "source") &&
 		    xmlStrcmp(cnode->name, BAD_CAST "destination")
 		   ) {
-			printlogf(ERROR, "error unknown call option type \"%s\"", cnode->name);
-			terminate(LSYNCD_BADCONFIGFILE);
+			printlogf(NULL, ERROR, "error unknown call option type \"%s\"", cnode->name);
+			terminate(NULL, LSYNCD_BADCONFIGFILE);
 		}
 		opt_n++;
 	}
 	opt_n++;
-	asw = (struct call_option *) s_calloc(opt_n, sizeof(struct call_option));
+	asw = (struct call_option *) s_calloc(NULL, opt_n, sizeof(struct call_option));
 
 	// fill in the answer
 	opt_n = 0;
@@ -1604,11 +1674,11 @@ struct call_option * parse_callopts(xmlNodePtr node) {
 		if (!xmlStrcmp(cnode->name, BAD_CAST "option")) {
 			xc = xmlGetProp(cnode, BAD_CAST "text");
 			if (xc == NULL) {
-				printlogf(ERROR, "error in config file: text attribute missing from <option/>\n");
-				terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: text attribute missing from <option/>\n");
+				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
 			asw[opt_n].kind = CO_TEXT;
-			asw[opt_n].text = s_strdup((char *) xc);
+			asw[opt_n].text = s_strdup(NULL, (char *) xc);
 		} else if (!xmlStrcmp(cnode->name, BAD_CAST "exclude-file")) {
 			asw[opt_n].kind = CO_EXCLUDE;
 		} else if (!xmlStrcmp(cnode->name, BAD_CAST "source")) {
@@ -1628,10 +1698,10 @@ struct call_option * parse_callopts(xmlNodePtr node) {
 /**
  * Parses <diretory>
  */
-bool parse_directory(xmlNodePtr node) {
+bool parse_directory(struct global_options *opts, xmlNodePtr node) {
 	xmlNodePtr dnode;
 	xmlChar *xc;
-	struct dir_conf * dc = new_dir_conf();
+	struct dir_conf * dc = new_dir_conf(opts);
 	for (dnode = node->children; dnode; dnode = dnode->next) {
 		if (dnode->type != XML_ELEMENT_NODE) {
 			continue;
@@ -1639,55 +1709,55 @@ bool parse_directory(xmlNodePtr node) {
 		if (!xmlStrcmp(dnode->name, BAD_CAST "source")) {
 			xc = xmlGetProp(dnode, BAD_CAST "path");
 			if (xc == NULL) {
-				printlogf(ERROR, "error in config file: attribute path missing from <source>\n");
-				terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: attribute path missing from <source>\n");
+				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
 			if (dc->source) {
-				printlogf(ERROR, "error in config file: cannot have more than one source in one <directory>\n");
-				terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: cannot have more than one source in one <directory>\n");
+				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
 			// TODO: use realdir() on xc
-			dc->source = s_strdup((char *) xc);
+			dc->source = s_strdup(NULL, (char *) xc);
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "target")) {
 			xc = xmlGetProp(dnode, BAD_CAST "path");
 			if (xc == NULL) {
-				printlogf(ERROR, "error in config file: attribute path missing from <target>\n");
-		        terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: attribute path missing from <target>\n");
+		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			dir_conf_add_target(dc, (char *) xc);
+			dir_conf_add_target(NULL, dc, (char *) xc);
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "binary")) {
 			xc = xmlGetProp(dnode, BAD_CAST "filename");
 			if (xc == NULL) {
-				printlogf(ERROR, "error in config file: attribute filename missing from <binary>\n");
-				terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <binary>\n");
+				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			dc->binary = s_strdup((char *) xc); 
+			dc->binary = s_strdup(NULL, (char *) xc); 
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "exclude-from")) {
 			xc = xmlGetProp(dnode, BAD_CAST "filename");
 			if (xc == NULL) {
-				printlogf(ERROR, "error in config file: attribute filename missing from <exclude-from>\n");
-				terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <exclude-from>\n");
+				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			dc->exclude_file = s_strdup((char *) xc); 
+			dc->exclude_file = s_strdup(NULL, (char *) xc); 
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "callopts")) {
 			if (dc->callopts) {
-				printlogf(ERROR, "error in config file: there is more than one <callopts> in a <directory>\n");
-				terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: there is more than one <callopts> in a <directory>\n");
+				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			dc->callopts = parse_callopts(dnode);
+			dc->callopts = parse_callopts(opts, dnode);
 		} else {
 			// TODO missing sourcespecific exclude files?
-			printlogf(ERROR, "error in config file: unknown node in <directory> \"%s\"\n", dnode->name);
-			terminate(LSYNCD_BADCONFIGFILE);
+			printlogf(NULL, ERROR, "error in config file: unknown node in <directory> \"%s\"\n", dnode->name);
+			terminate(NULL, LSYNCD_BADCONFIGFILE);
 		}
 	}
 	if (!dc->source) {
-		printlogf(ERROR, "error in config file: source missing from <directory>\n");
-		terminate(LSYNCD_BADCONFIGFILE);
+		printlogf(NULL, ERROR, "error in config file: source missing from <directory>\n");
+		terminate(NULL, LSYNCD_BADCONFIGFILE);
 	}
 	if (dc->targets[0] == NULL) {
-		printlogf(ERROR, "error in config file: target missing from <directory>\n");
-		terminate(LSYNCD_BADCONFIGFILE);
+		printlogf(NULL, ERROR, "error in config file: target missing from <directory>\n");
+		terminate(NULL, LSYNCD_BADCONFIGFILE);
 	}
 	return true;
 }
@@ -1695,7 +1765,7 @@ bool parse_directory(xmlNodePtr node) {
 /**
  * Parses <settings>
  */
-bool parse_settings(xmlNodePtr node) {
+bool parse_settings(struct global_options *opts, xmlNodePtr node) {
 	xmlNodePtr snode;
 	xmlChar *xc;
 
@@ -1704,66 +1774,66 @@ bool parse_settings(xmlNodePtr node) {
 			continue;
 		}
 		if (!xmlStrcmp(snode->name, BAD_CAST "debug")) {
-			loglevel = 1;
+			opts->log.loglevel = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "delay")) {
 			char *p;
 			xc = xmlGetProp(snode, BAD_CAST "value");
 			if (xc == NULL) {
-				printlogf(ERROR, "error in config file: attribute value missing from <delay/>\n");
-		        terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: attribute value missing from <delay/>\n");
+		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
 			delay = strtol((char *) xc, &p, 10);
 			if (*p) {
-				printlogf(ERROR, "<delay> value %s is not an integer.\n", xc);
-		        terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "<delay> value %s is not an integer.\n", xc);
+		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
 			if (delay < 0) {
-				printlogf(ERROR, "<delay> value may not be negative.\n");
-		        terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "<delay> value may not be negative.\n");
+		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "dryrun")) {
-			flag_dryrun = 1;
+			opts->flag_dryrun = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "exclude-from")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
-				printlogf(ERROR, "error in config file: attribute filename missing from <exclude-from/>\n");
-		        terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <exclude-from/>\n");
+		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			default_exclude_file = s_strdup((char *) xc);
+			opts->default_exclude_file = s_strdup(NULL, (char *) xc);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "logfile")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
-				printlogf(ERROR, "error in config file: attribute filename missing from <logfile/>\n");
-		        terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <logfile/>\n");
+		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			logfile = s_strdup((char *) xc);
+			opts->log.logfile = s_strdup(NULL, (char *) xc);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "binary")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
-				printlogf(ERROR, "error in config file: attribute filename missing from <binary/>\n");
-		        terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <binary/>\n");
+		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			default_binary = s_strdup((char *) xc);
+			opts->default_binary = s_strdup(NULL, (char *) xc);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "pidfile")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
-				printlogf(ERROR, "error in config file: attribute filename missing from <pidfile/>\n");
-		        terminate(LSYNCD_BADCONFIGFILE);
+				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <pidfile/>\n");
+		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			pidfile = s_strdup((char *) xc);
+			opts->pidfile = s_strdup(NULL, (char *) xc);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "callopts")) {
-			default_callopts = parse_callopts(snode);
+			opts->default_callopts = parse_callopts(opts, snode);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "scarce")) {
-			loglevel = 3;
+			opts->log.loglevel = 3;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "no-daemon")) {
-			flag_nodaemon = 1;
+			opts->log.flag_nodaemon = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "no-startup")) {
-			flag_nostartup = 1;
+			opts->flag_nostartup = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "stubborn")) {
-			flag_stubborn = 1;
+			opts->flag_stubborn = 1;
 		} else {
-			printlogf(ERROR, "error unknown node in <settings> \"%s\"", snode->name);
-			terminate(LSYNCD_BADCONFIGFILE);
+			printlogf(NULL, ERROR, "error unknown node in <settings> \"%s\"", snode->name);
+			terminate(NULL, LSYNCD_BADCONFIGFILE);
 		}
 	}
 	return true;
@@ -1776,33 +1846,33 @@ bool parse_settings(xmlNodePtr node) {
  *
  * @param fullparse       if false only read globals.
  */
-bool parse_config(bool fullparse) {
+bool parse_config(struct global_options *opts, bool fullparse) {
 	LIBXML_TEST_VERSION
 	xmlDoc *doc = NULL;
 	xmlNode *root_element = NULL;
 	xmlNodePtr node;
 	xmlChar *xc;
 
-	doc = xmlReadFile(conf_filename, NULL, 0);
+	doc = xmlReadFile(opts->conf_filename, NULL, 0);
 	if (doc == NULL) {
-		printlogf(ERROR, "error: could not parse config file \"%s\"\n", conf_filename);
-		terminate(LSYNCD_BADCONFIGFILE);
+		printlogf(NULL, ERROR, "error: could not parse config file \"%s\"\n", opts->conf_filename);
+		terminate(NULL, LSYNCD_BADCONFIGFILE);
 	}
 	root_element = xmlDocGetRootElement(doc);
 
 	// check version specifier
 	if (xmlStrcmp(root_element->name, BAD_CAST "lsyncd")) {
-		printlogf(ERROR, "error in config file: root node is not \"lsyncd\".\n");
-		terminate(LSYNCD_BADCONFIGFILE);
+		printlogf(NULL, ERROR, "error in config file: root node is not \"lsyncd\".\n");
+		terminate(NULL, LSYNCD_BADCONFIGFILE);
 	}
 	xc = xmlGetProp(root_element, BAD_CAST "version");
 	if (xc == NULL) {
-		printlogf(ERROR, "error in config file: version specifier missing in \"%s\",\n", conf_filename);
-		terminate(LSYNCD_BADCONFIGFILE);
+		printlogf(NULL, ERROR, "error in config file: version specifier missing in \"%s\",\n", opts->conf_filename);
+		terminate(NULL, LSYNCD_BADCONFIGFILE);
 	}
 	if (xmlStrcmp(xc, BAD_CAST "1") && xmlStrcmp(xc, BAD_CAST "1.25")) { //1.25, backward stuff
-		printlogf(ERROR, "error in config file: expected a \"1\" versioned file, found \"%s\"\n", xc);
-		terminate(LSYNCD_BADCONFIGFILE);
+		printlogf(NULL, ERROR, "error in config file: expected a \"1\" versioned file, found \"%s\"\n", xc);
+		terminate(NULL, LSYNCD_BADCONFIGFILE);
 	}
 
 	for (node = root_element->children; node; node = node->next) {
@@ -1810,14 +1880,14 @@ bool parse_config(bool fullparse) {
 			continue;
 		}
 		if (!xmlStrcmp(node->name, BAD_CAST "settings")) {
-			parse_settings(node);
+			parse_settings(opts, node);
 		} else if (!xmlStrcmp(node->name, BAD_CAST "directory")) {
 			if (fullparse) {
-				parse_directory(node);
+				parse_directory(opts, node);
 			}
 		} else {
-			printlogf(ERROR, "error in config file: unknown node in <lsyncd> \"%s\"\n", node->name);
-			terminate(LSYNCD_BADCONFIGFILE);
+			printlogf(NULL, ERROR, "error in config file: unknown node in <lsyncd> \"%s\"\n", node->name);
+			terminate(NULL, LSYNCD_BADCONFIGFILE);
 		}
 	}
 
@@ -1835,31 +1905,44 @@ bool parse_config(bool fullparse) {
  * terminates in some cases of badparameters, or on 
  * --version or --help
  */
-void parse_options(int argc, char **argv)
+void parse_options(struct global_options *opts, int argc, char **argv)
 {
 	char **target;
 
 	static struct option long_options[] = {
-		{"binary",       1, NULL,            0}, 
+		{"binary",       1, NULL, 0}, 
 #ifdef XML_CONFIG
-		{"conf",         1, NULL,            0}, 
+		{"conf",         1, NULL, 0}, 
 #endif
-		{"debug",        0, &loglevel,       1}, 
-		{"delay",        1, NULL,            0}, 
-		{"dryrun",       0, &flag_dryrun,    1}, 
-		{"exclude-from", 1, NULL,            0}, 
-		{"help",         0, NULL,            0}, 
-		{"logfile",      1, NULL,            0}, 
-		{"no-daemon",    0, &flag_nodaemon,  1}, 
-		{"no-startup",   0, &flag_nostartup, 1}, 
-		{"pidfile",      1, NULL,            0}, 
-		{"scarce",       0, &loglevel,       3},
-		{"stubborn",     0, &flag_stubborn,  1},
-		{"version",      0, NULL,            0}, 
-		{NULL, 0, NULL, 0}
+		{"debug",        0, NULL, 1},
+		{"delay",        1, NULL, 0}, 
+		{"dryrun",       0, NULL, 1}, 
+		{"exclude-from", 1, NULL, 0}, 
+		{"help",         0, NULL, 0}, 
+		{"logfile",      1, NULL, 0}, 
+		{"no-daemon",    0, NULL, 1}, 
+		{"no-startup",   0, NULL, 1}, 
+		{"pidfile",      1, NULL, 0}, 
+		{"scarce",       0, NULL, 3},
+		{"stubborn",     0, NULL, 1},
+		{"version",      0, NULL, 0}, 
+		{NULL,           0, NULL, 0}
 	};
-
 	bool read_conf = false;
+
+	{
+		// replace NULL targets with actual targets
+		// because compiler wont allow to init with them.
+		struct option *o;
+		for(o = long_options; o->name; o++) {
+			if (!strcmp("debug",      o->name)) o->flag = &opts->log.loglevel;
+			if (!strcmp("dryrun",     o->name)) o->flag = &opts->flag_dryrun;
+			if (!strcmp("no-daemon",  o->name)) o->flag = &opts->log.flag_nodaemon;
+			if (!strcmp("no-startup", o->name)) o->flag = &opts->flag_nostartup;
+			if (!strcmp("scarce",     o->name)) o->flag = &opts->log.loglevel;
+			if (!strcmp("stubborn",   o->name)) o->flag = &opts->flag_stubborn;
+		}
+	}
 
 #ifdef XML_CONFIG
 	// First determine if the config file should be read at all. 
@@ -1879,12 +1962,12 @@ void parse_options(int argc, char **argv)
 			break;
 		}
 		if (c == '?') {
-			terminate(LSYNCD_BADPARAMETERS);
+			terminate(NULL, LSYNCD_BADPARAMETERS);
 		}
 		if (c == 0) { // longoption
 			if (!strcmp("conf", long_options[oi].name)) {
 				read_conf = true;
-				conf_filename = s_strdup(optarg);
+				opts->conf_filename = s_strdup(NULL, optarg);
 			} 
 			
 			if (!strcmp("help", long_options[oi].name)) {
@@ -1896,16 +1979,22 @@ void parse_options(int argc, char **argv)
 			if (!strcmp("version", long_options[oi].name)) {
 				// same here 
 				printf("Version: %s\n", VERSION);
-				terminate(LSYNCD_SUCCESS);
+				terminate(NULL, LSYNCD_SUCCESS);
 			}
 		}
 	}
 	if (read_conf) {
-		parse_config(optind == argc);
+		// parse config file, when additional source/dest parameters are 
+		// given on the command line, then the directory settings
+		// in the config file are ignored.
+		parse_config(opts, optind == argc);
 	} else if (optind == argc) {
-		parse_config(true);
+		// when no config file is specified and there are also
+		// no source/targets, read the default config file.
+		parse_config(opts, true);
 	}
-	/* reset get option parser*/
+
+	// resets the get option parser
 	optind = 1;
 #endif
 
@@ -1918,12 +2007,12 @@ void parse_options(int argc, char **argv)
 		}
 
 		if (c == '?') {
-			terminate(LSYNCD_BADPARAMETERS);
+			terminate(NULL, LSYNCD_BADPARAMETERS);
 		}
 
 		if (c == 0) { // longoption
 			if (!strcmp("binary", long_options[oi].name)) {
-				default_binary = s_strdup(optarg);
+				opts->default_binary = s_strdup(NULL, optarg);
 			}
 			
 			if (!strcmp("delay", long_options[oi].name)) {
@@ -1931,16 +2020,16 @@ void parse_options(int argc, char **argv)
 				delay = strtol(optarg, &p, 10);
 				if (*p) {
 					printf("%s is not an integer.\n", optarg);
-					terminate(LSYNCD_BADPARAMETERS);
+					terminate(NULL, LSYNCD_BADPARAMETERS);
 				}
 				if (delay < 0) {
 					printf("delay may not be negative.\n");
-					terminate(LSYNCD_BADPARAMETERS);
+					terminate(NULL, LSYNCD_BADPARAMETERS);
 				}
 			}
 			
 			if (!strcmp("exclude-from", long_options[oi].name)) {
-				default_exclude_file = s_strdup(optarg);
+				opts->default_exclude_file = s_strdup(NULL, optarg);
 			}
 
 			if (!strcmp("help", long_options[oi].name)) {
@@ -1948,78 +2037,78 @@ void parse_options(int argc, char **argv)
 			}
 
 			if (!strcmp("logfile", long_options[oi].name)) {
-				logfile = s_strdup(optarg);
+				opts->log.logfile = s_strdup(NULL, optarg);
 			}
 			
 			if (!strcmp("pidfile", long_options[oi].name)) {
-				pidfile = s_strdup(optarg);
+				opts->pidfile = s_strdup(NULL, optarg);
 			}
 
 			if (!strcmp("version", long_options[oi].name)) {
 				printf("Version: %s\n", VERSION);
-				terminate(LSYNCD_SUCCESS);
+				terminate(NULL, LSYNCD_SUCCESS);
 			}
 		}
 	}
 
 	// If the config file specified something to do already
 	// dir_conf_n will already be > 0
-	if (dir_conf_n == 0) {
+	if (opts->dir_conf_n == 0) {
 		struct dir_conf * odc;    // dir_conf specified by command line options.
 		bool first_target = true;
 
 		if (optind + 2 > argc) {
-			printlogf(ERROR, "Error: please specify SOURCE and at least one TARGET (see --help)\n");
+			printf("Error: please specify SOURCE and at least one TARGET (see --help)\n");
 #ifdef XML_CONFIG
-			printlogf(ERROR, "       or at least one <directory> entry in the conf file.\n");
+			printf("       or at least one <directory> entry in the conf file.\n");
 #endif
-			terminate(LSYNCD_BADPARAMETERS);
+			terminate(NULL, LSYNCD_BADPARAMETERS);
 		}
-		odc = new_dir_conf();
+		odc = new_dir_conf(opts);
 		/* Resolves relative source path, lsyncd might chdir to / later. */
-		odc->source = realdir(argv[optind]);
+		odc->source = realdir(NULL, argv[optind]);
 		if (!odc->source) {
-			printlogf(ERROR, "Error: Source [%s] not found or not a directory.\n", argv[optind]);
-			terminate(LSYNCD_FILENOTFOUND);
+			printf("Error: Source [%s] not found or not a directory.\n", argv[optind]);
+			terminate(NULL, LSYNCD_FILENOTFOUND);
 		}
 		for (target = &argv[optind + 1]; *target; target++) {
-			dir_conf_add_target(odc, *target);
+			dir_conf_add_target(NULL, odc, *target);
 			if (first_target) {
-				printlogf(NORMAL, "command line options: syncing %s -> %s\n",
+				printlogf(&opts->log, NORMAL, "command line options: syncing %s -> %s\n",
 				          odc->source, *target);
 				first_target = false;
 			} else {
-				printlogf(NORMAL, "                             and -> %s\n", 
+				printlogf(&opts->log, NORMAL, "                             and -> %s\n", 
 				          *target);
 			}
 		}
 	}
 
 	// some sanity checks
-	if (default_exclude_file) {
-		check_absolute_path(default_exclude_file, "Exclude file");
-		check_file_exists(default_exclude_file, "Exclude file");
+	if (opts->default_exclude_file) {
+		check_absolute_path(NULL, opts->default_exclude_file, "Exclude file");
+		check_file_exists  (NULL, opts->default_exclude_file, "Exclude file");
 	}
-	if (pidfile) {
-		check_absolute_path(pidfile, "Pid file");
+	if (opts->pidfile) {
+		check_absolute_path(NULL, opts->pidfile, "Pid file");
 	}
-	if (flag_stubborn && flag_nostartup) {
-		printlogf(NORMAL, "Warning: specifying 'stubborn' when skipping with 'no-startup' has no effect.");
+	if (opts->flag_stubborn && opts->flag_nostartup) {
+		printlogf(&opts->log, NORMAL, "Warning: specifying 'stubborn' when skipping with 'no-startup' has no effect.");
 	}
 }
 
 /**
  * Parses the exclude file looking for directory masks to not watch.
  */
-bool parse_exclude_file(char *filename) {
+bool parse_exclude_file(struct log *log, char *filename) {
 	FILE * ef;
 	char line[PATH_MAX+1];
 	int sl;
 
 	ef = fopen(filename, "r");
 	if (ef == NULL) {
-		printlogf(ERROR, "Cannot open exclude file '%s'\n", filename);
-		terminate(LSYNCD_FILENOTFOUND);
+		printlogf(log, ERROR, "Cannot open exclude file '%s'\n", filename);
+		terminate(log, LSYNCD_FILENOTFOUND);
 	}
 
 	while (1) {
@@ -2028,10 +2117,10 @@ bool parse_exclude_file(char *filename) {
 				fclose(ef);
 				return true;
 			}
-			printlogf(ERROR, "Reading file '%s' (%d:%s)\n", 
+			printlogf(log, ERROR, "Reading file '%s' (%d:%s)\n", 
 			          filename, errno, strerror(errno));
 
-			terminate(LSYNCD_FILENOTFOUND);
+			terminate(log, LSYNCD_FILENOTFOUND);
 		}
 
 		sl = strlen(line);
@@ -2051,10 +2140,10 @@ bool parse_exclude_file(char *filename) {
 
 		if (line[sl - 1] == '/') {
 			if (exclude_dir_n + 1 >= MAX_EXCLUDES) {
-				printlogf(ERROR, 
+				printlogf(log, ERROR, 
 				          "Too many directory excludes, can only have %d at the most", 
 				          MAX_EXCLUDES);
-				terminate(LSYNCD_TOOMANYDIRECTORYEXCLUDES);
+				terminate(log, LSYNCD_TOOMANYDIRECTORYEXCLUDES);
 			}
 
 			line[sl - 1] = 0;
@@ -2065,9 +2154,9 @@ bool parse_exclude_file(char *filename) {
 				continue;
 			}
 
-			printlogf(NORMAL, "Excluding directories of the name '%s'", line);
+			printlogf(log, NORMAL, "Excluding directories of the name '%s'", line);
 
-			exclude_dirs[exclude_dir_n] = s_malloc(strlen(line) + 1);
+			exclude_dirs[exclude_dir_n] = s_malloc(log, strlen(line) + 1);
 			strcpy(exclude_dirs[exclude_dir_n], line);
 			exclude_dir_n++;
 		}
@@ -2079,11 +2168,11 @@ bool parse_exclude_file(char *filename) {
 /**
  * Writes a pid file (specified by global "pidfile")
  */
-void write_pidfile() {
+void write_pidfile(const struct log *log, const char *pidfile) {
 	FILE* f = fopen(pidfile, "w");
 	if (!f) {
-		printlogf(ERROR, "Error: cannot write pidfile [%s]\n", pidfile);
-		terminate(LSYNCD_FILENOTFOUND);
+		printlogf(log, ERROR, "Error: cannot write pidfile [%s]\n", pidfile);
+		terminate(log, LSYNCD_FILENOTFOUND);
 	}
 	
 	fprintf(f, "%i\n", getpid());
@@ -2095,83 +2184,90 @@ void write_pidfile() {
  */
 int main(int argc, char **argv)
 {
-	int i;
+	struct global_options opts = {{0,}};
+	struct log *log = &opts.log;
+
 	openlog("lsyncd", LOG_CONS | LOG_PID, LOG_DAEMON);
 
-	parse_options(argc, argv);
+	reset_options(&opts);
+	parse_options(&opts, argc, argv);
 
-	if (default_exclude_file) {
-		parse_exclude_file(default_exclude_file);
+	if (opts.default_exclude_file) {
+		parse_exclude_file(log, opts.default_exclude_file);
 	}
 
 	inotf = inotify_init();
 	if (inotf == -1) {
-		printlogf(ERROR, "Cannot create inotify instance! (%d:%s)", 
+		printlogf(log, ERROR, "Cannot create inotify instance! (%d:%s)", 
 		          errno, strerror(errno));
 		return LSYNCD_NOINOTIFY;
 	}
 
-	if (!flag_nodaemon) {
+	if (!opts.log.flag_nodaemon) {
 		// this will make this process child of init
 		// close stdin/stdout/stderr and 
 		// chdir to /
 		if (daemon(0, 0)) {
-			printlogf(ERROR, "Cannot daemonize! (%d:%s)",
+			printlogf(log, ERROR, "Cannot daemonize! (%d:%s)",
 			          errno, strerror(errno));
 			return LSYNCD_INTERNALFAIL;
 		}
 	}
 
-	printlogf(NORMAL, "Starting up");
+	printlogf(log, NORMAL, "Starting up");
 
-	if (pidfile) {
-		write_pidfile();
+	if (opts.pidfile) {
+		write_pidfile(log, opts.pidfile);
 	}
 
 	dir_watch_size = 2;
-	dir_watches = s_calloc(dir_watch_size, sizeof(struct dir_watch));
+	dir_watches = s_calloc(log, dir_watch_size, sizeof(struct dir_watch));
 
 	tosync_size = 2;
-	tosync = s_calloc(tosync_size, sizeof(int));
+	tosync = s_calloc(log, tosync_size, sizeof(int));
 
-	// add all watches
-	for (i = 0; i < dir_conf_n; i++) {
-		printlogf(NORMAL, "watching %s", dir_confs[i].source);
-		add_dirwatch(dir_confs[i].source, -1, &dir_confs[i]);
+	{
+		// add all watches
+		int i;
+		for (i = 0; i < opts.dir_conf_n; i++) {
+			printlogf(log, NORMAL, "watching %s", opts.dir_confs[i].source);
+			add_dirwatch(log, opts.dir_confs[i].source, -1, &opts.dir_confs[i]);
+		}
 	}
 
 	// clears tosync stack again, because the startup 
 	// super recursive rsync will handle it eitherway
 	// or if nostartup user decided already to ignore it.
-	printlogf(DEBUG, "dumped tosync stack.");
+	printlogf(log, DEBUG, "dumped tosync stack.");
 	tosync_pos = 0;
 
 	// startup recursive sync.
-	if (!flag_nostartup) {
-		for (i = 0; i < dir_conf_n; i++) {
+	if (!opts.flag_nostartup) {
+		int i;
+		for (i = 0; i < opts.dir_conf_n; i++) {
 			char **target;
-			for (target = dir_confs[i].targets; *target; ++target) {
-				if (!action(&dir_confs[i], dir_confs[i].source, *target, true)) {
-					printlogf(ERROR, "Initial rsync from %s to %s failed%s", 
-					          dir_confs[i].source, *target,
-					          flag_stubborn ? ", but continuing because being stubborn." : ".");
-					if (!flag_stubborn) {
-						terminate(LSYNCD_EXECFAIL);
+			for (target = opts.dir_confs[i].targets; *target; ++target) {
+				if (!action(&opts, &opts.dir_confs[i], opts.dir_confs[i].source, *target, true)) {
+					printlogf(log, ERROR, "Initial rsync from %s to %s failed%s", 
+					          opts.dir_confs[i].source, *target,
+					          opts.flag_stubborn ? ", but continuing because being stubborn." : ".");
+					if (!opts.flag_stubborn) {
+						terminate(log, LSYNCD_EXECFAIL);
 					} 
 				}
 			}
 		}
 	} else {
-		printlogf(NORMAL, "Skipped startup since nostartup flag is turned on.");
+		printlogf(log, NORMAL, "Skipped startup since nostartup flag is turned on.");
 	}
 
-	printlogf(NORMAL, 
+	printlogf(log, NORMAL, 
 	          "--- Entering normal operation with [%d] monitored directories ---",
 	          dir_watch_num);
 
 	signal(SIGTERM, catch_alarm);
 
-	master_loop();
+	master_loop(&opts);
 
 	return 0;
 }
