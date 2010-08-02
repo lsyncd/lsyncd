@@ -39,7 +39,16 @@
 #include <libxml/tree.h>
 #endif
 
+
+/**
+ * TODO?
+ */
 #define INOTIFY_BUF_LEN     (512 * (sizeof(struct inotify_event) + 16))
+
+/**
+ * Initial size of vectors
+ */
+#define VECT_INIT_SIZE 2
 
 /**
  * Macros to compare times() values
@@ -52,7 +61,6 @@
 #define time_before(a,b)        time_after(b,a)
 #define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
 #define time_before_eq(a,b)     time_after_eq(b,a)
-
 
 enum log_code {
 	DEBUG  = 1,
@@ -205,13 +213,6 @@ struct inotify_mask_text {
 	char const * text;
 };
 
-
-
-
-/*--------------------------------------------------------------------------*
- * Global variables
- *--------------------------------------------------------------------------*/
-
 /**
  * Options relevant for logging.
  * Part of global options.
@@ -239,6 +240,9 @@ struct log {
 	char * logfile;
 };
 
+/**
+ * Global variables
+ */
 struct global_options {
 	/**
 	 * Options relevant for logging.
@@ -316,19 +320,48 @@ struct call_option standard_callopts[] = {
 };
 
 /**
- * A stack of offset pointers to dir_watches to directories to sync.
+ * General purpose growable vector of integers
  */
-int *tosync = NULL;
+struct ivector {
+	/**
+	 * data
+	 */
+	int *data;
+
+	/**
+	 * allocated mem
+	 */
+	size_t size;
+
+	/**
+	 * length used
+	 */
+	size_t len;
+};
+
+struct pvector {
+	/**
+	 * data
+	 */
+	void *data;
+
+	/**
+	 * allocated mem
+	 */
+	size_t size;
+
+	/**
+	 * length used
+	 */
+	size_t len;
+};
 
 /**
- * Number of ints allocated for tosync stack
+ * A FILO stack of offset pointers to dir_watches 
+ * to directories to sync.
  */
-int tosync_size = 0;
-
-/**
- * The pointer of the current tosync position.
- */
-int tosync_pos = 0; 
+struct ivector tosync_obj = {0,};
+struct ivector *tosync = &tosync_obj;
 
 /**
  * List of directories on a delay.
@@ -349,7 +382,6 @@ int tackle_num = 0;
  * A constant that assigns every inotify mask a printable string.
  * Used for debugging.
  */
-
 struct inotify_mask_text mask_texts[] = {
 	{ IN_ACCESS,        "ACCESS"        }, 
 	{ IN_ATTRIB,        "ATTRIB"        }, 
@@ -472,7 +504,6 @@ void terminate(const struct log *log, int status)
 	}
 	exit(status);
 }
-
 
 /**
  * Prints a message to either the log stream, preceding a timestamp or 
@@ -669,6 +700,25 @@ char *realdir(const struct log *log, const char *dir)
 	return cs;
 }
 
+/**
+ * Appends one value on an integer vector.
+ */
+void 
+ivector_push(const struct log *log, struct ivector *ivect, int val){
+	if (ivect->size > ivect->len + 1) {
+		ivect->data[ivect->len++] = val;
+	} else if (!ivect->data) {
+		ivect->data = s_calloc(log, VECT_INIT_SIZE, sizeof(int)); 
+		ivect->size = VECT_INIT_SIZE;
+		ivect->len = 1;
+		ivect->data[0] = val;
+	} else {
+		ivect->size *= 2;
+		ivect->data = s_realloc(log, ivect->data, ivect->size * sizeof(int));
+		ivect->data[ivect->len++] = val;
+	}
+}
+
 /*--------------------------------------------------------------------------*
  * dir_configuration handling. 
  *--------------------------------------------------------------------------*/
@@ -770,24 +820,18 @@ void remove_first_tackle() {
  *
  * @param watch         the index in dir_watches to the directory.
  */
-bool append_tosync_watch(const struct log *log, int watch) {
+void
+append_tosync_watch(const struct log *log, int watch) {
 	int i;
 
 	printlogf(log, DEBUG, "append_tosync_watch(%d)", watch);
 	// look if its already in the tosync list.
-	for(i = 0; i < tosync_pos; i++) {
-		if (tosync[i] == watch) {
-			return true;
+	for(i = 0; i < tosync->len; i++) {
+		if (tosync->data[i] == watch) {
+			return;
 		} 
 	}
-
-	if (tosync_pos + 1 >= tosync_size) {
-		tosync_size *= 2;
-		tosync = s_realloc(log, tosync, tosync_size*sizeof(int));
-	}
-
-	tosync[tosync_pos++] = watch;
-	return true;
+	ivector_push(log, tosync, watch);
 }
 
 /**
@@ -1366,8 +1410,8 @@ bool process_tosync_stack(const struct global_options *opts, clock_t alarm)
 	const struct log *log = &opts->log;
 
 	printlogf(log, DEBUG, "Processing through tosync stack.");
-	while(tosync_pos > 0) {
-		tackle_dir(opts, tosync[--tosync_pos], alarm);
+	while(tosync->len > 0) {
+		tackle_dir(opts, tosync->data[--tosync->len], alarm);
 	}
 	printlogf(log, DEBUG, "being done with tosync stack");
 
@@ -2223,9 +2267,6 @@ int main(int argc, char **argv)
 	dir_watch_size = 2;
 	dir_watches = s_calloc(log, dir_watch_size, sizeof(struct dir_watch));
 
-	tosync_size = 2;
-	tosync = s_calloc(log, tosync_size, sizeof(int));
-
 	{
 		// add all watches
 		int i;
@@ -2239,7 +2280,7 @@ int main(int argc, char **argv)
 	// super recursive rsync will handle it eitherway
 	// or if nostartup user decided already to ignore it.
 	printlogf(log, DEBUG, "dumped tosync stack.");
-	tosync_pos = 0;
+	tosync->len = 0;
 
 	// startup recursive sync.
 	if (!opts.flag_nostartup) {
