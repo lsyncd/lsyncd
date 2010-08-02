@@ -366,17 +366,8 @@ struct ivector *tosync = &tosync_obj;
 /**
  * List of directories on a delay.
  */
-int *tackles;
-
-/**
- * Size allocated of the tackle list.
- */
-int tackle_size = 0;
-
-/**
- * Number of tackles.
- */
-int tackle_num = 0;
+struct ivector tackles_obj = {0, };
+struct ivector *tackles = &tackles_obj;
 
 /**
  * A constant that assigns every inotify mask a printable string.
@@ -422,6 +413,8 @@ int inotf;
 
 /**
  * Seconds of delay between event and action
+ *
+ * TODO is an option.
  */
 clock_t delay = 5;
 
@@ -785,7 +778,8 @@ void dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char 
  * @param watch         the index in dir_watches to the directory.
  * @param alarm         times() when the directory should be acted.
  */
-bool append_tackle(const struct log *log, int watch, clock_t alarm) {
+bool 
+append_tackle(const struct log *log, int watch, clock_t alarm) {
 	printlogf(log, DEBUG, "add tackle(%d)", watch);
 	if (dir_watches[watch].tackled) {
 		printlogf(log, DEBUG, "ignored since already tackled.", watch);
@@ -794,20 +788,18 @@ bool append_tackle(const struct log *log, int watch, clock_t alarm) {
 	dir_watches[watch].tackled = true;
 	dir_watches[watch].alarm = alarm;
 
-	if (tackle_num + 1 >= tackle_size) {
-		tackle_size *= 2;
-		tackles = s_realloc(log, tackles, tackle_size*sizeof(int));
-	}
-	tackles[tackle_num++] = watch;
+	ivector_push(log, tackles, watch);
 	return true;
 }
 
 /**
  * Removes the first directory on the tackle list.
  */
-void remove_first_tackle() {
-	int tw = tackles[0];
-	memmove(tackles, tackles + 1, (--tackle_num) * sizeof(int));
+void 
+remove_first_tackle() {
+	int tw = tackles->data[0];
+	// TODO make own function
+	memmove(tackles->data, tackles->data + 1, (--tackles->len) * sizeof(int));
 	dir_watches[tw].tackled = false;
 }
 
@@ -1365,12 +1357,16 @@ bool remove_dirwatch(const struct log *log, const char * name, int parent)
 	// remove a possible tackle
 	// (this dir is on the delay list)
 	if (delay > 0 && dir_watches[dw].tackled) {
-		for(i = 0; i < tackle_num; i++) {
-			if (tackles[i] == dw) {
+		i = 0;
+		while (i < tackles->len) {
+			if (tackles->data[i] == dw) {
 				// move the list up.
-				memmove(tackles + i, tackles + i + 1, (tackle_num - i - 1) * sizeof(int));
-				tackle_num--;
+				// TODO move own lockig
+				memmove(tackles->data + i, tackles->data + i + 1, (tackles->len - i - 1) * sizeof(int));
+				tackles->len--;
 				break;
+			} else {
+				i++;
 			}
 		}
 	}
@@ -1526,17 +1522,14 @@ bool master_loop(const struct global_options *opts)
 			printlogf(log, ERROR, "Clocks per seoond invalid! %d", printlogf);
 			terminate(log, LSYNCD_INTERNALFAIL);
 		}
-		tackle_size = 2;
-		tackles = s_calloc(log, tackle_size, sizeof(int));
-		tackle_num = 0;
 	}
 
 	while (keep_going) {
-		if (delay > 0 && tackle_num > 0) {
+		if (delay > 0 && tackles->len > 0) {
 			// use select() to determine what happens first
 			// a new event or "alarm" of an event to actually
 			// call its binary.
-			alarm = dir_watches[tackles[0]].alarm;
+			alarm = dir_watches[tackles->data[0]].alarm;
 			now = times(NULL);
 			tv.tv_sec  = (alarm - now) / clocks_per_sec;
 			tv.tv_usec = (alarm - now) * 1000000 / clocks_per_sec % 1000000;
@@ -1577,9 +1570,10 @@ bool master_loop(const struct global_options *opts)
 
 		// then check through all events on the 
 		// "tackle FIFO" if they expired.
-		while (tackle_num > 0 && time_after(times(NULL), dir_watches[tackles[0]].alarm)) {
+		// TODO take a common fixed time instead of recalling times();
+		while (tackles->len > 0 && time_after(times(NULL), dir_watches[tackles->data[0]].alarm)) {
 			printlogf(log, DEBUG, "time for %d arrived.", tackles[0]);
-			rsync_dir(opts, tackles[0]);
+			rsync_dir(opts, tackles->data[0]);
 			remove_first_tackle();
 		}
 	}
