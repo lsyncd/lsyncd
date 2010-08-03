@@ -41,9 +41,9 @@
 
 
 /**
- * TODO?
+ * Number of inotifies to read at once from the kernel.
  */
-#define INOTIFY_BUF_LEN     (512 * (sizeof(struct inotify_event) + 16))
+#define INOTIFY_BUF_LEN     (64 * (sizeof(struct inotify_event) + 16))
 
 /**
  * Initial size of vectors
@@ -51,17 +51,26 @@
 #define VECT_INIT_SIZE 2
 
 /**
+ * Defaults values 
+ */
+#define DEFAULT_BINARY "/usr/bin/rsync"
+#define DEFAULT_CONF_FILENAME "/etc/lsyncd.conf.xml"
+
+
+/**
  * Macros to compare times() values
  * (borrowed from linux/jiffies.h)
  *
  * time_after(a,b) returns true if the time a is after time b.
  */
-
 #define time_after(a,b)         ((long)(b) - (long)(a) < 0)
 #define time_before(a,b)        time_after(b,a)
 #define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
 #define time_before_eq(a,b)     time_after_eq(b,a)
 
+/**
+ * Importance of log messages
+ */
 enum log_code {
 	DEBUG  = 1,
 	NORMAL = 2,
@@ -69,7 +78,7 @@ enum log_code {
 };
 
 /**
- * Possible Exit codes for this application
+ * Possible exit codes for this application
  */
 enum lsyncd_exit_code {
 	LSYNCD_SUCCESS = 0,
@@ -164,7 +173,7 @@ struct dir_conf {
 };
 
 /**
- * Structure to store the directory watches of the deamon.
+ * Structure to store the directory watches.
  */
 struct dir_watch {
 	/**
@@ -175,7 +184,7 @@ struct dir_watch {
 	/**
 	 * The name of the directory.
 	 * In case of the root dir to be watched, it is a full path
-	 * and parent == NULL. Otherwise its just the name of the
+	 * and parent == -1. Otherwise its just the name of the
 	 * directory and parent points to the parent directory thats
 	 * also watched.
 	 */
@@ -203,19 +212,9 @@ struct dir_watch {
 	struct dir_conf *dir_conf;
 };
 
-
 /**
- * Structure to store strings for the diversve inotfy masked events.
- * Actually used for comfortable debugging only.
- */
-struct inotify_mask_text {
-	int mask;
-	char const * text;
-};
-
-/**
- * Options relevant for logging.
- * Part of global options.
+ * Global options relevant for logging.
+ * Part of struct global_options.
  */
 struct log {
 	/**
@@ -320,7 +319,7 @@ struct call_option standard_callopts[] = {
 };
 
 /**
- * General purpose growable vector of integers
+ * General purpose growable vector of integers.
  */
 struct ivector {
 	/**
@@ -339,22 +338,25 @@ struct ivector {
 	size_t len;
 };
 
-struct pvector {
-	/**
-	 * data
-	 */
-	void *data;
-
-	/**
-	 * allocated mem
-	 */
-	size_t size;
-
-	/**
-	 * length used
-	 */
-	size_t len;
-};
+/**
+ * General purpose growable vector of pointers.
+ */
+//struct pvector {
+//	/**
+//	 * data
+//	 */
+//	void *data;
+//
+//	/**
+//	 * allocated mem
+//	 */
+//	size_t size;
+//
+//	/**
+//	 * length used
+//	 */
+//	size_t len;
+//};
 
 /**
  * A FILO stack of offset pointers to dir_watches 
@@ -368,6 +370,16 @@ struct ivector *tosync = &tosync_obj;
  */
 struct ivector tackles_obj = {0, };
 struct ivector *tackles = &tackles_obj;
+
+
+/**
+ * Structure to store strings for the diversve inotfy masked events.
+ * Used for comfortable log messages only.
+ */
+struct inotify_mask_text {
+	int mask;
+	char const * text;
+};
 
 /**
  * A constant that assigns every inotify mask a printable string.
@@ -391,20 +403,15 @@ struct inotify_mask_text mask_texts[] = {
 };
 
 /**
- * Holds an allocated array of all directories watched.
+ * Holds all directories being watched.
  */
-struct dir_watch *dir_watches;
-
-/**
- * The allocated size of dir_watches;
- */
-int dir_watch_size = 0;
-
-/**
- * The largest dir_watch number used;
- */
-int dir_watch_num = 0;
-
+struct dir_watch_vector {
+	struct dir_watch *data;
+	size_t size;
+	size_t len;
+};
+struct dir_watch_vector dir_watches_obj = {0, };
+struct dir_watch_vector *dir_watches = &dir_watches_obj;
 
 /**
  * The inotify instance.
@@ -426,14 +433,6 @@ clock_t delay = 5;
 #define MAX_EXCLUDES 256
 char * exclude_dirs[MAX_EXCLUDES] = {NULL, };
 int exclude_dir_n = 0;
-
-
-
-/**
- * Defaults values #defined
- */
-#define DEFAULT_BINARY "/usr/bin/rsync"
-#define DEFAULT_CONF_FILENAME "/etc/lsyncd.conf.xml"
 
 /**
  * (Re)sets global options to default values.
@@ -781,12 +780,12 @@ void dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char 
 bool 
 append_tackle(const struct log *log, int watch, clock_t alarm) {
 	printlogf(log, DEBUG, "add tackle(%d)", watch);
-	if (dir_watches[watch].tackled) {
+	if (dir_watches->data[watch].tackled) {
 		printlogf(log, DEBUG, "ignored since already tackled.", watch);
 		return false;
 	}
-	dir_watches[watch].tackled = true;
-	dir_watches[watch].alarm = alarm;
+	dir_watches->data[watch].tackled = true;
+	dir_watches->data[watch].alarm = alarm;
 
 	ivector_push(log, tackles, watch);
 	return true;
@@ -798,9 +797,8 @@ append_tackle(const struct log *log, int watch, clock_t alarm) {
 void 
 remove_first_tackle() {
 	int tw = tackles->data[0];
-	// TODO make own function
 	memmove(tackles->data, tackles->data + 1, (--tackles->len) * sizeof(int));
-	dir_watches[tw].tackled = false;
+	dir_watches->data[tw].tackled = false;
 }
 
 /*--------------------------------------------------------------------------*
@@ -1030,8 +1028,8 @@ int add_watch(const struct log *log,
               int parent, 
               struct dir_conf * dir_conf)
 {
-	int wd;
-	int newdw;
+	int wd;    // kernels inotify descriptor
+	int newdw; // position to insert this watch into the watch vector
 
 	wd = inotify_add_watch(inotf, pathname,
 	                       IN_ATTRIB | IN_CLOSE_WRITE | IN_CREATE | 
@@ -1045,29 +1043,28 @@ int add_watch(const struct log *log,
 	}
 
 	// look if an unused slot can be found.
-	for (newdw = 0; newdw < dir_watch_num; newdw++) {
-		if (dir_watches[newdw].wd < 0) {
+	for (newdw = 0; newdw < dir_watches->len; newdw++) {
+		if (dir_watches->data[newdw].wd < 0) {
 			break;
 		}
 	}
 
-	if (newdw == dir_watch_num) {
-		if (dir_watch_num + 1 >= dir_watch_size) {
-			dir_watch_size *= 2;
-			dir_watches = s_realloc(log, dir_watches, 
-			                        dir_watch_size * sizeof(struct dir_watch));
+	if (newdw == dir_watches->len) {
+		// TODO move this
+		if (dir_watches->len + 1 >= dir_watches->size) {
+			dir_watches->size *= 2;
+			dir_watches->data = s_realloc(log, dir_watches->data, 
+			                        dir_watches->size * sizeof(struct dir_watch));
 		}
-
-		dir_watch_num++;
+		dir_watches->len++;
 	}
 
-	dir_watches[newdw].wd = wd;
-	dir_watches[newdw].parent = parent;
-	dir_watches[newdw].dirname = s_strdup(log, dirname);
-	dir_watches[newdw].dir_conf = dir_conf;
-	dir_watches[newdw].alarm = 0; // not needed, just to be clear
-	dir_watches[newdw].tackled = false;
-
+	dir_watches->data[newdw].wd = wd;
+	dir_watches->data[newdw].parent = parent;
+	dir_watches->data[newdw].dirname = s_strdup(log, dirname);
+	dir_watches->data[newdw].dir_conf = dir_conf;
+	dir_watches->data[newdw].alarm = 0; // not needed, just to be save
+	dir_watches->data[newdw].tackled = false;
 	return newdw;
 }
 
@@ -1094,9 +1091,9 @@ int builddir(char *pathname, int pathsize, int watch, char const * prefix)
 			return -1;
 		}
 		strcpy(pathname, p);
-	} else if (dir_watches[watch].parent == -1) {
+	} else if (dir_watches->data[watch].parent == -1) {
 		// this is a watch root.
-		char const * p = prefix ? prefix : dir_watches[watch].dirname;
+		char const * p = prefix ? prefix : dir_watches->data[watch].dirname;
 		len = strlen(p);
 		if (pathsize <= len) {
 			return -1;
@@ -1104,14 +1101,14 @@ int builddir(char *pathname, int pathsize, int watch, char const * prefix)
 		strcpy(pathname, p);
 	} else {
 		// this is some sub dir
-		len = builddir(pathname, pathsize, dir_watches[watch].parent, prefix); /* recurse */
-		len += strlen(dir_watches[watch].dirname);
+		len = builddir(pathname, pathsize, dir_watches->data[watch].parent, prefix); /* recurse */
+		len += strlen(dir_watches->data[watch].dirname);
 		if (pathsize <= len) {
 			return -1;
 		}
-		strcat(pathname, dir_watches[watch].dirname);
+		strcat(pathname, dir_watches->data[watch].dirname);
 	}
-	/* add the trailing slash if it is missing */
+	// add the trailing slash if it is missing
 	if (*pathname && pathname[strlen(pathname)-1] != '/') {
 		strcat(pathname, "/");
 		len++;
@@ -1174,7 +1171,7 @@ bool rsync_dir(const struct global_options *opts, int watch)
 		return false;
 	}
 
-	for (target = dir_watches[watch].dir_conf->targets; *target; target++) {
+	for (target = dir_watches->data[watch].dir_conf->targets; *target; target++) {
 		if (!buildpath(log, destname, sizeof(destname), watch, NULL, *target)) {
 			status = false;
 			continue;
@@ -1182,7 +1179,7 @@ bool rsync_dir(const struct global_options *opts, int watch)
 		printlogf(log, NORMAL, "rsyncing %s --> %s", pathname, destname);
 
 		// call rsync to propagate changes in the directory
-		if (!action(opts, dir_watches[watch].dir_conf, pathname, destname, false)) {
+		if (!action(opts, dir_watches->data[watch].dir_conf, pathname, destname, false)) {
 			printlogf(log, ERROR, "Rsync from %s to %s failed", pathname, destname);
 			status = false;
 		}
@@ -1241,7 +1238,7 @@ int add_dirwatch(const struct log *log, char const *dirname, int parent, struct 
 
 	printlogf(log, DEBUG, "add_dirwatch(%s, p->dirname:%s, ...)", 
 	          dirname,
-	          parent >= 0 ? dir_watches[parent].dirname : "NULL");
+	          parent >= 0 ? dir_watches->data[parent].dirname : "NULL");
 
 	if (!buildpath(log, pathname, sizeof(pathname), parent, dirname, NULL)) {
 		return -1;
@@ -1320,54 +1317,57 @@ int add_dirwatch(const struct log *log, char const *dirname, int parent, struct 
  */
 bool remove_dirwatch(const struct log *log, const char * name, int parent)
 {
-	int i;
-	int dw;
-
+	int dw;   // the directory index to remove.
 	if (name) {
+		int i;
 		// look for the child with the name
-		for (i = 0; i < dir_watch_num; i++) {
-			if (dir_watches[i].wd >= 0 && dir_watches[i].parent == parent &&
-			    !strcmp(name, dir_watches[i].dirname)
-			   ) {
+		for (i = 0; i < dir_watches->len; i++) {
+			struct dir_watch *p = dir_watches->data + i;
+			if (p->wd >= 0 && p->parent == parent && !strcmp(name, p->dirname)) {
 				dw = i;
 				break;
 			}
 		}
 
-		if (i >= dir_watch_num) {
+		if (i >= dir_watches->len) {
 			printlogf(log, ERROR, "Cannot find entry for %s:/:%s :-(", 
-			          dir_watches[parent].dirname, name);
+			          dir_watches->data[parent].dirname, name);
 			return false;
 		}
 	} else {
 		dw = parent;
 	}
 
-	for (i = 0; i < dir_watch_num; i++) {
-		if (dir_watches[i].wd >= 0 && dir_watches[i].parent == dw) {
-			remove_dirwatch(log, NULL, i);
+	{
+		// recurse into all subdirectories removing them.
+		int i;
+		for (i = 0; i < dir_watches->len; i++) {
+			if (dir_watches->data[i].wd >= 0 && dir_watches->data[i].parent == dw) {
+				remove_dirwatch(log, NULL, i);
+			}
 		}
 	}
 
-	inotify_rm_watch(inotf, dir_watches[dw].wd);
-	dir_watches[dw].wd = -1;
-	free(dir_watches[dw].dirname);
-	dir_watches[dw].dirname = NULL;
+	inotify_rm_watch(inotf, dir_watches->data[dw].wd);
+	// mark this entry invalid (cannot remove, since indexes point into this vector)
+	// TODO from where?
+	dir_watches->data[dw].wd = -1;  
+
+	free(dir_watches->data[dw].dirname);
+	dir_watches->data[dw].dirname = NULL;
 
 	// remove a possible tackle
 	// (this dir is on the delay list)
-	if (delay > 0 && dir_watches[dw].tackled) {
-		i = 0;
-		while (i < tackles->len) {
+	if (delay > 0 && dir_watches->data[dw].tackled) {
+		int i;
+		for(i = 0; i < tackles->len; i++) {
 			if (tackles->data[i] == dw) {
 				// move the list up.
-				// TODO move own lockig
+				// TODO move own logic
 				memmove(tackles->data + i, tackles->data + i + 1, (tackles->len - i - 1) * sizeof(int));
 				tackles->len--;
 				break;
-			} else {
-				i++;
-			}
+			} 
 		}
 	}
 
@@ -1383,17 +1383,12 @@ bool remove_dirwatch(const struct log *log, const char * name, int parent)
  */
 int get_dirwatch_offset(int wd) {
 	int i;
-	for (i = 0; i < dir_watch_num; i++) {
-		if (dir_watches[i].wd == wd) {
-			break;
+	for (i = 0; i < dir_watches->len; i++) {
+		if (dir_watches->data[i].wd == wd) {
+			return i;
 		}
 	}
-
-	if (i >= dir_watch_num) {
-		return -1;
-	} else {
-		return i;
-	}
+	return -1;
 }
 
 /**
@@ -1471,7 +1466,7 @@ bool handle_event(const struct global_options *opts, struct inotify_event *event
 
 	// in case of a new directory create new watches
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		subwatch = add_dirwatch(log, event->name, watch, dir_watches[watch].dir_conf);
+		subwatch = add_dirwatch(log, event->name, watch, dir_watches->data[watch].dir_conf);
 	}
 
 	// in case of a removed directory remove watches
@@ -1511,7 +1506,6 @@ bool master_loop(const struct global_options *opts)
 	fd_set readfds;
 	clock_t now;
 	clock_t alarm;
-	int ready;
 	const struct log *log = &opts->log;
 			
 	FD_ZERO(&readfds);
@@ -1525,11 +1519,13 @@ bool master_loop(const struct global_options *opts)
 	}
 
 	while (keep_going) {
+		int ready;
 		if (delay > 0 && tackles->len > 0) {
 			// use select() to determine what happens first
 			// a new event or "alarm" of an event to actually
-			// call its binary.
-			alarm = dir_watches[tackles->data[0]].alarm;
+			// call its binary. The tackle with the index 0 
+			// should have the nearest alarm time.
+			alarm = dir_watches->data[tackles->data[0]].alarm;
 			now = times(NULL);
 			tv.tv_sec  = (alarm - now) / clocks_per_sec;
 			tv.tv_usec = (alarm - now) * 1000000 / clocks_per_sec % 1000000;
@@ -1568,10 +1564,10 @@ bool master_loop(const struct global_options *opts)
 			i += sizeof(struct inotify_event) + event->len;
 		}
 
-		// then check through all events on the 
-		// "tackle FIFO" if they expired.
-		// TODO take a common fixed time instead of recalling times();
-		while (tackles->len > 0 && time_after(times(NULL), dir_watches[tackles->data[0]].alarm)) {
+		// Then pull of directories from the top of the tackle stack 
+		// until one item is found whose expiry time has not yet come
+		// or the stack is empty.
+		while (tackles->len > 0 && time_after(times(NULL), dir_watches->data[tackles->data[0]].alarm)) {
 			printlogf(log, DEBUG, "time for %d arrived.", tackles[0]);
 			rsync_dir(opts, tackles->data[0]);
 			remove_first_tackle();
@@ -2258,8 +2254,8 @@ int main(int argc, char **argv)
 		write_pidfile(log, opts.pidfile);
 	}
 
-	dir_watch_size = 2;
-	dir_watches = s_calloc(log, dir_watch_size, sizeof(struct dir_watch));
+    dir_watches->size = 2;
+    dir_watches->data = s_calloc(log, dir_watches->size, sizeof(struct dir_watch));
 
 	{
 		// add all watches
@@ -2298,7 +2294,7 @@ int main(int argc, char **argv)
 
 	printlogf(log, NORMAL, 
 	          "--- Entering normal operation with [%d] monitored directories ---",
-	          dir_watch_num);
+	          dir_watches->len);
 
 	signal(SIGTERM, catch_alarm);
 
