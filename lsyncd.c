@@ -419,11 +419,6 @@ struct dir_watch_vector dir_watches_obj = {0, };
 struct dir_watch_vector *dir_watches = &dir_watches_obj;
 
 /**
- * The inotify instance.
- */
-int inotf;
-
-/**
  * Array of strings of directory names to include.
  * This is limited to MAX_EXCLUDES.
  * It's not worth to code a dynamic size handling...
@@ -437,7 +432,8 @@ int exclude_dir_n = 0;
  *
  * TODO memfree's
  */
-void reset_options(struct global_options *opts) {
+void
+reset_options(struct global_options *opts) {
 	opts->log.loglevel = NORMAL;
 	opts->log.flag_nodaemon = 0;
 	opts->log.logfile = NULL;
@@ -470,7 +466,8 @@ volatile sig_atomic_t keep_going = 1;
 /**
  * Called (out-of-order) when signals arrive
  */
-void catch_alarm(int sig)
+void
+catch_alarm(int sig)
 {
 	keep_going = 0;
 }
@@ -479,7 +476,8 @@ void catch_alarm(int sig)
  * Just like exit, but logs the exit.
  * Does not return!
  */
-void terminate(const struct log *log, int status) 
+void
+terminate(const struct log *log, int status) 
 {
 	if (log && !log->flag_nodaemon) {
 		if (log->logfile) {
@@ -507,7 +505,8 @@ void terminate(const struct log *log, int status)
  * _and_ displayed on screen. If lsyncd daemonized already, 
  * stderr will be run into the void of /dev/null.
  */
-void printlogf(const struct log *log, int level, const char *fmt, ...)
+void
+printlogf(const struct log *log, int level, const char *fmt, ...)
 {
 	va_list ap;
 	char * ct;
@@ -605,7 +604,8 @@ void printlogf(const struct log *log, int level, const char *fmt, ...)
  * memory, but kill a process to ensure memory will be
  * available.
  */
-void *s_malloc(const struct log *log, size_t size)
+void *
+s_malloc(const struct log *log, size_t size)
 {
 	void *r = malloc(size);
 
@@ -620,7 +620,8 @@ void *s_malloc(const struct log *log, size_t size)
 /**
  * "secured" calloc.
  */
-void *s_calloc(const struct log *log, size_t nmemb, size_t size)
+void *
+s_calloc(const struct log *log, size_t nmemb, size_t size)
 {
 	void *r = calloc(nmemb, size);
 
@@ -635,7 +636,8 @@ void *s_calloc(const struct log *log, size_t nmemb, size_t size)
 /**
  * "secured" realloc.
  */
-void *s_realloc(const struct log *log, void *ptr, size_t size)
+void *
+s_realloc(const struct log *log, void *ptr, size_t size)
 {
 	void *r = realloc(ptr, size);
 
@@ -650,7 +652,8 @@ void *s_realloc(const struct log *log, void *ptr, size_t size)
 /**
  * "secured" strdup.
  */
-char *s_strdup(const struct log *log, const char *src)
+char *
+s_strdup(const struct log *log, const char *src)
 {
 	char *s = strdup(src);
 
@@ -663,10 +666,11 @@ char *s_strdup(const struct log *log, const char *src)
 }
 
 /**
- * Returns the canonicalized path of a directory with a final '/', 
+ * Returns the canonicalized path of a directory with a final '/'.
  * Makes sure it is a directory.
  */
-char *realdir(const struct log *log, const char *dir) 
+char *
+realdir(const struct log *log, const char *dir) 
 {
 	char* cs = s_malloc(log, PATH_MAX+1);
 	cs = realpath(dir, cs);
@@ -694,7 +698,7 @@ char *realdir(const struct log *log, const char *dir)
 /**
  * Appends one value on an integer vector.
  */
-void 
+void
 ivector_push(const struct log *log, struct ivector *ivect, int val){
 	if (ivect->size > ivect->len + 1) {
 		ivect->data[ivect->len++] = val;
@@ -711,7 +715,7 @@ ivector_push(const struct log *log, struct ivector *ivect, int val){
 }
 
 /*--------------------------------------------------------------------------*
- * dir_configuration handling. 
+ * Per directory configuration handling. 
  *--------------------------------------------------------------------------*/
 
 /**
@@ -723,7 +727,8 @@ ivector_push(const struct log *log, struct ivector *ivect, int val){
  *
  * @return the pointer to the newly allocated dir_conf
  */
-struct dir_conf * new_dir_conf(struct global_options *opts) {
+struct dir_conf *
+new_dir_conf(struct global_options *opts) {
 	const struct log* log = &opts->log;
 
 	if (opts->dir_conf_n > 0) {
@@ -751,7 +756,8 @@ struct dir_conf * new_dir_conf(struct global_options *opts) {
  * @param dir_conf   dir_conf to add the target to.
  * @param target     target to add.
  */
-void dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *target)
+void
+dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *target)
 {
 	char **t;
 	int target_n = 0;
@@ -776,7 +782,7 @@ void dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char 
  * @param watch         the index in dir_watches to the directory.
  * @param alarm         times() when the directory should be acted.
  */
-bool 
+bool
 append_tackle(const struct log *log, int watch, clock_t alarm) {
 	printlogf(log, DEBUG, "add tackle(%d)", watch);
 	if (dir_watches->data[watch].tackled) {
@@ -833,7 +839,8 @@ append_tosync_watch(const struct log *log, int watch) {
  *
  * @return a newly allocated string.
  */
-char *parse_option_text(const struct log *log, char *text, bool recursive)
+char *
+parse_option_text(const struct log *log, char *text, bool recursive)
 {
 	char * str = s_strdup(log, text);
 	char * chr; // search result for %.
@@ -865,7 +872,8 @@ char *parse_option_text(const struct log *log, char *text, bool recursive)
  * @param argv the arguments
  * @param argc number of arguments
  */
-char* get_arg_str(const struct log *log, char **argv, int argc) {
+char *
+get_arg_str(const struct log *log, char **argv, int argc) {
 	int i;
 	int len = 0;
 	char * str;
@@ -900,11 +908,12 @@ char* get_arg_str(const struct log *log, char **argv, int argc) {
  *
  * TODO change dir_conf and src pointer simply to index offset.
  */
-bool action(const struct global_options *opts,
-            struct dir_conf * dir_conf, 
-            char const * src, 
-            const char * dest, 
-            bool recursive)
+bool
+action(const struct global_options *opts,
+       struct dir_conf * dir_conf, 
+       char const * src, 
+       const char * dest, 
+       bool recursive)
 {
 	pid_t pid;
 	int status;
@@ -1014,23 +1023,27 @@ bool action(const struct global_options *opts,
 /**
  * Adds a directory to watch.
  *
- * @param pathname the absolute path of the directory to watch.
- * @param dirname  the name of the directory only (yes this is a bit redudant, but oh well)
- * @param parent   if not -1 the index to the parent directory that is already watched
- * @param dir_conf the applicateable configuration
+ * @param log        logging information.
+ * @param inotify_fd inotify file descriptor.
+ * @param pathname   the absolute path of the directory to watch.
+ * @param dirname    the name of the directory only (yes this is a bit redudant, but oh well)
+ * @param parent     if not -1 the index to the parent directory that is already watched
+ * @param dir_conf   the applicateable configuration
  *
  * @return index to dir_watches of the new dir, -1 on error.
  */
-int add_watch(const struct log *log,
-              char const * pathname, 
-              char const * dirname, 
-              int parent, 
-              struct dir_conf * dir_conf)
+int
+add_watch(const struct log *log,
+          int inotify_fd,
+          char const * pathname, 
+          char const * dirname, 
+          int parent, 
+          struct dir_conf * dir_conf)
 {
 	int wd;    // kernels inotify descriptor
 	int newdw; // position to insert this watch into the watch vector
 
-	wd = inotify_add_watch(inotf, pathname,
+	wd = inotify_add_watch(inotify_fd, pathname,
 	                       IN_ATTRIB | IN_CLOSE_WRITE | IN_CREATE | 
 	                       IN_DELETE | IN_DELETE_SELF | IN_MOVED_FROM | 
 	                       IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR);
@@ -1079,7 +1092,8 @@ int add_watch(const struct log *log,
  *            contents of pathname will be garbled then.
  *         strlen(pathname) if successful
  */
-int builddir(char *pathname, int pathsize, int watch, char const * prefix)
+int
+builddir(char *pathname, int pathsize, int watch, char const * prefix)
 {
 	int len = 0;
 	if (watch == -1) {
@@ -1125,12 +1139,13 @@ int builddir(char *pathname, int pathsize, int watch, char const * prefix)
  * @param dirname       if not NULL it is added at the end of pathname
  * @param prefix        if not NULL it is added at the beginning of pathname
  */
-bool buildpath(const struct log *log, 
-               char *pathname,
-               int pathsize,
-               int watch,
-               const char *dirname,
-               const char *prefix)
+bool
+buildpath(const struct log *log, 
+          char *pathname,
+          int pathsize,
+          int watch,
+          const char *dirname,
+          const char *prefix)
 {
 	int len = builddir(pathname, pathsize, watch, prefix);
 	if (len < 0) {
@@ -1158,7 +1173,8 @@ bool buildpath(const struct log *log,
  *
  * @returns true when all targets were successful.
  */
-bool rsync_dir(const struct global_options *opts, int watch)
+bool
+rsync_dir(const struct global_options *opts, int watch)
 {
 	char pathname[PATH_MAX+1];
 	char destname[PATH_MAX+1];
@@ -1195,7 +1211,8 @@ bool rsync_dir(const struct global_options *opts, int watch)
  * @param watch   the index in dir_watches to the directory.
  * @param alarm   times() when the directory handling should be fired.
  */
-void tackle_dir(const struct global_options *opts, int watch, clock_t alarm)
+void
+tackle_dir(const struct global_options *opts, int watch, clock_t alarm)
 {
 	char pathname[PATH_MAX+1];
 	const struct log *log = &opts->log;
@@ -1219,15 +1236,21 @@ void tackle_dir(const struct global_options *opts, int watch, clock_t alarm)
 /**
  * Adds a dir to watch.
  *
- * @param dirname   The name or absolute path of the directory to watch.
- * @param parent    If not -1, the index in dir_watches to the parent directory already watched.
- *                  Must have absolute path if parent == -1.
- * @param dir_conf  ???  TODO
+ * @param log        logging information.
+ * @param inotify_fd inotify file descriptor.
+ * @param dirname    The name or absolute path of the directory to watch.
+ * @param parent     If not -1, the index in dir_watches to the parent directory already watched.
+ *                   Must have absolute path if parent == -1.
+ * @param dir_conf   ???  TODO
  *
  * @returns the index in dir_watches of the directory or -1 on fail.
- *
  */
-int add_dirwatch(const struct log *log, char const *dirname, int parent, struct dir_conf *dir_conf)
+int 
+add_dirwatch(const struct log *log,
+			 int inotify_fd,
+             char const *dirname, 
+			 int parent, 
+			 struct dir_conf *dir_conf)
 {
 	DIR *d;
 
@@ -1251,7 +1274,7 @@ int add_dirwatch(const struct log *log, char const *dirname, int parent, struct 
 		printlogf(log, DEBUG, "comparing %s with %s not an exclude so far.", pathname, exclude_dirs[i]);
 	}
 
-	dw = add_watch(log, pathname, dirname, parent, dir_conf);
+	dw = add_watch(log, inotify_fd, pathname, dirname, parent, dir_conf);
 	if (dw == -1) {
 		return -1;
 	}
@@ -1293,7 +1316,8 @@ int add_dirwatch(const struct log *log, char const *dirname, int parent, struct 
 
 		// add watches if its a directory and not . or ..
 		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
-			int ndw = add_dirwatch(log, de->d_name, dw, dir_conf);
+			// recurse into subdir
+			int ndw = add_dirwatch(log, inotify_fd, de->d_name, dw, dir_conf); 
 			printlogf(log, NORMAL, 
 			          "found new directory: %s in %s -- %s", 
 			          de->d_name, dirname, ndw >= 0 ? "added on tosync stack" : "ignored it");
@@ -1308,13 +1332,19 @@ int add_dirwatch(const struct log *log, char const *dirname, int parent, struct 
 /**
  * Removes a watched dir, including recursevily all subdirs.
  *
- * @param name   Optionally. If not NULL, the directory name 
- *               to remove which is a child of parent.
- * @param parent The index to the parent directory of the 
- *               directory 'name' to remove, or to be removed 
- *               itself if name == NULL.
+ * @param opts       global options.
+ * @param inotify_fd inotify file descriptor.
+ * @param name       optionally. If not NULL, the directory name 
+ *                   to remove which is a child of parent.
+ * @param parent     the index to the parent directory of the 
+ *                   directory 'name' to remove, or to be removed 
+ *                   itself if name == NULL.
  */
-bool remove_dirwatch(const struct global_options *opts, const char * name, int parent)
+bool 
+remove_dirwatch(const struct global_options *opts,
+                int inotify_fd,
+                const char * name, 
+				int parent)
 {
 	const struct log *log = &opts->log;
 	int dw;   // the directory index to remove.
@@ -1343,12 +1373,12 @@ bool remove_dirwatch(const struct global_options *opts, const char * name, int p
 		int i;
 		for (i = 0; i < dir_watches->len; i++) {
 			if (dir_watches->data[i].wd >= 0 && dir_watches->data[i].parent == dw) {
-				remove_dirwatch(opts, NULL, i);
+				remove_dirwatch(opts, inotify_fd, NULL, i);
 			}
 		}
 	}
 
-	inotify_rm_watch(inotf, dir_watches->data[dw].wd);
+	inotify_rm_watch(inotify_fd, dir_watches->data[dw].wd);
 	// mark this entry invalid (cannot remove, since indexes point into this vector)
 	// TODO from where?
 	dir_watches->data[dw].wd = -1;  
@@ -1381,7 +1411,8 @@ bool remove_dirwatch(const struct global_options *opts, const char * name, int p
  * @param wd   The wd (watch descriptor) given by inotify
  * @return offset, or -1 if not found
  */
-int get_dirwatch_offset(int wd) {
+int 
+get_dirwatch_offset(int wd) {
 	int i;
 	for (i = 0; i < dir_watches->len; i++) {
 		if (dir_watches->data[i].wd == wd) {
@@ -1396,7 +1427,8 @@ int get_dirwatch_offset(int wd) {
  *
  * @param alarm   times() when the directory handling should be fired.
  */
-bool process_tosync_stack(const struct global_options *opts, clock_t alarm)
+bool 
+process_tosync_stack(const struct global_options *opts, clock_t alarm)
 {
 	const struct log *log = &opts->log;
 
@@ -1413,11 +1445,16 @@ bool process_tosync_stack(const struct global_options *opts, clock_t alarm)
 /**
  * Handles an inotify event.
  * 
- * @param opts    Global options.
- * @param event   The event to handle
- * @param alarm   times() moment when it should fire.
+ * @param opts       global options
+ * @param inotify_fd inotify file descriptor
+ * @param event      the event to handle
+ * @param alarm      times() moment when it should fire
  */
-bool handle_event(const struct global_options *opts, struct inotify_event *event, clock_t alarm)
+bool 
+handle_event(const struct global_options *opts, 
+             int inotify_fd,
+             struct inotify_event *event, 
+			 clock_t alarm)
 {
 	char masktext[255] = {0,};
 	int mask = event->mask;
@@ -1466,12 +1503,12 @@ bool handle_event(const struct global_options *opts, struct inotify_event *event
 
 	// in case of a new directory create new watches
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		subwatch = add_dirwatch(log, event->name, watch, dir_watches->data[watch].dir_conf);
+		subwatch = add_dirwatch(log, inotify_fd, event->name, watch, dir_watches->data[watch].dir_conf);
 	}
 
 	// in case of a removed directory remove watches
 	if (((IN_DELETE | IN_MOVED_FROM) & event->mask) && (IN_ISDIR & event->mask)) {
-		remove_dirwatch(opts, event->name, watch);
+		remove_dirwatch(opts, inotify_fd, event->name, watch);
 	}
 	
 	// call the binary if something changed
@@ -1494,9 +1531,12 @@ bool handle_event(const struct global_options *opts, struct inotify_event *event
 /**
  * The control loop waiting for inotify events.
  *
- * @param opts    Global options.
+ * @param opts        global options
+ * @param inotify_fd  inotify file descriptor
  */
-bool master_loop(const struct global_options *opts)
+bool 
+master_loop(const struct global_options *opts,
+            int inotify_fd)
 {
 	char buf[INOTIFY_BUF_LEN];
 	int len, i = 0;
@@ -1509,7 +1549,7 @@ bool master_loop(const struct global_options *opts)
 	const struct log *log = &opts->log;
 			
 	FD_ZERO(&readfds);
-	FD_SET(inotf, &readfds);
+	FD_SET(inotify_fd, &readfds);
 
 	if (opts->delay > 0) {
 		if (clocks_per_sec <= 0) {
@@ -1534,7 +1574,7 @@ bool master_loop(const struct global_options *opts)
 					tv.tv_sec = opts->delay;
 					tv.tv_usec = 0;
 			}
-			ready = select(inotf + 1, &readfds, NULL, NULL, &tv);
+			ready = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
 		} else {
 			// if nothing to wait for, enter a blocking read
 			// (sorry this variable is named a bit confusing
@@ -1543,7 +1583,7 @@ bool master_loop(const struct global_options *opts)
 		}
 
 		if (ready) {
-			len = read (inotf, buf, INOTIFY_BUF_LEN);
+			len = read (inotify_fd, buf, INOTIFY_BUF_LEN);
 		} else {
 			len = 0;
 		}
@@ -1560,7 +1600,7 @@ bool master_loop(const struct global_options *opts)
 		i = 0;
 		while (i < len) {
 			struct inotify_event *event = (struct inotify_event *) &buf[i];
-			handle_event(opts, event, alarm);
+			handle_event(opts, inotify_fd, event, alarm);
 			i += sizeof(struct inotify_event) + event->len;
 		}
 
@@ -1582,7 +1622,8 @@ bool master_loop(const struct global_options *opts)
  *
  * @param filename  filename to check
  */
-void check_file_exists(const struct log* log, const char* filename, const char *errmsg)
+void 
+check_file_exists(const struct log* log, const char* filename, const char *errmsg)
 {
 	struct stat st;
 	if (-1==stat(filename, &st)) {
@@ -1598,7 +1639,8 @@ void check_file_exists(const struct log* log, const char* filename, const char *
  * @param filename  Filename to check
  * @param errmsg    Filetype text to prepend to the error message.
  */
-void check_absolute_path(const struct log* log, const char* filename, const char *filetype)
+void
+check_absolute_path(const struct log* log, const char* filename, const char *filetype)
 {
 	if (filename[0] != '/') {
 		printlogf(log, ERROR, "%s [%s] has do be an absolute path.\n", filetype, filename);
@@ -1611,7 +1653,8 @@ void check_absolute_path(const struct log* log, const char* filename, const char
  *
  * @param arg0   argv[0] to show what lsyncd was called with.
  */
-void print_help(char *arg0)
+void
+print_help(char *arg0)
 {
 	printf("\n");
 #ifdef XML_CONFIG
@@ -1674,7 +1717,8 @@ void print_help(char *arg0)
  *
  * @return the allocated and filled calloptions structure
  */
-struct call_option * parse_callopts(struct global_options *opts, xmlNodePtr node) {
+struct call_option *
+parse_callopts(struct global_options *opts, xmlNodePtr node) {
 	xmlNodePtr cnode;
 	xmlChar *xc;
 	int opt_n = 0;
@@ -1732,7 +1776,8 @@ struct call_option * parse_callopts(struct global_options *opts, xmlNodePtr node
 /**
  * Parses <diretory>
  */
-bool parse_directory(struct global_options *opts, xmlNodePtr node) {
+bool
+parse_directory(struct global_options *opts, xmlNodePtr node) {
 	xmlNodePtr dnode;
 	xmlChar *xc;
 	struct dir_conf * dc = new_dir_conf(opts);
@@ -1799,7 +1844,8 @@ bool parse_directory(struct global_options *opts, xmlNodePtr node) {
 /**
  * Parses <settings>
  */
-bool parse_settings(struct global_options *opts, xmlNodePtr node) {
+bool 
+parse_settings(struct global_options *opts, xmlNodePtr node) {
 	xmlNodePtr snode;
 	xmlChar *xc;
 
@@ -1880,7 +1926,8 @@ bool parse_settings(struct global_options *opts, xmlNodePtr node) {
  *
  * @param fullparse       if false only read globals.
  */
-bool parse_config(struct global_options *opts, bool fullparse) {
+bool
+parse_config(struct global_options *opts, bool fullparse) {
 	LIBXML_TEST_VERSION
 	xmlDoc *doc = NULL;
 	xmlNode *root_element = NULL;
@@ -1929,8 +1976,6 @@ bool parse_config(struct global_options *opts, bool fullparse) {
 	xmlCleanupParser();
 	return true;
 }
-
-
 #endif
 
 /**
@@ -1939,7 +1984,8 @@ bool parse_config(struct global_options *opts, bool fullparse) {
  * terminates in some cases of badparameters, or on 
  * --version or --help
  */
-void parse_options(struct global_options *opts, int argc, char **argv)
+void
+parse_options(struct global_options *opts, int argc, char **argv)
 {
 	char **target;
 
@@ -2134,7 +2180,8 @@ void parse_options(struct global_options *opts, int argc, char **argv)
 /**
  * Parses the exclude file looking for directory masks to not watch.
  */
-bool parse_exclude_file(struct log *log, char *filename) {
+bool
+parse_exclude_file(struct log *log, char *filename) {
 	FILE * ef;
 	char line[PATH_MAX+1];
 	int sl;
@@ -2200,9 +2247,10 @@ bool parse_exclude_file(struct log *log, char *filename) {
 }
 
 /**
- * Writes a pid file (specified by global "pidfile")
+ * Writes a pid file.
  */
-void write_pidfile(const struct log *log, const char *pidfile) {
+void
+write_pidfile(const struct log *log, const char *pidfile) {
 	FILE* f = fopen(pidfile, "w");
 	if (!f) {
 		printlogf(log, ERROR, "Error: cannot write pidfile [%s]\n", pidfile);
@@ -2214,12 +2262,14 @@ void write_pidfile(const struct log *log, const char *pidfile) {
 }
 
 /**
- * main
+ * Main.
  */
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
-	struct global_options opts = {{0,}};
+	struct global_options opts = {{0,}};  // global options 
 	struct log *log = &opts.log;
+	int inotify_fd;                       // inotify file descriptor
 
 	openlog("lsyncd", LOG_CONS | LOG_PID, LOG_DAEMON);
 
@@ -2230,8 +2280,8 @@ int main(int argc, char **argv)
 		parse_exclude_file(log, opts.default_exclude_file);
 	}
 
-	inotf = inotify_init();
-	if (inotf == -1) {
+	inotify_fd = inotify_init();
+	if (inotify_fd == -1) {
 		printlogf(log, ERROR, "Cannot create inotify instance! (%d:%s)", 
 		          errno, strerror(errno));
 		return LSYNCD_NOINOTIFY;
@@ -2262,7 +2312,7 @@ int main(int argc, char **argv)
 		int i;
 		for (i = 0; i < opts.dir_conf_n; i++) {
 			printlogf(log, NORMAL, "watching %s", opts.dir_confs[i].source);
-			add_dirwatch(log, opts.dir_confs[i].source, -1, &opts.dir_confs[i]);
+			add_dirwatch(log, inotify_fd, opts.dir_confs[i].source, -1, &opts.dir_confs[i]);
 		}
 	}
 
@@ -2298,7 +2348,7 @@ int main(int argc, char **argv)
 
 	signal(SIGTERM, catch_alarm);
 
-	master_loop(&opts);
+	master_loop(&opts, inotify_fd);
 
 	return 0;
 }
