@@ -1,5 +1,11 @@
 #!/bin/bash
 set -e
+CON="\E[47;34m"
+COFF="\033[0m"
+
+echo -e "$CON**************************************************$COFF"
+echo -e "$CON** Checking if lsyncd writes a correct pidfile. **$COFF"
+echo -e "$CON**************************************************$COFF"
 
 WORKTARGET=$(mktemp -d)
 PIDFILE=$(mktemp)

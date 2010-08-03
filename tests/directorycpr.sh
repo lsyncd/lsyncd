@@ -36,10 +36,10 @@ for A in 1 2 3 4 5 6 7 8 9 10; do
     echo 'test2' > "${WORKSOURCE}"/d${A}/a/another
 done
 
-echo -e "$CON*waiting until lsyncd does the job.$COFF"
+echo -e "$CON* waiting for lsyncd to do the job.$COFF"
 sleep 20s
 
-echo -e "$CON*killing lsyncd$COFF"
+echo -e "$CON* killing lsyncd$COFF"
 LSYNCPID=$(cat "${PIDFILE}")
 if ! kill "${LSYNCPID}"; then
     cat "${LOGFILE}"
@@ -53,10 +53,11 @@ sleep 1s
 #cat "${LOGFILE}"
 ##this should be grep.
 
-echo -e "$CON*differences$COFF"
+echo -e "$CON* differences$COFF"
 diff -urN "${WORKSOURCE}" "${WORKTARGET}"
 
 rm "${PIDFILE}"
 rm "${LOGFILE}"
 rm -rf "${WORKTARGET}"
 rm -rf "${WORKSOURCE}"
+
