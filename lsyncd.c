@@ -40,7 +40,7 @@
 #endif
 
 /**
- * Number of inotifies to read at once from the kernel.
+ * Number of inotifies to read max. at once from the kernel.
  */
 #define INOTIFY_BUF_LEN     (64 * (sizeof(struct inotify_event) + 16))
 
@@ -385,8 +385,6 @@ struct watch_vector {
 	size_t size;
 	size_t len;
 };
-struct watch_vector watches_obj = {0, };
-struct watch_vector *watches = &watches_obj;
 
 /**
  * Array of strings of directory names to include.
@@ -749,11 +747,13 @@ dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *targ
 /**
  * Adds a directory on the delays list
  *
- * @param watch         the index in watches to the directory.
- * @param alarm         times() when the directory should be acted.
+ * @param log        logging information
+ * @param watches    the watches vector
+ * @param watch      the index in watches to the directory
+ * @param alarm      times() when the directory should be acted
  */
 bool
-append_delay(const struct log *log, int watch, clock_t alarm) {
+append_delay(const struct log *log, struct watch_vector *watches, int watch, clock_t alarm) {
 	printlogf(log, DEBUG, "append delay(%d)", watch);
 	if (watches->data[watch].delayed) {
 		printlogf(log, DEBUG, "ignored since already delayed.", watch);
@@ -768,9 +768,11 @@ append_delay(const struct log *log, int watch, clock_t alarm) {
 
 /**
  * Removes the first entry on the delay list.
+ * 
+ * @param watches   the watches vector
  */
 void 
-remove_first_delay() {
+remove_first_delay(struct watch_vector *watches) {
 	int tw = delays->data[0];
 	memmove(delays->data, delays->data + 1, (--delays->len) * sizeof(int));
 	watches->data[tw].delayed = false;
@@ -974,10 +976,11 @@ action(const struct global_options *opts,
 /**
  * Adds a directory to watch.
  *
- * @param log        logging information.
- * @param inotify_fd inotify file descriptor.
- * @param pathname   the absolute path of the directory to watch.
- * @param dirname    the name of the directory only (yes this is a bit redudant, but oh well)
+ * @param log        logging information
+ * @param watches    the vector of watches
+ * @param inotify_fd inotify file descriptor
+ * @param pathname   the absolute path of the directory to watch
+ * @param dirname    the name of the directory only 
  * @param parent     if not -1 the index to the parent directory that is already watched
  * @param dir_conf   the applicateable configuration
  *
@@ -985,6 +988,7 @@ action(const struct global_options *opts,
  */
 int
 add_watch(const struct log *log,
+          struct watch_vector *watches,
           int inotify_fd,
           char const * pathname, 
           char const * dirname, 
@@ -1043,11 +1047,15 @@ add_watch(const struct log *log,
  *         strlen(pathname) if successful
  */
 int
-builddir(char *pathname, int pathsize, int watch, char const * prefix)
+builddir(char *pathname, 
+         int pathsize, 
+		 struct watch_vector *watches,    //TODO remove and change to pointer
+		 int watch, 
+		 char const * prefix)
 {
 	int len = 0;
 	if (watch == -1) {
-		// When is this called this way???
+		// TODO When is this called this way???
 		char const * p = prefix ? prefix : "";
 		len = strlen(p);
 		if (pathsize <= len) {
@@ -1064,7 +1072,7 @@ builddir(char *pathname, int pathsize, int watch, char const * prefix)
 		strcpy(pathname, p);
 	} else {
 		// this is some sub dir
-		len = builddir(pathname, pathsize, watches->data[watch].parent, prefix); /* recurse */
+		len = builddir(pathname, pathsize, watches, watches->data[watch].parent, prefix); /* recurse */
 		len += strlen(watches->data[watch].dirname);
 		if (pathsize <= len) {
 			return -1;
@@ -1093,11 +1101,12 @@ bool
 buildpath(const struct log *log, 
           char *pathname,
           int pathsize,
+		  struct watch_vector *watches, // TODO remove need
           int watch,
           const char *dirname,
           const char *prefix)
 {
-	int len = builddir(pathname, pathsize, watch, prefix);
+	int len = builddir(pathname, pathsize, watches, watch, prefix);
 	if (len < 0) {
 		printlogf(log, ERROR, "path too long!");
 		return false;
@@ -1124,7 +1133,9 @@ buildpath(const struct log *log,
  * @returns true when all targets were successful.
  */
 bool
-rsync_dir(const struct global_options *opts, int watch)
+rsync_dir(const struct global_options *opts, 
+          struct watch_vector *watches, // TODO remove
+          int watch)
 {
 	char pathname[PATH_MAX+1];
 	char destname[PATH_MAX+1];
@@ -1132,12 +1143,12 @@ rsync_dir(const struct global_options *opts, int watch)
 	char ** target;
 	const struct log *log = &opts->log;
 
-	if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
+	if (!buildpath(log, pathname, sizeof(pathname), watches, watch, NULL, NULL)) {
 		return false;
 	}
 
 	for (target = watches->data[watch].dir_conf->targets; *target; target++) {
-		if (!buildpath(log, destname, sizeof(destname), watch, NULL, *target)) {
+		if (!buildpath(log, destname, sizeof(destname), watches, watch, NULL, *target)) {
 			status = false;
 			continue;
 		}
@@ -1153,29 +1164,31 @@ rsync_dir(const struct global_options *opts, int watch)
 }
 
 /**
- * Puts a directory on the delay list. 
- *
- * Directly calls rsync_dir if delay == 0;
+ * Puts a directory on the delay list OR 
+ *   directly calls rsync_dir if delay == 0;
  *
  * @param watch   the index in ir_watches to the directory.
  * @param alarm   times() when the directory handling should be fired.
  */
 void
-delay_dir(const struct global_options *opts, int watch, clock_t alarm)
+delay_dir(const struct global_options *opts, 
+          struct watch_vector *watches, //TODO remove?
+          int watch,
+		  clock_t alarm)
 {
 	char pathname[PATH_MAX+1];
 	const struct log *log = &opts->log;
 	
 	if (opts->delay == 0) {
-		rsync_dir(opts, watch);
+		rsync_dir(opts, watches, watch);
 		return;
 	}
 
-	if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
+	if (!buildpath(log, pathname, sizeof(pathname), watches, watch, NULL, NULL)) {
 		return;
 	}
 
-	if (append_delay(log, watch, alarm)) {
+	if (append_delay(log, watches, watch, alarm)) {
 		printlogf(log, NORMAL, "Putted %s on a delay", pathname);
 	} else {
 		printlogf(log, NORMAL, "Not acted on %s already on delay", pathname);
@@ -1187,6 +1200,7 @@ delay_dir(const struct global_options *opts, int watch, clock_t alarm)
  * Puts the directory with all subdirectories on the delay FIFO.
  *
  * @param opts       global options
+ * @param watches    the watch vector
  * @param inotify_fd inotify file descriptor.
  * @param dirname    The name or absolute path of the directory to watch.
  * @param parent     If not -1, the index in watches to the parent directory already watched.
@@ -1197,6 +1211,7 @@ delay_dir(const struct global_options *opts, int watch, clock_t alarm)
  */
 int
 add_dirwatch(const struct global_options *opts,
+             struct watch_vector *watches,
 			 int inotify_fd,
              char const *dirname, 
 			 int parent, 
@@ -1204,7 +1219,6 @@ add_dirwatch(const struct global_options *opts,
 {
 	const struct log *log = &opts->log;
 	DIR *d;
-
 	int dw;
 	char pathname[PATH_MAX+1];
 
@@ -1212,7 +1226,7 @@ add_dirwatch(const struct global_options *opts,
 	          dirname,
 	          parent >= 0 ? watches->data[parent].dirname : "NULL");
 
-	if (!buildpath(log, pathname, sizeof(pathname), parent, dirname, NULL)) {
+	if (!buildpath(log, pathname, sizeof(pathname), watches, parent, dirname, NULL)) {
 		return -1;
 	}
 
@@ -1228,13 +1242,13 @@ add_dirwatch(const struct global_options *opts,
 	}
 
 	// watch this directory
-	dw = add_watch(log, inotify_fd, pathname, dirname, parent, dir_conf);
+	dw = add_watch(log, watches, inotify_fd, pathname, dirname, parent, dir_conf);
 	if (dw == -1) {
 		return -1;
 	}
 
 	// put this directory on list to be synced ASAP.
-	delay_dir(opts, dw, times(NULL));
+	delay_dir(opts, watches, dw, times(NULL));
 	
 	if (strlen(pathname) + strlen(dirname) + 2 > sizeof(pathname)) {
 		printlogf(log, ERROR, "pathname too long %s//%s", pathname, dirname);
@@ -1263,7 +1277,7 @@ add_dirwatch(const struct global_options *opts,
 			// use traditional means to determine if its a directory.
 			char subdir[PATH_MAX+1];
 			struct stat st;
-			isdir = buildpath(log, subdir, sizeof(subdir), dw, de->d_name, NULL) && 
+			isdir = buildpath(log, subdir, sizeof(subdir), watches, dw, de->d_name, NULL) && 
 			        !stat(subdir, &st) && 
 			        S_ISDIR(st.st_mode);
 		} else {
@@ -1273,7 +1287,7 @@ add_dirwatch(const struct global_options *opts,
 		// add watches if its a directory and not . or ..
 		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
 			// recurse into subdir
-			int ndw = add_dirwatch(opts, inotify_fd, de->d_name, dw, dir_conf); 
+			int ndw = add_dirwatch(opts, watches, inotify_fd, de->d_name, dw, dir_conf); 
 			printlogf(log, NORMAL, 
 			          "found new directory: %s in %s -- %s", 
 			          de->d_name, dirname, ndw >= 0 ? "will be synced" : "ignored it");
@@ -1287,16 +1301,18 @@ add_dirwatch(const struct global_options *opts,
 /**
  * Removes a watched dir, including recursevily all subdirs.
  *
- * @param opts       global options.
- * @param inotify_fd inotify file descriptor.
+ * @param opts       global options
+ * @param watches    the watch vector
+ * @param inotify_fd inotify file descriptor
  * @param name       optionally. If not NULL, the directory name 
- *                   to remove which is a child of parent.
+ *                   to remove which is a child of parent
  * @param parent     the index to the parent directory of the 
  *                   directory 'name' to remove, or to be removed 
  *                   itself if name == NULL.
  */
 bool
 remove_dirwatch(const struct global_options *opts,
+                struct watch_vector *watches,
                 int inotify_fd,
                 const char * name, 
 				int parent)
@@ -1328,7 +1344,7 @@ remove_dirwatch(const struct global_options *opts,
 		int i;
 		for (i = 0; i < watches->len; i++) {
 			if (watches->data[i].wd >= 0 && watches->data[i].parent == dw) {
-				remove_dirwatch(opts, inotify_fd, NULL, i);
+				remove_dirwatch(opts, watches, inotify_fd, NULL, i);
 			}
 		}
 	}
@@ -1359,14 +1375,16 @@ remove_dirwatch(const struct global_options *opts,
 }
 
 /**
- * Find the matching dw entry from wd (watch descriptor), and return
- * the offset in the table.
+ * Find the matching dw entry containing a watch descriptor 
+ * and return its offset.
  *
- * @param wd   The wd (watch descriptor) given by inotify
+ * @param watches  the watch vector
+ * @param wd       the wd (watch descriptor) given by inotify
+ *
  * @return offset, or -1 if not found
  */
 int
-get_watch_offset(int wd) {
+get_watch_offset(const struct watch_vector *watches, int wd) {
 	int i;
 	for (i = 0; i < watches->len; i++) {
 		if (watches->data[i].wd == wd) {
@@ -1380,12 +1398,14 @@ get_watch_offset(int wd) {
  * Handles an inotify event.
  * 
  * @param opts       global options
+ * @param watches    the watch vector
  * @param inotify_fd inotify file descriptor
  * @param event      the event to handle
  * @param alarm      times() moment when it should fire
  */
 bool 
-handle_event(const struct global_options *opts, 
+handle_event(const struct global_options *opts,
+             struct watch_vector *watches,
              int inotify_fd,
              struct inotify_event *event, 
 			 clock_t alarm)
@@ -1426,7 +1446,7 @@ handle_event(const struct global_options *opts,
 		}
 	}
 
-	watch = get_watch_offset(event->wd);
+	watch = get_watch_offset(watches, event->wd);
 	if (watch == -1) {
 		// this can happen in case of data moving faster than lsyncd can monitor it.
 		printlogf(log, NORMAL, 
@@ -1436,12 +1456,12 @@ handle_event(const struct global_options *opts,
 
 	// in case of a new directory create new watches
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		subwatch = add_dirwatch(opts, inotify_fd, event->name, watch, watches->data[watch].dir_conf);
+		subwatch = add_dirwatch(opts, watches, inotify_fd, event->name, watch, watches->data[watch].dir_conf);
 	}
 
 	// in case of a removed directory remove watches
 	if (((IN_DELETE | IN_MOVED_FROM) & event->mask) && (IN_ISDIR & event->mask)) {
-		remove_dirwatch(opts, inotify_fd, event->name, watch);
+		remove_dirwatch(opts, watches, inotify_fd, event->name, watch);
 	}
 	
 	// call the binary if something changed
@@ -1449,7 +1469,7 @@ handle_event(const struct global_options *opts,
 	     IN_MOVED_TO | IN_MOVED_FROM) & event->mask
 	   ) {
 		printlogf(log, NORMAL, "received event %s:%s.", masktext, event->name);
-		delay_dir(opts, watch, alarm); 
+		delay_dir(opts, watches, watch, alarm); 
 	} else {
 		printlogf(log, DEBUG, "... ignored this event.");
 	}
@@ -1460,14 +1480,16 @@ handle_event(const struct global_options *opts,
  * The control loop waiting for inotify events.
  *
  * @param opts        global options
+ * @param watches     the watch vector
  * @param inotify_fd  inotify file descriptor
  */
 bool 
 master_loop(const struct global_options *opts,
+            struct watch_vector *watches,
             int inotify_fd)
 {
 	char buf[INOTIFY_BUF_LEN];
-	int len, i = 0;
+	int len;
 	long clocks_per_sec = sysconf(_SC_CLK_TCK);
 
 	struct timeval tv;
@@ -1488,7 +1510,7 @@ master_loop(const struct global_options *opts,
 
 	while (keep_going) {
 		int do_read;
-		if (delays->len > 0 && time_after(times(NULL), watches->data[delays->data[0]].alarm)) {
+		if (delays->len > 0 && time_after_eq(times(NULL), watches->data[delays->data[0]].alarm)) {
 			// there is a delay that wants to be handled already
 			// do not read from inotify_fd and jump directly to delay handling
 			printlogf(log, DEBUG, "immediately handling delayed entries");
@@ -1540,21 +1562,24 @@ master_loop(const struct global_options *opts,
 		now = times(NULL);
 		alarm = now + opts->delay * clocks_per_sec;
 
-		// first handle all events that might have happened
-		i = 0;
-		while (i < len) {
-			struct inotify_event *event = (struct inotify_event *) &buf[i];
-			handle_event(opts, inotify_fd, event, alarm);
-			i += sizeof(struct inotify_event) + event->len;
+		{
+			// first handle all events read.
+			int i = 0;
+			while (i < len) {
+				struct inotify_event *event = (struct inotify_event *) &buf[i];
+				handle_event(opts, watches, inotify_fd, event, alarm);
+				i += sizeof(struct inotify_event) + event->len;
+			}
 		}
 
-		// Then pull of directories from the top of the delay stack 
+		// Then take of directories from the top of the delay FIFO 
 		// until one item is found whose expiry time has not yet come
-		// or the stack is empty.
-		while (delays->len > 0 && time_after(times(NULL), watches->data[delays->data[0]].alarm)) {
+		// or the stack is empty. Using now time - times(NULL) - everytime 
+		// again as time may progresses while handling delayed entries.
+		while (delays->len > 0 && time_after_eq(times(NULL), watches->data[delays->data[0]].alarm)) {
 			printlogf(log, DEBUG, "time for %d arrived.", delays->data[0]);
-			rsync_dir(opts, delays->data[0]);
-			remove_first_delay();
+			rsync_dir(opts, watches, delays->data[0]);
+			remove_first_delay(watches);
 		}
 	}
 
@@ -2213,6 +2238,7 @@ main(int argc, char **argv)
 {
 	struct global_options opts = {{0,}};  // global options 
 	struct log *log = &opts.log;
+	struct watch_vector watches = {0, };  // all watches
 	int inotify_fd;                       // inotify file descriptor
 
 	openlog("lsyncd", LOG_CONS | LOG_PID, LOG_DAEMON);
@@ -2248,15 +2274,15 @@ main(int argc, char **argv)
 		write_pidfile(log, opts.pidfile);
 	}
 
-    watches->size = 2;
-    watches->data = s_calloc(log, watches->size, sizeof(struct watch));
+    watches.size = 2;
+    watches.data = s_calloc(log, watches.size, sizeof(struct watch));
 
 	{
 		// add all watches
 		int i;
 		for (i = 0; i < opts.dir_conf_n; i++) {
 			printlogf(log, NORMAL, "watching %s", opts.dir_confs[i].source);
-			add_dirwatch(&opts, inotify_fd, opts.dir_confs[i].source, -1, &opts.dir_confs[i]);
+			add_dirwatch(&opts, &watches, inotify_fd, opts.dir_confs[i].source, -1, &opts.dir_confs[i]);
 		}
 	}
 
@@ -2266,8 +2292,8 @@ main(int argc, char **argv)
 	{
 		int i;
 		for(i = 0; i < delays->len; i++) {
-			watches->data[i].delayed = false;
-			watches->data[i].alarm = 0;
+			watches.data[i].delayed = false;
+			watches.data[i].alarm = 0;
 		}
 		delays->len = 0;
 	}
@@ -2295,11 +2321,11 @@ main(int argc, char **argv)
 
 	printlogf(log, NORMAL, 
 	          "--- Entering normal operation with [%d] monitored directories ---",
-	          watches->len);
+	          watches.len);
 
 	signal(SIGTERM, catch_alarm);
 
-	master_loop(&opts, inotify_fd);
+	master_loop(&opts, &watches, inotify_fd);
 
 	return 0;
 }
