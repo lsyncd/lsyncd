@@ -6,11 +6,10 @@ CON="\E[47;34m"
 COFF="\033[0m"
 
 WORKSOURCE=$(mktemp -d)
-WORKTARGET=$(mktemp -d)
+WORKSOURCE="/tmp/src"
+WORKTARGET="/tmp/trg"
 PIDFILE=$(mktemp)
 LOGFILE=$(mktemp)
-
-
 
 echo -e "$CON* populating the filesystem$COFF"
 mkdir -p "${WORKSOURCE}"/a/a

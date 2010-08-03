@@ -1365,13 +1365,12 @@ remove_dirwatch(const struct global_options *opts,
 	dir_watches->data[dw].dirname = NULL;
 
 	// remove a possible tackle
-	// (this dir is on the delay list)
-	if (opts->delay > 0 && dir_watches->data[dw].tackled) {
+	// (this dir is on the to do/delay list)
+	if (tackles->len > 0 && dir_watches->data[dw].tackled) {
 		int i;
 		for(i = 0; i < tackles->len; i++) {
 			if (tackles->data[i] == dw) {
 				// move the list up.
-				// TODO move own logic
 				memmove(tackles->data + i, tackles->data + i + 1, (tackles->len - i - 1) * sizeof(int));
 				tackles->len--;
 				break;
