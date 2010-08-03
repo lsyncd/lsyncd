@@ -1,7 +1,11 @@
 #!/bin/bash
-# test the case of directory being mv'ed and rm'ed. lsyncd 1.0 didn't handle this case well.
-
 set -e
+CON="\E[47;34m"
+COFF="\033[0m"
+
+echo -e "$CON************************************************************$COFF"
+echo -e "$CON** Testing the case of directory being moved and removed. **$COFF"
+echo -e "$CON************************************************************$COFF"
 
 WORKSOURCE=$(mktemp -d)
 WORKTARGET=$(mktemp -d)
@@ -12,34 +16,33 @@ echo $WORKSOURCE
 echo $WORKTARGET
 echo $PIDFILE
 
-# populate the filesystem.
+echo -e "$CON* populating the filesystem.$COFF"
 mkdir "${WORKSOURCE}"/a
 mkdir "${WORKSOURCE}"/b
 touch "${WORKSOURCE}"/a/f
 touch "${WORKSOURCE}"/b/g
 
-echo ./lsyncd --logfile "${LOGFILE}" --pidfile "${PIDFILE}" "${WORKSOURCE}" "${WORKTARGET}"
+echo -e "$CON* starting lsyncd.$COFF"
 ./lsyncd --logfile "${LOGFILE}" --pidfile "${PIDFILE}" "${WORKSOURCE}" "${WORKTARGET}"
 LSYNCPID=$(cat "${PIDFILE}")
 
-# try to wait until lsyncd starts and rsyncs initial file, hope 2s is enough.
-sleep 2s
+echo -e "$CON* waiting for lsyncd to start.$COFF"
+sleep 4s
 
 # move a file
-echo "moving a directory"
+echo -e "$CON* moving a directory$COFF"
 mv "${WORKSOURCE}"/a "${WORKSOURCE}"/c
-echo "create a file there"
+
+echo -e "$CON* creating a file there$COFF"
 touch "${WORKSOURCE}"/c/h
 
-echo "and delete a directory"
-#lsyncd 1.0 dies here
+echo -e "$CON* and deleting a directory$COFF"
 rm -r "${WORKSOURCE}"/b
 
-echo "wait for events to trigger"
-# try to wait until lsyncd does the job.
+echo -e "$CON* waiting for lsyncd to do the job.$COFF"
 sleep 10s
-echo "killing daemon"
 
+echo -e "$CON* killing daemon$COFF"
 if ! kill "${LSYNCPID}"; then
     cat "${LOGFILE}"
     diff -ur "${WORKSOURCE}" "${WORKTARGET}" || true
@@ -48,14 +51,13 @@ if ! kill "${LSYNCPID}"; then
 fi
 sleep 1s
 
-
-echo "log file contents"
+echo -e "$CON* log file contents$COFF"
 cat "${LOGFILE}"
-#this should be grep.
 
+echo -e "$CON* differences$COFF"
 diff -ur "${WORKSOURCE}" "${WORKTARGET}"
 
-#rm "${PIDFILE}"
-#rm "${LOGFILE}"
-#rm -rf "${WORKTARGET}"
-#rm -rf "${WORKSOURCE}"
+rm "${PIDFILE}"
+rm "${LOGFILE}"
+rm -rf "${WORKTARGET}"
+rm -rf "${WORKSOURCE}"

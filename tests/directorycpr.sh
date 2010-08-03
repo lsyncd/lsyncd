@@ -1,13 +1,15 @@
 #!/bin/bash
-# test the case of directory being cp -r'ed and touched. lsyncd 1.0 doesn't handle this case well.
-
 set -e
 CON="\E[47;34m"
 COFF="\033[0m"
 
+echo -e "$CON***************************************************************$COFF"
+echo -e "$CON** Testing the case of directory being cp -r'ed and touched. **$COFF" 
+echo -e "$CON** With default delay                                        **$COFF"
+echo -e "$CON***************************************************************$COFF"
+
 WORKSOURCE=$(mktemp -d)
-WORKSOURCE="/tmp/src"
-WORKTARGET="/tmp/trg"
+WORKTARGET=$(mktemp -d)
 PIDFILE=$(mktemp)
 LOGFILE=$(mktemp)
 
@@ -22,7 +24,7 @@ echo -e "$CON* waiting for lsyncd to start$COFF"
 sleep 4s
 
 # cp -r the directory
-echo -e "$CON* make a lot of data$OFF"
+echo -e "$CON* making a lot of data$COFF"
 for A in 1 2 3 4 5 6 7 8 9 10; do
     cp -r "${WORKSOURCE}"/a "${WORKSOURCE}"/b${A}
     echo 'test2' > "${WORKSOURCE}"/b${A}/a/another
@@ -35,7 +37,7 @@ for A in 1 2 3 4 5 6 7 8 9 10; do
 done
 
 echo -e "$CON*waiting until lsyncd does the job.$COFF"
-sleep 60s
+sleep 20s
 
 echo -e "$CON*killing lsyncd$COFF"
 LSYNCPID=$(cat "${PIDFILE}")
@@ -54,7 +56,7 @@ sleep 1s
 echo -e "$CON*differences$COFF"
 diff -urN "${WORKSOURCE}" "${WORKTARGET}"
 
-#rm "${PIDFILE}"
-#rm "${LOGFILE}"
-#rm -rf "${WORKTARGET}"
-#rm -rf "${WORKSOURCE}"
+rm "${PIDFILE}"
+rm "${LOGFILE}"
+rm -rf "${WORKTARGET}"
+rm -rf "${WORKSOURCE}"
