@@ -197,7 +197,7 @@ struct watch {
 	/**
 	 * On a delay to be handled.
 	 */
-	bool tackled;
+	bool delayed;
 
 	/**
 	 * Point in time when rsync should be called.
@@ -344,8 +344,8 @@ struct ivector {
 /**
  * List of directories on a delay.
  */
-struct ivector tackles_obj = {0, };
-struct ivector *tackles = &tackles_obj;
+struct ivector delays_obj = {0, };
+struct ivector *delays = &delays_obj;
 
 /**
  * Structure to store strings for the diversve inotfy masked events.
@@ -747,33 +747,33 @@ dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *targ
  *--------------------------------------------------------------------------*/
 
 /**
- * Adds a directory on the tackle len (on a delay)
+ * Adds a directory on the delays list
  *
  * @param watch         the index in watches to the directory.
  * @param alarm         times() when the directory should be acted.
  */
 bool
-append_tackle(const struct log *log, int watch, clock_t alarm) {
-	printlogf(log, DEBUG, "add tackle(%d)", watch);
-	if (watches->data[watch].tackled) {
-		printlogf(log, DEBUG, "ignored since already tackled.", watch);
+append_delay(const struct log *log, int watch, clock_t alarm) {
+	printlogf(log, DEBUG, "append delay(%d)", watch);
+	if (watches->data[watch].delayed) {
+		printlogf(log, DEBUG, "ignored since already delayed.", watch);
 		return false;
 	}
-	watches->data[watch].tackled = true;
+	watches->data[watch].delayed = true;
 	watches->data[watch].alarm = alarm;
 
-	ivector_push(log, tackles, watch);
+	ivector_push(log, delays, watch);
 	return true;
 }
 
 /**
- * Removes the first directory on the tackle list.
+ * Removes the first entry on the delay list.
  */
 void 
-remove_first_tackle() {
-	int tw = tackles->data[0];
-	memmove(tackles->data, tackles->data + 1, (--tackles->len) * sizeof(int));
-	watches->data[tw].tackled = false;
+remove_first_delay() {
+	int tw = delays->data[0];
+	memmove(delays->data, delays->data + 1, (--delays->len) * sizeof(int));
+	watches->data[tw].delayed = false;
 }
 
 /*--------------------------------------------------------------------------*
@@ -1026,7 +1026,7 @@ add_watch(const struct log *log,
 	watches->data[newdw].dirname = s_strdup(log, dirname);
 	watches->data[newdw].dir_conf = dir_conf;
 	watches->data[newdw].alarm = 0; // not needed, just to be save
-	watches->data[newdw].tackled = false;
+	watches->data[newdw].delayed = false;
 	return newdw;
 }
 
@@ -1153,8 +1153,7 @@ rsync_dir(const struct global_options *opts, int watch)
 }
 
 /**
- * Puts a directory on the TO-DO list. Waiting for its delay 
- * to be actually executed.
+ * Puts a directory on the delay list. 
  *
  * Directly calls rsync_dir if delay == 0;
  *
@@ -1162,7 +1161,7 @@ rsync_dir(const struct global_options *opts, int watch)
  * @param alarm   times() when the directory handling should be fired.
  */
 void
-tackle_dir(const struct global_options *opts, int watch, clock_t alarm)
+delay_dir(const struct global_options *opts, int watch, clock_t alarm)
 {
 	char pathname[PATH_MAX+1];
 	const struct log *log = &opts->log;
@@ -1176,7 +1175,7 @@ tackle_dir(const struct global_options *opts, int watch, clock_t alarm)
 		return;
 	}
 
-	if (append_tackle(log, watch, alarm)) {
+	if (append_delay(log, watch, alarm)) {
 		printlogf(log, NORMAL, "Putted %s on a delay", pathname);
 	} else {
 		printlogf(log, NORMAL, "Not acted on %s already on delay", pathname);
@@ -1185,7 +1184,7 @@ tackle_dir(const struct global_options *opts, int watch, clock_t alarm)
 
 /**
  * Adds a directory including all subdirectories to watch.
- * Puts the directory with all subdirectories on the tackle FIFO.
+ * Puts the directory with all subdirectories on the delay FIFO.
  *
  * @param opts       global options
  * @param inotify_fd inotify file descriptor.
@@ -1235,7 +1234,7 @@ add_dirwatch(const struct global_options *opts,
 	}
 
 	// put this directory on list to be synced ASAP.
-	tackle_dir(opts, dw, times(NULL));
+	delay_dir(opts, dw, times(NULL));
 	
 	if (strlen(pathname) + strlen(dirname) + 2 > sizeof(pathname)) {
 		printlogf(log, ERROR, "pathname too long %s//%s", pathname, dirname);
@@ -1342,15 +1341,15 @@ remove_dirwatch(const struct global_options *opts,
 	free(watches->data[dw].dirname);
 	watches->data[dw].dirname = NULL;
 
-	// remove a possible tackle
+	// remove a possible delay
 	// (this dir is on the to do/delay list)
-	if (tackles->len > 0 && watches->data[dw].tackled) {
+	if (delays->len > 0 && watches->data[dw].delayed) {
 		int i;
-		for(i = 0; i < tackles->len; i++) {
-			if (tackles->data[i] == dw) {
+		for(i = 0; i < delays->len; i++) {
+			if (delays->data[i] == dw) {
 				// move the list up.
-				memmove(tackles->data + i, tackles->data + i + 1, (tackles->len - i - 1) * sizeof(int));
-				tackles->len--;
+				memmove(delays->data + i, delays->data + i + 1, (delays->len - i - 1) * sizeof(int));
+				delays->len--;
 				break;
 			} 
 		}
@@ -1450,7 +1449,7 @@ handle_event(const struct global_options *opts,
 	     IN_MOVED_TO | IN_MOVED_FROM) & event->mask
 	   ) {
 		printlogf(log, NORMAL, "received event %s:%s.", masktext, event->name);
-		tackle_dir(opts, watch, alarm); 
+		delay_dir(opts, watch, alarm); 
 	} else {
 		printlogf(log, DEBUG, "... ignored this event.");
 	}
@@ -1489,17 +1488,17 @@ master_loop(const struct global_options *opts,
 
 	while (keep_going) {
 		int do_read;
-		if (tackles->len > 0 && time_after(times(NULL), watches->data[tackles->data[0]].alarm)) {
-			// there is a tackle that wants to be handled already
-			// do not read from inotify_fd and jump directly to tackles handling
-			printlogf(log, DEBUG, "immediately handling tackles");
+		if (delays->len > 0 && time_after(times(NULL), watches->data[delays->data[0]].alarm)) {
+			// there is a delay that wants to be handled already
+			// do not read from inotify_fd and jump directly to delay handling
+			printlogf(log, DEBUG, "immediately handling delayed entries");
 			do_read = 0;
-		} else if (opts->delay > 0 && tackles->len > 0) {
+		} else if (opts->delay > 0 && delays->len > 0) {
 			// use select() to determine what happens first
 			// a new event or "alarm" of an event to actually
-			// call its binary. The tackle with the index 0 
+			// call its binary. The delay with the index 0 
 			// should have the nearest alarm time.
-			alarm = watches->data[tackles->data[0]].alarm;
+			alarm = watches->data[delays->data[0]].alarm;
 			now = times(NULL);
 			tv.tv_sec  = (alarm - now) / clocks_per_sec;
 			tv.tv_usec = (alarm - now) * 1000000 / clocks_per_sec % 1000000;
@@ -1515,7 +1514,7 @@ master_loop(const struct global_options *opts,
 			if (do_read) {
 				printlogf(log, DEBUG, "theres data on inotify.");
 			} else {
-				printlogf(log, DEBUG, "select() timeouted, doiong tackles.");
+				printlogf(log, DEBUG, "select() timeouted, doiong delays.");
 			}
 		} else {
 			// if nothing to wait for, enter a blocking read
@@ -1549,13 +1548,13 @@ master_loop(const struct global_options *opts,
 			i += sizeof(struct inotify_event) + event->len;
 		}
 
-		// Then pull of directories from the top of the tackle stack 
+		// Then pull of directories from the top of the delay stack 
 		// until one item is found whose expiry time has not yet come
 		// or the stack is empty.
-		while (tackles->len > 0 && time_after(times(NULL), watches->data[tackles->data[0]].alarm)) {
-			printlogf(log, DEBUG, "time for %d arrived.", tackles[0]);
-			rsync_dir(opts, tackles->data[0]);
-			remove_first_tackle();
+		while (delays->len > 0 && time_after(times(NULL), watches->data[delays->data[0]].alarm)) {
+			printlogf(log, DEBUG, "time for %d arrived.", delays->data[0]);
+			rsync_dir(opts, delays->data[0]);
+			remove_first_delay();
 		}
 	}
 
@@ -2261,16 +2260,16 @@ main(int argc, char **argv)
 		}
 	}
 
-	// clears tackle FIFO again, because the startup recursive rsync will 
+	// clears delay FIFO again, because the startup recursive rsync will 
 	// handle it eitherway or if started no-startup it has to be ignored.
-	printlogf(log, DEBUG, "dumped list of stuff to do.");
+	printlogf(log, DEBUG, "dumped delay list.");
 	{
 		int i;
-		for(i = 0; i < tackles->len; i++) {
-			watches->data[i].tackled = false;
+		for(i = 0; i < delays->len; i++) {
+			watches->data[i].delayed = false;
 			watches->data[i].alarm = 0;
 		}
-		tackles->len = 0;
+		delays->len = 0;
 	}
 
 	// startup recursive sync.
