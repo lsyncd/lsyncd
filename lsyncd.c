@@ -296,6 +296,11 @@ struct global_options {
 	struct call_option *default_callopts;
 
 	/**
+	 * Seconds of delay between event and action
+	 */
+	clock_t delay;
+
+	/**
 	 * The configuratiton for dirs to synchronize
 	 */
 	struct dir_conf *dir_confs;
@@ -419,13 +424,6 @@ struct dir_watch_vector *dir_watches = &dir_watches_obj;
 int inotf;
 
 /**
- * Seconds of delay between event and action
- *
- * TODO is an option.
- */
-clock_t delay = 5;
-
-/**
  * Array of strings of directory names to include.
  * This is limited to MAX_EXCLUDES.
  * It's not worth to code a dynamic size handling...
@@ -454,6 +452,7 @@ void reset_options(struct global_options *opts) {
 	opts->default_binary = DEFAULT_BINARY;
 	opts->default_exclude_file = NULL;
 	opts->default_callopts = standard_callopts;
+	opts->delay = 5;
 	opts->dir_confs = NULL;
 	opts->dir_conf_n = 0;
 };
@@ -1201,7 +1200,7 @@ void tackle_dir(const struct global_options *opts, int watch, clock_t alarm)
 	char pathname[PATH_MAX+1];
 	const struct log *log = &opts->log;
 	
-	if (delay == 0) {
+	if (opts->delay == 0) {
 		rsync_dir(opts, watch);
 		return;
 	}
@@ -1315,8 +1314,9 @@ int add_dirwatch(const struct log *log, char const *dirname, int parent, struct 
  *               directory 'name' to remove, or to be removed 
  *               itself if name == NULL.
  */
-bool remove_dirwatch(const struct log *log, const char * name, int parent)
+bool remove_dirwatch(const struct global_options *opts, const char * name, int parent)
 {
+	const struct log *log = &opts->log;
 	int dw;   // the directory index to remove.
 	if (name) {
 		int i;
@@ -1343,7 +1343,7 @@ bool remove_dirwatch(const struct log *log, const char * name, int parent)
 		int i;
 		for (i = 0; i < dir_watches->len; i++) {
 			if (dir_watches->data[i].wd >= 0 && dir_watches->data[i].parent == dw) {
-				remove_dirwatch(log, NULL, i);
+				remove_dirwatch(opts, NULL, i);
 			}
 		}
 	}
@@ -1358,7 +1358,7 @@ bool remove_dirwatch(const struct log *log, const char * name, int parent)
 
 	// remove a possible tackle
 	// (this dir is on the delay list)
-	if (delay > 0 && dir_watches->data[dw].tackled) {
+	if (opts->delay > 0 && dir_watches->data[dw].tackled) {
 		int i;
 		for(i = 0; i < tackles->len; i++) {
 			if (tackles->data[i] == dw) {
@@ -1471,7 +1471,7 @@ bool handle_event(const struct global_options *opts, struct inotify_event *event
 
 	// in case of a removed directory remove watches
 	if (((IN_DELETE | IN_MOVED_FROM) & event->mask) && (IN_ISDIR & event->mask)) {
-		remove_dirwatch(log, event->name, watch);
+		remove_dirwatch(opts, event->name, watch);
 	}
 	
 	// call the binary if something changed
@@ -1511,7 +1511,7 @@ bool master_loop(const struct global_options *opts)
 	FD_ZERO(&readfds);
 	FD_SET(inotf, &readfds);
 
-	if (delay > 0) {
+	if (opts->delay > 0) {
 		if (clocks_per_sec <= 0) {
 			printlogf(log, ERROR, "Clocks per seoond invalid! %d", printlogf);
 			terminate(log, LSYNCD_INTERNALFAIL);
@@ -1520,7 +1520,7 @@ bool master_loop(const struct global_options *opts)
 
 	while (keep_going) {
 		int ready;
-		if (delay > 0 && tackles->len > 0) {
+		if (opts->delay > 0 && tackles->len > 0) {
 			// use select() to determine what happens first
 			// a new event or "alarm" of an event to actually
 			// call its binary. The tackle with the index 0 
@@ -1529,9 +1529,9 @@ bool master_loop(const struct global_options *opts)
 			now = times(NULL);
 			tv.tv_sec  = (alarm - now) / clocks_per_sec;
 			tv.tv_usec = (alarm - now) * 1000000 / clocks_per_sec % 1000000;
-			if (tv.tv_sec > delay) {
+			if (tv.tv_sec > opts->delay) {
 					// security boundary in case of times() wrap around.
-					tv.tv_sec = delay;
+					tv.tv_sec = opts->delay;
 					tv.tv_usec = 0;
 			}
 			ready = select(inotf + 1, &readfds, NULL, NULL, &tv);
@@ -1554,7 +1554,7 @@ bool master_loop(const struct global_options *opts)
 		}
 
 		now = times(NULL);
-		alarm = now + delay * clocks_per_sec;
+		alarm = now + opts->delay * clocks_per_sec;
 
 		// first handle all events that might have happened
 		i = 0;
@@ -1816,12 +1816,12 @@ bool parse_settings(struct global_options *opts, xmlNodePtr node) {
 				printlogf(NULL, ERROR, "error in config file: attribute value missing from <delay/>\n");
 		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			delay = strtol((char *) xc, &p, 10);
+			opts->delay = strtol((char *) xc, &p, 10);
 			if (*p) {
 				printlogf(NULL, ERROR, "<delay> value %s is not an integer.\n", xc);
 		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			if (delay < 0) {
+			if (opts->delay < 0) {
 				printlogf(NULL, ERROR, "<delay> value may not be negative.\n");
 		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
@@ -2051,12 +2051,12 @@ void parse_options(struct global_options *opts, int argc, char **argv)
 			
 			if (!strcmp("delay", long_options[oi].name)) {
 				char *p;
-				delay = strtol(optarg, &p, 10);
+				opts->delay = strtol(optarg, &p, 10);
 				if (*p) {
 					printf("%s is not an integer.\n", optarg);
 					terminate(NULL, LSYNCD_BADPARAMETERS);
 				}
-				if (delay < 0) {
+				if (opts->delay < 0) {
 					printf("delay may not be negative.\n");
 					terminate(NULL, LSYNCD_BADPARAMETERS);
 				}
