@@ -42,7 +42,7 @@ rm -r "${WORKSOURCE}"/b
 echo -e "$CON* waiting for lsyncd to do the job.$COFF"
 sleep 20s
 
-echo -e "$CON* killing daemon$COFF"
+echo -e "$CON* killing lsyncd$COFF"
 if ! kill "${LSYNCPID}"; then
     cat "${LOGFILE}"
     diff -ur "${WORKSOURCE}" "${WORKTARGET}" || true

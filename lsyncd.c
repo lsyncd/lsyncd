@@ -173,7 +173,7 @@ struct dir_conf {
 /**
  * Structure to store the directory watches.
  */
-struct dir_watch {
+struct watch {
 	/**
 	 * The watch descriptor returned by kernel.
 	 */
@@ -342,31 +342,10 @@ struct ivector {
 };
 
 /**
- * General purpose growable vector of pointers.
- */
-//struct pvector {
-//	/**
-//	 * data
-//	 */
-//	void *data;
-//
-//	/**
-//	 * allocated mem
-//	 */
-//	size_t size;
-//
-//	/**
-//	 * length used
-//	 */
-//	size_t len;
-//};
-
-/**
  * List of directories on a delay.
  */
 struct ivector tackles_obj = {0, };
 struct ivector *tackles = &tackles_obj;
-
 
 /**
  * Structure to store strings for the diversve inotfy masked events.
@@ -401,13 +380,13 @@ struct inotify_mask_text mask_texts[] = {
 /**
  * Holds all directories being watched.
  */
-struct dir_watch_vector {
-	struct dir_watch *data;
+struct watch_vector {
+	struct watch *data;
 	size_t size;
 	size_t len;
 };
-struct dir_watch_vector dir_watches_obj = {0, };
-struct dir_watch_vector *dir_watches = &dir_watches_obj;
+struct watch_vector watches_obj = {0, };
+struct watch_vector *watches = &watches_obj;
 
 /**
  * Array of strings of directory names to include.
@@ -770,18 +749,18 @@ dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *targ
 /**
  * Adds a directory on the tackle len (on a delay)
  *
- * @param watch         the index in dir_watches to the directory.
+ * @param watch         the index in watches to the directory.
  * @param alarm         times() when the directory should be acted.
  */
 bool
 append_tackle(const struct log *log, int watch, clock_t alarm) {
 	printlogf(log, DEBUG, "add tackle(%d)", watch);
-	if (dir_watches->data[watch].tackled) {
+	if (watches->data[watch].tackled) {
 		printlogf(log, DEBUG, "ignored since already tackled.", watch);
 		return false;
 	}
-	dir_watches->data[watch].tackled = true;
-	dir_watches->data[watch].alarm = alarm;
+	watches->data[watch].tackled = true;
+	watches->data[watch].alarm = alarm;
 
 	ivector_push(log, tackles, watch);
 	return true;
@@ -794,7 +773,7 @@ void
 remove_first_tackle() {
 	int tw = tackles->data[0];
 	memmove(tackles->data, tackles->data + 1, (--tackles->len) * sizeof(int));
-	dir_watches->data[tw].tackled = false;
+	watches->data[tw].tackled = false;
 }
 
 /*--------------------------------------------------------------------------*
@@ -1002,7 +981,7 @@ action(const struct global_options *opts,
  * @param parent     if not -1 the index to the parent directory that is already watched
  * @param dir_conf   the applicateable configuration
  *
- * @return index to dir_watches of the new dir, -1 on error.
+ * @return index to watches of the new dir, -1 on error.
  */
 int
 add_watch(const struct log *log,
@@ -1027,28 +1006,27 @@ add_watch(const struct log *log,
 	}
 
 	// look if an unused slot can be found.
-	for (newdw = 0; newdw < dir_watches->len; newdw++) {
-		if (dir_watches->data[newdw].wd < 0) {
+	for (newdw = 0; newdw < watches->len; newdw++) {
+		if (watches->data[newdw].wd < 0) {
 			break;
 		}
 	}
 
-	if (newdw == dir_watches->len) {
-		// TODO move this
-		if (dir_watches->len + 1 >= dir_watches->size) {
-			dir_watches->size *= 2;
-			dir_watches->data = s_realloc(log, dir_watches->data, 
-			                        dir_watches->size * sizeof(struct dir_watch));
+	if (newdw == watches->len) {
+		if (watches->len + 1 >= watches->size) {
+			watches->size *= 2;
+			watches->data = s_realloc(log, watches->data, 
+			                          watches->size * sizeof(struct watch));
 		}
-		dir_watches->len++;
+		watches->len++;
 	}
 
-	dir_watches->data[newdw].wd = wd;
-	dir_watches->data[newdw].parent = parent;
-	dir_watches->data[newdw].dirname = s_strdup(log, dirname);
-	dir_watches->data[newdw].dir_conf = dir_conf;
-	dir_watches->data[newdw].alarm = 0; // not needed, just to be save
-	dir_watches->data[newdw].tackled = false;
+	watches->data[newdw].wd = wd;
+	watches->data[newdw].parent = parent;
+	watches->data[newdw].dirname = s_strdup(log, dirname);
+	watches->data[newdw].dir_conf = dir_conf;
+	watches->data[newdw].alarm = 0; // not needed, just to be save
+	watches->data[newdw].tackled = false;
 	return newdw;
 }
 
@@ -1076,9 +1054,9 @@ builddir(char *pathname, int pathsize, int watch, char const * prefix)
 			return -1;
 		}
 		strcpy(pathname, p);
-	} else if (dir_watches->data[watch].parent == -1) {
+	} else if (watches->data[watch].parent == -1) {
 		// this is a watch root.
-		char const * p = prefix ? prefix : dir_watches->data[watch].dirname;
+		char const * p = prefix ? prefix : watches->data[watch].dirname;
 		len = strlen(p);
 		if (pathsize <= len) {
 			return -1;
@@ -1086,12 +1064,12 @@ builddir(char *pathname, int pathsize, int watch, char const * prefix)
 		strcpy(pathname, p);
 	} else {
 		// this is some sub dir
-		len = builddir(pathname, pathsize, dir_watches->data[watch].parent, prefix); /* recurse */
-		len += strlen(dir_watches->data[watch].dirname);
+		len = builddir(pathname, pathsize, watches->data[watch].parent, prefix); /* recurse */
+		len += strlen(watches->data[watch].dirname);
 		if (pathsize <= len) {
 			return -1;
 		}
-		strcat(pathname, dir_watches->data[watch].dirname);
+		strcat(pathname, watches->data[watch].dirname);
 	}
 	// add the trailing slash if it is missing
 	if (*pathname && pathname[strlen(pathname)-1] != '/') {
@@ -1103,11 +1081,11 @@ builddir(char *pathname, int pathsize, int watch, char const * prefix)
 
 /**
  * Builds the abolute path name of a given directory beeing 
- * watched from the dir_watches information.
+ * watched from the watches information.
  *
  * @param pathname      destination buffer to store the result to.
  * @param pathsize      max size of this buffer
- * @param watch         the index in dir_watches to the directory.
+ * @param watch         the index in watches to the directory.
  * @param dirname       if not NULL it is added at the end of pathname
  * @param prefix        if not NULL it is added at the beginning of pathname
  */
@@ -1141,7 +1119,7 @@ buildpath(const struct log *log,
  *         directory gone away, and thus cannot work, or network
  *         failed)
  *
- * @param watch   the index in dir_watches to the directory.
+ * @param watch   the index in watches to the directory.
  *
  * @returns true when all targets were successful.
  */
@@ -1158,7 +1136,7 @@ rsync_dir(const struct global_options *opts, int watch)
 		return false;
 	}
 
-	for (target = dir_watches->data[watch].dir_conf->targets; *target; target++) {
+	for (target = watches->data[watch].dir_conf->targets; *target; target++) {
 		if (!buildpath(log, destname, sizeof(destname), watch, NULL, *target)) {
 			status = false;
 			continue;
@@ -1166,7 +1144,7 @@ rsync_dir(const struct global_options *opts, int watch)
 		printlogf(log, NORMAL, "rsyncing %s --> %s", pathname, destname);
 
 		// call rsync to propagate changes in the directory
-		if (!action(opts, dir_watches->data[watch].dir_conf, pathname, destname, false)) {
+		if (!action(opts, watches->data[watch].dir_conf, pathname, destname, false)) {
 			printlogf(log, ERROR, "Rsync from %s to %s failed", pathname, destname);
 			status = false;
 		}
@@ -1180,7 +1158,7 @@ rsync_dir(const struct global_options *opts, int watch)
  *
  * Directly calls rsync_dir if delay == 0;
  *
- * @param watch   the index in dir_watches to the directory.
+ * @param watch   the index in ir_watches to the directory.
  * @param alarm   times() when the directory handling should be fired.
  */
 void
@@ -1212,11 +1190,11 @@ tackle_dir(const struct global_options *opts, int watch, clock_t alarm)
  * @param opts       global options
  * @param inotify_fd inotify file descriptor.
  * @param dirname    The name or absolute path of the directory to watch.
- * @param parent     If not -1, the index in dir_watches to the parent directory already watched.
+ * @param parent     If not -1, the index in watches to the parent directory already watched.
  *                   Must have absolute path if parent == -1.
  * @param dir_conf   ???  TODO
  *
- * @returns the index in dir_watches of the directory or -1 on fail.
+ * @returns the index in watches of the directory or -1 on fail.
  */
 int
 add_dirwatch(const struct global_options *opts,
@@ -1233,7 +1211,7 @@ add_dirwatch(const struct global_options *opts,
 
 	printlogf(log, DEBUG, "add_dirwatch(%s, p->dirname:%s, ...)", 
 	          dirname,
-	          parent >= 0 ? dir_watches->data[parent].dirname : "NULL");
+	          parent >= 0 ? watches->data[parent].dirname : "NULL");
 
 	if (!buildpath(log, pathname, sizeof(pathname), parent, dirname, NULL)) {
 		return -1;
@@ -1329,17 +1307,17 @@ remove_dirwatch(const struct global_options *opts,
 	if (name) {
 		int i;
 		// look for the child with the name
-		for (i = 0; i < dir_watches->len; i++) {
-			struct dir_watch *p = dir_watches->data + i;
+		for (i = 0; i < watches->len; i++) {
+			struct watch *p = watches->data + i;
 			if (p->wd >= 0 && p->parent == parent && !strcmp(name, p->dirname)) {
 				dw = i;
 				break;
 			}
 		}
 
-		if (i >= dir_watches->len) {
+		if (i >= watches->len) {
 			printlogf(log, ERROR, "Cannot find entry for %s:/:%s :-(", 
-			          dir_watches->data[parent].dirname, name);
+			          watches->data[parent].dirname, name);
 			return false;
 		}
 	} else {
@@ -1349,24 +1327,24 @@ remove_dirwatch(const struct global_options *opts,
 	{
 		// recurse into all subdirectories removing them.
 		int i;
-		for (i = 0; i < dir_watches->len; i++) {
-			if (dir_watches->data[i].wd >= 0 && dir_watches->data[i].parent == dw) {
+		for (i = 0; i < watches->len; i++) {
+			if (watches->data[i].wd >= 0 && watches->data[i].parent == dw) {
 				remove_dirwatch(opts, inotify_fd, NULL, i);
 			}
 		}
 	}
 
-	inotify_rm_watch(inotify_fd, dir_watches->data[dw].wd);
+	inotify_rm_watch(inotify_fd, watches->data[dw].wd);
 	// mark this entry invalid (cannot remove, since indexes point into this vector)
 	// TODO from where?
-	dir_watches->data[dw].wd = -1;  
+	watches->data[dw].wd = -1;  
 
-	free(dir_watches->data[dw].dirname);
-	dir_watches->data[dw].dirname = NULL;
+	free(watches->data[dw].dirname);
+	watches->data[dw].dirname = NULL;
 
 	// remove a possible tackle
 	// (this dir is on the to do/delay list)
-	if (tackles->len > 0 && dir_watches->data[dw].tackled) {
+	if (tackles->len > 0 && watches->data[dw].tackled) {
 		int i;
 		for(i = 0; i < tackles->len; i++) {
 			if (tackles->data[i] == dw) {
@@ -1389,10 +1367,10 @@ remove_dirwatch(const struct global_options *opts,
  * @return offset, or -1 if not found
  */
 int
-get_dirwatch_offset(int wd) {
+get_watch_offset(int wd) {
 	int i;
-	for (i = 0; i < dir_watches->len; i++) {
-		if (dir_watches->data[i].wd == wd) {
+	for (i = 0; i < watches->len; i++) {
+		if (watches->data[i].wd == wd) {
 			return i;
 		}
 	}
@@ -1449,7 +1427,7 @@ handle_event(const struct global_options *opts,
 		}
 	}
 
-	watch = get_dirwatch_offset(event->wd);
+	watch = get_watch_offset(event->wd);
 	if (watch == -1) {
 		// this can happen in case of data moving faster than lsyncd can monitor it.
 		printlogf(log, NORMAL, 
@@ -1459,7 +1437,7 @@ handle_event(const struct global_options *opts,
 
 	// in case of a new directory create new watches
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		subwatch = add_dirwatch(opts, inotify_fd, event->name, watch, dir_watches->data[watch].dir_conf);
+		subwatch = add_dirwatch(opts, inotify_fd, event->name, watch, watches->data[watch].dir_conf);
 	}
 
 	// in case of a removed directory remove watches
@@ -1511,7 +1489,7 @@ master_loop(const struct global_options *opts,
 
 	while (keep_going) {
 		int do_read;
-		if (tackles->len > 0 && time_after(times(NULL), dir_watches->data[tackles->data[0]].alarm)) {
+		if (tackles->len > 0 && time_after(times(NULL), watches->data[tackles->data[0]].alarm)) {
 			// there is a tackle that wants to be handled already
 			// do not read from inotify_fd and jump directly to tackles handling
 			printlogf(log, DEBUG, "immediately handling tackles");
@@ -1521,7 +1499,7 @@ master_loop(const struct global_options *opts,
 			// a new event or "alarm" of an event to actually
 			// call its binary. The tackle with the index 0 
 			// should have the nearest alarm time.
-			alarm = dir_watches->data[tackles->data[0]].alarm;
+			alarm = watches->data[tackles->data[0]].alarm;
 			now = times(NULL);
 			tv.tv_sec  = (alarm - now) / clocks_per_sec;
 			tv.tv_usec = (alarm - now) * 1000000 / clocks_per_sec % 1000000;
@@ -1574,7 +1552,7 @@ master_loop(const struct global_options *opts,
 		// Then pull of directories from the top of the tackle stack 
 		// until one item is found whose expiry time has not yet come
 		// or the stack is empty.
-		while (tackles->len > 0 && time_after(times(NULL), dir_watches->data[tackles->data[0]].alarm)) {
+		while (tackles->len > 0 && time_after(times(NULL), watches->data[tackles->data[0]].alarm)) {
 			printlogf(log, DEBUG, "time for %d arrived.", tackles[0]);
 			rsync_dir(opts, tackles->data[0]);
 			remove_first_tackle();
@@ -2271,8 +2249,8 @@ main(int argc, char **argv)
 		write_pidfile(log, opts.pidfile);
 	}
 
-    dir_watches->size = 2;
-    dir_watches->data = s_calloc(log, dir_watches->size, sizeof(struct dir_watch));
+    watches->size = 2;
+    watches->data = s_calloc(log, watches->size, sizeof(struct watch));
 
 	{
 		// add all watches
@@ -2289,8 +2267,8 @@ main(int argc, char **argv)
 	{
 		int i;
 		for(i = 0; i < tackles->len; i++) {
-			dir_watches->data[i].tackled = false;
-			dir_watches->data[i].alarm = 0;
+			watches->data[i].tackled = false;
+			watches->data[i].alarm = 0;
 		}
 		tackles->len = 0;
 	}
@@ -2318,7 +2296,7 @@ main(int argc, char **argv)
 
 	printlogf(log, NORMAL, 
 	          "--- Entering normal operation with [%d] monitored directories ---",
-	          dir_watches->len);
+	          watches->len);
 
 	signal(SIGTERM, catch_alarm);
 
