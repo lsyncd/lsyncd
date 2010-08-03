@@ -1451,10 +1451,9 @@ handle_event(const struct global_options *opts,
 
 	watch = get_dirwatch_offset(event->wd);
 	if (watch == -1) {
-		// this should not happen!
-		printlogf(log, ERROR, 
-		          "received an inotify event that doesnt match any watched directory :-(%d,%d)", 
-		          event->mask, event->wd);
+		// this can happen in case of data moving faster than lsyncd can monitor it.
+		printlogf(log, NORMAL, 
+		          "received an inotify event that doesnt match any watched directory.");
 		return false;
 	}
 
@@ -1472,8 +1471,7 @@ handle_event(const struct global_options *opts,
 	if ((IN_ATTRIB | IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | 
 	     IN_MOVED_TO | IN_MOVED_FROM) & event->mask
 	   ) {
-		printlogf(log, NORMAL, "event %s:%s triggered.", masktext, event->name);
-
+		printlogf(log, NORMAL, "received event %s:%s.", masktext, event->name);
 		tackle_dir(opts, watch, alarm); 
 	} else {
 		printlogf(log, DEBUG, "... ignored this event.");
@@ -1512,8 +1510,13 @@ master_loop(const struct global_options *opts,
 	}
 
 	while (keep_going) {
-		int ready;
-		if (opts->delay > 0 && tackles->len > 0) {
+		int do_read;
+		if (tackles->len > 0 && time_after(times(NULL), dir_watches->data[tackles->data[0]].alarm)) {
+			// there is a tackle that wants to be handled already
+			// do not read from inotify_fd and jump directly to tackles handling
+			printlogf(log, DEBUG, "immediately handling tackles");
+			do_read = 0;
+		} else if (opts->delay > 0 && tackles->len > 0) {
 			// use select() to determine what happens first
 			// a new event or "alarm" of an event to actually
 			// call its binary. The tackle with the index 0 
@@ -1527,15 +1530,22 @@ master_loop(const struct global_options *opts,
 					tv.tv_sec = opts->delay;
 					tv.tv_usec = 0;
 			}
-			ready = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
+			// if select returns a positive number there is data on inotify
+			// on zero the timemout occured.
+			do_read = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
+
+			if (do_read) {
+				printlogf(log, DEBUG, "theres data on inotify.");
+			} else {
+				printlogf(log, DEBUG, "select() timeouted, doiong tackles.");
+			}
 		} else {
 			// if nothing to wait for, enter a blocking read
-			// (sorry this variable is named a bit confusing
-			//  in this case)
-			ready = 1;
+			printlogf(log, DEBUG, "gone blocking");
+			do_read = 1;
 		}
 
-		if (ready) {
+		if (do_read) {
 			len = read (inotify_fd, buf, INOTIFY_BUF_LEN);
 		} else {
 			len = 0;

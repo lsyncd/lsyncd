@@ -22,25 +22,22 @@ echo -e "$CON* waiting for lsyncd to start$COFF"
 sleep 4s
 
 # cp -r the directory
-echo -e "$CON* make a lot of copies$OFF"
+echo -e "$CON* make a lot of data$OFF"
 for A in 1 2 3 4 5 6 7 8 9 10; do
     cp -r "${WORKSOURCE}"/a "${WORKSOURCE}"/b${A}
     echo 'test2' > "${WORKSOURCE}"/b${A}/a/another
 done
-
-echo -e "$CON* mkdir double path$OFF"
 mkdir -p "${WORKSOURCE}"/c/a
 echo 'test3' > "${WORKSOURCE}"/c/a/file
-echo -e "$CON* copy the other dir a few times$COFF"
 for A in 1 2 3 4 5 6 7 8 9 10; do
     cp -r "${WORKSOURCE}"/c "${WORKSOURCE}"/d${A}
     echo 'test2' > "${WORKSOURCE}"/d${A}/a/another
 done
 
 echo -e "$CON*waiting until lsyncd does the job.$COFF"
-sleep 15s
+sleep 60s
 
-echo -e "$CON*killing lsyncd"
+echo -e "$CON*killing lsyncd$COFF"
 LSYNCPID=$(cat "${PIDFILE}")
 if ! kill "${LSYNCPID}"; then
     cat "${LOGFILE}"
