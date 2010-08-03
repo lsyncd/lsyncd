@@ -40,7 +40,7 @@ echo -e "$CON* and deleting a directory$COFF"
 rm -r "${WORKSOURCE}"/b
 
 echo -e "$CON* waiting for lsyncd to do the job.$COFF"
-sleep 10s
+sleep 20s
 
 echo -e "$CON* killing daemon$COFF"
 if ! kill "${LSYNCPID}"; then

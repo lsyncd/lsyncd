@@ -1552,7 +1552,11 @@ master_loop(const struct global_options *opts,
 		}
 
 		if (len < 0) {
-			printlogf(log, ERROR, "failed to read from inotify (%d:%s)", errno, strerror(errno));
+			if (!keep_going) {
+				printlogf(log, NORMAL, "read exited due to TERM signal.");
+			} else {
+				printlogf(log, ERROR, "failed to read from inotify (%d:%s)", errno, strerror(errno));
+			}
 			return false;
 		}
 
@@ -1581,7 +1585,8 @@ master_loop(const struct global_options *opts,
 }
 
 /**
- * Utility function to check file exists. Print out error message and die.
+ * Utility function to check file exists. 
+ * Prints out error message and die.
  *
  * @param filename  filename to check
  */
@@ -1594,7 +1599,6 @@ check_file_exists(const struct log* log, const char* filename, const char *errms
 		terminate(log, LSYNCD_FILENOTFOUND);
 	}
 }
-
 
 /**
  * Utility function to check given path is absolute path.
@@ -1672,7 +1676,7 @@ print_help(char *arg0)
 
 #ifdef XML_CONFIG
 /*--------------------------------------------------------------------------*
- * config file parsing
+ * Config file parsing
  *--------------------------------------------------------------------------*/
 
 /**
