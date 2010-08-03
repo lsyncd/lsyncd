@@ -39,7 +39,6 @@
 #include <libxml/tree.h>
 #endif
 
-
 /**
  * Number of inotifies to read at once from the kernel.
  */
@@ -55,7 +54,6 @@
  */
 #define DEFAULT_BINARY "/usr/bin/rsync"
 #define DEFAULT_CONF_FILENAME "/etc/lsyncd.conf.xml"
-
 
 /**
  * Macros to compare times() values
@@ -362,13 +360,6 @@ struct ivector {
 //	 */
 //	size_t len;
 //};
-
-/**
- * A FILO stack of offset pointers to dir_watches 
- * to directories to sync.
- */
-struct ivector tosync_obj = {0,};
-struct ivector *tosync = &tosync_obj;
 
 /**
  * List of directories on a delay.
@@ -811,25 +802,6 @@ remove_first_tackle() {
  *--------------------------------------------------------------------------*/
 
 /**
- * Adds a directory to sync.
- *
- * @param watch         the index in dir_watches to the directory.
- */
-void
-append_tosync_watch(const struct log *log, int watch) {
-	int i;
-
-	printlogf(log, DEBUG, "append_tosync_watch(%d)", watch);
-	// look if its already in the tosync list.
-	for(i = 0; i < tosync->len; i++) {
-		if (tosync->data[i] == watch) {
-			return;
-		} 
-	}
-	ivector_push(log, tosync, watch);
-}
-
-/**
  * Parses an option text, replacing all '%' specifiers with 
  * elaborated stuff. duh, currently there is only one, so this 
  * fuction is a bit overkill but oh well :-)
@@ -1234,9 +1206,10 @@ tackle_dir(const struct global_options *opts, int watch, clock_t alarm)
 }
 
 /**
- * Adds a dir to watch.
+ * Adds a directory including all subdirectories to watch.
+ * Puts the directory with all subdirectories on the tackle FIFO.
  *
- * @param log        logging information.
+ * @param opts       global options
  * @param inotify_fd inotify file descriptor.
  * @param dirname    The name or absolute path of the directory to watch.
  * @param parent     If not -1, the index in dir_watches to the parent directory already watched.
@@ -1245,17 +1218,17 @@ tackle_dir(const struct global_options *opts, int watch, clock_t alarm)
  *
  * @returns the index in dir_watches of the directory or -1 on fail.
  */
-int 
-add_dirwatch(const struct log *log,
+int
+add_dirwatch(const struct global_options *opts,
 			 int inotify_fd,
              char const *dirname, 
 			 int parent, 
 			 struct dir_conf *dir_conf)
 {
+	const struct log *log = &opts->log;
 	DIR *d;
 
-	struct dirent *de;
-	int dw, i;
+	int dw;
 	char pathname[PATH_MAX+1];
 
 	printlogf(log, DEBUG, "add_dirwatch(%s, p->dirname:%s, ...)", 
@@ -1266,36 +1239,40 @@ add_dirwatch(const struct log *log,
 		return -1;
 	}
 
-	for (i = 0; i < exclude_dir_n; i++) {
-		if (!strcmp(pathname, exclude_dirs[i])) {
-			printlogf(log, NORMAL, "Excluding %s", pathname);
-			return -1;
+	{
+		int i;
+		for (i = 0; i < exclude_dir_n; i++) {
+			if (!strcmp(pathname, exclude_dirs[i])) {
+				printlogf(log, NORMAL, "Excluded %s", pathname);
+				return -1;
+			}
+			printlogf(log, DEBUG, "comparing %s with %s not an exclude so far.", pathname, exclude_dirs[i]);
 		}
-		printlogf(log, DEBUG, "comparing %s with %s not an exclude so far.", pathname, exclude_dirs[i]);
 	}
 
+	// watch this directory
 	dw = add_watch(log, inotify_fd, pathname, dirname, parent, dir_conf);
 	if (dw == -1) {
 		return -1;
 	}
 
+	// put this directory on list to be synced ASAP.
+	tackle_dir(opts, dw, times(NULL));
+	
 	if (strlen(pathname) + strlen(dirname) + 2 > sizeof(pathname)) {
 		printlogf(log, ERROR, "pathname too long %s//%s", pathname, dirname);
 		return -1;
 	}
 
 	d = opendir(pathname);
-
 	if (d == NULL) {
 		printlogf(log, ERROR, "cannot open dir %s.", dirname);
 		return -1;
 	}
 
 	while (keep_going) {    // terminate early on KILL signal
-		struct stat st;
-		char subdir[PATH_MAX+1];
 		bool isdir;
-		de = readdir(d);
+		struct dirent *de = readdir(d);
 
 		if (de == NULL) {   // finished reading the directory
 			break;
@@ -1307,6 +1284,8 @@ add_dirwatch(const struct log *log,
 		} else if (de->d_type == DT_UNKNOWN) {
 			// in case of reiserfs, d_type will be UNKNOWN, how evil! :-(
 			// use traditional means to determine if its a directory.
+			char subdir[PATH_MAX+1];
+			struct stat st;
 			isdir = buildpath(log, subdir, sizeof(subdir), dw, de->d_name, NULL) && 
 			        !stat(subdir, &st) && 
 			        S_ISDIR(st.st_mode);
@@ -1317,11 +1296,10 @@ add_dirwatch(const struct log *log,
 		// add watches if its a directory and not . or ..
 		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
 			// recurse into subdir
-			int ndw = add_dirwatch(log, inotify_fd, de->d_name, dw, dir_conf); 
+			int ndw = add_dirwatch(opts, inotify_fd, de->d_name, dw, dir_conf); 
 			printlogf(log, NORMAL, 
 			          "found new directory: %s in %s -- %s", 
-			          de->d_name, dirname, ndw >= 0 ? "added on tosync stack" : "ignored it");
-			append_tosync_watch(log, ndw);
+			          de->d_name, dirname, ndw >= 0 ? "will be synced" : "ignored it");
 		}
 	}
 
@@ -1340,7 +1318,7 @@ add_dirwatch(const struct log *log,
  *                   directory 'name' to remove, or to be removed 
  *                   itself if name == NULL.
  */
-bool 
+bool
 remove_dirwatch(const struct global_options *opts,
                 int inotify_fd,
                 const char * name, 
@@ -1411,7 +1389,7 @@ remove_dirwatch(const struct global_options *opts,
  * @param wd   The wd (watch descriptor) given by inotify
  * @return offset, or -1 if not found
  */
-int 
+int
 get_dirwatch_offset(int wd) {
 	int i;
 	for (i = 0; i < dir_watches->len; i++) {
@@ -1421,26 +1399,6 @@ get_dirwatch_offset(int wd) {
 	}
 	return -1;
 }
-
-/**
- * Processes through the tosync stack, rysncing all its directories.
- *
- * @param alarm   times() when the directory handling should be fired.
- */
-bool 
-process_tosync_stack(const struct global_options *opts, clock_t alarm)
-{
-	const struct log *log = &opts->log;
-
-	printlogf(log, DEBUG, "Processing through tosync stack.");
-	while(tosync->len > 0) {
-		tackle_dir(opts, tosync->data[--tosync->len], alarm);
-	}
-	printlogf(log, DEBUG, "being done with tosync stack");
-
-	return true;
-}
-
 
 /**
  * Handles an inotify event.
@@ -1503,7 +1461,7 @@ handle_event(const struct global_options *opts,
 
 	// in case of a new directory create new watches
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		subwatch = add_dirwatch(log, inotify_fd, event->name, watch, dir_watches->data[watch].dir_conf);
+		subwatch = add_dirwatch(opts, inotify_fd, event->name, watch, dir_watches->data[watch].dir_conf);
 	}
 
 	// in case of a removed directory remove watches
@@ -1518,13 +1476,9 @@ handle_event(const struct global_options *opts,
 		printlogf(log, NORMAL, "event %s:%s triggered.", masktext, event->name);
 
 		tackle_dir(opts, watch, alarm); 
-		if (subwatch >= 0) {     // sync through the new created directory as well.
-			tackle_dir(opts, subwatch, alarm);
-		}
 	} else {
 		printlogf(log, DEBUG, "... ignored this event.");
 	}
-	process_tosync_stack(opts, alarm);
 	return true;
 }
 
@@ -2312,15 +2266,21 @@ main(int argc, char **argv)
 		int i;
 		for (i = 0; i < opts.dir_conf_n; i++) {
 			printlogf(log, NORMAL, "watching %s", opts.dir_confs[i].source);
-			add_dirwatch(log, inotify_fd, opts.dir_confs[i].source, -1, &opts.dir_confs[i]);
+			add_dirwatch(&opts, inotify_fd, opts.dir_confs[i].source, -1, &opts.dir_confs[i]);
 		}
 	}
 
-	// clears tosync stack again, because the startup 
-	// super recursive rsync will handle it eitherway
-	// or if nostartup user decided already to ignore it.
-	printlogf(log, DEBUG, "dumped tosync stack.");
-	tosync->len = 0;
+	// clears tackle FIFO again, because the startup recursive rsync will 
+	// handle it eitherway or if started no-startup it has to be ignored.
+	printlogf(log, DEBUG, "dumped list of stuff to do.");
+	{
+		int i;
+		for(i = 0; i < tackles->len; i++) {
+			dir_watches->data[i].tackled = false;
+			dir_watches->data[i].alarm = 0;
+		}
+		tackles->len = 0;
+	}
 
 	// startup recursive sync.
 	if (!opts.flag_nostartup) {
@@ -2328,8 +2288,9 @@ main(int argc, char **argv)
 		for (i = 0; i < opts.dir_conf_n; i++) {
 			char **target;
 			for (target = opts.dir_confs[i].targets; *target; ++target) {
+				printlogf(log, NORMAL, "Initial recursive sync for %s -> %s", opts.dir_confs[i].source, *target);
 				if (!action(&opts, &opts.dir_confs[i], opts.dir_confs[i].source, *target, true)) {
-					printlogf(log, ERROR, "Initial rsync from %s to %s failed%s", 
+					printlogf(log, ERROR, "Initial rsync from %s -> %s failed%s", 
 					          opts.dir_confs[i].source, *target,
 					          opts.flag_stubborn ? ", but continuing because being stubborn." : ".");
 					if (!opts.flag_stubborn) {
