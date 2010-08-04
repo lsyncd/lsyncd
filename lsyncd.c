@@ -729,7 +729,6 @@ dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *targ
  */
 bool
 append_delay(const struct log *log, 
-             struct watch_vector *watches,  // TODO?
 			 struct watch *watch, 
 			 clock_t alarm) 
 {
@@ -753,11 +752,10 @@ append_delay(const struct log *log,
 
 /**
  * Removes the first entry on the delay list.
- * 
- * @param watches   the watches vector
  */
 void 
-remove_first_delay(struct watch_vector *watches) {
+remove_first_delay() 
+{
 	delays->data[0]->delayed = false;
 	delays->data[0]->alarm = 0;
 	memmove(delays->data, delays->data + 1, (--delays->len) * sizeof(struct watch *));
@@ -1041,7 +1039,6 @@ add_watch(const struct log *log,
 int
 builddir(char *pathname, 
          int pathsize, 
-		 struct watch_vector *watches,    //TODO remove and change to pointer
 		 struct watch *watch, 
 		 char const *prefix)
 {
@@ -1064,7 +1061,7 @@ builddir(char *pathname,
 		strcpy(pathname, p);
 	} else {
 		// this is some sub dir
-		len = builddir(pathname, pathsize, watches, watch->parent, prefix); /* recurse */
+		len = builddir(pathname, pathsize, watch->parent, prefix); /* recurse */
 		len += strlen(watch->dirname);
 		if (pathsize <= len) {
 			return -1;
@@ -1080,8 +1077,7 @@ builddir(char *pathname,
 }
 
 /**
- * Builds the abolute path name of a given directory beeing 
- * watched from the watches information.
+ * Builds the abolute path name of a given directory watch
  *
  * @param pathname      destination buffer to store the result to.
  * @param pathsize      max size of this buffer
@@ -1093,12 +1089,11 @@ bool
 buildpath(const struct log *log, 
           char *pathname,
           int pathsize,
-		  struct watch_vector *watches, // TODO remove need
           struct watch *watch,
           const char *dirname,
           const char *prefix)
 {
-	int len = builddir(pathname, pathsize, watches, watch, prefix);
+	int len = builddir(pathname, pathsize, watch, prefix);
 	if (len < 0) {
 		printlogf(log, ERROR, "path too long!");
 		return false;
@@ -1125,7 +1120,6 @@ buildpath(const struct log *log,
  */
 bool
 rsync_dir(const struct global_options *opts, 
-          struct watch_vector *watches, // TODO remove
           struct watch *watch)
 {
 	char pathname[PATH_MAX+1];
@@ -1134,12 +1128,12 @@ rsync_dir(const struct global_options *opts,
 	char ** target;
 	const struct log *log = &opts->log;
 
-	if (!buildpath(log, pathname, sizeof(pathname), watches, watch, NULL, NULL)) {
+	if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
 		return false;
 	}
 
 	for (target = watch->dir_conf->targets; *target; target++) {
-		if (!buildpath(log, destname, sizeof(destname), watches, watch, NULL, *target)) {
+		if (!buildpath(log, destname, sizeof(destname), watch, NULL, *target)) {
 			status = false;
 			continue;
 		}
@@ -1158,12 +1152,11 @@ rsync_dir(const struct global_options *opts,
  * Puts a directory on the delay list OR 
  *   directly calls rsync_dir if delay == 0;
  *
- * @param watch   the index in ir_watches to the directory.
+ * @param watch   the watches of the delayed directory.
  * @param alarm   times() when the directory handling should be fired.
  */
 void
 delay_dir(const struct global_options *opts, 
-          struct watch_vector *watches, //TODO remove?
           struct watch *watch,
 		  clock_t alarm)
 {
@@ -1171,15 +1164,15 @@ delay_dir(const struct global_options *opts,
 	const struct log *log = &opts->log;
 	
 	if (opts->delay == 0) {
-		rsync_dir(opts, watches, watch);
+		rsync_dir(opts, watch);
 		return;
 	}
 
-	if (!buildpath(log, pathname, sizeof(pathname), watches, watch, NULL, NULL)) {
+	if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
 		return;
 	}
 
-	if (append_delay(log, watches, watch, alarm)) {
+	if (append_delay(log, watch, alarm)) {
 		printlogf(log, NORMAL, "Putted %s on a delay", pathname);
 	} else {
 		printlogf(log, NORMAL, "Not acted on %s already on delay", pathname);
@@ -1217,7 +1210,7 @@ add_dirwatch(const struct global_options *opts,
 	          dirname,
 	          parent ? parent->dirname : "NULL");
 
-	if (!buildpath(log, pathname, sizeof(pathname), watches, parent, dirname, NULL)) {
+	if (!buildpath(log, pathname, sizeof(pathname),  parent, dirname, NULL)) {
 		return NULL;
 	}
 
@@ -1239,7 +1232,7 @@ add_dirwatch(const struct global_options *opts,
 	}
 
 	// put this directory on list to be synced ASAP.
-	delay_dir(opts, watches, dw, times(NULL));
+	delay_dir(opts, dw, times(NULL));
 	
 	if (strlen(pathname) + strlen(dirname) + 2 > sizeof(pathname)) {
 		printlogf(log, ERROR, "pathname too long %s//%s", pathname, dirname);
@@ -1268,7 +1261,7 @@ add_dirwatch(const struct global_options *opts,
 			// use traditional means to determine if its a directory.
 			char subdir[PATH_MAX+1];
 			struct stat st;
-			isdir = buildpath(log, subdir, sizeof(subdir), watches, dw, de->d_name, NULL) && 
+			isdir = buildpath(log, subdir, sizeof(subdir), dw, de->d_name, NULL) && 
 			        !stat(subdir, &st) && 
 			        S_ISDIR(st.st_mode);
 		} else {
@@ -1464,7 +1457,7 @@ handle_event(const struct global_options *opts,
 	     IN_MOVED_TO | IN_MOVED_FROM) & event->mask
 	   ) {
 		printlogf(log, NORMAL, "received event %s:%s.", masktext, event->name);
-		delay_dir(opts, watches, watch, alarm); 
+		delay_dir(opts, watch, alarm); 
 	} else {
 		printlogf(log, DEBUG, "... ignored this event.");
 	}
@@ -1573,8 +1566,8 @@ master_loop(const struct global_options *opts,
 		// again as time may progresses while handling delayed entries.
 		while (delays->len > 0 && time_after_eq(times(NULL), delays->data[0])) {
 			printlogf(log, DEBUG, "time for '%s' arrived.", delays->data[0]->dirname);
-			rsync_dir(opts, watches, delays->data[0]);
-			remove_first_delay(watches);
+			rsync_dir(opts, delays->data[0]);
+			remove_first_delay();
 		}
 	}
 
