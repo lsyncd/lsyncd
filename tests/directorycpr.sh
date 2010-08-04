@@ -18,7 +18,7 @@ mkdir -p "${WORKSOURCE}"/a/a
 echo 'test' > "${WORKSOURCE}"/a/a/file
 
 echo -e "$CON* starting lsyncd$COFF"
-./lsyncd --logfile "${LOGFILE}" --pidfile "${PIDFILE}" --no-daemon "${WORKSOURCE}" "${WORKTARGET}"&
+./lsyncd --logfile "${LOGFILE}" --pidfile "${PIDFILE}" --no-daemon --debug "${WORKSOURCE}" "${WORKTARGET}"&
 
 echo -e "$CON* waiting for lsyncd to start$COFF"
 sleep 4s

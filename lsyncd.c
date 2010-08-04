@@ -381,7 +381,10 @@ struct inotify_mask_text mask_texts[] = {
  * Holds all directories being watched.
  */
 struct watch_vector {
-	struct watch *data;
+	/**
+	 * TODO
+	 */
+	struct watch **data;
 	size_t size;
 	size_t len;
 };
@@ -755,12 +758,12 @@ dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *targ
 bool
 append_delay(const struct log *log, struct watch_vector *watches, int watch, clock_t alarm) {
 	printlogf(log, DEBUG, "append delay(%d)", watch);
-	if (watches->data[watch].delayed) {
+	if (watches->data[watch]->delayed) {
 		printlogf(log, DEBUG, "ignored since already delayed.", watch);
 		return false;
 	}
-	watches->data[watch].delayed = true;
-	watches->data[watch].alarm = alarm;
+	watches->data[watch]->delayed = true;
+	watches->data[watch]->alarm = alarm;
 
 	ivector_push(log, delays, watch);
 	return true;
@@ -775,7 +778,7 @@ void
 remove_first_delay(struct watch_vector *watches) {
 	int tw = delays->data[0];
 	memmove(delays->data, delays->data + 1, (--delays->len) * sizeof(int));
-	watches->data[tw].delayed = false;
+	watches->data[tw]->delayed = false;
 }
 
 /*--------------------------------------------------------------------------*
@@ -1010,27 +1013,33 @@ add_watch(const struct log *log,
 	}
 
 	// look if an unused slot can be found.
+	//
+	// lsyncd currently does not free unused slots, but marks
+	// them as unused with wd < 0. 
 	for (newdw = 0; newdw < watches->len; newdw++) {
-		if (watches->data[newdw].wd < 0) {
+		if (watches->data[newdw]->wd < 0) {
 			break;
 		}
 	}
 
+	// there is no unused entry
 	if (newdw == watches->len) {
+		// extend the vector if necessary
 		if (watches->len + 1 >= watches->size) {
 			watches->size *= 2;
 			watches->data = s_realloc(log, watches->data, 
-			                          watches->size * sizeof(struct watch));
+			                          watches->size * sizeof(struct watch *));
 		}
-		watches->len++;
+		// allocate memory for a new watch
+		watches->data[watches->len++] = s_calloc(log, 1, sizeof(struct watch));
 	}
 
-	watches->data[newdw].wd = wd;
-	watches->data[newdw].parent = parent;
-	watches->data[newdw].dirname = s_strdup(log, dirname);
-	watches->data[newdw].dir_conf = dir_conf;
-	watches->data[newdw].alarm = 0; // not needed, just to be save
-	watches->data[newdw].delayed = false;
+	watches->data[newdw]->wd = wd;
+	watches->data[newdw]->parent = parent;
+	watches->data[newdw]->dirname = s_strdup(log, dirname);
+	watches->data[newdw]->dir_conf = dir_conf;
+	watches->data[newdw]->alarm = 0; // not needed, just to be save
+	watches->data[newdw]->delayed = false;
 	return newdw;
 }
 
@@ -1062,9 +1071,9 @@ builddir(char *pathname,
 			return -1;
 		}
 		strcpy(pathname, p);
-	} else if (watches->data[watch].parent == -1) {
+	} else if (watches->data[watch]->parent == -1) {
 		// this is a watch root.
-		char const * p = prefix ? prefix : watches->data[watch].dirname;
+		char const * p = prefix ? prefix : watches->data[watch]->dirname;
 		len = strlen(p);
 		if (pathsize <= len) {
 			return -1;
@@ -1072,12 +1081,12 @@ builddir(char *pathname,
 		strcpy(pathname, p);
 	} else {
 		// this is some sub dir
-		len = builddir(pathname, pathsize, watches, watches->data[watch].parent, prefix); /* recurse */
-		len += strlen(watches->data[watch].dirname);
+		len = builddir(pathname, pathsize, watches, watches->data[watch]->parent, prefix); /* recurse */
+		len += strlen(watches->data[watch]->dirname);
 		if (pathsize <= len) {
 			return -1;
 		}
-		strcat(pathname, watches->data[watch].dirname);
+		strcat(pathname, watches->data[watch]->dirname);
 	}
 	// add the trailing slash if it is missing
 	if (*pathname && pathname[strlen(pathname)-1] != '/') {
@@ -1147,7 +1156,7 @@ rsync_dir(const struct global_options *opts,
 		return false;
 	}
 
-	for (target = watches->data[watch].dir_conf->targets; *target; target++) {
+	for (target = watches->data[watch]->dir_conf->targets; *target; target++) {
 		if (!buildpath(log, destname, sizeof(destname), watches, watch, NULL, *target)) {
 			status = false;
 			continue;
@@ -1155,7 +1164,7 @@ rsync_dir(const struct global_options *opts,
 		printlogf(log, NORMAL, "rsyncing %s --> %s", pathname, destname);
 
 		// call rsync to propagate changes in the directory
-		if (!action(opts, watches->data[watch].dir_conf, pathname, destname, false)) {
+		if (!action(opts, watches->data[watch]->dir_conf, pathname, destname, false)) {
 			printlogf(log, ERROR, "Rsync from %s to %s failed", pathname, destname);
 			status = false;
 		}
@@ -1224,7 +1233,7 @@ add_dirwatch(const struct global_options *opts,
 
 	printlogf(log, DEBUG, "add_dirwatch(%s, p->dirname:%s, ...)", 
 	          dirname,
-	          parent >= 0 ? watches->data[parent].dirname : "NULL");
+	          parent >= 0 ? watches->data[parent]->dirname : "NULL");
 
 	if (!buildpath(log, pathname, sizeof(pathname), watches, parent, dirname, NULL)) {
 		return -1;
@@ -1323,7 +1332,7 @@ remove_dirwatch(const struct global_options *opts,
 		int i;
 		// look for the child with the name
 		for (i = 0; i < watches->len; i++) {
-			struct watch *p = watches->data + i;
+			struct watch *p = watches->data[i];
 			if (p->wd >= 0 && p->parent == parent && !strcmp(name, p->dirname)) {
 				dw = i;
 				break;
@@ -1332,7 +1341,7 @@ remove_dirwatch(const struct global_options *opts,
 
 		if (i >= watches->len) {
 			printlogf(log, ERROR, "Cannot find entry for %s:/:%s :-(", 
-			          watches->data[parent].dirname, name);
+			          watches->data[parent]->dirname, name);
 			return false;
 		}
 	} else {
@@ -1343,23 +1352,23 @@ remove_dirwatch(const struct global_options *opts,
 		// recurse into all subdirectories removing them.
 		int i;
 		for (i = 0; i < watches->len; i++) {
-			if (watches->data[i].wd >= 0 && watches->data[i].parent == dw) {
+			if (watches->data[i]->wd >= 0 && watches->data[i]->parent == dw) {
 				remove_dirwatch(opts, watches, inotify_fd, NULL, i);
 			}
 		}
 	}
 
-	inotify_rm_watch(inotify_fd, watches->data[dw].wd);
+	inotify_rm_watch(inotify_fd, watches->data[dw]->wd);
 	// mark this entry invalid (cannot remove, since indexes point into this vector)
-	// TODO from where?
-	watches->data[dw].wd = -1;  
+	// (TODO Currently parents and watches)
+	watches->data[dw]->wd = -1;  
 
-	free(watches->data[dw].dirname);
-	watches->data[dw].dirname = NULL;
+	free(watches->data[dw]->dirname);
+	watches->data[dw]->dirname = NULL;
 
 	// remove a possible delay
 	// (this dir is on the to do/delay list)
-	if (delays->len > 0 && watches->data[dw].delayed) {
+	if (delays->len > 0 && watches->data[dw]->delayed) {
 		int i;
 		for(i = 0; i < delays->len; i++) {
 			if (delays->data[i] == dw) {
@@ -1387,7 +1396,7 @@ int
 get_watch_offset(const struct watch_vector *watches, int wd) {
 	int i;
 	for (i = 0; i < watches->len; i++) {
-		if (watches->data[i].wd == wd) {
+		if (watches->data[i]->wd == wd) {
 			return i;
 		}
 	}
@@ -1456,7 +1465,7 @@ handle_event(const struct global_options *opts,
 
 	// in case of a new directory create new watches
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		subwatch = add_dirwatch(opts, watches, inotify_fd, event->name, watch, watches->data[watch].dir_conf);
+		subwatch = add_dirwatch(opts, watches, inotify_fd, event->name, watch, watches->data[watch]->dir_conf);
 	}
 
 	// in case of a removed directory remove watches
@@ -1510,7 +1519,7 @@ master_loop(const struct global_options *opts,
 
 	while (keep_going) {
 		int do_read;
-		if (delays->len > 0 && time_after_eq(times(NULL), watches->data[delays->data[0]].alarm)) {
+		if (delays->len > 0 && time_after_eq(times(NULL), watches->data[delays->data[0]]->alarm)) {
 			// there is a delay that wants to be handled already
 			// do not read from inotify_fd and jump directly to delay handling
 			printlogf(log, DEBUG, "immediately handling delayed entries");
@@ -1520,7 +1529,7 @@ master_loop(const struct global_options *opts,
 			// a new event or "alarm" of an event to actually
 			// call its binary. The delay with the index 0 
 			// should have the nearest alarm time.
-			alarm = watches->data[delays->data[0]].alarm;
+			alarm = watches->data[delays->data[0]]->alarm;
 			now = times(NULL);
 			tv.tv_sec  = (alarm - now) / clocks_per_sec;
 			tv.tv_usec = (alarm - now) * 1000000 / clocks_per_sec % 1000000;
@@ -1576,7 +1585,7 @@ master_loop(const struct global_options *opts,
 		// until one item is found whose expiry time has not yet come
 		// or the stack is empty. Using now time - times(NULL) - everytime 
 		// again as time may progresses while handling delayed entries.
-		while (delays->len > 0 && time_after_eq(times(NULL), watches->data[delays->data[0]].alarm)) {
+		while (delays->len > 0 && time_after_eq(times(NULL), watches->data[delays->data[0]]->alarm)) {
 			printlogf(log, DEBUG, "time for %d arrived.", delays->data[0]);
 			rsync_dir(opts, watches, delays->data[0]);
 			remove_first_delay(watches);
@@ -2292,8 +2301,8 @@ main(int argc, char **argv)
 	{
 		int i;
 		for(i = 0; i < delays->len; i++) {
-			watches.data[i].delayed = false;
-			watches.data[i].alarm = 0;
+			watches.data[delays->data[i]]->delayed = false;
+			watches.data[delays->data[i]]->alarm = 0;
 		}
 		delays->len = 0;
 	}
