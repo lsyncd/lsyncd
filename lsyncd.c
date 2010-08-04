@@ -767,6 +767,23 @@ realdir(const struct log *log, const char *dir)
  *--------------------------------------------------------------------------*/
 
 /**
+ * Cleans up the memory used by a CO_EOL terminated array of call options
+ *
+ * @param call_options the array to free.
+ */
+void
+free_options(struct call_option *options) {
+	struct call_option *co = options;
+	while (co->kind != CO_EOL) {
+		if (co->text) {
+			s_free(co->text);
+		}
+		co++;
+	}
+	s_free(options);
+}
+
+/**
  * (Re)sets global options to default values.
  *
  * TODO memfree's
@@ -806,10 +823,44 @@ reset_options(struct global_options *opts) {
 		opts->default_exclude_file = NULL;
 	}
 
-	// TODO free callopts
-	opts->default_callopts = standard_callopts;
+	if (opts->default_callopts != standard_callopts) {
+		if (opts->default_callopts) {
+			free_options(opts->default_callopts);
+		}
+		opts->default_callopts = standard_callopts;
+	}
+
 	opts->delay = 5;
-	opts->dir_confs = NULL;
+
+	if (opts->dir_confs) {
+		int i;
+		for(i = 0; i < opts->dir_conf_n; i++) {
+			struct dir_conf *dc = opts->dir_confs + i;
+			if (dc->source) {
+				s_free(dc->source);
+			}
+			{
+				char **t = dc->targets;
+				while (*t) {
+					s_free(*t);
+					t++;
+				}
+				s_free(dc->targets);
+			}
+			if (dc->binary) {
+				s_free(dc->binary);
+			}
+			if (dc->callopts) {
+				free_options(dc->callopts);
+				dc->callopts = NULL;
+			}
+			if (dc->exclude_file) {
+				s_free(dc->exclude_file);
+			}
+		}
+		s_free(opts->dir_confs);
+		opts->dir_confs = NULL;
+	}
 	opts->dir_conf_n = 0;
 };
 
@@ -842,7 +893,7 @@ new_dir_conf(struct global_options *opts) {
 	} else {
 		// create the memory.
 		opts->dir_conf_n = 1;
-		opts->dir_confs = s_calloc(log, opts->dir_conf_n, sizeof(struct dir_conf), "dir_conf");
+		opts->dir_confs = s_calloc(log, opts->dir_conf_n, sizeof(struct dir_conf), "dir_confs");
 		// creates targets NULL terminator (no targets yet)
 		opts->dir_confs[0].targets = s_calloc(log, 1, sizeof(char *), "dir_conf-target");
 		return opts->dir_confs;
