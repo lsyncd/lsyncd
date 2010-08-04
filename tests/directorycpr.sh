@@ -37,7 +37,7 @@ for A in 1 2 3 4 5 6 7 8 9 10; do
 done
 
 echo -e "$CON* waiting for lsyncd to do the job.$COFF"
-sleep 20s
+sleep 10s
 
 echo -e "$CON* killing lsyncd$COFF"
 LSYNCPID=$(cat "${PIDFILE}")

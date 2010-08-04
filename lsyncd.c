@@ -40,6 +40,11 @@
 #endif
 
 /**
+ * Define for debug memchecking.
+ */
+//#define MEMCHECK
+
+/**
  * Number of inotifies to read max. at once from the kernel.
  */
 #define INOTIFY_BUF_LEN     (64 * (sizeof(struct inotify_event) + 16))
@@ -384,31 +389,45 @@ struct delay_vector {
 char * exclude_dirs[MAX_EXCLUDES] = {NULL, };
 int exclude_dir_n = 0;
 
+/*--------------------------------------------------------------------------*
+ * MEMCHECK
+ *--------------------------------------------------------------------------*/
 /**
- * (Re)sets global options to default values.
- *
- * TODO memfree's
+ * This routines keep track which memory allocs
+ * have not been freed. Debugging purposes. 
  */
-void
-reset_options(struct global_options *opts) {
-	opts->log.loglevel = NORMAL;
-	opts->log.flag_nodaemon = 0;
-	opts->log.logfile = NULL;
-	
-	opts->flag_dryrun = 0;
-	opts->flag_stubborn = 0;
-	opts->flag_nostartup = 0;
-	opts->pidfile = NULL;
-#ifdef XML_CONFIG
-	opts->conf_filename = DEFAULT_CONF_FILENAME;
-#endif
-	opts->default_binary = DEFAULT_BINARY;
-	opts->default_exclude_file = NULL;
-	opts->default_callopts = standard_callopts;
-	opts->delay = 5;
-	opts->dir_confs = NULL;
-	opts->dir_conf_n = 0;
+#ifdef MEMCHECK
+#include <search.h> 
+int    memc = 0;
+void * mroot = NULL;
+struct mentry {
+	const void *data;
+    const char *desc;
 };
+int mcompare(const void *pa, const void *pb) {
+	const struct mentry *ma = (const struct mentry *) pa;
+	const struct mentry *mb = (const struct mentry *) pb;
+	if (ma->data < mb->data) {
+		return -1;
+	}
+	if (ma->data > mb->data) {
+		return 1;
+	}
+	return 0;
+}
+
+void maction(const void *nodep, const VISIT which, const int depth) {
+	if (which == leaf || which == postorder) {
+		struct mentry * r = *((struct mentry **) nodep);
+		memc--;
+		fprintf(stderr, "<*> unfreed data %p:%s\n", r->data, r->desc);
+	}
+}
+#endif
+
+#ifndef MEMCHECK
+#define s_free(x) free(x)
+#endif
 
 /*--------------------------------------------------------------------------*
  * Small generic helper routines. 
@@ -562,7 +581,7 @@ printlogf(const struct log *log, int level, const char *fmt, ...)
  * available.
  */
 void *
-s_malloc(const struct log *log, size_t size)
+s_malloc(const struct log *log, size_t size, const char *desc)
 {
 	void *r = malloc(size);
 
@@ -571,6 +590,20 @@ s_malloc(const struct log *log, size_t size)
 		terminate(log, LSYNCD_OUTOFMEMORY);
 	}
 
+#ifdef MEMCHECK
+	{	
+		struct mentry * mentry;
+		memc++;
+		mentry = malloc(sizeof(struct mentry));
+		mentry->data = r;
+		mentry->desc = desc;
+		if (!mentry) {
+			printlogf(log, ERROR, "Out of memory in memcheck!");
+			terminate(log, LSYNCD_OUTOFMEMORY);
+		}
+		tsearch(mentry, &mroot, mcompare);
+	}
+#endif
 	return r;
 }
 
@@ -578,7 +611,7 @@ s_malloc(const struct log *log, size_t size)
  * "secured" calloc.
  */
 void *
-s_calloc(const struct log *log, size_t nmemb, size_t size)
+s_calloc(const struct log *log, size_t nmemb, size_t size, const char *desc)
 {
 	void *r = calloc(nmemb, size);
 
@@ -586,6 +619,21 @@ s_calloc(const struct log *log, size_t nmemb, size_t size)
 		printlogf(log, ERROR, "Out of memory!");
 		terminate(log, LSYNCD_OUTOFMEMORY);
 	}
+
+#ifdef MEMCHECK
+	{	
+		struct mentry * mentry;
+		memc++;
+		mentry = malloc(sizeof(struct mentry));
+		mentry->data = r;
+		mentry->desc = desc;
+		if (!mentry) {
+			printlogf(log, ERROR, "Out of memory in memcheck!");
+			terminate(log, LSYNCD_OUTOFMEMORY);
+		}
+		tsearch(mentry, &mroot, mcompare);
+	}
+#endif
 
 	return r;
 }
@@ -603,6 +651,33 @@ s_realloc(const struct log *log, void *ptr, size_t size)
 		terminate(log, LSYNCD_OUTOFMEMORY);
 	}
 
+#ifdef MEMCHECK
+	{	
+		struct mentry * mentry = malloc(sizeof(struct mentry));
+		struct mentry **ret;
+		if (!mentry) {
+			printlogf(log, ERROR, "Out of memory in memcheck!");
+			terminate(log, LSYNCD_OUTOFMEMORY);
+		}
+		if (ptr == NULL) {
+			fprintf(stderr, "<*> Reallocating NULL!?\n");
+			return r;
+		}
+		// first delete the old entry
+		mentry->data = ptr;
+		ret = tfind(mentry, &mroot, mcompare);
+		if (ret == NULL) {
+			fprintf(stderr, "<*> Memcheck error, reallocating unknown pointer %p!\n", ptr);
+			return r;
+		}
+		mentry->desc = (*ret)->desc;
+		tdelete(mentry, &mroot, mcompare);
+		// and reenter the reallocated entry
+		mentry->data = r;
+		tsearch(mentry, &mroot, mcompare);
+	}
+#endif
+
 	return r;
 }
 
@@ -610,7 +685,7 @@ s_realloc(const struct log *log, void *ptr, size_t size)
  * "secured" strdup.
  */
 char *
-s_strdup(const struct log *log, const char *src)
+s_strdup(const struct log *log, const char *src, const char *desc)
 {
 	char *s = strdup(src);
 
@@ -619,8 +694,43 @@ s_strdup(const struct log *log, const char *src)
 		terminate(log, LSYNCD_OUTOFMEMORY);
 	}
 
+#ifdef MEMCHECK
+	{	
+		struct mentry * mentry;
+		memc++;
+		mentry = malloc(sizeof(struct mentry));
+		mentry->data = s;
+		mentry->desc = desc;
+		if (!mentry) {
+			printlogf(log, ERROR, "Out of memory in memcheck!");
+			terminate(log, LSYNCD_OUTOFMEMORY);
+		}
+		tsearch(mentry, &mroot, mcompare);
+	}
+#endif
+
 	return s;
 }
+
+
+#ifdef MEMCHECK
+void
+s_free(void *p) {
+	struct mentry mentry = {0,};
+	struct mentry **r;
+	memc--;
+	if (p == NULL) {
+		fprintf(stderr, "<*> Memcheck freeing NULL!\n");
+		return;
+	}
+	mentry.data = p;
+	r = tdelete(&mentry, &mroot, mcompare); 
+	if (r == NULL) {
+		fprintf(stderr, "<*> Memcheck error, freeing unknown pointer %p!\n", p);
+	} 
+	free(p);
+}
+#endif
 
 /**
  * Returns the canonicalized path of a directory with a final '/'.
@@ -629,7 +739,7 @@ s_strdup(const struct log *log, const char *src)
 char *
 realdir(const struct log *log, const char *dir) 
 {
-	char* cs = s_malloc(log, PATH_MAX+1);
+	char* cs = s_malloc(log, PATH_MAX+1, "realdir/cs");
 	cs = realpath(dir, cs);
 
 	if (cs == NULL) {
@@ -644,13 +754,65 @@ realdir(const struct log *log, const char *dir)
 	struct stat st;
 	stat(cs, &st);
 	if (!S_ISDIR(st.st_mode)) {
-		free(cs);
+		s_free(cs);
 		return NULL;
 	}
 
 	strcat(cs, "/");
 	return cs;
 }
+
+/*--------------------------------------------------------------------------*
+ * Options.
+ *--------------------------------------------------------------------------*/
+
+/**
+ * (Re)sets global options to default values.
+ *
+ * TODO memfree's
+ */
+void
+reset_options(struct global_options *opts) {
+	opts->log.loglevel = NORMAL;
+	opts->log.flag_nodaemon = 0;
+
+	if (opts->log.logfile) {
+		s_free(opts->log.logfile);
+		opts->log.logfile = NULL;
+	}
+	
+	opts->flag_dryrun = 0;
+	opts->flag_stubborn = 0;
+	opts->flag_nostartup = 0;
+
+	if (opts->pidfile) {
+		s_free(opts->pidfile);
+		opts->pidfile = NULL;
+	} 
+#ifdef XML_CONFIG
+	if (opts->conf_filename && opts->conf_filename != DEFAULT_CONF_FILENAME) {
+		s_free(opts->conf_filename);
+	}
+	opts->conf_filename = DEFAULT_CONF_FILENAME;
+#endif
+
+	if (opts->default_binary && opts->default_binary != DEFAULT_BINARY) {
+		s_free(opts->default_binary);
+	}
+	opts->default_binary = DEFAULT_BINARY;
+
+	if (opts->default_exclude_file) {
+		s_free(opts->default_exclude_file);
+		opts->default_exclude_file = NULL;
+	}
+
+	// TODO free callopts
+	opts->default_callopts = standard_callopts;
+	opts->delay = 5;
+	opts->dir_confs = NULL;
+	opts->dir_conf_n = 0;
+};
+
 
 /*--------------------------------------------------------------------------*
  * Per directory configuration handling. 
@@ -675,14 +837,14 @@ new_dir_conf(struct global_options *opts) {
 		opts->dir_confs = s_realloc(log, opts->dir_confs, opts->dir_conf_n * sizeof(struct dir_conf));
 		memset(opts->dir_confs + opts->dir_conf_n - 1, 0, sizeof(struct dir_conf));
 		// creates targets NULL terminator (no targets yet)
-		opts->dir_confs[opts->dir_conf_n - 1].targets = s_calloc(log, 1, sizeof(char *));
+		opts->dir_confs[opts->dir_conf_n - 1].targets = s_calloc(log, 1, sizeof(char *), "dir_conf");
 		return opts->dir_confs + opts->dir_conf_n - 1;
 	} else {
 		// create the memory.
 		opts->dir_conf_n = 1;
-		opts->dir_confs = s_calloc(log, opts->dir_conf_n, sizeof(struct dir_conf));
+		opts->dir_confs = s_calloc(log, opts->dir_conf_n, sizeof(struct dir_conf), "dir_conf");
 		// creates targets NULL terminator (no targets yet)
-		opts->dir_confs[0].targets = s_calloc(log, 1, sizeof(char *));
+		opts->dir_confs[0].targets = s_calloc(log, 1, sizeof(char *), "dir_conf-target");
 		return opts->dir_confs;
 	}
 }
@@ -706,7 +868,7 @@ dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *targ
 	}
 
 	dir_conf->targets = s_realloc(log, dir_conf->targets, (target_n + 2) * sizeof(char *));
-	dir_conf->targets[target_n] = s_strdup(log, target);
+	dir_conf->targets[target_n] = s_strdup(log, target, "dupped target");
 	dir_conf->targets[target_n + 1] = NULL;
 }
 
@@ -776,7 +938,7 @@ remove_first_delay(struct delay_vector *delays)
 char *
 parse_option_text(const struct log *log, char *text, bool recursive)
 {
-	char * str = s_strdup(log, text);
+	char * str = s_strdup(log, text, "dupped option text");
 	char * chr; // search result for %.
 
 	// replace all '%' specifiers with there special meanings
@@ -818,7 +980,7 @@ get_arg_str(const struct log *log, char **argv, int argc) {
 	}
 
     // alloc 
-	str = s_malloc(log, len + 2 * argc + 1);
+	str = s_malloc(log, len + 2 * argc + 1, "argument string");
 		
 	str[0] = 0;
 	for(i = 0; i < argc; i++) {
@@ -861,7 +1023,7 @@ action(const struct global_options *opts,
 
 	// makes a copy of all call parameters
 	// step 1 binary itself
-	argv[argc++] = s_strdup(log, dir_conf->binary ? dir_conf->binary : opts->default_binary);
+	argv[argc++] = s_strdup(log, dir_conf->binary ? dir_conf->binary : opts->default_binary, "argv");
 	// now all other parameters
 	for(; optp->kind != CO_EOL; optp++) {
 		switch (optp->kind) {
@@ -874,14 +1036,14 @@ action(const struct global_options *opts,
 			if (dir_conf->exclude_file == NULL && opts->default_exclude_file == NULL) {
 				continue;
 			}
-			argv[argc++] = s_strdup(log, "--exclude-from");
-			argv[argc++] = s_strdup(log, dir_conf->exclude_file ? dir_conf->exclude_file : opts->default_exclude_file); 
+			argv[argc++] = s_strdup(log, "--exclude-from", "argv exclude-from");
+			argv[argc++] = s_strdup(log, dir_conf->exclude_file ? dir_conf->exclude_file : opts->default_exclude_file, "argv exclude-file"); 
 			continue;
 		case CO_SOURCE :
-			argv[argc++] = s_strdup(log, src);
+			argv[argc++] = s_strdup(log, src, "argv source");
 			continue;
 		case CO_DEST :
-			argv[argc++] = s_strdup(log, dest);
+			argv[argc++] = s_strdup(log, dest, "argv dest");
 			continue;
 		default:
 			printlogf(log, ERROR, "Internal error: unknown kind of option.");
@@ -901,10 +1063,10 @@ action(const struct global_options *opts,
 		char * binary = dir_conf->binary ? dir_conf->binary : opts->default_binary;
 		char * argall = get_arg_str(log, argv, argc);
 		printlogf(log, NORMAL, "dry run: would call %s(%s)", binary, argall); 
-		free(argall);
+		s_free(argall);
 		for (i = 0; i < argc; ++i) {
 			if (argv[i]) {
-				free(argv[i]);
+				s_free(argv[i]);
 			}
 		}
 		return true;
@@ -932,7 +1094,7 @@ action(const struct global_options *opts,
 	// free the memory from the arguments.
 	for (i = 0; i < argc; ++i) {
 		if (argv[i]) {
-			free(argv[i]);
+			s_free(argv[i]);
 		}
 	}
 	
@@ -1010,13 +1172,13 @@ add_watch(const struct log *log,
 			                          watches->size * sizeof(struct watch *));
 		}
 		// allocate memory for a new watch
-		watches->data[watches->len++] = s_calloc(log, 1, sizeof(struct watch));
+		watches->data[watches->len++] = s_calloc(log, 1, sizeof(struct watch), "watch");
 	}
 
 	w = watches->data[wi];
 	w->wd = wd;
 	w->parent = parent;
-	w->dirname = s_strdup(log, dirname);
+	w->dirname = s_strdup(log, dirname, "dirname");
 	w->dir_conf = dir_conf;
 	w->alarm = 0; // not needed, just to be save
 	w->delayed = false;
@@ -1346,7 +1508,7 @@ remove_dirwatch(const struct global_options *opts,
 	// mark this entry invalid 
 	w->wd = -1;  
 
-	free(w->dirname);
+	s_free(w->dirname);
 	w->dirname = NULL;
 
 	// remove a possible delay
@@ -1450,8 +1612,6 @@ handle_event(const struct global_options *opts,
 		          "received an inotify event that doesnt match any watched directory.");
 		return false;
 	}
-
-	//TODO AXK ORDER?
 
 	// put the watch on the delay or act if delay == 0
 	if ((IN_ATTRIB | IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | 
@@ -1711,7 +1871,7 @@ parse_callopts(struct global_options *opts, xmlNodePtr node) {
 		opt_n++;
 	}
 	opt_n++;
-	asw = (struct call_option *) s_calloc(NULL, opt_n, sizeof(struct call_option));
+	asw = (struct call_option *) s_calloc(NULL, opt_n, sizeof(struct call_option), "call options");
 
 	// fill in the answer
 	opt_n = 0;
@@ -1727,7 +1887,7 @@ parse_callopts(struct global_options *opts, xmlNodePtr node) {
 				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
 			asw[opt_n].kind = CO_TEXT;
-			asw[opt_n].text = s_strdup(NULL, (char *) xc);
+			asw[opt_n].text = s_strdup(NULL, (char *) xc, "asw text");
 		} else if (!xmlStrcmp(cnode->name, BAD_CAST "exclude-file")) {
 			asw[opt_n].kind = CO_EXCLUDE;
 		} else if (!xmlStrcmp(cnode->name, BAD_CAST "source")) {
@@ -1767,7 +1927,7 @@ parse_directory(struct global_options *opts, xmlNodePtr node) {
 				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
 			// TODO: use realdir() on xc
-			dc->source = s_strdup(NULL, (char *) xc);
+			dc->source = s_strdup(NULL, (char *) xc, "xml source");
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "target")) {
 			xc = xmlGetProp(dnode, BAD_CAST "path");
 			if (xc == NULL) {
@@ -1781,14 +1941,14 @@ parse_directory(struct global_options *opts, xmlNodePtr node) {
 				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <binary>\n");
 				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			dc->binary = s_strdup(NULL, (char *) xc); 
+			dc->binary = s_strdup(NULL, (char *) xc, "xml binary"); 
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "exclude-from")) {
 			xc = xmlGetProp(dnode, BAD_CAST "filename");
 			if (xc == NULL) {
 				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <exclude-from>\n");
 				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			dc->exclude_file = s_strdup(NULL, (char *) xc); 
+			dc->exclude_file = s_strdup(NULL, (char *) xc, "xml exclude"); 
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "callopts")) {
 			if (dc->callopts) {
 				printlogf(NULL, ERROR, "error in config file: there is more than one <callopts> in a <directory>\n");
@@ -1850,28 +2010,28 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <exclude-from/>\n");
 		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			opts->default_exclude_file = s_strdup(NULL, (char *) xc);
+			opts->default_exclude_file = s_strdup(NULL, (char *) xc, "xml default-exclude-file");
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "logfile")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
 				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <logfile/>\n");
 		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			opts->log.logfile = s_strdup(NULL, (char *) xc);
+			opts->log.logfile = s_strdup(NULL, (char *) xc, "xml logfile");
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "binary")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
 				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <binary/>\n");
 		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			opts->default_binary = s_strdup(NULL, (char *) xc);
+			opts->default_binary = s_strdup(NULL, (char *) xc, "xml default-binary");
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "pidfile")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
 				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <pidfile/>\n");
 		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
-			opts->pidfile = s_strdup(NULL, (char *) xc);
+			opts->pidfile = s_strdup(NULL, (char *) xc, "xml pidfile");
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "callopts")) {
 			opts->default_callopts = parse_callopts(opts, snode);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "scarce")) {
@@ -2018,7 +2178,7 @@ parse_options(struct global_options *opts, int argc, char **argv)
 		if (c == 0) { // longoption
 			if (!strcmp("conf", long_options[oi].name)) {
 				read_conf = true;
-				opts->conf_filename = s_strdup(NULL, optarg);
+				opts->conf_filename = s_strdup(NULL, optarg, "opt conf-filename");
 			} 
 			
 			if (!strcmp("help", long_options[oi].name)) {
@@ -2063,7 +2223,7 @@ parse_options(struct global_options *opts, int argc, char **argv)
 
 		if (c == 0) { // longoption
 			if (!strcmp("binary", long_options[oi].name)) {
-				opts->default_binary = s_strdup(NULL, optarg);
+				opts->default_binary = s_strdup(NULL, optarg, "opt default-binary");
 			}
 			
 			if (!strcmp("delay", long_options[oi].name)) {
@@ -2080,7 +2240,7 @@ parse_options(struct global_options *opts, int argc, char **argv)
 			}
 			
 			if (!strcmp("exclude-from", long_options[oi].name)) {
-				opts->default_exclude_file = s_strdup(NULL, optarg);
+				opts->default_exclude_file = s_strdup(NULL, optarg, "opt default-exclude-file");
 			}
 
 			if (!strcmp("help", long_options[oi].name)) {
@@ -2088,11 +2248,11 @@ parse_options(struct global_options *opts, int argc, char **argv)
 			}
 
 			if (!strcmp("logfile", long_options[oi].name)) {
-				opts->log.logfile = s_strdup(NULL, optarg);
+				opts->log.logfile = s_strdup(NULL, optarg, "opt logfile");
 			}
 			
 			if (!strcmp("pidfile", long_options[oi].name)) {
-				opts->pidfile = s_strdup(NULL, optarg);
+				opts->pidfile = s_strdup(NULL, optarg, "opt pidfile");
 			}
 
 			if (!strcmp("version", long_options[oi].name)) {
@@ -2208,7 +2368,7 @@ parse_exclude_file(struct log *log, char *filename) {
 
 			printlogf(log, NORMAL, "Excluding directories of the name '%s'", line);
 
-			exclude_dirs[exclude_dir_n] = s_malloc(log, strlen(line) + 1);
+			exclude_dirs[exclude_dir_n] = s_malloc(log, strlen(line) + 1, "exclude_dir");
 			strcpy(exclude_dirs[exclude_dir_n], line);
 			exclude_dir_n++;
 		}
@@ -2278,10 +2438,10 @@ main(int argc, char **argv)
 	}
 
     watches.size = VECT_INIT_SIZE;
-    watches.data = s_calloc(log, watches.size, sizeof(struct watch *));
+    watches.data = s_calloc(log, watches.size, sizeof(struct watch *), "watches vector");
 
 	delays.size = VECT_INIT_SIZE;
-    delays.data = s_calloc(log, delays.size, sizeof(struct watch *));
+    delays.data = s_calloc(log, delays.size, sizeof(struct watch *), "delays vector");
 
 	{
 		// add all watches
@@ -2333,6 +2493,27 @@ main(int argc, char **argv)
 	signal(SIGTERM, catch_alarm);
 
 	master_loop(&opts, &watches, &delays, inotify_fd);
+
+	{
+		// memory clean up
+		int i;
+		reset_options(&opts);
+		for(i = 0; i < watches.len; i++) {
+			if (watches.data[i]->dirname) {
+				s_free(watches.data[i]->dirname);
+			}
+			s_free(watches.data[i]);
+		}
+		s_free(watches.data);
+		s_free(delays.data);
+	}
+
+
+#ifdef MEMCHECK
+	fprintf(stderr, "Memcheck count: %d\n", memc);
+	twalk(mroot, maction);
+	fprintf(stderr, "Memcheck count: %d\n", memc);
+#endif
 
 	return 0;
 }
