@@ -386,8 +386,10 @@ struct delay_vector {
  * It's not worth to code a dynamic size handling...
  */
 #define MAX_EXCLUDES 256
-char * exclude_dirs[MAX_EXCLUDES] = {NULL, };
-int exclude_dir_n = 0;
+struct exclude_vector {
+	char * data[MAX_EXCLUDES];
+	size_t len;
+};
 
 /*--------------------------------------------------------------------------*
  * MEMCHECK
@@ -435,9 +437,16 @@ void maction(const void *nodep, const VISIT which, const int depth) {
  *--------------------------------------------------------------------------*/
 
 /**
- * Set to 0 in signal handler, when lsyncd should TERMinate nicely.
+ * Set to 0 in signal handler, when lsyncd should end ASAP.
+ * This can be either a TERM or a HUP signal.
+ * In case of HUP killed is 0 and start over.
  */
 volatile sig_atomic_t keep_going = 1;
+
+/**
+ * Received a TERM signal, TERMinate nicely.
+ */
+volatile sig_atomic_t termed = 0;
 
 /**
  * Called (out-of-order) when signals arrive
@@ -445,7 +454,13 @@ volatile sig_atomic_t keep_going = 1;
 void
 catch_alarm(int sig)
 {
-	keep_going = 0;
+	switch(sig) {
+	case SIGTERM :
+		termed = 1;
+		/* fall through */
+	case SIGHUP :
+		keep_going = 0;
+	}
 }
 
 /**
@@ -941,7 +956,7 @@ append_delay(const struct log *log,
 			 struct watch *watch, 
 			 clock_t alarm) 
 {
-	printlogf(log, DEBUG, "append delay(%s, %d)", watch->dirname, alarm);
+	printlogf(log, DEBUG, "append_delay(%s, %d)", watch->dirname, alarm);
 	if (watch->delayed) {
 		printlogf(log, DEBUG, "ignored since already delayed.");
 		return false;
@@ -1401,6 +1416,7 @@ delay_or_act_dir(const struct global_options *opts,
  * @param opts       global options
  * @param watches    the watch vector
  * @param delays     the delay vector
+ * @param excludes   the excludes vector
  * @param inotify_fd inotify file descriptor.
  * @param dirname    The name or absolute path of the directory to watch.
  * @param parent     If not NULL, the watches to the parent directory already watched.
@@ -1413,6 +1429,7 @@ struct watch *
 add_dirwatch(const struct global_options *opts,
              struct watch_vector *watches,
 			 struct delay_vector *delays,
+			 struct exclude_vector *excludes,
 			 int inotify_fd,
              char const *dirname, 
 			 struct watch *parent, 
@@ -1433,12 +1450,12 @@ add_dirwatch(const struct global_options *opts,
 
 	{
 		int i;
-		for (i = 0; i < exclude_dir_n; i++) {
-			if (!strcmp(pathname, exclude_dirs[i])) {
+		for (i = 0; i < excludes->len; i++) {
+			if (!strcmp(pathname, excludes->data[i])) {
 				printlogf(log, NORMAL, "Excluded %s", pathname);
 				return NULL;
 			}
-			printlogf(log, DEBUG, "comparing %s with %s not an exclude so far.", pathname, exclude_dirs[i]);
+			printlogf(log, DEBUG, "comparing %s with %s not an exclude so far.", pathname, excludes->data[i]);
 		}
 	}
 
@@ -1488,7 +1505,7 @@ add_dirwatch(const struct global_options *opts,
 		// add watches if its a directory and not . or ..
 		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
 			// recurse into subdirectories
-			struct watch *nw = add_dirwatch(opts, watches, delays, inotify_fd, de->d_name, w, dir_conf); 
+			struct watch *nw = add_dirwatch(opts, watches, delays, excludes, inotify_fd, de->d_name, w, dir_conf); 
 			printlogf(log, NORMAL, 
 			          "found new directory: %s in %s -- %s", 
 			          de->d_name, dirname, nw ? "will be synced" : "ignored it");
@@ -1614,6 +1631,7 @@ bool
 handle_event(const struct global_options *opts,
              struct watch_vector *watches,
 			 struct delay_vector *delays,
+			 struct exclude_vector *excludes,
              int inotify_fd,
              struct inotify_event *event, 
 			 clock_t alarm)
@@ -1649,8 +1667,8 @@ handle_event(const struct global_options *opts,
 	{
 		// TODO, is this needed? or will it be excluded already?
 		int i;
-		for (i = 0; i < exclude_dir_n; i++) {
-			if (!strcmp(event->name, exclude_dirs[i])) {	
+		for (i = 0; i < excludes->len; i++) {
+			if (!strcmp(event->name, excludes->data[i])) {	
 				return true;
 			}
 		}
@@ -1668,7 +1686,7 @@ handle_event(const struct global_options *opts,
 	if ((IN_ATTRIB | IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | 
 	     IN_MOVED_TO | IN_MOVED_FROM) & event->mask
 	   ) {
-		printlogf(log, NORMAL, "received event %s:%s.", masktext, event->name);
+		printlogf(log, NORMAL, "received event %s:%s for %d.", masktext, event->name, alarm);
 		delay_or_act_dir(opts, delays, opts->delay > 0, watch, alarm); 
 	} else {
 		printlogf(log, DEBUG, "... ignored this event.");
@@ -1676,7 +1694,7 @@ handle_event(const struct global_options *opts,
 	
 	// in case of a new directory create new watches of the subdir
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		add_dirwatch(opts, watches, delays, inotify_fd, event->name, watch, watch->dir_conf);
+		add_dirwatch(opts, watches, delays, excludes, inotify_fd, event->name, watch, watch->dir_conf);
 	}
 
 	// in case of a removed directory remove watches from the subdir
@@ -1693,12 +1711,14 @@ handle_event(const struct global_options *opts,
  * @param opts        global options
  * @param watches     the watch vector
  * @param delays      the delay vector
+ * @param excludes    the exclude vector
  * @param inotify_fd  inotify file descriptor
  */
 bool 
 master_loop(const struct global_options *opts,
             struct watch_vector *watches,
 			struct delay_vector *delays,
+			struct exclude_vector *excludes,
             int inotify_fd)
 {
 	char buf[INOTIFY_BUF_LEN];
@@ -1780,7 +1800,7 @@ master_loop(const struct global_options *opts,
 			int i = 0;
 			while (i < len) {
 				struct inotify_event *event = (struct inotify_event *) &buf[i];
-				handle_event(opts, watches, delays, inotify_fd, event, alarm);
+				handle_event(opts, watches, delays, excludes, inotify_fd, event, alarm);
 				i += sizeof(struct inotify_event) + event->len;
 			}
 		}
@@ -1789,8 +1809,8 @@ master_loop(const struct global_options *opts,
 		// until one item is found whose expiry time has not yet come
 		// or the stack is empty. Using now time - times(NULL) - everytime 
 		// again as time may progresses while handling delayed entries.
-		while (delays->len > 0 && time_after_eq(times(NULL), delays->data[0])) {
-			printlogf(log, DEBUG, "time for '%s' arrived.", delays->data[0]->dirname);
+		while (delays->len > 0 && time_after_eq(times(NULL), delays->data[0]->alarm)) {
+			printlogf(log, DEBUG, "time %d for '%s' arrived. now=%d", delays->data[0]->alarm, delays->data[0]->dirname, times(NULL));
 			rsync_dir(opts, delays->data[0]);
 			remove_first_delay(delays);
 		}
@@ -2361,9 +2381,13 @@ parse_options(struct global_options *opts, int argc, char **argv)
 
 /**
  * Parses the exclude file looking for directory masks to not watch.
+ *
+ *
  */
 bool
-parse_exclude_file(struct log *log, char *filename) {
+parse_exclude_file(struct log *log,
+                   struct exclude_vector * excludes,
+				   char *filename) {
 	FILE * ef;
 	char line[PATH_MAX+1];
 	int sl;
@@ -2402,7 +2426,7 @@ parse_exclude_file(struct log *log, char *filename) {
 		}
 
 		if (line[sl - 1] == '/') {
-			if (exclude_dir_n + 1 >= MAX_EXCLUDES) {
+			if (excludes->len + 1 >= MAX_EXCLUDES) {
 				printlogf(log, ERROR, 
 				          "Too many directory excludes, can only have %d at the most", 
 				          MAX_EXCLUDES);
@@ -2419,9 +2443,9 @@ parse_exclude_file(struct log *log, char *filename) {
 
 			printlogf(log, NORMAL, "Excluding directories of the name '%s'", line);
 
-			exclude_dirs[exclude_dir_n] = s_malloc(log, strlen(line) + 1, "exclude_dir");
-			strcpy(exclude_dirs[exclude_dir_n], line);
-			exclude_dir_n++;
+			excludes->data[excludes->len] = s_malloc(log, strlen(line) + 1, "exclude_dir");
+			strcpy(excludes->data[excludes->len], line);
+			excludes->len++;
 		}
 	}
 
@@ -2444,16 +2468,18 @@ write_pidfile(const struct log *log, const char *pidfile) {
 }
 
 /**
- * Main.
+ * Main for one run. 
+ * Can be runned through several times on HUPs.
  */
 int
-main(int argc, char **argv)
+one_main(int argc, char **argv)
 {
-	struct global_options opts = {{0,}};  // global options 
-	struct log *log = &opts.log;          // shortcut to logging options.
-	struct watch_vector watches = {0, };  // all watches
-	struct delay_vector delays  = {0, };  // delayed entries
-	int inotify_fd;                       // inotify file descriptor
+	struct global_options opts = {{0,}};      // global options 
+	struct log *log = &opts.log;              // shortcut to logging options.
+	struct watch_vector watches = {0, };      // all watches
+	struct delay_vector delays  = {0, };      // delayed entries
+	struct exclude_vector excludes = {{0, }}; // excludes
+	int inotify_fd;                           // inotify file descriptor
 
 	openlog("lsyncd", LOG_CONS | LOG_PID, LOG_DAEMON);
 
@@ -2461,7 +2487,7 @@ main(int argc, char **argv)
 	parse_options(&opts, argc, argv);
 
 	if (opts.default_exclude_file) {
-		parse_exclude_file(log, opts.default_exclude_file);
+		parse_exclude_file(log, &excludes, opts.default_exclude_file);
 	}
 
 	inotify_fd = inotify_init();
@@ -2499,7 +2525,7 @@ main(int argc, char **argv)
 		int i;
 		for (i = 0; i < opts.dir_conf_n; i++) {
 			printlogf(log, NORMAL, "watching %s", opts.dir_confs[i].source);
-			add_dirwatch(&opts, &watches, &delays, inotify_fd, 
+			add_dirwatch(&opts, &watches, &delays, &excludes, inotify_fd, 
 			             opts.dir_confs[i].source, NULL, &opts.dir_confs[i]);
 		}
 	}
@@ -2542,9 +2568,13 @@ main(int argc, char **argv)
 	          watches.len);
 
 	signal(SIGTERM, catch_alarm);
+	signal(SIGHUP, catch_alarm);
 
-	master_loop(&opts, &watches, &delays, inotify_fd);
+	master_loop(&opts, &watches, &delays, &excludes, inotify_fd);
 
+	if (!termed) {
+		printlogf(log, NORMAL, "--- Received HUP-Signal, cleaning up and starting over ---");
+	}
 	{
 		// memory clean up
 		int i;
@@ -2557,6 +2587,9 @@ main(int argc, char **argv)
 		}
 		s_free(watches.data);
 		s_free(delays.data);
+		for(i = 0; i < excludes.len; i++) {
+			s_free(excludes.data[i]);
+		}
 	}
 
 
@@ -2568,3 +2601,25 @@ main(int argc, char **argv)
 
 	return 0;
 }
+
+/**
+ * Main wrapper
+ *
+ * Start actual main over and over on HUPs.
+ */
+int
+main(int argc, char **argv)
+{
+	int ret;
+	do {
+		ret = one_main(argc, argv);
+		if (ret) {
+			return ret;
+		}
+		// start over 
+		keep_going = 1;
+	} while (!termed);
+
+	return ret;
+}
+
