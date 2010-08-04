@@ -374,11 +374,6 @@ struct delay_vector {
 	size_t len;
 };
 
-/**
- * List of directories on a delay.
- */
-struct delay_vector delays_obj = {0, };
-struct delay_vector *delays = &delays_obj;
 
 /**
  * Array of strings of directory names to include.
@@ -723,12 +718,13 @@ dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *targ
  * Adds a directory on the delays list
  *
  * @param log        logging information
- * @param watches    the watches vector
+ * @param delays     the delays FIFO
  * @param watch      the index in watches to the directory
  * @param alarm      times() when the directory should be acted
  */
 bool
 append_delay(const struct log *log, 
+             struct delay_vector *delays,
 			 struct watch *watch, 
 			 clock_t alarm) 
 {
@@ -752,9 +748,11 @@ append_delay(const struct log *log,
 
 /**
  * Removes the first entry on the delay list.
+ *
+ * @param delays    the delay FIFO.
  */
 void 
-remove_first_delay() 
+remove_first_delay(struct delay_vector *delays) 
 {
 	delays->data[0]->delayed = false;
 	delays->data[0]->alarm = 0;
@@ -1152,13 +1150,15 @@ rsync_dir(const struct global_options *opts,
 /**
  * Puts a directory on the delay list OR 
  *   directly calls rsync_dir if delay == 0;
- *
+ * 
+ * @param delays  the delay FIFO
  * @param delay   if true will put it on the delay, if false act immediately
  * @param watch   the watches of the delayed directory.
  * @param alarm   times() when the directory handling should be fired.
  */
 void
 delay_or_act_dir(const struct global_options *opts,
+                 struct delay_vector *delays,
                  bool delay, 
                  struct watch *watch,
 		         clock_t alarm)
@@ -1173,7 +1173,7 @@ delay_or_act_dir(const struct global_options *opts,
 			return;
 		}
 
-		if (append_delay(log, watch, alarm)) {
+		if (append_delay(log, delays, watch, alarm)) {
 			printlogf(log, NORMAL, "Putted %s on a delay", pathname);
 		} else {
 			printlogf(log, NORMAL, "Not acted on %s already on delay", pathname);
@@ -1187,10 +1187,11 @@ delay_or_act_dir(const struct global_options *opts,
  *
  * @param opts       global options
  * @param watches    the watch vector
+ * @param delays     the delay vector
  * @param inotify_fd inotify file descriptor.
  * @param dirname    The name or absolute path of the directory to watch.
- * @param parent     If not -1, the index in watches to the parent directory already watched.
- *                   Must have absolute path if parent == -1.
+ * @param parent     If not NULL, the watches to the parent directory already watched.
+ *                   Must have absolute path if parent == NULL.
  * @param dir_conf   applicateable configuration
  *
  * @returns          the watches of the directory or NULL on fail.
@@ -1198,6 +1199,7 @@ delay_or_act_dir(const struct global_options *opts,
 struct watch *
 add_dirwatch(const struct global_options *opts,
              struct watch_vector *watches,
+			 struct delay_vector *delays,
 			 int inotify_fd,
              char const *dirname, 
 			 struct watch *parent, 
@@ -1234,7 +1236,7 @@ add_dirwatch(const struct global_options *opts,
 	}
 
 	// put this directory on list to be synced ASAP.
-	delay_or_act_dir(opts, true, w, times(NULL));
+	delay_or_act_dir(opts, delays, true, w, times(NULL));
 	
 	if (strlen(pathname) + strlen(dirname) + 2 > sizeof(pathname)) {
 		printlogf(log, ERROR, "pathname too long %s//%s", pathname, dirname);
@@ -1273,7 +1275,7 @@ add_dirwatch(const struct global_options *opts,
 		// add watches if its a directory and not . or ..
 		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
 			// recurse into subdirectories
-			struct watch *nw = add_dirwatch(opts, watches, inotify_fd, de->d_name, w, dir_conf); 
+			struct watch *nw = add_dirwatch(opts, watches, delays, inotify_fd, de->d_name, w, dir_conf); 
 			printlogf(log, NORMAL, 
 			          "found new directory: %s in %s -- %s", 
 			          de->d_name, dirname, nw ? "will be synced" : "ignored it");
@@ -1287,18 +1289,20 @@ add_dirwatch(const struct global_options *opts,
 /**
  * Removes a watched dir, including recursevily all subdirs.
  *
- * @param opts       global options
- * @param watches    the watch vector
- * @param inotify_fd inotify file descriptor
- * @param name       optionally. If not NULL, the directory name 
- *                   to remove which is a child of parent
- * @param parent     the parent directory of the 
- *                   directory 'name' to remove, or to be removed 
- *                   itself if name == NULL.
+ * @param opts        global options
+ * @param watches     the watch vector
+ * @param delays      the delay FIFO
+ * @param inotify_fd  inotify file descriptor
+ * @param name        optionally. If not NULL, the directory name 
+ *                    to remove which is a child of parent
+ * @param parent      the parent directory of the 
+ *                    directory 'name' to remove, or to be removed 
+ *                    itself if name == NULL.
  */
 bool
 remove_dirwatch(const struct global_options *opts,
                 struct watch_vector *watches,
+				struct delay_vector *delays,
                 int inotify_fd,
                 const char * name, 
 				struct watch *parent)
@@ -1333,7 +1337,7 @@ remove_dirwatch(const struct global_options *opts,
 			struct watch * iw = watches->data[i];
 			if (iw->wd >= 0 && iw->parent == w) {
 				// recurse into the subdirectory
-				remove_dirwatch(opts, watches, inotify_fd, NULL, iw);
+				remove_dirwatch(opts, watches, delays, inotify_fd, NULL, iw);
 			}
 		}
 	}
@@ -1386,15 +1390,17 @@ get_watch(const struct watch_vector *watches,
 /**
  * Handles an inotify event.
  * 
- * @param opts       global options
- * @param watches    the watch vector
- * @param inotify_fd inotify file descriptor
- * @param event      the event to handle
- * @param alarm      times() moment when it should fire
+ * @param opts        global options
+ * @param watches     the watch vector
+ * @param delays      the delay FIFO.
+ * @param inotify_fd  inotify file descriptor
+ * @param event       the event to handle
+ * @param alarm       times() moment when it should fire
  */
 bool 
 handle_event(const struct global_options *opts,
              struct watch_vector *watches,
+			 struct delay_vector *delays,
              int inotify_fd,
              struct inotify_event *event, 
 			 clock_t alarm)
@@ -1445,25 +1451,28 @@ handle_event(const struct global_options *opts,
 		return false;
 	}
 
-	// in case of a new directory create new watches
-	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		add_dirwatch(opts, watches, inotify_fd, event->name, watch, watch->dir_conf);
-	}
+	//TODO AXK ORDER?
 
-	// in case of a removed directory remove watches
-	if (((IN_DELETE | IN_MOVED_FROM) & event->mask) && (IN_ISDIR & event->mask)) {
-		remove_dirwatch(opts, watches, inotify_fd, event->name, watch);
-	}
-	
 	// put the watch on the delay or act if delay == 0
 	if ((IN_ATTRIB | IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | 
 	     IN_MOVED_TO | IN_MOVED_FROM) & event->mask
 	   ) {
 		printlogf(log, NORMAL, "received event %s:%s.", masktext, event->name);
-		delay_or_act_dir(opts, opts->delay > 0, watch, alarm); 
+		delay_or_act_dir(opts, delays, opts->delay > 0, watch, alarm); 
 	} else {
 		printlogf(log, DEBUG, "... ignored this event.");
 	}
+	
+	// in case of a new directory create new watches of the subdir
+	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
+		add_dirwatch(opts, watches, delays, inotify_fd, event->name, watch, watch->dir_conf);
+	}
+
+	// in case of a removed directory remove watches from the subdir
+	if (((IN_DELETE | IN_MOVED_FROM) & event->mask) && (IN_ISDIR & event->mask)) {
+		remove_dirwatch(opts, watches, delays, inotify_fd, event->name, watch);
+	}
+	
 	return true;
 }
 
@@ -1472,11 +1481,13 @@ handle_event(const struct global_options *opts,
  *
  * @param opts        global options
  * @param watches     the watch vector
+ * @param delays      the delay vector
  * @param inotify_fd  inotify file descriptor
  */
 bool 
 master_loop(const struct global_options *opts,
             struct watch_vector *watches,
+			struct delay_vector *delays,
             int inotify_fd)
 {
 	char buf[INOTIFY_BUF_LEN];
@@ -1558,7 +1569,7 @@ master_loop(const struct global_options *opts,
 			int i = 0;
 			while (i < len) {
 				struct inotify_event *event = (struct inotify_event *) &buf[i];
-				handle_event(opts, watches, inotify_fd, event, alarm);
+				handle_event(opts, watches, delays, inotify_fd, event, alarm);
 				i += sizeof(struct inotify_event) + event->len;
 			}
 		}
@@ -1570,7 +1581,7 @@ master_loop(const struct global_options *opts,
 		while (delays->len > 0 && time_after_eq(times(NULL), delays->data[0])) {
 			printlogf(log, DEBUG, "time for '%s' arrived.", delays->data[0]->dirname);
 			rsync_dir(opts, delays->data[0]);
-			remove_first_delay();
+			remove_first_delay(delays);
 		}
 	}
 
@@ -2228,8 +2239,9 @@ int
 main(int argc, char **argv)
 {
 	struct global_options opts = {{0,}};  // global options 
-	struct log *log = &opts.log;
+	struct log *log = &opts.log;          // shortcut to logging options.
 	struct watch_vector watches = {0, };  // all watches
+	struct delay_vector delays  = {0, };  // delayed entries
 	int inotify_fd;                       // inotify file descriptor
 
 	openlog("lsyncd", LOG_CONS | LOG_PID, LOG_DAEMON);
@@ -2265,19 +2277,19 @@ main(int argc, char **argv)
 		write_pidfile(log, opts.pidfile);
 	}
 
-    watches.size = 2;
+    watches.size = VECT_INIT_SIZE;
     watches.data = s_calloc(log, watches.size, sizeof(struct watch *));
 
-	delays->size = 2;
-    delays->data = s_calloc(log, delays->size, sizeof(struct watch *));
-
+	delays.size = VECT_INIT_SIZE;
+    delays.data = s_calloc(log, delays.size, sizeof(struct watch *));
 
 	{
 		// add all watches
 		int i;
 		for (i = 0; i < opts.dir_conf_n; i++) {
 			printlogf(log, NORMAL, "watching %s", opts.dir_confs[i].source);
-			add_dirwatch(&opts, &watches, inotify_fd, opts.dir_confs[i].source, NULL, &opts.dir_confs[i]);
+			add_dirwatch(&opts, &watches, &delays, inotify_fd, 
+			             opts.dir_confs[i].source, NULL, &opts.dir_confs[i]);
 		}
 	}
 
@@ -2286,11 +2298,11 @@ main(int argc, char **argv)
 	{
 		int i;
 		printlogf(log, DEBUG, "dumping delay list.");
-		for(i = 0; i < delays->len; i++) {
-			delays->data[i]->delayed = false;
-			delays->data[i]->alarm = 0;
+		for(i = 0; i < delays.len; i++) {
+			delays.data[i]->delayed = false;
+			delays.data[i]->alarm = 0;
 		}
-		delays->len = 0;
+		delays.len = 0;
 	}
 
 	// startup recursive sync.
@@ -2320,7 +2332,7 @@ main(int argc, char **argv)
 
 	signal(SIGTERM, catch_alarm);
 
-	master_loop(&opts, &watches, inotify_fd);
+	master_loop(&opts, &watches, &delays, inotify_fd);
 
 	return 0;
 }
