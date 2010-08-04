@@ -321,32 +321,6 @@ struct call_option standard_callopts[] = {
 };
 
 /**
- * General purpose growable vector of integers.
- */
-struct ivector {
-	/**
-	 * data
-	 */
-	int *data;
-
-	/**
-	 * allocated mem
-	 */
-	size_t size;
-
-	/**
-	 * length used
-	 */
-	size_t len;
-};
-
-/**
- * List of directories on a delay.
- */
-struct ivector delays_obj = {0, };
-struct ivector *delays = &delays_obj;
-
-/**
  * Structure to store strings for the diversve inotfy masked events.
  * Used for comfortable log messages only.
  */
@@ -387,6 +361,24 @@ struct watch_vector {
 	size_t size;
 	size_t len;
 };
+
+/**
+ * Holds all entries on delay.
+ */
+struct delay_vector {
+	/**
+	 * TODO
+	 */
+	struct watch **data;
+	size_t size;
+	size_t len;
+};
+
+/**
+ * List of directories on a delay.
+ */
+struct delay_vector delays_obj = {0, };
+struct delay_vector *delays = &delays_obj;
 
 /**
  * Array of strings of directory names to include.
@@ -665,25 +657,6 @@ realdir(const struct log *log, const char *dir)
 	return cs;
 }
 
-/**
- * Appends one value on an integer vector.
- */
-void
-ivector_push(const struct log *log, struct ivector *ivect, int val){
-	if (ivect->size > ivect->len + 1) {
-		ivect->data[ivect->len++] = val;
-	} else if (!ivect->data) {
-		ivect->data = s_calloc(log, VECT_INIT_SIZE, sizeof(int)); 
-		ivect->size = VECT_INIT_SIZE;
-		ivect->len = 1;
-		ivect->data[0] = val;
-	} else {
-		ivect->size *= 2;
-		ivect->data = s_realloc(log, ivect->data, ivect->size * sizeof(int));
-		ivect->data[ivect->len++] = val;
-	}
-}
-
 /*--------------------------------------------------------------------------*
  * Per directory configuration handling. 
  *--------------------------------------------------------------------------*/
@@ -768,16 +741,13 @@ append_delay(const struct log *log,
 	watch->delayed = true;
 	watch->alarm = alarm;
 
-	{
-		// TODO remove this
-		int i;
-		for(i = 0; i < watches->len; i++) {
-			if(watches->data[i] == watch) {
-				break;
-			}
-		}
-		ivector_push(log, delays, i);
+	// extend the delays vector if needed
+	if (delays->len + 1 >= delays->size) {
+		delays->size *= 2;
+		delays->data = s_realloc(log, delays->data, delays->size * sizeof(struct watch *));
 	}
+
+	delays->data[delays->len++] = watch;
 	return true;
 }
 
@@ -788,9 +758,9 @@ append_delay(const struct log *log,
  */
 void 
 remove_first_delay(struct watch_vector *watches) {
-	int tw = delays->data[0];
-	memmove(delays->data, delays->data + 1, (--delays->len) * sizeof(int));
-	watches->data[tw]->delayed = false;
+	delays->data[0]->delayed = false;
+	delays->data[0]->alarm = 0;
+	memmove(delays->data, delays->data + 1, (--delays->len) * sizeof(struct watch *));
 }
 
 /*--------------------------------------------------------------------------*
@@ -1386,7 +1356,7 @@ remove_dirwatch(const struct global_options *opts,
 	if (delays->len > 0 && dw->delayed) {
 		int i;
 		for(i = 0; i < delays->len; i++) {
-			if (watches->data[delays->data[i]] == dw) {  // TODO delay pointers
+			if (delays->data[i] == dw) {
 				// move the list up.
 				memmove(delays->data + i, delays->data + i + 1, (delays->len - i - 1) * sizeof(int));
 				delays->len--;
@@ -1535,7 +1505,7 @@ master_loop(const struct global_options *opts,
 
 	while (keep_going) {
 		int do_read;
-		if (delays->len > 0 && time_after_eq(times(NULL), watches->data[delays->data[0]]->alarm)) {
+		if (delays->len > 0 && time_after_eq(times(NULL), delays->data[0]->alarm)) {
 			// there is a delay that wants to be handled already
 			// do not read from inotify_fd and jump directly to delay handling
 			printlogf(log, DEBUG, "immediately handling delayed entries");
@@ -1545,7 +1515,7 @@ master_loop(const struct global_options *opts,
 			// a new event or "alarm" of an event to actually
 			// call its binary. The delay with the index 0 
 			// should have the nearest alarm time.
-			alarm = watches->data[delays->data[0]]->alarm;
+			alarm = delays->data[0]->alarm;
 			now = times(NULL);
 			tv.tv_sec  = (alarm - now) / clocks_per_sec;
 			tv.tv_usec = (alarm - now) * 1000000 / clocks_per_sec % 1000000;
@@ -1601,9 +1571,9 @@ master_loop(const struct global_options *opts,
 		// until one item is found whose expiry time has not yet come
 		// or the stack is empty. Using now time - times(NULL) - everytime 
 		// again as time may progresses while handling delayed entries.
-		while (delays->len > 0 && time_after_eq(times(NULL), watches->data[delays->data[0]]->alarm)) {
-			printlogf(log, DEBUG, "time for %d arrived.", delays->data[0]);
-			rsync_dir(opts, watches, watches->data[delays->data[0]]); // TODO
+		while (delays->len > 0 && time_after_eq(times(NULL), delays->data[0])) {
+			printlogf(log, DEBUG, "time for '%s' arrived.", delays->data[0]->dirname);
+			rsync_dir(opts, watches, delays->data[0]);
 			remove_first_delay(watches);
 		}
 	}
@@ -2300,7 +2270,11 @@ main(int argc, char **argv)
 	}
 
     watches.size = 2;
-    watches.data = s_calloc(log, watches.size, sizeof(struct watch));
+    watches.data = s_calloc(log, watches.size, sizeof(struct watch *));
+
+	delays->size = 2;
+    delays->data = s_calloc(log, delays->size, sizeof(struct watch *));
+
 
 	{
 		// add all watches
@@ -2313,12 +2287,12 @@ main(int argc, char **argv)
 
 	// clears delay FIFO again, because the startup recursive rsync will 
 	// handle it eitherway or if started no-startup it has to be ignored.
-	printlogf(log, DEBUG, "dumped delay list.");
 	{
 		int i;
+		printlogf(log, DEBUG, "dumping delay list.");
 		for(i = 0; i < delays->len; i++) {
-			watches.data[delays->data[i]]->delayed = false;
-			watches.data[delays->data[i]]->alarm = 0;
+			delays->data[i]->delayed = false;
+			delays->data[i]->alarm = 0;
 		}
 		delays->len = 0;
 	}
