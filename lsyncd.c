@@ -973,7 +973,6 @@ append_delay(const struct log *log,
 {
 	printlogf(log, DEBUG, "append_delay(%s, %d)", watch->dirname, alarm);
 	if (watch->delayed) {
-		printlogf(log, DEBUG, "ignored since already delayed.");
 		return false;
 	}
 	watch->delayed = true;
@@ -1105,6 +1104,9 @@ action(const struct global_options *opts,
 	// makes a copy of all call parameters
 	// step 1 binary itself
 	argv[argc++] = s_strdup(log, dir_conf->binary ? dir_conf->binary : opts->default_binary, "argv");
+	
+	printlogf(log, NORMAL, "  %s %s --> %s%s", argv[0], src, dest, recursive ? " (recursive)" : "");
+	
 	// now all other parameters
 	for(; optp->kind != CO_EOL; optp++) {
 		switch (optp->kind) {
@@ -1361,7 +1363,8 @@ buildpath(const struct log *log,
  */
 bool
 rsync_dir(const struct global_options *opts, 
-          struct watch *watch)
+          struct watch *watch,
+		  const char *event_text)
 {
 	char pathname[PATH_MAX+1];
 	char destname[PATH_MAX+1];
@@ -1373,16 +1376,16 @@ rsync_dir(const struct global_options *opts,
 		return false;
 	}
 
+	printlogf(log, NORMAL, "%s: acting for %s.", event_text, pathname);
+
 	for (target = watch->dir_conf->targets; *target; target++) {
 		if (!buildpath(log, destname, sizeof(destname), watch, NULL, *target)) {
 			status = false;
 			continue;
 		}
-		printlogf(log, NORMAL, "rsyncing %s --> %s", pathname, destname);
-
-		// call rsync to propagate changes in the directory
+		// call the action to propagate changes in the directory
 		if (!action(opts, watch->dir_conf, pathname, destname, false)) {
-			printlogf(log, ERROR, "Rsync from %s to %s failed", pathname, destname);
+			printlogf(log, ERROR, "Action %s --> %s has failed.", pathname, destname);
 			status = false;
 		}
 	}
@@ -1393,32 +1396,39 @@ rsync_dir(const struct global_options *opts,
  * Puts a directory on the delay list OR 
  *   directly calls rsync_dir if delay == 0;
  * 
- * @param delays  the delay FIFO
- * @param delay   if true will put it on the delay, if false act immediately
- * @param watch   the watches of the delayed directory.
- * @param alarm   times() when the directory handling should be fired.
+ * @param delays      the delay FIFO
+ * @param delay       if true will put it on the delay, if false act immediately
+ * @param watch       the watches of the delayed directory.
+ * @param alarm       times() when the directory handling should be fired.
+ * @param event_text  event name for logging output
  */
 void
 delay_or_act_dir(const struct global_options *opts,
                  struct delay_vector *delays,
                  bool delay, 
                  struct watch *watch,
-		         clock_t alarm)
+		         clock_t alarm,
+				 const char *event_text,
+				 const char *event_name)
 {
 	const struct log *log = &opts->log;
 	char pathname[PATH_MAX+1];
 	
 	if (!delay) {
-		rsync_dir(opts, watch);
+		rsync_dir(opts, watch, event_text);
 	} else {
+		bool ret;
 		if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
 			return;
 		}
 
-		if (append_delay(log, delays, watch, alarm)) {
-			printlogf(log, NORMAL, "Putted %s on a delay", pathname);
+		ret = append_delay(log, delays, watch, alarm);
+		if (event_name) {
+			printlogf(log, NORMAL, "%s %s in %s%s - delayed.", 
+			          event_text, event_name, pathname,  ret ? "" : " already");
 		} else {
-			printlogf(log, NORMAL, "Not acted on %s already on delay", pathname);
+			printlogf(log, NORMAL, "%s in %si -%s delayed.", 
+			          event_text, pathname, ret ? "" : " already");
 		}
 	}
 }
@@ -1460,6 +1470,7 @@ event_text_to_mask(char * text)
  * @param parent     If not NULL, the watches to the parent directory already watched.
  *                   Must have absolute path if parent == NULL.
  * @param dir_conf   applicateable configuration
+ * @param act        if true delay or act on the new directory (dont on startup)
  *
  * @returns          the watches of the directory or NULL on fail.
  */
@@ -1471,16 +1482,13 @@ add_dirwatch(const struct global_options *opts,
 			 int inotify_fd,
              char const *dirname, 
 			 struct watch *parent, 
-			 struct dir_conf *dir_conf)
+			 struct dir_conf *dir_conf,
+			 bool act)
 {
 	const struct log *log = &opts->log;
 	DIR *d;
 	struct watch *w;
 	char pathname[PATH_MAX+1];
-
-	printlogf(log, DEBUG, "add_dirwatch(%s, p->dirname:%s, ...)", 
-	          dirname,
-	          parent ? parent->dirname : "NULL");
 
 	if (!buildpath(log, pathname, sizeof(pathname),  parent, dirname, NULL)) {
 		return NULL;
@@ -1490,10 +1498,9 @@ add_dirwatch(const struct global_options *opts,
 		int i;
 		for (i = 0; i < excludes->len; i++) {
 			if (!strcmp(pathname, excludes->data[i])) {
-				printlogf(log, NORMAL, "Excluded %s", pathname);
+				printlogf(log, NORMAL, "ignored %s because of exclusion.", pathname);
 				return NULL;
 			}
-			printlogf(log, DEBUG, "comparing %s with %s not an exclude so far.", pathname, excludes->data[i]);
 		}
 	}
 
@@ -1503,8 +1510,13 @@ add_dirwatch(const struct global_options *opts,
 		return NULL;
 	}
 
-	// put this directory on list to be synced ASAP.
-	delay_or_act_dir(opts, delays, true, w, times(NULL));
+	// if acting put this directory on list to be synced.
+	// time is now so it as soon as possible, but it will be on
+	// top of the delay FIFO, so the current directory is
+	// guaranteed to be synced first.
+	if (act) {
+		delay_or_act_dir(opts, delays, true, w, times(NULL), "new subdirectory", "");
+	}
 	
 	if (strlen(pathname) + strlen(dirname) + 2 > sizeof(pathname)) {
 		printlogf(log, ERROR, "pathname too long %s//%s", pathname, dirname);
@@ -1543,10 +1555,10 @@ add_dirwatch(const struct global_options *opts,
 		// add watches if its a directory and not . or ..
 		if (isdir && strcmp(de->d_name, "..") && strcmp(de->d_name, ".")) {
 			// recurse into subdirectories
-			struct watch *nw = add_dirwatch(opts, watches, delays, excludes, inotify_fd, de->d_name, w, dir_conf); 
-			printlogf(log, NORMAL, 
-			          "found new directory: %s in %s -- %s", 
-			          de->d_name, dirname, nw ? "will be synced" : "ignored it");
+			printlogf(log, NORMAL, "%s %s%s", 
+			          act ? "encountered" : "watching", 
+					  pathname, de->d_name);
+			add_dirwatch(opts, watches, delays, excludes, inotify_fd, de->d_name, w, dir_conf, act); 
 		}
 	}
 
@@ -1716,7 +1728,7 @@ handle_event(const struct global_options *opts,
 	if (!watch) {
 		// this can happen in case of data moving faster than lsyncd can monitor it.
 		printlogf(log, NORMAL, 
-		          "received an inotify event that doesnt match any watched directory.");
+		          "event %s:%s is not from a watched directory (which presumably was recently deleted)", masktext, event->name ? event->name : "");
 		return false;
 	}
 
@@ -1724,15 +1736,14 @@ handle_event(const struct global_options *opts,
 	if ((IN_ATTRIB | IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | 
 	     IN_MOVED_TO | IN_MOVED_FROM) & event->mask
 	   ) {
-		printlogf(log, NORMAL, "received event %s:%s for %d.", masktext, event->name, alarm);
-		delay_or_act_dir(opts, delays, opts->delay > 0, watch, alarm); 
+		delay_or_act_dir(opts, delays, opts->delay > 0, watch, alarm, masktext, event->name);
 	} else {
 		printlogf(log, DEBUG, "... ignored this event.");
 	}
 	
 	// in case of a new directory create new watches of the subdir
 	if (((IN_CREATE | IN_MOVED_TO) & event->mask) && (IN_ISDIR & event->mask)) {
-		add_dirwatch(opts, watches, delays, excludes, inotify_fd, event->name, watch, watch->dir_conf);
+		add_dirwatch(opts, watches, delays, excludes, inotify_fd, event->name, watch, watch->dir_conf, true);
 	}
 
 	// in case of a removed directory remove watches from the subdir
@@ -1769,8 +1780,6 @@ master_loop(const struct global_options *opts,
 	clock_t alarm;
 	const struct log *log = &opts->log;
 			
-	FD_ZERO(&readfds);
-	FD_SET(inotify_fd, &readfds);
 
 	if (opts->delay > 0) {
 		if (clocks_per_sec <= 0) {
@@ -1802,12 +1811,14 @@ master_loop(const struct global_options *opts,
 			}
 			// if select returns a positive number there is data on inotify
 			// on zero the timemout occured.
+			FD_ZERO(&readfds);
+			FD_SET(inotify_fd, &readfds);
 			do_read = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
 
 			if (do_read) {
 				printlogf(log, DEBUG, "theres data on inotify.");
 			} else {
-				printlogf(log, DEBUG, "select() timeouted, doiong delays.");
+				printlogf(log, DEBUG, "select() timeout, doing delays.");
 			}
 		} else {
 			// if nothing to wait for, enter a blocking read
@@ -1822,10 +1833,9 @@ master_loop(const struct global_options *opts,
 		}
 
 		if (len < 0) {
-			if (!keep_going) {
-				printlogf(log, NORMAL, "read exited due to TERM signal.");
-			} else {
-				printlogf(log, ERROR, "failed to read from inotify (%d:%s)", errno, strerror(errno));
+			if (keep_going) {
+				// if !keep_going it is perfectly normal to be interupted.
+				printlogf(log, ERROR, "read error from inotify (%d:%s)", errno, strerror(errno));
 			}
 			return false;
 		}
@@ -1848,8 +1858,7 @@ master_loop(const struct global_options *opts,
 		// or the stack is empty. Using now time - times(NULL) - everytime 
 		// again as time may progresses while handling delayed entries.
 		while (delays->len > 0 && time_after_eq(times(NULL), delays->data[0]->alarm)) {
-			printlogf(log, DEBUG, "time %d for '%s' arrived. now=%d", delays->data[0]->alarm, delays->data[0]->dirname, times(NULL));
-			rsync_dir(opts, delays->data[0]);
+			rsync_dir(opts, delays->data[0], "delay expired");
 			remove_first_delay(delays);
 		}
 	}
@@ -2443,11 +2452,11 @@ parse_options(struct global_options *opts, int argc, char **argv)
 		for (target = &argv[optind + 1]; *target; target++) {
 			dir_conf_add_target(NULL, odc, *target);
 			if (first_target) {
-				printlogf(&opts->log, NORMAL, "command line options: syncing %s -> %s\n",
+				printlogf(&opts->log, NORMAL, "command line options: syncing %s -> %s",
 				          odc->source, *target);
 				first_target = false;
 			} else {
-				printlogf(&opts->log, NORMAL, "                             and -> %s\n", 
+				printlogf(&opts->log, NORMAL, "                             and -> %s", 
 				          *target);
 			}
 		}
@@ -2595,7 +2604,7 @@ one_main(int argc, char **argv)
 		}
 	}
 
-	printlogf(log, NORMAL, "Starting up");
+	printlogf(log, NORMAL, "--- Starting up ---");
 
 	if (opts.pidfile) {
 		write_pidfile(log, opts.pidfile);
@@ -2613,20 +2622,8 @@ one_main(int argc, char **argv)
 		for (i = 0; i < opts.dir_conf_n; i++) {
 			printlogf(log, NORMAL, "watching %s", opts.dir_confs[i].source);
 			add_dirwatch(&opts, &watches, &delays, &excludes, inotify_fd, 
-			             opts.dir_confs[i].source, NULL, &opts.dir_confs[i]);
+			             opts.dir_confs[i].source, NULL, &opts.dir_confs[i], false);
 		}
-	}
-
-	// clears delay FIFO again, because the startup recursive rsync will 
-	// handle it eitherway or if started no-startup it has to be ignored.
-	{
-		int i;
-		printlogf(log, DEBUG, "dumping delay list.");
-		for(i = 0; i < delays.len; i++) {
-			delays.data[i]->delayed = false;
-			delays.data[i]->alarm = 0;
-		}
-		delays.len = 0;
 	}
 
 	// startup recursive sync.
