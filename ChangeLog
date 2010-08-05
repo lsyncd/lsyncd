@@ -1,3 +1,14 @@
+05-08-2010:  1.37
+	enhancement: react on HUP signals (interpreted as complete restart)
+	enhancement: inotifies are configureable
+	enhancement: --no-startup skips the startup calls
+	fix : fixed delayed blocking handling.
+	improvement: made logging output better readable
+	internal: made all global variables local
+	internal: renamed "tackles" to "delays"
+	internal: removed the need of the "tosync" stack
+	internal: use more pointers instead of indexes
+
 11-07-2010:  1.34
 	fix: logging segfault on 64bit systems
 	changed: man page location, spellings
