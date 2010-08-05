@@ -59,7 +59,10 @@
  */
 #define DEFAULT_BINARY "/usr/bin/rsync"
 #define DEFAULT_CONF_FILENAME "/etc/lsyncd.conf.xml"
-
+const uint32_t standard_event_mask =
+                        IN_ATTRIB   | IN_CLOSE_WRITE | IN_CREATE     |
+						IN_DELETE   | IN_DELETE_SELF | IN_MOVED_FROM |
+						IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR;
 /**
  * Macros to compare times() values
  * (borrowed from linux/jiffies.h)
@@ -167,6 +170,11 @@ struct dir_conf {
 	 * the options to call the binary (defaults to global default setting)
 	 */
 	struct call_option * callopts;
+
+ 	/**
+ 	 * bitmask of inotify events to watch (defaults to global default setting)
+ 	 */
+	uint32_t event_mask;
 
 	/**
 	 * the exclude-file to pass to rsync (defaults to global default setting)
@@ -284,6 +292,11 @@ struct global_options {
 	 * Global Option: this binary is used if no other specified in dir_conf.
 	 */
 	char *default_binary;
+	
+	/**
+	 * Global Option: default bitmask of inotify events to react upon.
+	 */
+	uint32_t default_event_mask;
 
 	/**
 	 * Global Option: default exclude file
@@ -832,6 +845,8 @@ reset_options(struct global_options *opts) {
 		s_free(opts->default_binary);
 	}
 	opts->default_binary = DEFAULT_BINARY;
+	
+	opts->default_event_mask = standard_event_mask;
 
 	if (opts->default_exclude_file) {
 		s_free(opts->default_exclude_file);
@@ -1185,7 +1200,7 @@ action(const struct global_options *opts,
 /**
  * Adds a directory to watch.
  *
- * @param log        logging information
+ * @param opts       global options
  * @param watches    the vector of watches
  * @param inotify_fd inotify file descriptor
  * @param pathname   the absolute path of the directory to watch
@@ -1196,7 +1211,7 @@ action(const struct global_options *opts,
  * @return the watches of the new dir, NULL on error
  */
 struct watch *
-add_watch(const struct log *log,
+add_watch(const struct global_options *opts,
           struct watch_vector *watches,
           int inotify_fd,
           char const *pathname, 
@@ -1204,14 +1219,13 @@ add_watch(const struct log *log,
           struct watch *parent, 
           struct dir_conf *dir_conf)
 {
-	int wd;          // kernels inotify descriptor
-	int wi;          // index to insert this watch into the watch vector
-	struct watch *w; // the new watch
+	const struct log *log = &opts->log; // loginfo shortcut
+	int wd;                             // kernels inotify descriptor
+	int wi;                             // index to insert this watch into the watch vector
+	struct watch *w;                    // the new watch
 
-	wd = inotify_add_watch(inotify_fd, pathname,
-	                       IN_ATTRIB | IN_CLOSE_WRITE | IN_CREATE | 
-	                       IN_DELETE | IN_DELETE_SELF | IN_MOVED_FROM | 
-	                       IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR);
+	wd = inotify_add_watch(inotify_fd, pathname, 
+	                       dir_conf->event_mask ? dir_conf->event_mask : opts->default_event_mask);
 
 	if (wd == -1) {
 		printlogf(log, ERROR, "Cannot add watch %s (%d:%s)", 
@@ -1410,6 +1424,30 @@ delay_or_act_dir(const struct global_options *opts,
 }
 
 /**
+ * Looks up the inotify event mask for the specified event text.
+ *
+ * @param text the name of the event to look up
+ *
+ * @return the inotify event mask or 0 if the mask name is unknown.
+ */
+int
+event_text_to_mask(char * text)
+{
+	int mask = 0;
+	struct inotify_mask_text *p;
+
+	for (p = mask_texts; p->mask; p++) {
+		if (!strcmp(p->text, text)) {
+			mask = p->mask;
+			break;
+		}
+	}
+
+	return mask;
+}
+
+
+/**
  * Adds a directory including all subdirectories to watch.
  * Puts the directory with all subdirectories on the delay FIFO.
  *
@@ -1460,7 +1498,7 @@ add_dirwatch(const struct global_options *opts,
 	}
 
 	// watch this directory
-	w = add_watch(log, watches, inotify_fd, pathname, dirname, parent, dir_conf);
+	w = add_watch(opts, watches, inotify_fd, pathname, dirname, parent, dir_conf);
 	if (!w) {
 		return NULL;
 	}
@@ -1976,6 +2014,44 @@ parse_callopts(struct global_options *opts, xmlNodePtr node) {
 }
 
 /**
+ * Parses <inotify>
+ */
+uint32_t
+parse_inotify(xmlNodePtr node) {
+	xmlNodePtr dnode;
+	xmlChar *xc;
+	uint32_t mask = 0;
+	int id = 0;
+	for (dnode = node->children; dnode; dnode = dnode->next) {
+		if (dnode->type != XML_ELEMENT_NODE) {
+			continue;
+		}
+		if (!xmlStrcmp(dnode->name, BAD_CAST "event")) {
+			xc = xmlGetProp(dnode, BAD_CAST "id");
+			if (xc == NULL) {
+				printlogf(NULL, ERROR, "error in config file: attribute id missing from <event>\n");
+				exit(LSYNCD_BADCONFIGFILE);
+			}
+			id = event_text_to_mask((char*) xc);
+			if (!id) {
+				printlogf(NULL, ERROR, "error in config file: attribute id of <event>: \"%s\" not known.\n", (char*) xc);
+				exit(LSYNCD_BADCONFIGFILE);
+			}
+			mask |= id;
+		} else {
+			printlogf(NULL, ERROR, "error in config file: unknown node in <inotify> \"%s\"\n", dnode->name);
+			exit(LSYNCD_BADCONFIGFILE);
+		}
+	}
+	if (!mask) {
+		printlogf(NULL, ERROR, "error in config file: no valid <event> node in <inotify>\n");
+		exit(LSYNCD_BADCONFIGFILE);
+	}
+	return mask;
+}
+
+
+/**
  * Parses <diretory>
  */
 bool
@@ -2013,6 +2089,12 @@ parse_directory(struct global_options *opts, xmlNodePtr node) {
 				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
 			dc->binary = s_strdup(NULL, (char *) xc, "xml binary"); 
+		} else if (!xmlStrcmp(dnode->name, BAD_CAST "callopts")) {
+			if (dc->callopts) {
+				printlogf(NULL, ERROR, "error in config file: there is more than one <callopts> in a <directory>\n");
+				terminate(NULL, LSYNCD_BADCONFIGFILE);
+			}
+			dc->callopts = parse_callopts(opts, dnode);
 		} else if (!xmlStrcmp(dnode->name, BAD_CAST "exclude-from")) {
 			xc = xmlGetProp(dnode, BAD_CAST "filename");
 			if (xc == NULL) {
@@ -2020,14 +2102,13 @@ parse_directory(struct global_options *opts, xmlNodePtr node) {
 				terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
 			dc->exclude_file = s_strdup(NULL, (char *) xc, "xml exclude"); 
-		} else if (!xmlStrcmp(dnode->name, BAD_CAST "callopts")) {
-			if (dc->callopts) {
-				printlogf(NULL, ERROR, "error in config file: there is more than one <callopts> in a <directory>\n");
-				terminate(NULL, LSYNCD_BADCONFIGFILE);
-			}
-			dc->callopts = parse_callopts(opts, dnode);
+		} else if (!xmlStrcmp(dnode->name, BAD_CAST "inotify")) {
+			if (dc->event_mask) {
+ 				fprintf(stderr, "error in config file: there is more than one <inotify> in a <directory>\n");
+ 				exit(LSYNCD_BADCONFIGFILE);
+ 			}
+ 			dc->event_mask = parse_inotify(dnode);
 		} else {
-			// TODO missing sourcespecific exclude files?
 			printlogf(NULL, ERROR, "error in config file: unknown node in <directory> \"%s\"\n", dnode->name);
 			terminate(NULL, LSYNCD_BADCONFIGFILE);
 		}
@@ -2082,6 +2163,12 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
 			opts->default_exclude_file = s_strdup(NULL, (char *) xc, "xml default-exclude-file");
+		} else if (!xmlStrcmp(snode->name, BAD_CAST "inotify")) {
+ 			if (opts->default_event_mask) {
+ 				printlogf(NULL, ERROR, "error in config file: there is more than one <inotify> in a <directory>\n");
+ 				exit(LSYNCD_BADCONFIGFILE);
+ 			}
+ 			opts->default_event_mask = parse_inotify(snode);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "logfile")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
 			if (xc == NULL) {
