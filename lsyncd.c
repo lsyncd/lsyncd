@@ -343,7 +343,14 @@ struct call_option standard_callopts[] = {
  * Used for comfortable log messages only.
  */
 struct inotify_mask_text {
+	/**
+	 * the bit
+	 */
 	int mask;
+
+	/**
+	 * and its meaning
+	 */
 	char const * text;
 };
 
@@ -373,10 +380,18 @@ struct inotify_mask_text mask_texts[] = {
  */
 struct watch_vector {
 	/**
-	 * TODO
+	 * list of pointers to all watches
 	 */
 	struct watch **data;
+
+	/**
+	 * number of entries allocated
+	 */
 	size_t size;
+
+	/**
+	 * number of entries used
+	 */
 	size_t len;
 };
 
@@ -385,10 +400,18 @@ struct watch_vector {
  */
 struct delay_vector {
 	/**
-	 * TODO
+	 * list of pointers to all delays
 	 */
 	struct watch **data;
+
+	/**
+	 * number of entries allocated
+	 */
 	size_t size;
+
+	/**
+	 * number of entries used
+	 */
 	size_t len;
 };
 
@@ -412,13 +435,29 @@ struct exclude_vector {
  * have not been freed. Debugging purposes. 
  */
 #ifdef MEMCHECK
-#include <search.h> 
+#include <search.h>
+/**
+ * Counts the number of s_[m|c]alloc's.
+ */
 int    memc = 0;
+
+/**
+ * A binary tree administered by the clib to store the 
+ * pointers with a short description.
+ */
 void * mroot = NULL;
+
+/**
+ * An entry to that tree
+ */
 struct mentry {
 	const void *data;
     const char *desc;
 };
+
+/**
+ * Compares two pointers simply by their address
+ */
 int mcompare(const void *pa, const void *pb) {
 	const struct mentry *ma = (const struct mentry *) pa;
 	const struct mentry *mb = (const struct mentry *) pb;
@@ -431,6 +470,9 @@ int mcompare(const void *pa, const void *pb) {
 	return 0;
 }
 
+/**
+ * Prints nonfreed memory usage on exit/HUP
+ */
 void maction(const void *nodep, const VISIT which, const int depth) {
 	if (which == leaf || which == postorder) {
 		struct mentry * r = *((struct mentry **) nodep);
@@ -438,10 +480,6 @@ void maction(const void *nodep, const VISIT which, const int depth) {
 		fprintf(stderr, "<*> unfreed data %p:%s\n", r->data, r->desc);
 	}
 }
-#endif
-
-#ifndef MEMCHECK
-#define s_free(x) free(x)
 #endif
 
 /*--------------------------------------------------------------------------*
@@ -509,8 +547,18 @@ terminate(const struct log *log, int status)
  * _and_ displayed on screen. If lsyncd daemonized already, 
  * stderr will be run into the void of /dev/null.
  */
+
+// activates gcc's printf warnings.
 void
-printlogf(const struct log *log, int level, const char *fmt, ...)
+printlogf(const struct log *log, 
+          int level, 
+		  const char *fmt, ...)
+	__attribute__((format(printf, 3, 4)));
+
+void
+printlogf(const struct log *log, 
+          int level, 
+		  const char *fmt, ...)
 {
 	va_list ap;
 	char * ct;
@@ -742,6 +790,10 @@ s_strdup(const struct log *log, const char *src, const char *desc)
 
 
 #ifdef MEMCHECK
+/**
+ * Only needed when memory usage checking. 
+ * Removes the entry of the freed memory from the tracking tree.
+ */
 void
 s_free(void *p) {
 	struct mentry mentry = {0,};
@@ -758,6 +810,8 @@ s_free(void *p) {
 	} 
 	free(p);
 }
+#else
+#define s_free(x) free(x)
 #endif
 
 /**
@@ -813,8 +867,6 @@ free_options(struct call_option *options) {
 
 /**
  * (Re)sets global options to default values.
- *
- * TODO memfree's
  */
 void
 reset_options(struct global_options *opts) {
@@ -971,7 +1023,6 @@ append_delay(const struct log *log,
 			 struct watch *watch, 
 			 clock_t alarm) 
 {
-	printlogf(log, DEBUG, "append_delay(%s, %d)", watch->dirname, alarm);
 	if (watch->delayed) {
 		return false;
 	}
@@ -1035,7 +1086,7 @@ parse_option_text(const struct log *log, char *text, bool recursive)
 		case 0:    // wtf, '%' was at the end of the string!
 		default :  // unknown char
 			printlogf(log, ERROR, 
-			          "don't know how to handle '\%' specifier in \"%s\"!", *text);
+			          "don't know how to handle '%%%c' specifier in \"%s\"!", chr[1], text);
 			terminate(log, LSYNCD_BADPARAMETERS);
 		}
 	}
@@ -1459,7 +1510,7 @@ event_text_to_mask(char * text)
 
 /**
  * Adds a directory including all subdirectories to watch.
- * Puts the directory with all subdirectories on the delay FIFO.
+ * And puts the directory with all subdirectories on the delay FIFO if act is true.
  *
  * @param opts       global options
  * @param watches    the watch vector
@@ -1672,7 +1723,8 @@ get_watch(const struct watch_vector *watches,
  * 
  * @param opts        global options
  * @param watches     the watch vector
- * @param delays      the delay FIFO.
+ * @param delays      the delay FIFO
+ * @param exlucdes    the exclusions
  * @param inotify_fd  inotify file descriptor
  * @param event       the event to handle
  * @param alarm       times() moment when it should fire
@@ -1755,7 +1807,7 @@ handle_event(const struct global_options *opts,
 }
 
 /**
- * The control loop waiting for inotify events.
+ * The control loop waiting for inotify events
  *
  * @param opts        global options
  * @param watches     the watch vector
@@ -1783,7 +1835,7 @@ master_loop(const struct global_options *opts,
 
 	if (opts->delay > 0) {
 		if (clocks_per_sec <= 0) {
-			printlogf(log, ERROR, "Clocks per seoond invalid! %d", printlogf);
+			printlogf(log, ERROR, "Clocks per second invalid (%li)!", clocks_per_sec);
 			terminate(log, LSYNCD_INTERNALFAIL);
 		}
 	}
@@ -1870,14 +1922,18 @@ master_loop(const struct global_options *opts,
  * Utility function to check file exists. 
  * Prints out error message and die.
  *
+ * @param log       logging information
  * @param filename  filename to check
+ * @param errmsg    error message to print
  */
 void 
-check_file_exists(const struct log* log, const char* filename, const char *errmsg)
+check_file_exists(const struct log* log, 
+                  const char* filename, 
+                  const char *errmsg)
 {
 	struct stat st;
 	if (-1==stat(filename, &st)) {
-		printlogf(log, ERROR, "%s [%s] does not exist.\n", filename);
+		printlogf(log, ERROR, "%s [%s] does not exist.\n", errmsg, filename);
 		terminate(log, LSYNCD_FILENOTFOUND);
 	}
 }
@@ -1885,11 +1941,14 @@ check_file_exists(const struct log* log, const char* filename, const char *errms
 /**
  * Utility function to check given path is absolute path.
  *
- * @param filename  Filename to check
- * @param errmsg    Filetype text to prepend to the error message.
+ * @param log       logging information
+ * @param filename  filename to check
+ * @param errmsg    filetype text to prepend to the error message.
  */
 void
-check_absolute_path(const struct log* log, const char* filename, const char *filetype)
+check_absolute_path(const struct log* log,
+                    const char* filename,
+                    const char *filetype)
 {
 	if (filename[0] != '/') {
 		printlogf(log, ERROR, "%s [%s] has do be an absolute path.\n", filetype, filename);
