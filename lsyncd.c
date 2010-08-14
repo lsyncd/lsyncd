@@ -252,6 +252,12 @@ struct global_options {
 	 * Options relevant for logging.
 	 */
 	struct log log;
+	
+	/**
+	 * Global Option, if true handle files atomicly instead of grouping changes up into a dir.
+	 *                by default call rsync with file filters.
+	 */
+	int flag_atomic;
 
 	/**
 	 * Global Option: if true no action will actually be called.
@@ -270,6 +276,7 @@ struct global_options {
 	 * Global Option: if true, lsyncd will not perform the startup sync.
 	 */
 	int flag_nostartup;
+
 
 	/**
 	 * Global Option: pidfile, which holds the PID of the running daemon process.
@@ -391,11 +398,28 @@ struct watch_vector {
 };
 
 /**
+ * TODO
+ */
+struct file_delay {
+	char *filename;
+	struct watch *watch;
+};
+
+/** 
+ * TODO
+ */
+struct file_vector {
+	struct file_delay *data;
+	size_t size;
+	size_t len;
+};
+
+/**
  * A delayed entry
  */
 struct delay {
 	/**
-	 * Pointer the the watch
+	 * Pointer the watch
 	 */
 	struct watch *watch;
 
@@ -424,7 +448,6 @@ struct delay_vector {
 	 */
 	size_t len;
 };
-
 
 /**
  * Array of strings of directory names to include.
@@ -888,6 +911,7 @@ reset_options(struct global_options *opts) {
 		opts->log.logfile = NULL;
 	}
 	
+	opts->flag_atomic = 0;
 	opts->flag_dryrun = 0;
 	opts->flag_stubborn = 0;
 	opts->flag_nostartup = 0;
@@ -1990,6 +2014,7 @@ print_help(char *arg0)
 #endif
 	printf("\n");
 	printf("OPTIONS:\n");
+	printf("  --atomic               Call the sync binary for each file instead of grouping directories\n");
 	printf("  --binary FILE          Call this binary to sync " "(DEFAULT: %s)\n", DEFAULT_BINARY);
 #ifdef XML_CONFIG
 	printf("   --conf FILE           Load configuration from this file\n");
@@ -1999,14 +2024,14 @@ print_help(char *arg0)
 	printf("  --delay SECS           Delay between event and action\n");
 	printf("  --dryrun               Do not call any actions, run dry only\n");
 	printf("  --exclude-from FILE    Exclude file handled to rsync (DEFAULT: None)\n");
-	printf("  --help                 Print this help text and exit.\n");
+	printf("  --help                 Print this help text and exit\n");
 	printf("  --logfile FILE         Put log here (DEFAULT: uses syslog if not specified)\n"); 
 	printf("  --no-daemon            Do not detach, log to stdout/stderr\n");
 	printf("  --no-startup           Do not execute a startup sync (disadviced, know what you doing)\n");
 	printf("  --pidfile FILE         Create a file containing pid of the daemon\n");
 	printf("  --scarce               Only log errors\n");
-	printf("  --stubborn             Ignore rsync errors on startup.\n");
-	printf("  --version              Print version an exit.\n");
+	printf("  --stubborn             Ignore rsync errors on startup\n");
+	printf("  --version              Print version an exit\n");
 	printf("\n");
 	printf("EXCLUDE FILE: \n");
 	printf("  The exclude file may have either filebased general masks like \"*.php\" without directory specifications,\n");
@@ -2213,7 +2238,9 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 		if (snode->type != XML_ELEMENT_NODE) {
 			continue;
 		}
-		if (!xmlStrcmp(snode->name, BAD_CAST "debug")) {
+		if (!xmlStrcmp(snode->name, BAD_CAST "atomic")) {
+			opts->flag_atomic = 1;
+		} else if (!xmlStrcmp(snode->name, BAD_CAST "debug")) {
 			opts->log.loglevel = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "delay")) {
 			char *p;
@@ -2356,6 +2383,7 @@ parse_options(struct global_options *opts, int argc, char **argv)
 	char **target;
 
 	static struct option long_options[] = {
+		{"atomic",       1, NULL, 0}, 
 		{"binary",       1, NULL, 0}, 
 #ifdef XML_CONFIG
 		{"conf",         1, NULL, 0}, 
@@ -2381,6 +2409,7 @@ parse_options(struct global_options *opts, int argc, char **argv)
 		// because compiler wont allow to init with them.
 		struct option *o;
 		for(o = long_options; o->name; o++) {
+			if (!strcmp("atomic",     o->name)) o->flag = &opts->flag_atomic;
 			if (!strcmp("debug",      o->name)) o->flag = &opts->log.loglevel;
 			if (!strcmp("dryrun",     o->name)) o->flag = &opts->flag_dryrun;
 			if (!strcmp("no-daemon",  o->name)) o->flag = &opts->log.flag_nodaemon;
@@ -2763,6 +2792,7 @@ int
 main(int argc, char **argv)
 {
 	int ret;
+	fprintf(stderr, "WARNING: this is an experimental version, do not use it for anything semi-important\n");
 	do {
 		ret = one_main(argc, argv);
 		if (ret) {
