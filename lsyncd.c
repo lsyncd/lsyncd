@@ -42,7 +42,7 @@
 /**
  * Define for debug memchecking.
  */
-//#define MEMCHECK
+#define MEMCHECK
 
 /**
  * Number of inotifies to read max. at once from the kernel.
@@ -398,35 +398,23 @@ struct watch_vector {
 };
 
 /**
- * TODO
- */
-struct file_delay {
-	char *filename;
-	struct watch *watch;
-};
-
-/** 
- * TODO
- */
-struct file_vector {
-	struct file_delay *data;
-	size_t size;
-	size_t len;
-};
-
-/**
  * A delayed entry
  */
 struct delay {
 	/**
-	 * Pointer the watch
+	 * Pointer the watch.
 	 */
 	struct watch *watch;
 
 	/**
-	 * Alarm time for the delay
+	 * Alarm time for the delay.
 	 */
 	clock_t alarm;
+
+	/**
+	 * Pointer to the next delay.
+	 */
+	struct delay * next;
 };
 
 /**
@@ -434,19 +422,14 @@ struct delay {
  */
 struct delay_vector {
 	/**
-	 * list of pointers to all delays
+	 * pointer to first delay
 	 */
-	struct delay *data;
+	struct delay *first;
 
 	/**
-	 * number of entries allocated
+	 * pointer to last delay
 	 */
-	size_t size;
-
-	/**
-	 * number of entries used
-	 */
-	size_t len;
+	struct delay *last;
 };
 
 /**
@@ -1057,20 +1040,24 @@ append_delay(const struct log *log,
 			 struct watch *watch, 
 			 clock_t alarm) 
 {
+	struct delay * newd;
 	if (watch->delayed) {
 		return false;
 	}
 	watch->delayed = true;
+	
+	newd = s_calloc(log, 1, sizeof(struct delay), "a delay");
+	newd->watch = watch;
+	newd->alarm = alarm;
+	newd->next = NULL;
 
-	// extend the delays vector if needed
-	if (delays->len + 1 >= delays->size) {
-		delays->size *= 2;
-		delays->data = s_realloc(log, delays->data, delays->size * sizeof(struct delay));
+	if (!delays->first) {
+		// delays vector was empty
+		delays->first = delays->last = newd;
+	} else {
+		delays->last->next = newd;
+		delays->last = newd;
 	}
-
-	delays->data[delays->len].watch = watch;
-	delays->data[delays->len].alarm = alarm;
-	delays->len++;
 	return true;
 }
 
@@ -1082,8 +1069,13 @@ append_delay(const struct log *log,
 void 
 remove_first_delay(struct delay_vector *delays) 
 {
-	delays->data[0].watch->delayed = false;
-	memmove(delays->data, delays->data + 1, (--delays->len) * sizeof(struct delay));
+	struct delay *fd = delays->first;
+	fd->watch->delayed = false;
+	delays->first = fd->next;
+	if (!delays->first) {
+		delays->last = NULL;
+	}
+	s_free(fd);
 }
 
 /*--------------------------------------------------------------------------*
@@ -1715,15 +1707,27 @@ remove_dirwatch(const struct global_options *opts,
 
 	// remove a possible delay
 	// (this dir is on the to do/delay list)
-	if (delays->len > 0 && w->delayed) {
-		int i;
-		for(i = 0; i < delays->len; i++) {
-			if (delays->data[i].watch == w) {
-				// move the list up.
-				memmove(delays->data + i, delays->data + i + 1, (delays->len - i - 1) * sizeof(struct delay));
-				delays->len--;
+	if (w->delayed) {
+		struct delay *d, *bd; // the current and the pointer before.
+		bd = NULL;
+		d = delays->first;
+		while (d) {
+			if (d->watch == w) {
+				// remove this entry
+				if (bd) {
+					bd->next = d->next;
+				} else {
+					// this is the first;
+					delays->first = d->next;
+				}
+				if (delays->last == d) {
+					delays->last = bd;
+				}
+				s_free(d);
 				break;
 			} 
+			bd = d;
+			d = d->next;
 		}
 	}
 
@@ -1875,17 +1879,17 @@ master_loop(const struct global_options *opts,
 
 	while (keep_going) {
 		int do_read;
-		if (delays->len > 0 && time_after_eq(times(NULL), delays->data[0].alarm)) {
+		if (delays->first && time_after_eq(times(NULL), delays->first->alarm)) {
 			// there is a delay that wants to be handled already
 			// do not read from inotify_fd and jump directly to delay handling
 			printlogf(log, DEBUG, "immediately handling delayed entries");
 			do_read = 0;
-		} else if (opts->delay > 0 && delays->len > 0) {
+		} else if (opts->delay > 0 && delays->first) {
 			// use select() to determine what happens first
 			// a new event or "alarm" of an event to actually
 			// call its binary. The delay with the index 0 
 			// should have the nearest alarm time.
-			alarm = delays->data[0].alarm;
+			alarm = delays->first->alarm;
 			now = times(NULL);
 			tv.tv_sec  = (alarm - now) / clocks_per_sec;
 			tv.tv_usec = (alarm - now) * 1000000 / clocks_per_sec % 1000000;
@@ -1942,8 +1946,8 @@ master_loop(const struct global_options *opts,
 		// until one item is found whose expiry time has not yet come
 		// or the stack is empty. Using now time - times(NULL) - everytime 
 		// again as time may progresses while handling delayed entries.
-		while (delays->len > 0 && time_after_eq(times(NULL), delays->data[0].alarm)) {
-			rsync_dir(opts, delays->data[0].watch, "delay expired");
+		while (delays->first && time_after_eq(times(NULL), delays->first->alarm)) {
+			rsync_dir(opts, delays->first->watch, "delay expired");
 			remove_first_delay(delays);
 		}
 	}
@@ -2710,8 +2714,7 @@ one_main(int argc, char **argv)
     watches.size = VECT_INIT_SIZE;
     watches.data = s_calloc(log, watches.size, sizeof(struct watch *), "watches vector");
 
-	delays.size = VECT_INIT_SIZE;
-    delays.data = s_calloc(log, delays.size, sizeof(struct delay), "delays vector");
+	delays.first = delays.last = NULL;
 
 	{
 		// add all watches
@@ -2759,6 +2762,8 @@ one_main(int argc, char **argv)
 	{
 		// memory clean up
 		int i;
+		struct delay * d;
+
 		reset_options(&opts);
 		for(i = 0; i < watches.len; i++) {
 			if (watches.data[i]->dirname) {
@@ -2767,7 +2772,9 @@ one_main(int argc, char **argv)
 			s_free(watches.data[i]);
 		}
 		s_free(watches.data);
-		s_free(delays.data);
+		for(d = delays.first; d; d = d->next) {
+			s_free(d);
+		}
 		for(i = 0; i < excludes.len; i++) {
 			s_free(excludes.data[i]);
 		}
