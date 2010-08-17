@@ -51,6 +51,7 @@ This is a default config file template for lsyncd.
 		<option text="-lt%r"/>
 		<option text="--delete"/>
 		<exclude-file/>
+		<file-filter/>
 		<source/>
 		<destination/>
 	</callopts>

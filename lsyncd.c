@@ -52,7 +52,7 @@
 /**
  * Initial size of vectors
  */
-#define VECT_INIT_SIZE 2
+#define VECT_INIT_SIZE 8
 
 /**
  * Defaults values 
@@ -121,6 +121,7 @@ enum call_option_kind {
 	CO_EOL,                 // end of list,
 	CO_TEXT,                // specified by text,
 	CO_EXCLUDE,             // be the exclude file
+	CO_FILTER,              // file filter
 	CO_SOURCE,              // be the source of the operation
 	CO_DEST,                // be the destination of the operation
 };
@@ -342,6 +343,7 @@ struct call_option standard_callopts[] = {
 	{ CO_TEXT,    "-lt%r"    },
 	{ CO_TEXT,    "--delete" },
 	{ CO_EXCLUDE, NULL       },
+	{ CO_FILTER,  NULL       },
 	{ CO_SOURCE,  NULL       },
 	{ CO_DEST,    NULL       },
 	{ CO_EOL,     NULL       },
@@ -454,7 +456,7 @@ struct file_delay {
 	/**
 	 * The filename without path.
 	 */
-	const char *filename;
+	char *filename;
 
 	/**
 	 * The directory watch this file is in.
@@ -476,7 +478,7 @@ struct file_delay_vector {
 	/**
 	 * The file delays.
 	 */
-	struct file_delay *file_delays;
+	struct file_delay **data;
 
 	/**
 	 * size of vector
@@ -1090,17 +1092,31 @@ dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *targ
  * @param delays     the delays FIFO
  * @param watch      the index in watches to the directory
  * @param alarm      times() when the directory should be acted
+ * @param filename   for filtered operations filename (otherwise NULL)
  */
 bool
 append_delay(const struct global_options *opts,
              struct delay_vector *delays,
 			 struct watch *watch, 
-			 clock_t alarm) 
+			 clock_t alarm,
+			 const char *filename) 
 {
 	const struct log *log = &opts->log;
 	struct delay * newd;
 	if (watch->dirdelay) {
-		return false;
+		if (!opts->flag_singular) {
+			// already watched in non filtered operatoin
+			return false;
+		} else {
+			// check if this filename is already in the vector
+			struct file_delay_vector *fdv = (struct file_delay_vector *) watch->dirdelay;
+			int i; 
+			for (i = 0; i < fdv->len; i++) {
+				if (!strcmp(filename, fdv->data[i]->filename)) {
+					return false;
+				}
+			}
+		}
 	}
 	newd = s_calloc(log, 1, sizeof(struct delay), "a delay");
 	newd->alarm = alarm;
@@ -1108,8 +1124,26 @@ append_delay(const struct global_options *opts,
 	newd->next = NULL;
 
 	if (opts->flag_singular) {
-		// TODO owner
-		exit(1); //TODO ATOMIC
+		struct file_delay_vector *fdv = watch->dirdelay;
+		struct file_delay *fd; 
+		if (!fdv) {
+			fdv = s_calloc(log, 1, sizeof(struct file_delay_vector), "file delay vector");
+			fdv->len = 0;
+			fdv->size = VECT_INIT_SIZE;
+			fdv->data = s_calloc(log, VECT_INIT_SIZE, sizeof(struct file_delay *), "file delay vector data");
+			watch->dirdelay = fdv;
+		} else {
+			if (fdv->len + 1 >= fdv->size) {
+				fdv->size *= 2;
+				fdv->data = s_realloc(log, fdv->data, fdv->size * sizeof(struct file_delay *));
+			}
+		}
+		fd = fdv->data[fdv->len] = s_calloc(log, 1, sizeof(struct file_delay), "a file delay");
+		fdv->len++;
+		fd->filename = s_strdup(log, filename, "file delay.filename");
+		fd->watch = watch;
+		fd->delay = newd;
+		newd->owner = fd;
 	} else {
 		watch->dirdelay = newd;
 		newd->owner = watch;
@@ -1127,6 +1161,30 @@ append_delay(const struct global_options *opts,
 }
 
 /**
+ * Removes a delay.
+ *
+ * @param TODO
+ */
+void
+remove_delay(struct delay_vector *delays, struct delay *d)
+{
+	if (d->before) {
+		d->before->next = d->next;
+	} else { 
+		// this was first entry
+		delays->first = d->next;
+	}
+	if (d->next) {
+		d->next->before = d->before;
+	} else {
+		// this was last entry
+		delays->last = d->before;
+	}
+	s_free(d);
+}
+
+
+/**
  * Removes the first entry on the delay list.
  *
  * @param delays    the delay FIFO.
@@ -1134,20 +1192,34 @@ append_delay(const struct global_options *opts,
 void 
 remove_first_delay(const struct global_options *opts, struct delay_vector *delays) 
 {
-	struct delay *fd = delays->first;
+	const struct log *log = &opts->log;
+	struct delay *d = delays->first;
 	if (opts->flag_singular) {
-		exit(1); // TODO ATOMIC
+		struct file_delay *fd = (struct file_delay *) d->owner;
+		struct watch *w = fd->watch;
+		struct file_delay_vector *fdv = (struct file_delay_vector *) w->dirdelay;
+		int p = 0;
+		while (fdv->data[p] != fd) {
+			p++;
+			if (p >= fdv->len) {
+				printlogf(log, ERROR, "Internal error: removing a file delay not in file delay vector");
+				terminate(log, LSYNCD_INTERNALFAIL);
+			}
+		}
+		s_free(fd->filename);
+		memmove(fdv->data + p, fdv->data + p + 1, (fdv->len - p - 1) * sizeof(struct file_delay *));
+		fdv->len--;
+		s_free(fd);
+		if (fdv->len == 0) {
+			// remove the vector when its empty (not needed but memory footprint reduction)
+			s_free(fdv->data);
+			s_free(fdv);
+			w->dirdelay = NULL;
+		}
 	} else {
-		((struct watch *) fd->owner)->dirdelay = NULL;
+		((struct watch *) d->owner)->dirdelay = NULL;
 	}
-	delays->first = fd->next;
-	if (delays->first) {
-		delays->first->before = NULL;
-	} else {
-		// this was the only entry
-		delays->last = NULL;
-	}
-	s_free(fd);
+	remove_delay(delays, delays->first);
 }
 
 /*--------------------------------------------------------------------------*
@@ -1203,18 +1275,19 @@ get_arg_str(const struct log *log, char **argv, int argc) {
 	int len = 0;
 	char * str;
 
+	argc--; // because of the terminating NULL.
 	// calc length
 	for (i = 0; i < argc; i++) {
 		len += strlen(argv[i]);
 	}
 
     // alloc 
-	str = s_malloc(log, len + 2 * argc + 1, "argument string");
+	str = s_malloc(log, len + argc + 1, "argument string");
 		
 	str[0] = 0;
 	for(i = 0; i < argc; i++) {
 		if (i > 0) {
-			strcat(str, ", ");
+			strcat(str, " ");
 		}
 		strcat(str, argv[i]);
 	}
@@ -1228,6 +1301,7 @@ get_arg_str(const struct log *log, char **argv, int argc) {
  * @param dir_conf    the config applicatable for this dir.
  * @param src         source string.
  * @param dest        destination string,
+ * @param filename    filename for filtered operation
  * @param recursive   if true -r will be handled on, -d (single directory) otherwise
  *
  * @return true if successful, false if not.
@@ -1237,6 +1311,7 @@ action(const struct global_options *opts,
        struct dir_conf *dir_conf, 
        const char *src, 
        const char *dest, 
+	   const char *filename,
        bool recursive)
 {
 	pid_t pid;
@@ -1271,6 +1346,16 @@ action(const struct global_options *opts,
 			argv[argc++] = s_strdup(log, "--exclude-from", "argv exclude-from");
 			argv[argc++] = s_strdup(log, dir_conf->exclude_file ? dir_conf->exclude_file : opts->default_exclude_file, "argv exclude-file"); 
 			continue;
+		case CO_FILTER :
+			if (!filename) {
+				continue;
+			}
+			argv[argc] = s_malloc(log, strlen("--include=''") + strlen(filename) + 1, "argv filter include");
+			strcpy(argv[argc], "--include=\"");
+			strcat(argv[argc], filename);
+			strcat(argv[argc++], "\"");
+			argv[argc++] = s_strdup(log, "--exclude=\"*\"", "argv filter exclude");
+			continue;
 		case CO_SOURCE :
 			argv[argc++] = s_strdup(log, src, "argv source");
 			continue;
@@ -1290,18 +1375,23 @@ action(const struct global_options *opts,
 	}
 	argv[argc++] = NULL;
 
-	if (opts->flag_dryrun) {
+	if (opts->flag_dryrun || log->loglevel == DEBUG) {
 		// just make a nice log message
-		char * binary = dir_conf->binary ? dir_conf->binary : opts->default_binary;
 		char * argall = get_arg_str(log, argv, argc);
-		printlogf(log, NORMAL, "dry run: would call %s(%s)", binary, argall); 
-		s_free(argall);
-		for (i = 0; i < argc; ++i) {
-			if (argv[i]) {
-				s_free(argv[i]);
-			}
+		if (opts->flag_dryrun) {
+			printlogf(log, NORMAL, "dry run: would call %s", argall); 
+		} else {
+			printlogf(log, DEBUG, "calling %s", argall); 
 		}
-		return true;
+		s_free(argall);
+		if (opts->flag_dryrun) {
+			for (i = 0; i < argc; ++i) {
+				if (argv[i]) {
+					s_free(argv[i]);
+				}
+			}
+			return true;
+		}
 	}
 
 	pid = fork();
@@ -1344,7 +1434,9 @@ action(const struct global_options *opts,
 		return false;
 	}
 
-	printlogf(log, DEBUG, "Rsync of [%s] -> [%s] finished", src, dest);
+	printlogf(log, DEBUG, "Rsync of [%s%s%s] -> [%s] finished", src, 
+	                      filename ? "/" : "", filename ? filename : "",
+	                      dest);
 	return true;
 }
 
@@ -1505,13 +1597,17 @@ buildpath(const struct log *log,
  *         directory gone away, and thus cannot work, or network
  *         failed)
  *
- * @param watch   the watch of the directory.
+ * @param opts       global options
+ * @param watch      the watch of the directory.
+ * @param filename   the filename to sync for filtered ops.
+ * @param evet_text  event text for logging. 
  *
  * @returns true when all targets were successful.
  */
 bool
 rsync_dir(const struct global_options *opts, 
           struct watch *watch,
+		  const char *filename,
 		  const char *event_text)
 {
 	char pathname[PATH_MAX+1];
@@ -1524,7 +1620,11 @@ rsync_dir(const struct global_options *opts,
 		return false;
 	}
 
-	printlogf(log, NORMAL, "%s: acting for %s.", event_text, pathname);
+	if (filename) {
+		printlogf(log, NORMAL, "%s: acting for %s/%s.", event_text, pathname, filename);
+	} else {
+		printlogf(log, NORMAL, "%s: acting for %s.", event_text, pathname);
+	}
 
 	for (target = watch->dir_conf->targets; *target; target++) {
 		if (!buildpath(log, destname, sizeof(destname), watch, NULL, *target)) {
@@ -1532,7 +1632,7 @@ rsync_dir(const struct global_options *opts,
 			continue;
 		}
 		// call the action to propagate changes in the directory
-		if (!action(opts, watch->dir_conf, pathname, destname, false)) {
+		if (!action(opts, watch->dir_conf, pathname, destname, filename, false)) {
 			printlogf(log, ERROR, "Action %s --> %s has failed.", pathname, destname);
 			status = false;
 		}
@@ -1548,7 +1648,9 @@ rsync_dir(const struct global_options *opts,
  * @param delay       if true will put it on the delay, if false act immediately
  * @param watch       the watches of the delayed directory.
  * @param alarm       times() when the directory handling should be fired.
- * @param event_text  event name for logging output
+ * @param filename    filename
+ * @param event_text  event text for logging output
+ * @param event_name  event name for logging output
  */
 void
 delay_or_act_dir(const struct global_options *opts,
@@ -1556,6 +1658,7 @@ delay_or_act_dir(const struct global_options *opts,
                  bool delay, 
                  struct watch *watch,
 		         clock_t alarm,
+				 const char *filename,
 				 const char *event_text,
 				 const char *event_name)
 {
@@ -1563,19 +1666,19 @@ delay_or_act_dir(const struct global_options *opts,
 	char pathname[PATH_MAX+1];
 	
 	if (!delay) {
-		rsync_dir(opts, watch, event_text);
+		rsync_dir(opts, watch, filename, event_text);
 	} else {
 		bool ret;
 		if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
 			return;
 		}
 
-		ret = append_delay(opts, delays, watch, alarm);
+		ret = append_delay(opts, delays, watch, alarm, filename);
 		if (event_name) {
-			printlogf(log, NORMAL, "%s %s in %s%s - delayed.", 
+			printlogf(log, NORMAL, "%s %s in %s -%s delayed.", 
 			          event_text, event_name, pathname,  ret ? "" : " already");
 		} else {
-			printlogf(log, NORMAL, "%s in %si -%s delayed.", 
+			printlogf(log, NORMAL, "%s in %s -%s delayed.", 
 			          event_text, pathname, ret ? "" : " already");
 		}
 	}
@@ -1663,7 +1766,7 @@ add_dirwatch(const struct global_options *opts,
 	// top of the delay FIFO, so the current directory is
 	// guaranteed to be synced first.
 	if (act) {
-		delay_or_act_dir(opts, delays, true, w, times(NULL), "new subdirectory", "");
+		delay_or_act_dir(opts, delays, true, w, times(NULL), dirname, "new subdirectory", "");
 	}
 	
 	if (strlen(pathname) + strlen(dirname) + 2 > sizeof(pathname)) {
@@ -1783,22 +1886,19 @@ remove_dirwatch(const struct global_options *opts,
 	} 
 	// otherwise remove the delay entries for this dir.
 	if (opts->flag_singular) {
-		exit(1); // TODO ATOMIC
+		struct file_delay_vector *fdv = (struct file_delay_vector *) w->dirdelay;
+		int i;
+		for (i = 0; i < fdv->len; i++) {
+			remove_delay(delays, fdv->data[i]->delay);
+			s_free(fdv->data[i]->filename);
+			s_free(fdv->data[i]);
+		}
+		s_free(fdv->data);
+		s_free(fdv);
+		w->dirdelay = NULL;
 	} else {
-		struct delay * d = (struct delay *) w->dirdelay;
-		if (d->before) {
-			d->before->next = d->next;
-		} else { 
-			// this was first entry
-			delays->first = d->next;
-		}
-		if (d->next) {
-			d->next->before = d->before;
-		} else {
-			// this was last entry
-			delays->last = d->before;
-		}
-		s_free(d);
+		remove_delay(delays, (struct delay *) w->dirdelay);
+		w->dirdelay = NULL;
 	}
 
 	return true;
@@ -1895,7 +1995,7 @@ handle_event(const struct global_options *opts,
 	if ((IN_ATTRIB | IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | 
 	     IN_MOVED_TO | IN_MOVED_FROM) & event->mask
 	   ) {
-		delay_or_act_dir(opts, delays, opts->delay > 0, watch, alarm, masktext, event->name);
+		delay_or_act_dir(opts, delays, opts->delay > 0, watch, alarm, event->name, masktext, event->name);
 	} else {
 		printlogf(log, DEBUG, "... ignored this event.");
 	}
@@ -2017,9 +2117,12 @@ master_loop(const struct global_options *opts,
 		// or the stack is empty. Using now time - times(NULL) - everytime 
 		// again as time may progresses while handling delayed entries.
 		while (delays->first && time_after_eq(times(NULL), delays->first->alarm)) {
-			//rsync_dir(opts, delays->first->watch, "delay expired");
-			//TODO ATOMIC
-			rsync_dir(opts, (struct watch *) delays->first->owner, "delay expired");
+			if (opts->flag_singular) {
+				struct file_delay * fd = (struct file_delay *) delays->first->owner;
+				rsync_dir(opts, fd->watch, fd->filename, "delay expired");
+			} else {
+				rsync_dir(opts, (struct watch *) delays->first->owner, NULL, "delay expired");
+			}
 			remove_first_delay(opts, delays);
 		}
 	}
@@ -2177,6 +2280,8 @@ parse_callopts(struct global_options *opts, xmlNodePtr node) {
 			asw[opt_n].text = s_strdup(NULL, (char *) xc, "asw text");
 		} else if (!xmlStrcmp(cnode->name, BAD_CAST "exclude-file")) {
 			asw[opt_n].kind = CO_EXCLUDE;
+		} else if (!xmlStrcmp(cnode->name, BAD_CAST "file-filter")) {
+			asw[opt_n].kind = CO_FILTER;
 		} else if (!xmlStrcmp(cnode->name, BAD_CAST "source")) {
 			asw[opt_n].kind = CO_SOURCE;
 		} else if (!xmlStrcmp(cnode->name, BAD_CAST "destination")) {
@@ -2473,7 +2578,7 @@ parse_options(struct global_options *opts, int argc, char **argv)
 		{"no-startup",   0, NULL, 1}, 
 		{"pidfile",      1, NULL, 0}, 
 		{"scarce",       0, NULL, 3},
-		{"singular",     1, NULL, 0}, 
+		{"singular",     0, NULL, 1}, 
 		{"stubborn",     0, NULL, 1},
 		{"version",      0, NULL, 0}, 
 		{NULL,           0, NULL, 0}
@@ -2805,7 +2910,7 @@ one_main(int argc, char **argv)
 			char **target;
 			for (target = opts.dir_confs[i].targets; *target; ++target) {
 				printlogf(log, NORMAL, "Initial recursive sync for %s -> %s", opts.dir_confs[i].source, *target);
-				if (!action(&opts, &opts.dir_confs[i], opts.dir_confs[i].source, *target, true)) {
+				if (!action(&opts, &opts.dir_confs[i], opts.dir_confs[i].source, *target, NULL, true)) {
 					printlogf(log, ERROR, "Initial rsync from %s -> %s failed%s", 
 					          opts.dir_confs[i].source, *target,
 					          opts.flag_stubborn ? ", but continuing because being stubborn." : ".");

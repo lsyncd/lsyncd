@@ -1,3 +1,9 @@
+17-08-2010:  xxx
+	enhancement: implemented file filters for singular operations
+	enhancement: added --singular parameter for single file calls
+	fix: fixed --dryrun messages
+	internal: printout the actual binary called when --debug specified
+
 05-08-2010:  1.37
 	enhancement: react on HUP signals (interpreted as complete restart)
 	enhancement: inotifies are configureable
