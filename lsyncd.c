@@ -1949,6 +1949,13 @@ handle_event(const struct global_options *opts,
 	char masktext[255] = {0,};
 	struct watch *watch;
 
+	if (IN_Q_OVERFLOW & event->mask) {
+		printlogf(log, ERROR, "EVENT OVERFLOW, kernel sent an overflow message");
+		printlogf(log, ERROR, "EVENT OVERFLOW, thus events have been missed, lsyncd will now restart.");
+		keep_going = 0;
+		return false;
+	}
+
 	{
 		// creates a string for logging that shows which flags 
 		// were raised in the event
@@ -2105,7 +2112,7 @@ master_loop(const struct global_options *opts,
 		{
 			// first handle all events read.
 			int i = 0;
-			while (i < len) {
+			while (i < len && keep_going) {
 				struct inotify_event *event = (struct inotify_event *) &buf[i];
 				handle_event(opts, watches, delays, excludes, inotify_fd, event, alarm);
 				i += sizeof(struct inotify_event) + event->len;
@@ -2116,7 +2123,7 @@ master_loop(const struct global_options *opts,
 		// until one item is found whose expiry time has not yet come
 		// or the stack is empty. Using now time - times(NULL) - everytime 
 		// again as time may progresses while handling delayed entries.
-		while (delays->first && time_after_eq(times(NULL), delays->first->alarm)) {
+		while (delays->first && time_after_eq(times(NULL), delays->first->alarm) && keep_going) {
 			if (opts->flag_singular) {
 				struct file_delay * fd = (struct file_delay *) delays->first->owner;
 				rsync_dir(opts, fd->watch, fd->filename, "delay expired");

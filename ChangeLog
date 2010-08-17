@@ -2,6 +2,8 @@
 	enhancement: implemented file filters for singular operations
 	enhancement: added --singular parameter for single file calls
 	fix: fixed --dryrun messages
+	improvement: now restarts on an inotify OVERFLOW message, just like if
+	             being kill -HUPed 
 	internal: printout the actual binary called when --debug specified
 
 05-08-2010:  1.37
