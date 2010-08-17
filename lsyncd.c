@@ -409,9 +409,12 @@ struct watch_vector {
  */
 struct delay {
 	/**
-	 * Pointer the watch.
+	 * Pointer the owner.
+	 *
+	 * In filtered  operation this points to a file_delay.
+	 * In directory operation this points to the watch.
 	 */
-	struct watch *watch;
+	void *owner;
 
 	/**
 	 * Alarm time for the delay.
@@ -442,6 +445,48 @@ struct delay_vector {
 	 * pointer to last delay
 	 */
 	struct delay *last;
+};
+
+/**
+ * Delayed files for filtered operatoins
+ */
+struct file_delay {
+	/**
+	 * The filename without path.
+	 */
+	const char *filename;
+
+	/**
+	 * The directory watch this file is in.
+	 */
+	struct watch *watch;
+
+	/**
+	 * The delay of this file.
+	 */
+	struct delay *delay;
+};
+
+/**
+ * A vector of file delays.
+ * In case of filtered operation dirdelay points
+ * to one of these.
+ */
+struct file_delay_vector {
+	/**
+	 * The file delays.
+	 */
+	struct file_delay *file_delays;
+
+	/**
+	 * size of vector
+	 */
+	size_t size;
+
+	/**
+	 * length of vector
+	 */
+	size_t len;
 };
 
 /**
@@ -1058,23 +1103,25 @@ append_delay(const struct global_options *opts,
 		return false;
 	}
 	newd = s_calloc(log, 1, sizeof(struct delay), "a delay");
-	newd->watch = watch;
 	newd->alarm = alarm;
+	newd->before = NULL;
 	newd->next = NULL;
 
 	if (opts->flag_singular) {
+		// TODO owner
 		exit(1); //TODO ATOMIC
 	} else {
 		watch->dirdelay = newd;
+		newd->owner = watch;
 	}
 
-	if (!delays->first) {
-		// delays vector was empty
-		delays->first = delays->last = newd;
-	} else {
+	if (delays->last) {
 		delays->last->next = newd;
 		newd->before = delays->last;
 		delays->last = newd;
+	} else {
+		// delays vector was empty
+		delays->first = delays->last = newd;
 	}
 	return true;
 }
@@ -1091,7 +1138,7 @@ remove_first_delay(const struct global_options *opts, struct delay_vector *delay
 	if (opts->flag_singular) {
 		exit(1); // TODO ATOMIC
 	} else {
-		fd->watch->dirdelay = NULL;
+		((struct watch *) fd->owner)->dirdelay = NULL;
 	}
 	delays->first = fd->next;
 	if (delays->first) {
@@ -1751,6 +1798,7 @@ remove_dirwatch(const struct global_options *opts,
 			// this was last entry
 			delays->last = d->before;
 		}
+		s_free(d);
 	}
 
 	return true;
@@ -1969,7 +2017,9 @@ master_loop(const struct global_options *opts,
 		// or the stack is empty. Using now time - times(NULL) - everytime 
 		// again as time may progresses while handling delayed entries.
 		while (delays->first && time_after_eq(times(NULL), delays->first->alarm)) {
-			rsync_dir(opts, delays->first->watch, "delay expired");
+			//rsync_dir(opts, delays->first->watch, "delay expired");
+			//TODO ATOMIC
+			rsync_dir(opts, (struct watch *) delays->first->owner, "delay expired");
 			remove_first_delay(opts, delays);
 		}
 	}
