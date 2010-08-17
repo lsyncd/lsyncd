@@ -210,10 +210,10 @@ struct watch {
 	 * There is one or several delays to be handled 
 	 * dor this directory
 	 *
-	 * In case of non-atomic opperation this points
+	 * In case of non-filtered opperation this points
 	 * directly to the delay struct.
 	 *
-	 * In case of atomic opperatoin this points to
+	 * In case of filtered opperatoin this points to
 	 * a file_delay_vector struct.
 	 */
 	void * dirdelay;
@@ -261,10 +261,10 @@ struct global_options {
 	struct log log;
 	
 	/**
-	 * Global Option, if true handle files atomicly instead of grouping changes up into a dir.
+	 * Global Option, if true handle files singular instead of grouping changes up into a dir.
 	 *                by default call rsync with file filters.
 	 */
-	int flag_atomic;
+	int flag_singular;
 
 	/**
 	 * Global Option: if true no action will actually be called.
@@ -906,7 +906,7 @@ reset_options(struct global_options *opts) {
 		opts->log.logfile = NULL;
 	}
 	
-	opts->flag_atomic = 0;
+	opts->flag_singular = 0;
 	opts->flag_dryrun = 0;
 	opts->flag_stubborn = 0;
 	opts->flag_nostartup = 0;
@@ -1062,7 +1062,7 @@ append_delay(const struct global_options *opts,
 	newd->alarm = alarm;
 	newd->next = NULL;
 
-	if (opts->flag_atomic) {
+	if (opts->flag_singular) {
 		exit(1); //TODO ATOMIC
 	} else {
 		watch->dirdelay = newd;
@@ -1088,7 +1088,7 @@ void
 remove_first_delay(const struct global_options *opts, struct delay_vector *delays) 
 {
 	struct delay *fd = delays->first;
-	if (opts->flag_atomic) {
+	if (opts->flag_singular) {
 		exit(1); // TODO ATOMIC
 	} else {
 		fd->watch->dirdelay = NULL;
@@ -1735,7 +1735,7 @@ remove_dirwatch(const struct global_options *opts,
 		return true;
 	} 
 	// otherwise remove the delay entries for this dir.
-	if (opts->flag_atomic) {
+	if (opts->flag_singular) {
 		exit(1); // TODO ATOMIC
 	} else {
 		struct delay * d = (struct delay *) w->dirdelay;
@@ -2040,7 +2040,7 @@ print_help(char *arg0)
 #endif
 	printf("\n");
 	printf("OPTIONS:\n");
-	printf("  --atomic               Call the sync binary for each file instead of grouping directories\n");
+	printf("  --singular             Call the sync binary for each file instead of grouping directories\n");
 	printf("  --binary FILE          Call this binary to sync " "(DEFAULT: %s)\n", DEFAULT_BINARY);
 #ifdef XML_CONFIG
 	printf("   --conf FILE           Load configuration from this file\n");
@@ -2264,8 +2264,8 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 		if (snode->type != XML_ELEMENT_NODE) {
 			continue;
 		}
-		if (!xmlStrcmp(snode->name, BAD_CAST "atomic")) {
-			opts->flag_atomic = 1;
+		if (!xmlStrcmp(snode->name, BAD_CAST "singular")) {
+			opts->flag_singular = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "debug")) {
 			opts->log.loglevel = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "delay")) {
@@ -2409,7 +2409,6 @@ parse_options(struct global_options *opts, int argc, char **argv)
 	char **target;
 
 	static struct option long_options[] = {
-		{"atomic",       1, NULL, 0}, 
 		{"binary",       1, NULL, 0}, 
 #ifdef XML_CONFIG
 		{"conf",         1, NULL, 0}, 
@@ -2424,6 +2423,7 @@ parse_options(struct global_options *opts, int argc, char **argv)
 		{"no-startup",   0, NULL, 1}, 
 		{"pidfile",      1, NULL, 0}, 
 		{"scarce",       0, NULL, 3},
+		{"singular",     1, NULL, 0}, 
 		{"stubborn",     0, NULL, 1},
 		{"version",      0, NULL, 0}, 
 		{NULL,           0, NULL, 0}
@@ -2435,12 +2435,12 @@ parse_options(struct global_options *opts, int argc, char **argv)
 		// because compiler wont allow to init with them.
 		struct option *o;
 		for(o = long_options; o->name; o++) {
-			if (!strcmp("atomic",     o->name)) o->flag = &opts->flag_atomic;
 			if (!strcmp("debug",      o->name)) o->flag = &opts->log.loglevel;
 			if (!strcmp("dryrun",     o->name)) o->flag = &opts->flag_dryrun;
 			if (!strcmp("no-daemon",  o->name)) o->flag = &opts->log.flag_nodaemon;
 			if (!strcmp("no-startup", o->name)) o->flag = &opts->flag_nostartup;
 			if (!strcmp("scarce",     o->name)) o->flag = &opts->log.loglevel;
+			if (!strcmp("singular",   o->name)) o->flag = &opts->flag_singular;
 			if (!strcmp("stubborn",   o->name)) o->flag = &opts->flag_stubborn;
 		}
 	}
