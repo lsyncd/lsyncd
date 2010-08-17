@@ -23,7 +23,7 @@ touch "${WORKSOURCE}"/a/f
 touch "${WORKSOURCE}"/b/g
 
 echo -e "$CON* starting lsyncd.$COFF"
-./lsyncd --logfile "${LOGFILE}" --pidfile "${PIDFILE}" "${WORKSOURCE}" "${WORKTARGET}"
+./lsyncd --no-daemon --logfile "${LOGFILE}" --pidfile "${PIDFILE}" "${WORKSOURCE}" "${WORKTARGET}"&
 LSYNCPID=$(cat "${PIDFILE}")
 
 echo -e "$CON* waiting for lsyncd to start.$COFF"

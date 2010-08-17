@@ -207,9 +207,16 @@ struct watch {
 	struct watch *parent;
 
 	/**
-	 * On a delay to be handled.
+	 * There is one or several delays to be handled 
+	 * dor this directory
+	 *
+	 * In case of non-atomic opperation this points
+	 * directly to the delay struct.
+	 *
+	 * In case of atomic opperatoin this points to
+	 * a file_delay_vector struct.
 	 */
-	bool delayed;
+	void * dirdelay;
 
 	/**
 	 * The applicable configuration for this directory
@@ -415,6 +422,11 @@ struct delay {
 	 * Pointer to the next delay.
 	 */
 	struct delay * next;
+
+	/**
+	 * Pointer to the before delay.
+	 */
+	struct delay * before;
 };
 
 /**
@@ -1029,33 +1041,39 @@ dir_conf_add_target(const struct log *log, struct dir_conf *dir_conf, char *targ
 /**
  * Adds a directory on the delays list
  *
- * @param log        logging information
+ * @param opts       global options
  * @param delays     the delays FIFO
  * @param watch      the index in watches to the directory
  * @param alarm      times() when the directory should be acted
  */
 bool
-append_delay(const struct log *log, 
+append_delay(const struct global_options *opts,
              struct delay_vector *delays,
 			 struct watch *watch, 
 			 clock_t alarm) 
 {
+	const struct log *log = &opts->log;
 	struct delay * newd;
-	if (watch->delayed) {
+	if (watch->dirdelay) {
 		return false;
 	}
-	watch->delayed = true;
-	
 	newd = s_calloc(log, 1, sizeof(struct delay), "a delay");
 	newd->watch = watch;
 	newd->alarm = alarm;
 	newd->next = NULL;
+
+	if (opts->flag_atomic) {
+		exit(1); //TODO ATOMIC
+	} else {
+		watch->dirdelay = newd;
+	}
 
 	if (!delays->first) {
 		// delays vector was empty
 		delays->first = delays->last = newd;
 	} else {
 		delays->last->next = newd;
+		newd->before = delays->last;
 		delays->last = newd;
 	}
 	return true;
@@ -1067,12 +1085,19 @@ append_delay(const struct log *log,
  * @param delays    the delay FIFO.
  */
 void 
-remove_first_delay(struct delay_vector *delays) 
+remove_first_delay(const struct global_options *opts, struct delay_vector *delays) 
 {
 	struct delay *fd = delays->first;
-	fd->watch->delayed = false;
+	if (opts->flag_atomic) {
+		exit(1); // TODO ATOMIC
+	} else {
+		fd->watch->dirdelay = NULL;
+	}
 	delays->first = fd->next;
-	if (!delays->first) {
+	if (delays->first) {
+		delays->first->before = NULL;
+	} else {
+		// this was the only entry
 		delays->last = NULL;
 	}
 	s_free(fd);
@@ -1339,7 +1364,7 @@ add_watch(const struct global_options *opts,
 	w->parent = parent;
 	w->dirname = s_strdup(log, dirname, "dirname");
 	w->dir_conf = dir_conf;
-	w->delayed = false;
+	w->dirdelay = NULL;
 	return w;
 }
 
@@ -1498,7 +1523,7 @@ delay_or_act_dir(const struct global_options *opts,
 			return;
 		}
 
-		ret = append_delay(log, delays, watch, alarm);
+		ret = append_delay(opts, delays, watch, alarm);
 		if (event_name) {
 			printlogf(log, NORMAL, "%s %s in %s%s - delayed.", 
 			          event_text, event_name, pathname,  ret ? "" : " already");
@@ -1705,29 +1730,26 @@ remove_dirwatch(const struct global_options *opts,
 	s_free(w->dirname);
 	w->dirname = NULL;
 
-	// remove a possible delay
-	// (this dir is on the to do/delay list)
-	if (w->delayed) {
-		struct delay *d, *bd; // the current and the pointer before.
-		bd = NULL;
-		d = delays->first;
-		while (d) {
-			if (d->watch == w) {
-				// remove this entry
-				if (bd) {
-					bd->next = d->next;
-				} else {
-					// this is the first;
-					delays->first = d->next;
-				}
-				if (delays->last == d) {
-					delays->last = bd;
-				}
-				s_free(d);
-				break;
-			} 
-			bd = d;
-			d = d->next;
+
+	if (!w->dirdelay) {
+		return true;
+	} 
+	// otherwise remove the delay entries for this dir.
+	if (opts->flag_atomic) {
+		exit(1); // TODO ATOMIC
+	} else {
+		struct delay * d = (struct delay *) w->dirdelay;
+		if (d->before) {
+			d->before->next = d->next;
+		} else { 
+			// this was first entry
+			delays->first = d->next;
+		}
+		if (d->next) {
+			d->next->before = d->before;
+		} else {
+			// this was last entry
+			delays->last = d->before;
 		}
 	}
 
@@ -1948,7 +1970,7 @@ master_loop(const struct global_options *opts,
 		// again as time may progresses while handling delayed entries.
 		while (delays->first && time_after_eq(times(NULL), delays->first->alarm)) {
 			rsync_dir(opts, delays->first->watch, "delay expired");
-			remove_first_delay(delays);
+			remove_first_delay(opts, delays);
 		}
 	}
 
