@@ -315,8 +315,6 @@ struct global_options {
 
 	/**
 	 * Global Option: default options to call the binary with.
-	 *
-	 * TODO copy on init.
 	 */
 	struct call_option *default_callopts;
 
@@ -1163,7 +1161,8 @@ append_delay(const struct global_options *opts,
 /**
  * Removes a delay.
  *
- * @param TODO
+ * @param delays   the delays vector.
+ * @param d        the delay to remove.
  */
 void
 remove_delay(struct delay_vector *delays, struct delay *d)
@@ -2426,9 +2425,7 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 		if (snode->type != XML_ELEMENT_NODE) {
 			continue;
 		}
-		if (!xmlStrcmp(snode->name, BAD_CAST "singular")) {
-			opts->flag_singular = 1;
-		} else if (!xmlStrcmp(snode->name, BAD_CAST "debug")) {
+		if (!xmlStrcmp(snode->name, BAD_CAST "debug")) {
 			opts->log.loglevel = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "delay")) {
 			char *p;
@@ -2490,6 +2487,8 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 			opts->log.flag_nodaemon = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "no-startup")) {
 			opts->flag_nostartup = 1;
+		} else if (!xmlStrcmp(snode->name, BAD_CAST "singular")) {
+			opts->flag_singular = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "stubborn")) {
 			opts->flag_stubborn = 1;
 		} else {
