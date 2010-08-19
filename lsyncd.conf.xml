@@ -48,7 +48,7 @@ This is a default config file template for lsyncd.
 
 		destination will be the destination path to sync to -->
 	<callopts>
-		<option text="-lt%r"/>
+		<option text="-lts%r"/>
 		<option text="--delete"/>
 		<exclude-file/>
 		<file-filter/>
