@@ -2982,7 +2982,6 @@ int
 main(int argc, char **argv)
 {
 	int ret;
-	fprintf(stderr, "WARNING: this is an experimental version, do not use it for anything semi-important\n");
 	do {
 		ret = one_main(argc, argv);
 		if (ret) {
