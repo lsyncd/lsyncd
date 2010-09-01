@@ -1,4 +1,4 @@
-17-08-2010:  xxx
+01-09-2010:  1.38
 	enhancement: implemented file filters for singular operations
 	enhancement: added --singular parameter for single file calls
 	fix: fixed --dryrun messages
