@@ -1,0 +1,171 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+
+<!--
+`xsltproc -''-nonet \
+          -''-param man.charmap.use.subset "0" \
+          -''-param make.year.ranges "1" \
+          -''-param make.single.year.ranges "1" \
+          /usr/share/xml/docbook/stylesheet/nwalsh/manpages/docbook.xsl \
+          manpage.xml'
+
+A manual page <package>.<section> will be generated. You may view the
+manual page with: nroff -man <package>.<section> | less'. A typical entry
+in a Makefile or Makefile.am is:
+
+DB2MAN = /usr/share/sgml/docbook/stylesheet/xsl/nwalsh/manpages/docbook.xsl
+XP     = xsltproc -''-nonet -''-param man.charmap.use.subset "0"
+
+manpage.1: manpage.xml
+        $(XP) $(DB2MAN) $<
+
+The xsltproc binary is found in the xsltproc package. The XSL files are in
+docbook-xsl. A description of the parameters you can use can be found in the
+docbook-xsl-doc-* packages. Please remember that if you create the nroff
+version in one of the debian/rules file targets (such as build), you will need
+to include xsltproc and docbook-xsl in your Build-Depends control field.
+Alternatively use the xmlto command/package. That will also automatically
+pull in xsltproc and docbook-xsl.
+
+Notes for using docbook2x: docbook2x-man does not automatically create the
+AUTHOR(S) and COPYRIGHT sections. In this case, please add them manually as
+<refsect1> ... </refsect1>.
+
+To disable the automatic creation of the AUTHOR(S) and COPYRIGHT sections
+read /usr/share/doc/docbook-xsl/doc/manpages/authors.html. This file can be
+found in the docbook-xsl-doc-html package.
+
+Validation can be done using: `xmllint -''-noout -''-valid manpage.xml`
+
+General documentation about man-pages and man-page-formatting:
+man(1), man(7), http://www.tldp.org/HOWTO/Man-Page/
+
+-->
+]>
+
+<refentry>
+  <refentryinfo>
+    <title>lsyncd User Manual</title>
+    <productname>lsyncd</productname>
+    <authorgroup>
+      <author>
+       <firstname>Axel</firstname>
+        <surname>Kittenberger</surname>
+        <address>
+          <email>axel.kittenberger@univie.ac.at</email>
+        </address>
+      </author>
+    </authorgroup>
+    <legalnotice>
+      <para>Permission is granted to copy, distribute and/or modify this
+        document under the terms of the GNU General Public License,
+        Version 2 or (at your option) any later version published by
+        the Free Software Foundation.</para>
+    </legalnotice>
+  </refentryinfo>
+  <refmeta>
+    <refentrytitle>LSYNCD.CONF.XML</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+  <refnamediv>
+    <refname>lsyncd.conf.xml</refname>
+    <refpurpose>xconfig file for <command>lsyncd</command></refpurpose>
+  </refnamediv>
+
+  <refsect1 id="description">
+    <title>DESCRIPTION</title>
+    <para><filename>lsyncd.conf.xml</filename> is used to configure the <command>lsyncd</command> daemon. </para>
+	<para>Note that any command line options can overrule settings in the config file. A <command>lsyncd</command> configuration file has an XML grammar. That means tags have to be closed with a / and the such. Following explanations will be provided with an examples. </para> 
+    <para>The config file must start with a <option>&lt;lsyncd&gt;</option> root node. A &quot;version&quot; parameter has to be present which specifies the lsyncd version of the config file format. Currently this is 1.</para>
+	<programlisting>&lt;lsyncd version=&quot;1&quot;&gt;</programlisting>
+
+    <refsect2 id="settings">
+    <title>SETTINGS</title>
+     <para>Next is optionally a <option>&lt;settings&gt;</option> node. It controls lsyncd global settings. All settings are optional.</para>
+     <programlisting>  &lt;settings&gt;</programlisting>
+
+     <para>If a <option>&lt;debug/&gt;</option> node is present all debug messages will be logged. Default is a normal verbosity.</para>
+     <programlisting>    &lt;debug/&gt;</programlisting>
+     
+	 <para>If <option>&lt;delay/&gt;</option> specified by the "value" parameter is greater than zero, lsyncd waits this amount of seconds between an event and calling the binary. All events for a directory in this timeframe will be aggregated to one call. If delay is 0 changes will be handlet immediatly. Default is 5 seconds.</para>
+     <programlisting>    &lt;delay/&gt;</programlisting>
+
+     <para>If a <option>&lt;scarce&gt;</option> node is present only error messages will be logged. Default is a normal verbosity.</para>
+     <programlisting>    &lt;scarce/&gt;</programlisting>
+     
+	 <para>If a <option>&lt;stubborn&gt;</option> node is present lsyncd will continue even if the startup sync fails. Default is being not stubborn.</para>
+     <programlisting>    &lt;stubborn/&gt;</programlisting>
+
+     <para>If a <option>&lt;no-daemon&gt;</option> node is present lsyncd will not detach and log to stdout/stderr. Default is to detach as daemon.</para>
+     <programlisting>    &lt;no-daemon/&gt;</programlisting>
+
+     <para>If a <option>&lt;no-startup&gt;</option> node is present lsyncd will not initiate the recursive rsync call on startup. Not adviced, know what you are doing if using this.</para>
+     <programlisting>    &lt;no-startup/&gt;</programlisting>
+
+     <para>If a <option>&lt;dry-run&gt;</option> node is present lsyncd will not call any actions (rsync) for test purposes. Default is not to run dry.</para>
+     <programlisting>    &lt;dry-run/&gt;</programlisting>
+
+     <para>With an <option>&lt;exclude-from&gt;</option> entry an exclusion file can be specified with a &quot;filename&quot; parameter. This will be passed to rsync and follows rsyncs grammar for exclude files. Default is not to pass an exlude file to rsync.</para>
+     <programlisting>    &lt;exclude-from filename=&quot;/etc/lsyncd.exclude&quot;/&gt;</programlisting>
+
+     <para>With a <option>&lt;logfile&gt;</option> node to location of the logfile can be changed. Default is <filename>/var/log/lsyncd</filename>. Take care that the user which lsyncd is running with can write to this file.</para>
+     <programlisting>    &lt;logfile filename=&quot;/var/log/lsyncd&quot;/&gt;</programlisting>
+
+     <para>A <option>&lt;binary&gt;</option> node specifies the binary lsyncd will call to sync stuff. Usually you want this to be rsync. Default is <filename>/usr/bin/rsync</filename>.</para>
+     <programlisting>    &lt;binary filename=&quot;/usr/bin/rsync&quot;/&gt;</programlisting>
+
+     <para>If a <option>&lt;pidfile&gt;</option> node is present lsyncd will write its pid there. Default is not to write a pidfile.</para>
+     <programlisting>    &lt;pidfile filename=&quot;/var/run/lsyncd.pid&quot;/&gt;</programlisting>
+
+     <para>With a <option>&lt;callopts&gt;</option> node you can control the arguments lsyncd will call the &lt;binary&gt; (rsync) with. Each child node will specify one argument. &lt;option&gt; specifies a literal argument. Only %r will be replaced with 'r' when rsycnd is supposed to work recursive (on startup of lsyncd) or 'd' on normal operations. &lt;exclude-file&gt; will be replaced with <option>--exclude-from [FILE]</option> if an &lt;exclude-from&gt; file is specified. &lt;source&gt; will be replaced the source directory to sync from. &lt;destination&gt; will be replace to the target to sync to. Default arguments are <option>-lts%r --delete {--exclude-from [FILE]} [SOURCE] [DIRECTORY]</option>.</para>
+<programlisting>    &lt;callopts&gt;
+     <para>With a <option>&lt;inotify&gt;</option> node you can control the inotify events lsyncd will register to. Each event is configured by a &lt;event&gt; child node and its attribute 'id'. The following events may be registered: ACCESS,ATTRIB,CLOSE_WRITE,CLOSE_NOWRITE,CREATE,DELETE,DELETE_SELF,MODIFY,MOVE_SELF,MOVED_FROM,MOVED_TO,OPEN. If the inotify node is omitted the following events are registered by default: IN_ATTRIB,IN_CLOSE_WRITE,IN_CREATE,IN_DELETE,IN_DELETE_SELF,IN_MOVED_FROM,IN_MOVED_TO,IN_DONT_FOLLOW,IN_ONLYDIR.</para>
+     <programlisting>    &lt;inotify&gt;
+        &lt;event id="MOVED_TO"/&gt;
+        &lt;event id="DELETE"/&gt;
+    &lt;/inotify&gt;</programlisting>
+
+        &lt;option text=&quot;-lts%r&quot;/&gt;
+        &lt;option text=&quot;--delete&quot;/&gt;
+        &lt;exclude-file/&gt;
+        &lt;source/&gt;
+        &lt;destination/&gt;
+    &lt;/callopts&gt;</programlisting>
+     <para>End of (optional) settings section.</para>
+     <programlisting>  &lt;/settings&gt;</programlisting>
+   </refsect2>
+
+    <refsect2 id="directory">
+    <title>DIRECTORIES</title>
++      <para>With <option>&lt;directory&gt;</option> nodes arbitrarily many sources to be watched can be specified. Within a &lt;directory&gt; entry you can again specify a <option>&lt;binary&gt;</option>, <option>&lt;exclude-from&gt;</option>, <option>&lt;callopt&gt;</option> or a <option>&lt;inotify&gt;</option> node which will override global settings just for this source. See SETTINGS for details on this options.</para>
++      <para> The mandatory <option>&lt;source&gt;</option> node specifies with the paramater &quot;path&quot; the directory to watch and sync. (once in a while something is mandatory. Also at least one <option>&lt;target;&gt;</option> node has to specified where to sync to. This has to be a format accepted by rsync.</para>
+     <programlisting>  &lt;directory&gt;
+    &lt;source path=&quot;/absolute/path/to/source&quot;/&gt;
+    &lt;target path=&quot;desthost::module/&quot;/&gt;
+  &lt;/directory&gt;</programlisting>
+    </refsect2>
+    <para>End of a <filename>lsyncd.conf.xml</filename> file.</para>
+   <programlisting>&lt;/lsyncd&gt;</programlisting>
+  </refsect1>
+  <refsect1 id="files">
+    <title>FILES</title>
+    <variablelist>
+      <varlistentry>
+        <term><filename>/etc/lsyncd.conf.xml</filename></term>
+        <listitem>
+          <para>The default location of the configuration file.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1 id="see_also">
+    <title>SEE ALSO</title>
+    <!-- In alpabetical order. -->
+    <para><citerefentry>
+        <refentrytitle>lsyncd</refentrytitle>
+        <manvolnum>1</manvolnum>
+      </citerefentry></para>
+  </refsect1>
+</refentry>
+
