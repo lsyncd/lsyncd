@@ -78,9 +78,10 @@ const uint32_t standard_event_mask =
  * Importance of log messages
  */
 enum log_code {
-	DEBUG  = 1,
-	NORMAL = 2,
-	ERROR  = 3,
+	DEBUG   = 1,
+	VERBOSE = 2,
+	NORMAL  = 3,
+	ERROR   = 4,
 };
 
 /**
@@ -664,7 +665,8 @@ printlogf(const struct log *log,
 		}
 		break;
 
-	case NORMAL :
+	case VERBOSE :
+	case NORMAL  :
 		sysp = LOG_NOTICE;
 		if (!log || log->flag_nodaemon) {
 			flog2 = stdout;
@@ -1706,6 +1708,31 @@ event_text_to_mask(char * text)
 	return mask;
 }
 
+/**
+ * Prints a verbose message how many items are left in the delay queue.
+ *
+ * @param opts    global options.
+ * @param delays  delays list.
+ */
+void
+print_queue(const struct global_options *opts, const struct delay_vector *delays) {
+	const struct log *log = &opts->log;
+	int expired = 0;
+	int future  = 0;
+	struct delay * d = delays->first;
+	while (d && time_after_eq(times(NULL), d->alarm) && keep_going) {
+		expired++;
+		d = d->next;
+	}
+	while (d && keep_going) {
+		future++;
+		d = d->next;
+	}
+	if (!keep_going) {
+		return;
+	}
+	printlogf(log, VERBOSE, "in queue: %d expired / %d delayed %s", expired, future, opts->flag_singular ? "files" : "dirs");
+}
 
 /**
  * Adds a directory including all subdirectories to watch.
@@ -2035,16 +2062,10 @@ master_loop(const struct global_options *opts,
 			struct exclude_vector *excludes,
             int inotify_fd)
 {
-	char buf[INOTIFY_BUF_LEN];
-	int len;
-	long clocks_per_sec = sysconf(_SC_CLK_TCK);
-
-	struct timeval tv;
-	fd_set readfds;
+	const struct log *log = &opts->log;
+	const long clocks_per_sec = sysconf(_SC_CLK_TCK);
 	clock_t now;
 	clock_t alarm;
-	const struct log *log = &opts->log;
-			
 
 	if (opts->delay > 0) {
 		if (clocks_per_sec <= 0) {
@@ -2054,7 +2075,10 @@ master_loop(const struct global_options *opts,
 	}
 
 	while (keep_going) {
+		char buf[INOTIFY_BUF_LEN];
 		int do_read;
+		int len;
+
 		if (delays->first && time_after_eq(times(NULL), delays->first->alarm)) {
 			// there is a delay that wants to be handled already
 			// do not read from inotify_fd and jump directly to delay handling
@@ -2065,6 +2089,9 @@ master_loop(const struct global_options *opts,
 			// a new event or "alarm" of an event to actually
 			// call its binary. The delay with the index 0 
 			// should have the nearest alarm time.
+			fd_set readfds;
+			struct timeval tv;
+
 			alarm = delays->first->alarm;
 			now = times(NULL);
 			tv.tv_sec  = (alarm - now) / clocks_per_sec;
@@ -2123,6 +2150,12 @@ master_loop(const struct global_options *opts,
 		// or the stack is empty. Using now time - times(NULL) - everytime 
 		// again as time may progresses while handling delayed entries.
 		while (delays->first && time_after_eq(times(NULL), delays->first->alarm) && keep_going) {
+			if (log->loglevel <= VERBOSE) {
+				print_queue(opts, delays);
+			}
+			if (!keep_going) {
+				break;
+			}
 			if (opts->flag_singular) {
 				struct file_delay * fd = (struct file_delay *) delays->first->owner;
 				rsync_dir(opts, fd->watch, fd->filename, "delay expired");
@@ -2130,6 +2163,9 @@ master_loop(const struct global_options *opts,
 				rsync_dir(opts, (struct watch *) delays->first->owner, NULL, "delay expired");
 			}
 			remove_first_delay(opts, delays);
+		}
+		if (log->loglevel <= VERBOSE) {
+			print_queue(opts, delays);
 		}
 	}
 
@@ -2216,6 +2252,7 @@ print_help(char *arg0)
 	printf("  --pidfile FILE         Create a file containing pid of the daemon\n");
 	printf("  --scarce               Only log errors\n");
 	printf("  --stubborn             Ignore rsync errors on startup\n");
+	printf("  --verbose              Log more messages\n");
 	printf("  --version              Print version an exit\n");
 	printf("\n");
 	printf("EXCLUDE FILE: \n");
@@ -2426,7 +2463,7 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 			continue;
 		}
 		if (!xmlStrcmp(snode->name, BAD_CAST "debug")) {
-			opts->log.loglevel = 1;
+			opts->log.loglevel = DEBUG;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "delay")) {
 			char *p;
 			xc = xmlGetProp(snode, BAD_CAST "value");
@@ -2482,7 +2519,7 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "callopts")) {
 			opts->default_callopts = parse_callopts(opts, snode);
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "scarce")) {
-			opts->log.loglevel = 3;
+			opts->log.loglevel = ERROR;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "no-daemon")) {
 			opts->log.flag_nodaemon = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "no-startup")) {
@@ -2491,6 +2528,8 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 			opts->flag_singular = 1;
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "stubborn")) {
 			opts->flag_stubborn = 1;
+		} else if (!xmlStrcmp(snode->name, BAD_CAST "verbose")) {
+			opts->log.loglevel = VERBOSE;
 		} else {
 			printlogf(NULL, ERROR, "error unknown node in <settings> \"%s\"", snode->name);
 			terminate(NULL, LSYNCD_BADCONFIGFILE);
@@ -2570,24 +2609,25 @@ parse_options(struct global_options *opts, int argc, char **argv)
 	char **target;
 
 	static struct option long_options[] = {
-		{"binary",       1, NULL, 0}, 
+		{"binary",       1, NULL, 0       }, 
 #ifdef XML_CONFIG
-		{"conf",         1, NULL, 0}, 
+		{"conf",         1, NULL, 0       }, 
 #endif
-		{"debug",        0, NULL, 1},
-		{"delay",        1, NULL, 0}, 
-		{"dryrun",       0, NULL, 1}, 
-		{"exclude-from", 1, NULL, 0}, 
-		{"help",         0, NULL, 0}, 
-		{"logfile",      1, NULL, 0}, 
-		{"no-daemon",    0, NULL, 1}, 
-		{"no-startup",   0, NULL, 1}, 
-		{"pidfile",      1, NULL, 0}, 
-		{"scarce",       0, NULL, 3},
-		{"singular",     0, NULL, 1}, 
-		{"stubborn",     0, NULL, 1},
-		{"version",      0, NULL, 0}, 
-		{NULL,           0, NULL, 0}
+		{"debug",        0, NULL, DEBUG   },
+		{"delay",        1, NULL, 0       }, 
+		{"dryrun",       0, NULL, 1       }, 
+		{"exclude-from", 1, NULL, 0       }, 
+		{"help",         0, NULL, 0       }, 
+		{"logfile",      1, NULL, 0       }, 
+		{"no-daemon",    0, NULL, 1       }, 
+		{"no-startup",   0, NULL, 1       }, 
+		{"pidfile",      1, NULL, 0       }, 
+		{"scarce",       0, NULL, ERROR   },
+		{"singular",     0, NULL, 1       }, 
+		{"stubborn",     0, NULL, 1       },
+		{"version",      0, NULL, 0       }, 
+		{"verbose",      0, NULL, VERBOSE },
+		{NULL,           0, NULL, 0       }
 	};
 	bool read_conf = false;
 
@@ -2603,6 +2643,7 @@ parse_options(struct global_options *opts, int argc, char **argv)
 			if (!strcmp("scarce",     o->name)) o->flag = &opts->log.loglevel;
 			if (!strcmp("singular",   o->name)) o->flag = &opts->flag_singular;
 			if (!strcmp("stubborn",   o->name)) o->flag = &opts->flag_stubborn;
+			if (!strcmp("verbose",    o->name)) o->flag = &opts->log.loglevel;
 		}
 	}
 
