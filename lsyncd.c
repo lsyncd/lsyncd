@@ -2925,6 +2925,7 @@ one_main(int argc, char **argv)
 		if (daemon(0, 0)) {
 			printlogf(log, ERROR, "Cannot daemonize! (%d:%s)",
 			          errno, strerror(errno));
+			close(inotify_fd);
 			return LSYNCD_INTERNALFAIL;
 		}
 	}
@@ -3003,7 +3004,7 @@ one_main(int argc, char **argv)
 			s_free(excludes.data[i]);
 		}
 	}
-
+	close(inotify_fd);
 
 #ifdef MEMCHECK
 	fprintf(stderr, "Memcheck count: %d\n", memc);
