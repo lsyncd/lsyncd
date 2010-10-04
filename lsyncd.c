@@ -339,8 +339,7 @@ struct global_options {
  * Standard default options to call the binary with.
  */
 struct call_option standard_callopts[] = {
-//	{ CO_TEXT,    "-lts%r"    },  AXK!
-	{ CO_TEXT,    "-lt%r"    },
+	{ CO_TEXT,    "-lts%r"   }, 
 	{ CO_TEXT,    "--delete" },
 	{ CO_EXCLUDE, NULL       },
 	{ CO_FILTER,  NULL       },
