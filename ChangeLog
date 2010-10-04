@@ -1,3 +1,11 @@
+04-10-2010:  1.39
+	enhancement: call action for multiple targets simultanously
+	fix: correctly accept <file-filter/> from config xml
+	fix: correctly close and free the inotify file descriptor in case of restart 
+	     due to HUP signal or OVERFLOW condition
+	fix: when delay=0 a bug always called rsync file filter even when in 
+	     directory mode 
+
 01-09-2010:  1.38
 	enhancement: implemented file filters for singular operations
 	enhancement: added --singular parameter for single file calls

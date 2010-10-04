@@ -339,7 +339,8 @@ struct global_options {
  * Standard default options to call the binary with.
  */
 struct call_option standard_callopts[] = {
-	{ CO_TEXT,    "-lts%r"    },
+//	{ CO_TEXT,    "-lts%r"    },  AXK!
+	{ CO_TEXT,    "-lt%r"    },
 	{ CO_TEXT,    "--delete" },
 	{ CO_EXCLUDE, NULL       },
 	{ CO_FILTER,  NULL       },
@@ -1307,7 +1308,7 @@ get_arg_str(const struct log *log, char **argv, int argc) {
  *
  * @return true if successful, false if not.
  */
-bool
+pid_t
 action(const struct global_options *opts,
        struct dir_conf *dir_conf, 
        const char *src, 
@@ -1316,7 +1317,6 @@ action(const struct global_options *opts,
        bool recursive)
 {
 	pid_t pid;
-	int status;
 	const int MAX_ARGS = 100;
 	char * argv[MAX_ARGS];
 	int argc = 0;
@@ -1329,9 +1329,7 @@ action(const struct global_options *opts,
 	// makes a copy of all call parameters
 	// step 1 binary itself
 	argv[argc++] = s_strdup(log, dir_conf->binary ? dir_conf->binary : opts->default_binary, "argv");
-	
-	printlogf(log, NORMAL, "  %s %s --> %s%s", argv[0], src, dest, recursive ? " (recursive)" : "");
-	
+
 	// now all other parameters
 	for(; optp->kind != CO_EOL; optp++) {
 		switch (optp->kind) {
@@ -1371,7 +1369,7 @@ action(const struct global_options *opts,
 			// check for error condition
 			printlogf(log, ERROR, 
 			          "Error: too many (>%i) options passed", argc);
-			return false;
+			return 0;
 		}
 	}
 	argv[argc++] = NULL;
@@ -1391,7 +1389,7 @@ action(const struct global_options *opts,
 					s_free(argv[i]);
 				}
 			}
-			return true;
+			return 0;
 		}
 	}
 
@@ -1413,7 +1411,9 @@ action(const struct global_options *opts,
 		printlogf(log, ERROR, "Failed executing [%s]", binary);
 		terminate(log, LSYNCD_INTERNALFAIL);
 	}
-
+	
+	printlogf(log, NORMAL, "  %s %s --> %s%s [%d]", argv[0], src, dest, recursive ? " (recursive)" : "", pid);
+	
 	// free the memory from the arguments.
 	for (i = 0; i < argc; ++i) {
 		if (argv[i]) {
@@ -1421,24 +1421,7 @@ action(const struct global_options *opts,
 		}
 	}
 	
-	waitpid(pid, &status, 0);
-	assert(WIFEXITED(status));
-	if (WEXITSTATUS(status) == LSYNCD_INTERNALFAIL){
-		printlogf(log, ERROR, 
-		          "Fork exit code of %i, execv failure", 
-		          WEXITSTATUS(status));
-		return false;
-	} else if (WEXITSTATUS(status)) {
-		printlogf(log, NORMAL, 
-		          "Forked binary process returned non-zero return code: %i", 
-		          WEXITSTATUS(status));
-		return false;
-	}
-
-	printlogf(log, DEBUG, "Rsync of [%s%s%s] -> [%s] finished", src, 
-	                      filename ? "/" : "", filename ? filename : "",
-	                      dest);
-	return true;
+	return pid;
 }
 
 /**
@@ -1593,6 +1576,60 @@ buildpath(const struct log *log,
 }
 
 /**
+ * Waits for n children to return.
+ * Returns true if all had 0 exit code.
+ */
+bool
+waitchildren(const struct log *log,
+             pid_t *children,
+             int n) 
+{
+	int nr;      // amount of children returned 
+	bool retval = true;
+	for(nr = 0; nr < n;) {
+		int status, i;
+		pid_t pid = wait(&status);    // wait for a child.
+
+		if (!keep_going) {
+			// canceled.
+			return false;
+		}
+
+		for (i = 0; i < n; i++) {
+			if (children[i] == pid) { // found child in the list
+				children[i] = 0;
+				break;
+			}
+		}
+		if (i >= n) {
+			printlogf(log, DEBUG, "unknown child %d returned!", pid);
+			continue;
+		}
+		nr++;
+		assert(WIFEXITED(status));
+		if (WEXITSTATUS(status) == LSYNCD_INTERNALFAIL){
+			printlogf(log, ERROR, 
+		          "Fork exit code of %i, execv failure", 
+		          WEXITSTATUS(status));
+			retval = false;
+			continue;
+		} else if (WEXITSTATUS(status)) {
+			printlogf(log, NORMAL, 
+			          "Forked binary process returned non-zero return code: %i", 
+		    	      WEXITSTATUS(status));
+			retval = false;
+			continue;
+		}
+		printlogf(log, DEBUG, "Rsync of pid %d finished", pid);
+		if (nr + 1 < n) {
+			printlogf(log, DEBUG, "Waiting for another %d child(ren).", n - nr - 1);
+		}
+	}
+	printlogf(log, DEBUG, "Finished waiting for all children");
+	return retval;
+}
+
+/**
  * Syncs a directory.
  *   TODO: make better error handling (differ between
  *         directory gone away, and thus cannot work, or network
@@ -1613,9 +1650,9 @@ rsync_dir(const struct global_options *opts,
 {
 	char pathname[PATH_MAX+1];
 	char destname[PATH_MAX+1];
-	bool status = true;
 	char ** target;
 	const struct log *log = &opts->log;
+	int ntarget = 0;
 
 	if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
 		return false;
@@ -1627,18 +1664,47 @@ rsync_dir(const struct global_options *opts,
 		printlogf(log, NORMAL, "%s: acting for %s.", event_text, pathname);
 	}
 
+	// count the amount of targets
 	for (target = watch->dir_conf->targets; *target; target++) {
-		if (!buildpath(log, destname, sizeof(destname), watch, NULL, *target)) {
-			status = false;
-			continue;
+		ntarget++;
+	}
+
+	if (ntarget == 1) {
+		pid_t child;
+		if (!buildpath(log, destname, sizeof(destname), watch, NULL, *watch->dir_conf->targets)) {
+			return false;
 		}
 		// call the action to propagate changes in the directory
-		if (!action(opts, watch->dir_conf, pathname, destname, filename, false)) {
+		child = action(opts, watch->dir_conf, pathname, destname, filename, false);
+		if (!child) {
 			printlogf(log, ERROR, "Action %s --> %s has failed.", pathname, destname);
+			return false;
+		}
+		return waitchildren(log, &child, 1);
+	} else {
+		bool status = true;
+		int ci = 0;   // position of children started.
+		pid_t *children = s_calloc(log, ntarget, sizeof(pid_t), "children pid list");
+		for (target = watch->dir_conf->targets; *target; target++) {
+			if (!buildpath(log, destname, sizeof(destname), watch, NULL, *target)) {
+				status = false;
+				ntarget--;
+				continue;
+			}
+			// call the action to propagate changes in the directory
+			children[ci] = action(opts, watch->dir_conf, pathname, destname, filename, false);
+			if (!children[ci]) {
+				printlogf(log, ERROR, "Action %s --> %s has failed.", pathname, destname);
+				status = false;
+			}
+			ci++;
+		}
+		if (!waitchildren(log, children, ntarget)) {
 			status = false;
 		}
+		s_free(children);
+		return status;
 	}
-	return status;
 }
 
 /**
@@ -1667,7 +1733,11 @@ delay_or_act_dir(const struct global_options *opts,
 	char pathname[PATH_MAX+1];
 	
 	if (!delay) {
-		rsync_dir(opts, watch, filename, event_text);
+		if (opts->flag_singular) {
+			rsync_dir(opts, watch, filename, event_text);
+		} else {
+			rsync_dir(opts, watch, NULL, event_text);
+		}
 	} else {
 		bool ret;
 		if (!buildpath(log, pathname, sizeof(pathname), watch, NULL, NULL)) {
@@ -2295,6 +2365,7 @@ parse_callopts(struct global_options *opts, xmlNodePtr node) {
 		}
 		if (xmlStrcmp(cnode->name, BAD_CAST "option") &&
 		    xmlStrcmp(cnode->name, BAD_CAST "exclude-file") &&
+		    xmlStrcmp(cnode->name, BAD_CAST "file-filter") &&
 		    xmlStrcmp(cnode->name, BAD_CAST "source") &&
 		    xmlStrcmp(cnode->name, BAD_CAST "destination")
 		   ) {
@@ -2957,8 +3028,10 @@ one_main(int argc, char **argv)
 		for (i = 0; i < opts.dir_conf_n; i++) {
 			char **target;
 			for (target = opts.dir_confs[i].targets; *target; ++target) {
+				pid_t child;
 				printlogf(log, NORMAL, "Initial recursive sync for %s -> %s", opts.dir_confs[i].source, *target);
-				if (!action(&opts, &opts.dir_confs[i], opts.dir_confs[i].source, *target, NULL, true)) {
+				child = action(&opts, &opts.dir_confs[i], opts.dir_confs[i].source, *target, NULL, true);
+				if (!child || !waitchildren(log, &child, 1)) {
 					printlogf(log, ERROR, "Initial rsync from %s -> %s failed%s", 
 					          opts.dir_confs[i].source, *target,
 					          opts.flag_stubborn ? ", but continuing because being stubborn." : ".");
