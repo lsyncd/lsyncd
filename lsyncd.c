@@ -963,16 +963,16 @@ reset_options(struct global_options *opts) {
 		opts->pidfile = NULL;
 	} 
 #ifdef XML_CONFIG
-	if (opts->conf_filename && opts->conf_filename != DEFAULT_CONF_FILENAME) {
+	if (opts->conf_filename) {
 		s_free(opts->conf_filename);
 	}
-	opts->conf_filename = DEFAULT_CONF_FILENAME;
+	opts->conf_filename = s_strdup(&opts->log, DEFAULT_CONF_FILENAME, "DEFAULT_CONF_FILENAME");
 #endif
 
-	if (opts->default_binary && opts->default_binary != DEFAULT_BINARY) {
+	if (opts->default_binary) {
 		s_free(opts->default_binary);
 	}
-	opts->default_binary = DEFAULT_BINARY;
+	opts->default_binary = s_strdup(&opts->log, DEFAULT_BINARY, "DEFAULT_BINARY");
 	
 	opts->default_event_mask = standard_event_mask;
 
@@ -2578,6 +2578,9 @@ parse_settings(struct global_options *opts, xmlNodePtr node) {
 				printlogf(NULL, ERROR, "error in config file: attribute filename missing from <binary/>\n");
 		        terminate(NULL, LSYNCD_BADCONFIGFILE);
 			}
+			if (opts->default_binary) {
+				s_free(opts->default_binary);
+			}
 			opts->default_binary = s_strdup(NULL, (char *) xc, "xml default-binary");
 		} else if (!xmlStrcmp(snode->name, BAD_CAST "pidfile")) {
 			xc = xmlGetProp(snode, BAD_CAST "filename");
@@ -2699,7 +2702,9 @@ parse_options(struct global_options *opts, int argc, char **argv)
 		{"verbose",      0, NULL, VERBOSE },
 		{NULL,           0, NULL, 0       }
 	};
+#ifdef XML_CONFIG
 	bool read_conf = false;
+#endif
 
 	{
 		// replace NULL targets with actual targets
@@ -2740,6 +2745,9 @@ parse_options(struct global_options *opts, int argc, char **argv)
 		if (c == 0) { // longoption
 			if (!strcmp("conf", long_options[oi].name)) {
 				read_conf = true;
+				if (opts->conf_filename) {
+					s_free(opts->conf_filename);
+				}
 				opts->conf_filename = s_strdup(NULL, optarg, "opt conf-filename");
 			} 
 			
@@ -2785,6 +2793,9 @@ parse_options(struct global_options *opts, int argc, char **argv)
 
 		if (c == 0) { // longoption
 			if (!strcmp("binary", long_options[oi].name)) {
+				if (opts->default_binary) {
+					s_free(opts->default_binary);
+				}
 				opts->default_binary = s_strdup(NULL, optarg, "opt default-binary");
 			}
 			
@@ -3045,8 +3056,8 @@ one_main(int argc, char **argv)
 	}
 
 	printlogf(log, NORMAL, 
-	          "--- Entering normal operation with [%d] monitored directories ---",
-	          watches.len);
+	          "--- Entering normal operation with [%lu] monitored directories ---",
+	          (unsigned long) watches.len);
 
 	signal(SIGTERM, catch_alarm);
 	signal(SIGHUP, catch_alarm);
