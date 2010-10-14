@@ -1,3 +1,4 @@
+#include "config.h"
 #include <stdio.h>
 #include <lua.h>
 #include <lualib.h>
@@ -13,9 +14,9 @@ int main (int argc, char *argv[])
 	/* load Lua base libraries */
 	luaL_openlibs(L);
 	/* register our function */
-	//lua_register(L, "average", average);
+	/* lua_register(L, "average", average); */
 	/* run the script */
-	luaL_dofile(L, "lsyncd.lua");
+	(void) luaL_dofile(L, "lsyncd.lua");
 	/* cleanup Lua */
 	lua_close(L);
 	/* pause */
