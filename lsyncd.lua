@@ -1,2 +1,5 @@
-print("Hello\n")
+print("Hello")
+lsyncd:attend_dir()
+print("Bye")
+
 
