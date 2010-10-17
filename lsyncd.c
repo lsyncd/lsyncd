@@ -44,8 +44,34 @@ const uint32_t standard_event_mask =
  */
 volatile sig_atomic_t reset = 0;
 
-/* the Lua interpreter */
-lua_State* L;
+/**
+ * "secured" calloc.
+ */
+void *
+s_calloc(size_t nmemb, size_t size)
+{
+    void *r = calloc(nmemb, size);
+    if (r == NULL) {
+        printf("Out of memory!\n");
+        exit(-1); // ERRNO 
+    }
+	return r;
+}
+
+/**
+ * "secured" malloc. the deamon shall kill itself
+ * in case of out of memory.
+ */
+void *
+s_malloc(size_t size)
+{
+    void *r = malloc(size);
+    if (r == NULL) {
+        printf("Out of memory!\n");
+		exit(-1);  // ERRNO
+    }
+	return r;
+}
 
 
 /**
@@ -63,6 +89,23 @@ add_watch(lua_State *L)
 	return 1;
 }
 
+
+/**
+ * Executes a subprocess 
+ */
+static int
+exec(lua_State *L)
+{
+	const char *path = luaL_checkstring(L, 1);
+	int argc = lua_gettop(L) - 1;
+	int i;
+	const char **argv = s_calloc(argc + 1, sizeof(char *));
+	for(i = 0; i < argc; i++) {
+		argv[i] = luaL_checkstring(L, i + 2);
+	}
+
+	return 0;
+}
 
 
 /**
@@ -134,7 +177,6 @@ stackdump(lua_State* l)
 	return 0;
 }
 
-
 /**
  * Reads the directories sub directories.
  * 
@@ -155,7 +197,6 @@ sub_dirs (lua_State *L)
 	}
 	
 	lua_newtable(L);
-
 	while (!reset) {
 		struct dirent *de = readdir(d);
 		bool isdir;
@@ -165,12 +206,7 @@ sub_dirs (lua_State *L)
 		}
 		if (de->d_type == DT_UNKNOWN) {
 			/* must call stat on some systems :-/ */
-			char *subdir = malloc(strlen(dirname) + strlen(de->d_name) + 2);
-			if (subdir == NULL) {
-				printf("Out of memory. Cannot determine type of %s/%s\n", dirname, de->d_name);
-				/* otherwise not so dramatic */
-				continue;
-			}
+			char *subdir = s_malloc(strlen(dirname) + strlen(de->d_name) + 2);
 			struct stat st;
 			strcpy(subdir, dirname);
 			strcat(subdir, "/");
@@ -197,6 +233,7 @@ sub_dirs (lua_State *L)
 
 static const luaL_reg lsyncdlib[] = {
 		{"add_watch", add_watch},
+		{"exec",      exec},
 		{"real_dir",  real_dir},
 		{"stackdump", stackdump},
 		{"sub_dirs",  sub_dirs},
@@ -206,20 +243,29 @@ static const luaL_reg lsyncdlib[] = {
 int
 main(int argc, char *argv[])
 {
+	/* the Lua interpreter */
+	lua_State* L;
+
 	/* load Lua */
 	L = lua_open();
 	luaL_openlibs(L);
 	luaL_register(L, "lsyncd", lsyncdlib);
 
-	luaL_loadfile(L, "lsyncd.lua");
-	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
+	if (luaL_loadfile(L, "lsyncd.lua")) {
 		printf("error loading lsyncd.lua: %s\n", lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
-	
-	luaL_loadfile(L, "lsyncd-conf.lua");
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
+		printf("error running lsyncd.lua: %s\n", lua_tostring(L, -1));
+		return -1; // ERRNO
+	}
+	
+	if (luaL_loadfile(L, "lsyncd-conf.lua")) {
 		printf("error loading lsyncd-conf.lua: %s\n", lua_tostring(L, -1));
+		return -1; // ERRNO
+	}
+	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
+		printf("error running lsyncd-conf.lua: %s\n", lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 
@@ -233,6 +279,10 @@ main(int argc, char *argv[])
 
 	/* initialize */
 	lua_getglobal(L, "lsyncd_initialize");
+	lua_call(L, 0, 0);
+	
+	/* startup */
+	lua_getglobal(L, "startup");
 	lua_call(L, 0, 0);
 
 	/* cleanup */

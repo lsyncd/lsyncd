@@ -42,7 +42,7 @@ local watches = {}
 -- @param target
 -- @param ...
 local function attend_dir(origin, path, target)
-	print("attending dir", origin, "+", path, "->", target.dirname);
+	print("attending dir", origin, "+", path, "->", target.path);
 	-- actual dir = origin + path 
 	local op = origin .. path
 	-- register watch and receive watch descriptor
@@ -78,9 +78,10 @@ function lsyncd_initialize()
 	print("--- INIT ---")
 	local i, o
 	for i, o in ipairs(origin) do
-		print("Handling ", o.source, "->" , o.target)
-		local target = { dirname = o.target }
+		print("Handling ", o.source, "->" , o.targetpath)
+		local target = { path = o.targetpath }
 		table.insert(targets, target)
+		origin[i].target = target
 		attend_dir(lsyncd.real_dir(o.source), "", target)
 	end
 end
@@ -92,10 +93,30 @@ end
 
 ----
 -- Add one directory to be watched.
-function add(source, target)
-	local o = { source = source, target = target }
+function add(source_dir, target_path)
+	local o = { source = source_dir, targetpath = target_path }
 	table.insert(origin, o)
 	return o
 end
+
+-----
+-- Called by core after initialization.
+--
+-- Returns a table of integers (pid of children) the core will 
+-- wait for before entering normal operation.
+--
+-- User can override this function by specifing his/her own
+-- "startup". (and yet may still call default startup)
+function default_startup()
+	print("--- STARTUP ---")
+	local pids = { }
+	for i, o in ipairs(origin) do
+		pid = lsyncd.exec("/usr/bin/rsyc", "-ltrs", o.source, o.targetpath)
+		print("started ", pid)
+		table.insert(pids, pid)
+	end
+	return pids
+end
+startup = default_startup
 
 
