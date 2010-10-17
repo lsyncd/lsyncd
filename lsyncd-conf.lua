@@ -1,6 +1,7 @@
 settings = {
-	nodaemon = true,
+	nodaemon,
 }
 
-attend_dir("s", "d")
+add("s", "d")
+-- add("s/s1", "t")
 

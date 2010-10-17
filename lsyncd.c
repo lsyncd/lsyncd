@@ -31,6 +31,15 @@
 static int inotify_fd;
 
 /**
+ * TODO allow configure.
+ */
+const uint32_t standard_event_mask =
+		IN_ATTRIB   | IN_CLOSE_WRITE | IN_CREATE     |
+		IN_DELETE   | IN_DELETE_SELF | IN_MOVED_FROM |
+		IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR;
+
+
+/**
  * Set to TERM or HUP in signal handler, when lsyncd should end or reset ASAP.
  */
 volatile sig_atomic_t reset = 0;
@@ -38,33 +47,20 @@ volatile sig_atomic_t reset = 0;
 /* the Lua interpreter */
 lua_State* L;
 
+
 /**
- * Dumps the LUA stack. For debugging purposes.
+ * Adds an inotify watch
+ * 
+ * @param dir path to directory
+ * @return    numeric watch descriptor
  */
-int stackdump(lua_State* l)
+static int
+add_watch(lua_State *L)
 {
-	int i;
-	int top = lua_gettop(l);
-	printf("total in stack %d\n",top);
-	for (i = 1; i <= top; i++) { 
-		int t = lua_type(l, i);
-		switch (t) {
-			case LUA_TSTRING:
-				printf("%d string: '%s'\n", i, lua_tostring(l, i));
-				break;
-			case LUA_TBOOLEAN:
-				printf("%d boolean %s\n", i, lua_toboolean(l, i) ? "true" : "false");
-				break;
-            case LUA_TNUMBER: 
-				printf("%d number: %g\n", i, lua_tonumber(l, i));
-				break;
-			default:  /* other values */
-				printf("%d %s\n", i, lua_typename(l, t));
-				break;
-		}
-    }
-    printf("\n");
-	return 0;
+	const char *path = luaL_checkstring(L, 1);
+	lua_Integer wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
+	lua_pushinteger(L, wd);
+	return 1;
 }
 
 
@@ -75,7 +71,9 @@ int stackdump(lua_State* l)
  * @param dir a relative path to directory
  * @return    absolute path of directory
  */
-static int real_dir(lua_State *L) {
+static int
+real_dir(lua_State *L)
+{
 	luaL_Buffer b;
 	char *cbuf;
 	const char *rdir = luaL_checkstring(L, 1);
@@ -107,12 +105,45 @@ static int real_dir(lua_State *L) {
 }
 
 /**
+ * Dumps the LUA stack. For debugging purposes.
+ */
+static int
+stackdump(lua_State* l)
+{
+	int i;
+	int top = lua_gettop(l);
+	printf("total in stack %d\n",top);
+	for (i = 1; i <= top; i++) { 
+		int t = lua_type(l, i);
+		switch (t) {
+			case LUA_TSTRING:
+				printf("%d string: '%s'\n", i, lua_tostring(l, i));
+				break;
+			case LUA_TBOOLEAN:
+				printf("%d boolean %s\n", i, lua_toboolean(l, i) ? "true" : "false");
+				break;
+            case LUA_TNUMBER: 
+				printf("%d number: %g\n", i, lua_tonumber(l, i));
+				break;
+			default:  /* other values */
+				printf("%d %s\n", i, lua_typename(l, t));
+				break;
+		}
+    }
+    printf("\n");
+	return 0;
+}
+
+
+/**
  * Reads the directories sub directories.
  * 
  * @param  absolute path to directory.
  * @return a table of directory names.
  */
-static int sub_dirs (lua_State *L) {
+static int
+sub_dirs (lua_State *L)
+{
 	const char * dirname = luaL_checkstring(L, 1);
 	DIR *d;
 	int idx = 1;
@@ -161,19 +192,24 @@ static int sub_dirs (lua_State *L) {
 		lua_pushstring(L, de->d_name);
 		lua_settable(L, -3);
 	}
-
 	return 1;
 }
 
+static const luaL_reg lsyncdlib[] = {
+		{"add_watch", add_watch},
+		{"real_dir",  real_dir},
+		{"stackdump", stackdump},
+		{"sub_dirs",  sub_dirs},
+		{NULL, NULL}
+};
 
-int main (int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
 	/* load Lua */
 	L = lua_open();
 	luaL_openlibs(L);
-	lua_register(L, "stackdump", stackdump);
-	lua_register(L, "real_dir", real_dir);
-	lua_register(L, "sub_dirs", sub_dirs);
+	luaL_register(L, "lsyncd", lsyncdlib);
 
 	luaL_loadfile(L, "lsyncd.lua");
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
@@ -195,6 +231,11 @@ int main (int argc, char *argv[])
         return -1; // ERRNO
     }
 
+	/* initialize */
+	lua_getglobal(L, "lsyncd_initialize");
+	lua_call(L, 0, 0);
+
+	/* cleanup */
 	close(inotify_fd);
 	lua_close(L);
 	return 0;
