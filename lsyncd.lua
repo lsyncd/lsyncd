@@ -82,7 +82,7 @@ function lsyncd_initialize()
 		local target = { path = o.targetpath }
 		table.insert(targets, target)
 		origin[i].target = target
-		attend_dir(lsyncd.real_dir(o.source), "", target)
+		attend_dir(o.source, "", target)
 	end
 end
 
@@ -94,7 +94,7 @@ end
 ----
 -- Add one directory to be watched.
 function add(source_dir, target_path)
-	local o = { source = source_dir, targetpath = target_path }
+	local o = { source = lsyncd.real_dir(source_dir), targetpath = target_path }
 	table.insert(origin, o)
 	return o
 end
@@ -111,7 +111,8 @@ function default_startup()
 	print("--- STARTUP ---")
 	local pids = { }
 	for i, o in ipairs(origin) do
-		pid = lsyncd.exec("/usr/bin/rsyc", "-ltrs", o.source, o.targetpath)
+		print("/usr/bin/rsync", "-ltrs", o.source, o.targetpath)
+		pid = lsyncd.exec("/usr/bin/rsync", "-ltrs", o.source, o.targetpath)
 		print("started ", pid)
 		table.insert(pids, pid)
 	end

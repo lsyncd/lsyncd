@@ -50,11 +50,11 @@ volatile sig_atomic_t reset = 0;
 void *
 s_calloc(size_t nmemb, size_t size)
 {
-    void *r = calloc(nmemb, size);
-    if (r == NULL) {
-        printf("Out of memory!\n");
-        exit(-1); // ERRNO 
-    }
+	void *r = calloc(nmemb, size);
+	if (r == NULL) {
+		printf("Out of memory!\n");
+		exit(-1); // ERRNO 
+	}
 	return r;
 }
 
@@ -65,11 +65,11 @@ s_calloc(size_t nmemb, size_t size)
 void *
 s_malloc(size_t size)
 {
-    void *r = malloc(size);
-    if (r == NULL) {
-        printf("Out of memory!\n");
+	void *r = malloc(size);
+	if (r == NULL) {
+		printf("Out of memory!\n");
 		exit(-1);  // ERRNO
-    }
+	}
 	return r;
 }
 
@@ -96,14 +96,37 @@ add_watch(lua_State *L)
 static int
 exec(lua_State *L)
 {
-	const char *path = luaL_checkstring(L, 1);
+	const char *binary = luaL_checkstring(L, 1);
 	int argc = lua_gettop(L) - 1;
+	pid_t pid;
 	int i;
-	const char **argv = s_calloc(argc + 1, sizeof(char *));
-	for(i = 0; i < argc; i++) {
-		argv[i] = luaL_checkstring(L, i + 2);
+	char const **argv = s_calloc(argc + 2, sizeof(char *));
+
+	argv[0] = binary;
+	for(i = 1; i < argc; i++) {
+		argv[i] = luaL_checkstring(L, i + 1);
+		printf("%d.%s\n", i, argv[i]);
+	}
+	argv[i] = NULL;
+
+	pid = fork();
+
+	if (pid == 0) {
+		//if (!log->flag_nodaemon && log->logfile) {
+		//	if (!freopen(log->logfile, "a", stdout)) {
+		//		printlogf(log, ERROR, "cannot redirect stdout to [%s].", log->logfile);
+		//	}
+		//	if (!freopen(log->logfile, "a", stderr)) {
+		//		printlogf(log, ERROR, "cannot redirect stderr to [%s].", log->logfile);
+		//	}
+		//}
+		execv(binary, (char **)argv);
+		// in a sane world execv does not return!
+		printf("Failed executing [%s]!\n", binary);
+		exit(-1); // ERRNO
 	}
 
+	free(argv);
 	return 0;
 }
 
@@ -165,14 +188,15 @@ stackdump(lua_State* l)
 			case LUA_TBOOLEAN:
 				printf("%d boolean %s\n", i, lua_toboolean(l, i) ? "true" : "false");
 				break;
-            case LUA_TNUMBER: 
+			case LUA_TNUMBER: 
 				printf("%d number: %g\n", i, lua_tonumber(l, i));
 				break;
 			default:  /* other values */
 				printf("%d %s\n", i, lua_typename(l, t));
 				break;
 		}
-    }
+	}
+	
     printf("\n");
 	return 0;
 }
@@ -191,9 +215,9 @@ sub_dirs (lua_State *L)
 	int idx = 1;
 
 	d = opendir(dirname);
-    if (d == NULL) {
-        printf("cannot open dir %s.\n", dirname);
-        return 0;
+	if (d == NULL) {
+		printf("cannot open dir %s.\n", dirname);
+		return 0;
 	}
 	
 	lua_newtable(L);
@@ -270,12 +294,11 @@ main(int argc, char *argv[])
 	}
 
 	/* open inotify */
-    inotify_fd = inotify_init();
-    if (inotify_fd == -1) {
-        printf("Cannot create inotify instance! (%d:%s)",
-               errno, strerror(errno));
-        return -1; // ERRNO
-    }
+	inotify_fd = inotify_init();
+	if (inotify_fd == -1) {
+		printf("Cannot create inotify instance! (%d:%s)", errno, strerror(errno));
+		return -1; // ERRNO
+	}
 
 	/* initialize */
 	lua_getglobal(L, "lsyncd_initialize");
