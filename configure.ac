@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 #AC_PREREQ(2.60)
-AC_INIT(lsyncd, 2.0, axkibe@gmail.com)
+AC_INIT(lsyncd, 2.0b1, axkibe@gmail.com)
 AC_CONFIG_SRCDIR([lsyncd.c])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE(lsyncd, main)

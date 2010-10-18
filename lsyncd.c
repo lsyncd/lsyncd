@@ -27,6 +27,11 @@
 #include <lauxlib.h>
 
 /**
+ * The Lua part of lsyncd.
+ */
+#define LSYNCD_RUNNER_FILE "lsyncd.lua"
+
+/**
  * The inotify file descriptor.
  */
 static int inotify_fd;
@@ -39,6 +44,13 @@ const uint32_t standard_event_mask =
 		IN_DELETE   | IN_DELETE_SELF | IN_MOVED_FROM |
 		IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR;
 
+/**
+ * Configuration settings relevant for core.
+ */
+struct settings {
+	char * logfile;
+};
+struct settings settings = {0,};
 
 /**
  * Set to TERM or HUP in signal handler, when lsyncd should end or reset ASAP.
@@ -73,6 +85,22 @@ s_malloc(size_t size)
 	}
 	return r;
 }
+
+/**
+ * "secured" strdup.
+ */
+char *
+s_strdup(const char *src)
+{
+	char *s = strdup(src);
+	if (s == NULL) {
+		printf("Out of memory!\n");
+		exit(-1); // ERRNO
+	}
+	return s;
+}
+
+
 
 /*****************************************************************************
  * Library calls for lsyncd.lua
@@ -250,7 +278,7 @@ l_sub_dirs (lua_State *L)
 			isdir = S_ISDIR(st.st_mode);
 			free(subdir);
 		} else {
-			/* we can trust readdir */
+			/* readdir can trusted */
 			isdir = de->d_type == DT_DIR;
 		}
 		if (!isdir || !strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) {
@@ -281,10 +309,6 @@ l_terminate(lua_State *L)
 	return 0;
 }
 
-/*****************************************************************************
- * Lsyncd Core 
- ****************************************************************************/
-
 static const luaL_reg lsyncdlib[] = {
 		{"add_watch", l_add_watch},
 		{"exec",      l_exec},
@@ -294,6 +318,44 @@ static const luaL_reg lsyncdlib[] = {
 		{"terminate", l_terminate},
 		{NULL, NULL}
 };
+
+
+/*****************************************************************************
+ * Lsyncd Core 
+ ****************************************************************************/
+
+/**
+ * Transfers the core relevant settings from lua's global "settings" into core.
+ * This saves time in normal operation instead of bothering lua all the time.
+ */
+void
+get_settings(lua_State *L)
+{
+	/* frees old settings */
+	if (settings.logfile) {
+		free(settings.logfile);
+		settings.logfile = NULL;
+	}
+	
+	/* gets settings table */
+	lua_getglobal(L, "settings");
+	if (!lua_istable(L, -1)) {
+		/* user has not specified any settings */
+		return;
+	}
+	
+	/* logfile */
+	lua_pushstring(L, "logfile");
+	lua_gettable(L, -2);
+	if (settings.logfile) {
+		free(settings.logfile);
+		settings.logfile = NULL;
+	}
+	if (lua_isstring(L, -1)) {
+		settings.logfile = s_strdup(luaL_checkstring(L, -1));
+	}
+	lua_pop(L, 1);
+}
 
 /**
  * Waits after startup for all children.
@@ -377,10 +439,8 @@ wait_startup(lua_State *L)
 			}
 		}
 	}
-
 	free(pids);
 }
-
 
 /**
  * Main
@@ -398,20 +458,37 @@ main(int argc, char *argv[])
 	lua_setglobal(L, "lysncd");
 
 	if (luaL_loadfile(L, "lsyncd.lua")) {
-		printf("error loading lsyncd.lua: %s\n", lua_tostring(L, -1));
+		printf("error loading '%s': %s\n", 
+		       LSYNCD_RUNNER_FILE, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-		printf("error running lsyncd.lua: %s\n", lua_tostring(L, -1));
+		printf("error preparing '%s': %s\n", 
+		       LSYNCD_RUNNER_FILE, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
-	
+
+	{
+		/* checks version match between runner/core */
+		const char *lversion;
+		lua_getglobal(L, "lsyncd_version");
+		lversion = luaL_checkstring(L, -1);
+		lua_pop(L, 1);
+		if (strcmp(lversion, PACKAGE_VERSION)) {
+			printf("Version mismatch '%s' is '%s', but core is '%s'\n",
+			       LSYNCD_RUNNER_FILE,
+			       lversion,
+			       PACKAGE_VERSION);
+			return -1; // ERRNO
+		}
+	}
+
 	if (luaL_loadfile(L, "lsyncd-conf.lua")) {
-		printf("error loading lsyncd-conf.lua: %s\n", lua_tostring(L, -1));
+		printf("error load lsyncd-conf.lua: %s\n", lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-		printf("error running lsyncd-conf.lua: %s\n", lua_tostring(L, -1));
+		printf("error prep lsyncd-conf.lua: %s\n", lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 
@@ -426,12 +503,20 @@ main(int argc, char *argv[])
 	/* lua code will set configuration and add watches */
 	lua_getglobal(L, "lsyncd_initialize");
 	lua_call(L, 0, 0);
+
+	/* load core settings into core */
+	get_settings(L);
 	
 	/* startup */
 	/* lua code will perform startup calls like recursive rsync */
 	lua_getglobal(L, "startup");
 	lua_call(L, 0, 1);
+	/* wait for children spawned at startup */
 	wait_startup(L);
+
+	/* enter normal operation */
+	lua_getglobal(L, "normalop");
+	lua_call(L, 0, 1);
 
 	/* cleanup */
 	close(inotify_fd);

@@ -3,16 +3,20 @@
 ------------------------------------------------------------------------------
 
 ----
+-- Core will exit if version ids mismatch.
+lsyncd_version = "2.0b1"
+
+----
 -- Table of all directories to watch.
-local origins = {}
+origins = {}
 
 ----
 -- all targets
-local targets = {}
+targets = {}
 
 -----
 -- all watches
-local watches = {}
+watches = {}
 
 ----
 -- Adds watches for a directory including all subdirectories.
@@ -21,7 +25,6 @@ local watches = {}
 -- @param target
 --
 local function attend_dir(origin, path, target)
-	print("attending dir", origin, "+", path, "->", target.path);
 	-- actual dir = origin + path 
 	local op = origin .. path
 	-- register watch and receive watch descriptor
@@ -54,10 +57,8 @@ end
 -- Called from core on init or restart after user configuration.
 -- 
 function lsyncd_initialize()
-	print("--- INIT ---")
 	local i, o
 	for i, o in ipairs(origins) do
-		print("Handling ", o.source, "->" , o.targetpath)
 		-- resolves source to be an absolute path
 		local src = lsyncd.real_dir(o.source)
 		if src == nil then
@@ -100,12 +101,11 @@ end
 -- "startup". (and yet may still call default startup)
 --
 function default_startup()
-	print("--- STARTUP ---")
+	print("--- startup ---")
 	local pids = { }
 	for i, o in ipairs(origins) do
-		print("/usr/bin/rsync", "-ltrs", o.source, o.targetpath)
+		print("initialize recursive rsync: " .. o.source .. " -> " .. o.targetpath)
 		pid = lsyncd.exec("/usr/bin/rsync", "-ltrs", o.source, o.targetpath)
-		print("started ", pid)
 		table.insert(pids, pid)
 	end
 	return pids
@@ -123,7 +123,6 @@ startup = default_startup
 -- finished/ok.
 --
 function default_startup_returned(pid, exitcode)
-	print("startup_returned ", pid, exitcode);
 	if exitcode ~= 0 then
 		print("Startup process", pid, " failed")
 		lsyncd.terminate(-1) -- ERRNO
@@ -131,4 +130,17 @@ function default_startup_returned(pid, exitcode)
 	return 0
 end
 startup_returned = default_startup_returned
+
+-----
+-- Called by core after startup phase when finished waiting for 
+-- children spawned at startup.
+--
+function default_normalop()
+	print("--- Entering normal operation with " .. #watches .. " monitored directories ---")
+end
+normalop = default_normalop
+
+----
+-- other functions the user might want to use
+exec = lsyncd.exec
 

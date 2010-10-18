@@ -1,4 +1,5 @@
 settings = {
+	logfile = "/tmp/lsyncd",
 	nodaemon,
 }
 
