@@ -7,8 +7,9 @@
 #  include "inotify-nosys.h"
 #endif
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include <dirent.h>
 #include <errno.h>
@@ -265,6 +266,21 @@ l_sub_dirs (lua_State *L)
 	return 1;
 }
 
+/**
+ * Terminates lsyncd daemon.
+ * 
+ * @param (Lua stack) exitcode for lsyncd.
+ *
+ * Does not return.
+ */
+int 
+l_terminate(lua_State *L) 
+{
+	int exitcode = luaL_checkinteger(L, 1);
+	exit(exitcode);
+	return 0;
+}
+
 /*****************************************************************************
  * Lsyncd Core 
  ****************************************************************************/
@@ -275,6 +291,7 @@ static const luaL_reg lsyncdlib[] = {
 		{"real_dir",  l_real_dir},
 		{"stackdump", l_stackdump},
 		{"sub_dirs",  l_sub_dirs},
+		{"terminate", l_terminate},
 		{NULL, NULL}
 };
 
@@ -286,21 +303,81 @@ static const luaL_reg lsyncdlib[] = {
 void
 wait_startup(lua_State *L) 
 {
-	/* wait for all children spawned in startup */
-	int pidn, *pids, i;
+	/* the number of pids in table */
+	int pidn; 
+	/* the pid table */
+	int *pids; 
+	/* the number of children to be waited for */
+	int remaining = 0;
+	int i;
+	/* checks if Lua script returned a table */
 	if (lua_type(L, 1) == LUA_TNIL) {
 		printf("Lua function startup did not return a pidtable!\n");
 		exit(-1); // ERRNO
 	}
+	/* determines size of the pid-table */
 	pidn = lua_objlen (L, -1);
 	if (pidn == 0) {
 		/* nothing to do on zero pids */
 		return;
 	}
+	/* reads the pid table from Lua stack */
 	pids = s_calloc(pidn, sizeof(int));
 	for(i = 0; i < pidn; i++) {
-		// TODO
+		lua_rawgeti(L, -1, i + 1);
+		pids[i] = luaL_checkinteger(L, -1);
+		lua_pop(L, 1);
+		/* ignores zero pids */
+		if (pids[i]) {
+			remaining++;
+		}
 	}
+	
+	/* waits for the children */
+	while(remaining) {
+		/* argument for waitpid, and exitcode of child */
+		int status, exitcode;
+		/* new process id in case of retry */
+		int newp;
+		/* process id of terminated child process */
+		int wp = waitpid(0, &status, 0);
+
+		/* if nothing really finished ignore */
+		if (wp == 0 || !WIFEXITED(status)) {
+			continue;
+		}
+
+		exitcode = WEXITSTATUS(status);
+		/* checks if the pid is one waited for */
+		for(i = 0; i < pidn; i++) {
+			if (pids[i] == wp) {
+				break;
+			}
+		}
+		if (i >= pidn) {
+			/* not a pid waited for */
+			continue;
+		}
+		/* calls the lua script to determine what to do on child failure */
+		lua_getglobal(L, "startup_returned");
+		lua_pushinteger(L, wp);
+		lua_pushinteger(L, exitcode);
+		lua_call(L, 2, 1);
+		newp = luaL_checkinteger(L, -1);
+		lua_pop(L, 1);
+
+		/* replace the new pid in the pidtable,
+		   or zero it on no new pid */
+		for(i = 0; i < pidn; i++) {
+			if (pids[i] == wp) {
+				pids[i] = newp;
+				if (newp == 0) {
+					remaining--;
+				}
+			}
+		}
+	}
+
 	free(pids);
 }
 

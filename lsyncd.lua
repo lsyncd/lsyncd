@@ -108,8 +108,27 @@ function default_startup()
 		print("started ", pid)
 		table.insert(pids, pid)
 	end
-	return pids 
+	return pids
 end
 startup = default_startup
 
+-----
+-- Called by the core for every child process that 
+-- finished in startup phase
+--
+-- Parameters are pid and exitcode of child process
+--
+-- Can returns either a new pid if another child process 
+-- has been spawned as replacement (e.g. retry) or 0 if
+-- finished/ok.
+--
+function default_startup_returned(pid, exitcode)
+	print("startup_returned ", pid, exitcode);
+	if exitcode ~= 0 then
+		print("Startup process", pid, " failed")
+		lsyncd.terminate(-1) -- ERRNO
+	end
+	return 0
+end
+startup_returned = default_startup_returned
 
