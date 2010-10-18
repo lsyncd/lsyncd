@@ -184,30 +184,30 @@ l_real_dir(lua_State *L)
  * Dumps the LUA stack. For debugging purposes.
  */
 static int
-l_stackdump(lua_State* l)
+l_stackdump(lua_State* L)
 {
 	int i;
-	int top = lua_gettop(l);
+	int top = lua_gettop(L);
 	printf("total in stack %d\n",top);
 	for (i = 1; i <= top; i++) { 
-		int t = lua_type(l, i);
+		int t = lua_type(L, i);
 		switch (t) {
 			case LUA_TSTRING:
-				printf("%d string: '%s'\n", i, lua_tostring(l, i));
+				printf("%d string: '%s'\n", i, lua_tostring(L, i));
 				break;
 			case LUA_TBOOLEAN:
-				printf("%d boolean %s\n", i, lua_toboolean(l, i) ? "true" : "false");
+				printf("%d boolean %s\n", i, lua_toboolean(L, i) ? "true" : "false");
 				break;
 			case LUA_TNUMBER: 
-				printf("%d number: %g\n", i, lua_tonumber(l, i));
+				printf("%d number: %g\n", i, lua_tonumber(L, i));
 				break;
 			default:  /* other values */
-				printf("%d %s\n", i, lua_typename(l, t));
+				printf("%d %s\n", i, lua_typename(L, t));
 				break;
 		}
 	}
 	
-    printf("\n");
+	printf("\n");
 	return 0;
 }
 
@@ -278,6 +278,36 @@ static const luaL_reg lsyncdlib[] = {
 		{NULL, NULL}
 };
 
+/**
+ * Waits after startup for all children.
+ * 
+ * @param (Lua stack) a table of the children pids.
+ */
+void
+wait_startup(lua_State *L) 
+{
+	/* wait for all children spawned in startup */
+	int pidn, *pids, i;
+	if (lua_type(L, 1) == LUA_TNIL) {
+		printf("Lua function startup did not return a pidtable!\n");
+		exit(-1); // ERRNO
+	}
+	pidn = lua_objlen (L, -1);
+	if (pidn == 0) {
+		/* nothing to do on zero pids */
+		return;
+	}
+	pids = s_calloc(pidn, sizeof(int));
+	for(i = 0; i < pidn; i++) {
+		// TODO
+	}
+	free(pids);
+}
+
+
+/**
+ * Main
+ */
 int
 main(int argc, char *argv[])
 {
@@ -288,6 +318,7 @@ main(int argc, char *argv[])
 	L = lua_open();
 	luaL_openlibs(L);
 	luaL_register(L, "lsyncd", lsyncdlib);
+	lua_setglobal(L, "lysncd");
 
 	if (luaL_loadfile(L, "lsyncd.lua")) {
 		printf("error loading lsyncd.lua: %s\n", lua_tostring(L, -1));
@@ -310,7 +341,7 @@ main(int argc, char *argv[])
 	/* open inotify */
 	inotify_fd = inotify_init();
 	if (inotify_fd == -1) {
-		printf("Cannot create inotify instance! (%d:%s)", errno, strerror(errno));
+		printf("Cannot create inotify instance! (%d:%s)\n", errno, strerror(errno));
 		return -1; // ERRNO
 	}
 
@@ -322,8 +353,8 @@ main(int argc, char *argv[])
 	/* startup */
 	/* lua code will perform startup calls like recursive rsync */
 	lua_getglobal(L, "startup");
-	lua_call(L, 0, 0);
-	l_stackdump(L);
+	lua_call(L, 0, 1);
+	wait_startup(L);
 
 	/* cleanup */
 	close(inotify_fd);

@@ -108,7 +108,7 @@ function default_startup()
 		print("started ", pid)
 		table.insert(pids, pid)
 	end
-	return pids
+	return pids 
 end
 startup = default_startup
 
