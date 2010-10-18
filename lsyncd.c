@@ -73,15 +73,22 @@ s_malloc(size_t size)
 	return r;
 }
 
+/*****************************************************************************
+ * Library calls for lsyncd.lua
+ * 
+ * These are as minimal as possible glues to the operating system needed for 
+ * lsyncd operation.
+ *
+ ****************************************************************************/
 
 /**
  * Adds an inotify watch
  * 
- * @param dir path to directory
- * @return    numeric watch descriptor
+ * @param dir (Lua stack) path to directory
+ * @return    (Lua stack) numeric watch descriptor
  */
 static int
-add_watch(lua_State *L)
+l_add_watch(lua_State *L)
 {
 	const char *path = luaL_checkstring(L, 1);
 	lua_Integer wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
@@ -89,12 +96,15 @@ add_watch(lua_State *L)
 	return 1;
 }
 
-
 /**
- * Executes a subprocess 
+ * Executes a subprocess. Does not wait for it to return.
+ * 
+ * @param  (Lua stack) Path to binary to call
+ * @params (Lua stack) list of string as arguments
+ * @return (Lua stack) the pid on success, 0 on failure.
  */
 static int
-exec(lua_State *L)
+l_exec(lua_State *L)
 {
 	const char *binary = luaL_checkstring(L, 1);
 	int argc = lua_gettop(L) - 1;
@@ -103,9 +113,8 @@ exec(lua_State *L)
 	char const **argv = s_calloc(argc + 2, sizeof(char *));
 
 	argv[0] = binary;
-	for(i = 1; i < argc; i++) {
+	for(i = 1; i <= argc; i++) {
 		argv[i] = luaL_checkstring(L, i + 1);
-		printf("%d.%s\n", i, argv[i]);
 	}
 	argv[i] = NULL;
 
@@ -127,7 +136,8 @@ exec(lua_State *L)
 	}
 
 	free(argv);
-	return 0;
+	lua_pushnumber(L, pid);
+	return 1;
 }
 
 
@@ -138,7 +148,7 @@ exec(lua_State *L)
  * @return    absolute path of directory
  */
 static int
-real_dir(lua_State *L)
+l_real_dir(lua_State *L)
 {
 	luaL_Buffer b;
 	char *cbuf;
@@ -174,7 +184,7 @@ real_dir(lua_State *L)
  * Dumps the LUA stack. For debugging purposes.
  */
 static int
-stackdump(lua_State* l)
+l_stackdump(lua_State* l)
 {
 	int i;
 	int top = lua_gettop(l);
@@ -204,11 +214,11 @@ stackdump(lua_State* l)
 /**
  * Reads the directories sub directories.
  * 
- * @param  absolute path to directory.
- * @return a table of directory names.
+ * @param  (Lua stack) absolute path to directory.
+ * @return (Lua stack) a table of directory names.
  */
 static int
-sub_dirs (lua_State *L)
+l_sub_dirs (lua_State *L)
 {
 	const char * dirname = luaL_checkstring(L, 1);
 	DIR *d;
@@ -247,7 +257,7 @@ sub_dirs (lua_State *L)
 			continue;
 		}
 
-		/* add this to the LUA table */
+		/* add this to the Lua table */
 		lua_pushnumber(L, idx++);
 		lua_pushstring(L, de->d_name);
 		lua_settable(L, -3);
@@ -255,12 +265,16 @@ sub_dirs (lua_State *L)
 	return 1;
 }
 
+/*****************************************************************************
+ * Lsyncd Core 
+ ****************************************************************************/
+
 static const luaL_reg lsyncdlib[] = {
-		{"add_watch", add_watch},
-		{"exec",      exec},
-		{"real_dir",  real_dir},
-		{"stackdump", stackdump},
-		{"sub_dirs",  sub_dirs},
+		{"add_watch", l_add_watch},
+		{"exec",      l_exec},
+		{"real_dir",  l_real_dir},
+		{"stackdump", l_stackdump},
+		{"sub_dirs",  l_sub_dirs},
 		{NULL, NULL}
 };
 
@@ -301,12 +315,15 @@ main(int argc, char *argv[])
 	}
 
 	/* initialize */
+	/* lua code will set configuration and add watches */
 	lua_getglobal(L, "lsyncd_initialize");
 	lua_call(L, 0, 0);
 	
 	/* startup */
+	/* lua code will perform startup calls like recursive rsync */
 	lua_getglobal(L, "startup");
 	lua_call(L, 0, 0);
+	l_stackdump(L);
 
 	/* cleanup */
 	close(inotify_fd);

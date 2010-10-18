@@ -1,31 +1,10 @@
 ------------------------------------------------------------------------------
--- lsyncd library functions implemented in C
-------------------------------------------------------------------------------
-----
--- real_dir(dir) 
---
--- Converts a relative directory path to an absolute.
---
--- @param dir  a relative path to directory
--- @return     absolute path of directory
---
-----
---
--- sub_dirs(dir)
---
--- Reads the directories sub directories.
---
--- @param dir  absolute path to directory.
--- @return     a table of directory names.
---
-
-------------------------------------------------------------------------------
--- lsyncd library functions implemented in LUA
+-- lsyncd runner implemented in LUA
 ------------------------------------------------------------------------------
 
 ----
 -- Table of all directories to watch.
-local origin = {}
+local origins = {}
 
 ----
 -- all targets
@@ -40,7 +19,7 @@ local watches = {}
 --
 -- @param sdir
 -- @param target
--- @param ...
+--
 local function attend_dir(origin, path, target)
 	print("attending dir", origin, "+", path, "->", target.path);
 	-- actual dir = origin + path 
@@ -77,11 +56,22 @@ end
 function lsyncd_initialize()
 	print("--- INIT ---")
 	local i, o
-	for i, o in ipairs(origin) do
+	for i, o in ipairs(origins) do
 		print("Handling ", o.source, "->" , o.targetpath)
+		-- resolves source to be an absolute path
+		local src = lsyncd.real_dir(o.source)
+		if src == nil then
+			print("Cannot resovle source path: ", src)
+			lsyncd.terminate() -- ERRNO
+		end
+		o.source = src
+
+		-- appends the target on target lists
 		local target = { path = o.targetpath }
 		table.insert(targets, target)
-		origin[i].target = target
+		o.target = target
+
+		-- and add the dir watch inclusively all subdirs
 		attend_dir(o.source, "", target)
 	end
 end
@@ -92,10 +82,11 @@ end
 ------------------------------------------------------------------------------
 
 ----
--- Add one directory to be watched.
+-- Adds one directory to be watched.
+--
 function add(source_dir, target_path)
-	local o = { source = lsyncd.real_dir(source_dir), targetpath = target_path }
-	table.insert(origin, o)
+	local o = { source = source_dir, targetpath = target_path }
+	table.insert(origins, o)
 	return o
 end
 
@@ -107,10 +98,11 @@ end
 --
 -- User can override this function by specifing his/her own
 -- "startup". (and yet may still call default startup)
+--
 function default_startup()
 	print("--- STARTUP ---")
 	local pids = { }
-	for i, o in ipairs(origin) do
+	for i, o in ipairs(origins) do
 		print("/usr/bin/rsync", "-ltrs", o.source, o.targetpath)
 		pid = lsyncd.exec("/usr/bin/rsync", "-ltrs", o.source, o.targetpath)
 		print("started ", pid)
