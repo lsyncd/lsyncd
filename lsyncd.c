@@ -491,6 +491,66 @@ wait_startup(lua_State *L)
 	free(pids);
 }
 
+
+/**
+ * Handles an inotify event.
+ */
+void handle_event(lua_State *L, struct inotify_event *event) {
+	printf("handle_event\n");
+	if (IN_Q_OVERFLOW & event->mask) {
+		/* and overflow happened, lets runner/user decide what to do. */
+		lua_getglobal(L, "overflow");
+		lua_call(L, 0, 0);
+		return;
+	}
+	if (IN_IGNORED & event->mask || reset) {
+		return;
+	}
+	{
+		if (IN_ACCESS & event->mask) {
+			printf("ACCESS id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+		if (IN_MODIFY & event->mask) {
+			printf("MODIFY id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+		if (IN_ATTRIB & event->mask) {
+			printf("ATTRIB id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+		if (IN_CLOSE_WRITE & event->mask) {
+			printf("CLOSE_WRITE id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+		if (IN_CLOSE_NOWRITE & event->mask) {
+			printf("CLOSE_WRITE id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+		if (IN_OPEN & event->mask) {
+			printf("OPEN id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+		if (IN_MOVED_FROM & event->mask) {
+			printf("MOVED_FROM id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+		if (IN_MOVED_TO & event->mask) {
+			printf("MOVED_TO id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+		if (IN_CREATE & event->mask) {
+			printf("CREATE id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+		if (IN_DELETE & event->mask) {
+			printf("DELETE id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+		if (IN_DELETE_SELF & event->mask) {
+			printf("DELETE_SELF id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+		if (IN_MOVE_SELF & event->mask) {
+			printf("MOVE_SELF id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		}
+	}
+
+	printf("id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+
+
+	// TODO
+}
+
 /**
  * Normal operation happens in here.
  */
@@ -544,21 +604,43 @@ masterloop(lua_State *L)
 			if (do_read) {
 				printf("core: theres data on inotify.\n");
 			} else {
-				printf("core: select() timeout, doing delays.\n");
+				printf("core: select() timeout or signal, doing delays.\n");
 			}
 		} else {
 			// if nothing to wait for, enter a blocking read
 			printf("core: gone blocking\n");
 			do_read = 1;
 		}
+		
+		/* reads possible events from inotify stream */
+		do {
+			int i = 0;
+			if (do_read) {
+				len = read (inotify_fd, readbuf, INOTIFY_BUF_LEN);
+			} else {
+				len = 0;
+			}
+			while (i < len && !reset) {
+				struct inotify_event *event = (struct inotify_event *) &readbuf[i];
+				handle_event(L, event);
+				i += sizeof(struct inotify_event) + event->len;
+			}
+			/* check if there is more data */
+			if (do_read) {
+				struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
+				fd_set readfds;
 
-		if (do_read) {
-			len = read (inotify_fd, readbuf, INOTIFY_BUF_LEN);
-		} else {
-			len = 0;
-		}
+				FD_ZERO(&readfds);
+				FD_SET(inotify_fd, &readfds);
+				do_read = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
+				if (do_read) {
+					printf("core: there is more data on inotify\n");
+				}
+			}
+		} while (do_read);
 	}
 }
+
 
 /**
  * Main
@@ -579,6 +661,19 @@ main(int argc, char *argv[])
 	luaL_openlibs(L);
 	luaL_register(L, "lsyncd", lsyncdlib);
 	lua_setglobal(L, "lysncd");
+
+	/* register inotify identifiers */
+	lua_pushinteger(L, IN_ACCESS);        lua_setglobal(L, "IN_ACCESS");
+	lua_pushinteger(L, IN_ATTRIB);        lua_setglobal(L, "IN_ATTRIB");
+	lua_pushinteger(L, IN_CLOSE_WRITE);   lua_setglobal(L, "IN_CLOSE_WRITE");
+	lua_pushinteger(L, IN_CLOSE_NOWRITE); lua_setglobal(L, "IN_CLOSE_NOWRITE");
+	lua_pushinteger(L, IN_CREATE);        lua_setglobal(L, "IN_CREATE");
+	lua_pushinteger(L, IN_DELETE);        lua_setglobal(L, "IN_DELETE");
+	lua_pushinteger(L, IN_DELETE_SELF);   lua_setglobal(L, "IN_DELETE_SELF");
+	lua_pushinteger(L, IN_MODIFY);        lua_setglobal(L, "IN_MODIFY");
+	lua_pushinteger(L, IN_MOVED_FROM);    lua_setglobal(L, "IN_MOVED_FROM");
+	lua_pushinteger(L, IN_MOVED_TO);      lua_setglobal(L, "IN_MOVED_TO");
+	lua_pushinteger(L, IN_OPEN);          lua_setglobal(L, "IN_OPEN");
 
 	if (luaL_loadfile(L, "lsyncd.lua")) {
 		printf("error loading '%s': %s\n", 

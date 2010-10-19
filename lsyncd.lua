@@ -113,6 +113,39 @@ function add(source_dir, target_path)
 	return o
 end
 
+----
+-- Called by core when an overflow happened.
+function default_overflow()
+	print("--- OVERFLOW on inotify event queue ---")
+	lsyncd.terminate(-1) -- TODO reset instead.
+
+end
+overflow = default_overflow
+
+-----
+-- Called by core on event
+--
+--
+-- @return the pid of a spawned child process or 0 if no spawn.
+function default_event()
+	print("got an event")
+	return 0
+end
+
+on_access        = default_event
+on_modify        = default_event
+on_attrib        = default_event
+on_close_write   = default_event
+on_close_nowrite = default_event
+on_open          = default_event
+on_moved_from    = default_event -- lsyncd only unary moved from 
+on_moved_to      = default_event -- lsyncd only unary moved to
+on_move          = default_event -- lsyncd Addon TODO
+on_create        = default_event
+on_delete        = default_event
+on_delete_self   = default_event
+on_move_self     = default_event
+
 -----
 -- Called by core after initialization.
 --
