@@ -13,6 +13,10 @@
 ----
 -- A security measurement.
 -- Core will exit if version ids mismatch.
+if lsyncd_version ~= nil then
+	print "You cannot use the lsyncd runner as configuration file!"
+	os.exit(-1)
+end
 lsyncd_version = "2.0b1"
 
 ----

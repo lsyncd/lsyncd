@@ -51,7 +51,9 @@
 /**
  * The Lua part of lsyncd.
  */
-#define LSYNCD_RUNNER_FILE "lsyncd.lua"
+#define LSYNCD_DEFAULT_RUNNER_FILE "lsyncd.lua"
+char * lsyncd_runner_file = NULL;
+char * lsyncd_config_file = NULL;
 
 /**
  * The inotify file descriptor.
@@ -367,7 +369,7 @@ l_terminate(lua_State *L)
  * @param (Lua stack) a function of a collector to be called 
  *                    when a child finishes.
  */
-void
+int 
 l_wait_pids(lua_State *L) 
 {
 	/* the number of pids in table */
@@ -391,7 +393,7 @@ l_wait_pids(lua_State *L)
 	pidn = lua_objlen (L, 1);
 	if (pidn == 0) {
 		/* nothing to do on zero pids */
-		return;
+		return 0;
 	}
 	/* reads the pid table from Lua stack */
 	pids = s_calloc(pidn, sizeof(int));
@@ -454,6 +456,7 @@ l_wait_pids(lua_State *L)
 		}
 	}
 	free(pids);
+	return 0;
 }
 
 
@@ -695,6 +698,17 @@ masterloop(lua_State *L)
 int
 main(int argc, char *argv[])
 {
+	/* position at cores (minimal) argument parsing *
+	 * most arguments are parsed in the lua runner  */
+	int argp = 1; 
+
+	if (argc < 2) {
+		printf("Missing config file\n");
+		printf("Minimal Usage: %s CONFIG_FILE\n", argv[0]);
+		printf("  Specify --help for more help.\n");
+		return -1; // ERRNO
+	}
+
 	/* kernel parameters */
 	clocks_per_sec = sysconf(_SC_CLK_TCK);
 
@@ -722,14 +736,45 @@ main(int argc, char *argv[])
 	lua_pushinteger(L, IN_MOVED_TO);      lua_setglobal(L, "IN_MOVED_TO");
 	lua_pushinteger(L, IN_OPEN);          lua_setglobal(L, "IN_OPEN");
 
-	if (luaL_loadfile(L, "lsyncd.lua")) {
+	/* TODO parse runner */
+	if (!strcmp(argv[argp], "--runner")) {
+		if (argc < 3) {
+			printf("Lsyncd Lua-runner file missing after --runner.\n");
+			return -1; //ERRNO
+		}
+		if (argc < 4) {
+			printf("Missing config file\n");
+			printf("  Usage: %s --runner %s CONFIG_FILE\n", argv[0], argv[2]);
+			printf("  Specify --help for more help.\n");
+			return -1; // ERRNO
+		}
+		lsyncd_runner_file = argv[argp + 1];
+		argp += 2;
+	} else {
+		lsyncd_runner_file = LSYNCD_DEFAULT_RUNNER_FILE;
+	}
+	lsyncd_config_file = argv[argp];
+	{
+		struct stat st;
+		if (stat(lsyncd_runner_file, &st)) {
+			printf("Cannot find Lsyncd Lua-runner at %s.\n", lsyncd_runner_file);
+			printf("Maybe specify another place? %s --runner RUNNER_FILE CONFIG_FILE\n", argv[0]);
+			return -1; // ERRNO
+		}
+		if (stat(lsyncd_config_file, &st)) {
+			printf("Cannot find config file at %s.\n", lsyncd_config_file);
+			return -1; // ERRNO
+		}
+	}
+
+	if (luaL_loadfile(L, lsyncd_runner_file)) {
 		printf("error loading '%s': %s\n", 
-		       LSYNCD_RUNNER_FILE, lua_tostring(L, -1));
+		       lsyncd_runner_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
 		printf("error preparing '%s': %s\n", 
-		       LSYNCD_RUNNER_FILE, lua_tostring(L, -1));
+		       lsyncd_runner_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 
@@ -741,19 +786,19 @@ main(int argc, char *argv[])
 		lua_pop(L, 1);
 		if (strcmp(lversion, PACKAGE_VERSION)) {
 			printf("Version mismatch '%s' is '%s', but core is '%s'\n",
-			       LSYNCD_RUNNER_FILE,
+			       lsyncd_runner_file,
 			       lversion,
 			       PACKAGE_VERSION);
 			return -1; // ERRNO
 		}
 	}
 
-	if (luaL_loadfile(L, "lsyncd-conf.lua")) {
-		printf("error load lsyncd-conf.lua: %s\n", lua_tostring(L, -1));
+	if (luaL_loadfile(L, lsyncd_config_file)) {
+		printf("error loading %s: %s\n", lsyncd_config_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-		printf("error prep lsyncd-conf.lua: %s\n", lua_tostring(L, -1));
+		printf("error preparing %s: %s\n", lsyncd_config_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 
