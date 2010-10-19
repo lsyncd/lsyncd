@@ -149,10 +149,10 @@ on_move_self     = default_event
 -----
 -- Called by core after initialization.
 --
--- Returns a table of integers (pid of children) the core will 
--- wait for before entering normal operation.
+-- Default function will start an simultanous action for every 
+-- source -> destination pair. And waits for these processes to finish
 --
--- User can override this function by specifing his/her own
+-- The user can override this function by specifing his/her own
 -- "startup". (and yet may still call default startup)
 --
 function default_startup()
@@ -164,7 +164,8 @@ function default_startup()
 		pid = lsyncd.exec("/usr/bin/rsync", "-ltrs", o.source, o.targetpath)
 		table.insert(pids, pid)
 	end
-	return pids
+	lsyncd.wait_pids(pids, "startup_collector")
+	print("--- Entering normal operation with " .. #watches .. " monitored directories ---")
 end
 startup = default_startup
 
@@ -174,27 +175,18 @@ startup = default_startup
 --
 -- Parameters are pid and exitcode of child process
 --
--- Can returns either a new pid if another child process 
+-- Can return either a new pid if one other child process 
 -- has been spawned as replacement (e.g. retry) or 0 if
 -- finished/ok.
 --
-function default_startup_returned(pid, exitcode)
+function default_startup_collector(pid, exitcode)
 	if exitcode ~= 0 then
 		print("Startup process", pid, " failed")
 		lsyncd.terminate(-1) -- ERRNO
 	end
 	return 0
 end
-startup_returned = default_startup_returned
-
------
--- Called by core after startup phase when finished waiting for 
--- children spawned at startup.
---
-function default_normalop()
-	print("--- Entering normal operation with " .. #watches .. " monitored directories ---")
-end
-normalop = default_normalop
+startup_collector = default_startup_collector
 
 ----
 -- other functions the user might want to use
