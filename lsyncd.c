@@ -8,9 +8,9 @@
 #endif
 
 #include <sys/stat.h>
+#include <sys/times.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
@@ -21,10 +21,25 @@
 #include <string.h>
 #include <unistd.h>
 
-
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
+
+/**
+ * Macros to compare times() values
+ * (borrowed from linux/jiffies.h)
+ *
+ * time_after(a,b) returns true if the time a is after time b.
+ */
+#define time_after(a,b)         ((long)(b) - (long)(a) < 0)
+#define time_before(a,b)        time_after(b,a)
+#define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
+#define time_before_eq(a,b)     time_after_eq(b,a)
+
+/**
+ * Number of inotifies to read max. at once from the kernel.
+ */
+#define INOTIFY_BUF_LEN     (64 * (sizeof(struct inotify_event) + 16))
 
 /**
  * The Lua part of lsyncd.
@@ -56,6 +71,11 @@ struct settings settings = {0,};
  * Set to TERM or HUP in signal handler, when lsyncd should end or reset ASAP.
  */
 volatile sig_atomic_t reset = 0;
+
+/**
+ * The kernels clock ticks per second.
+ */
+long clocks_per_sec; 
 
 /**
  * "secured" calloc.
@@ -122,6 +142,17 @@ l_add_watch(lua_State *L)
 	const char *path = luaL_checkstring(L, 1);
 	lua_Integer wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
 	lua_pushinteger(L, wd);
+	return 1;
+}
+
+/**
+ * Returns (on Lua stack) the current kernels clock state (jiffies, times() call)
+ */
+static int
+l_now(lua_State *L) 
+{
+	clock_t c = times(NULL);
+	lua_pushinteger(L, c);
 	return 1;
 }
 
@@ -310,12 +341,13 @@ l_terminate(lua_State *L)
 }
 
 static const luaL_reg lsyncdlib[] = {
-		{"add_watch", l_add_watch},
-		{"exec",      l_exec},
-		{"real_dir",  l_real_dir},
-		{"stackdump", l_stackdump},
-		{"sub_dirs",  l_sub_dirs},
-		{"terminate", l_terminate},
+		{"add_watch", l_add_watch },
+		{"now",       l_now       },
+		{"exec",      l_exec      },
+		{"real_dir",  l_real_dir  },
+		{"stackdump", l_stackdump },
+		{"sub_dirs",  l_sub_dirs  },
+		{"terminate", l_terminate },
 		{NULL, NULL}
 };
 
@@ -344,7 +376,7 @@ get_settings(lua_State *L)
 		return;
 	}
 	
-	/* logfile */
+	/* get logfile */
 	lua_pushstring(L, "logfile");
 	lua_gettable(L, -2);
 	if (settings.logfile) {
@@ -354,6 +386,9 @@ get_settings(lua_State *L)
 	if (lua_isstring(L, -1)) {
 		settings.logfile = s_strdup(luaL_checkstring(L, -1));
 	}
+	lua_pop(L, 1);
+	
+	/* pop the settings table */
 	lua_pop(L, 1);
 }
 
@@ -394,8 +429,10 @@ wait_startup(lua_State *L)
 			remaining++;
 		}
 	}
+	/* since contents are copied into pids[] pop the lua table */
+	lua_pop(L, 1);
 	
-	/* waits for the children */
+	/* starts waiting for the children */
 	while(remaining) {
 		/* argument for waitpid, and exitcode of child */
 		int status, exitcode;
@@ -436,10 +473,80 @@ wait_startup(lua_State *L)
 				if (newp == 0) {
 					remaining--;
 				}
+				/* does not break, in case there are duplicate pids (whyever) */
 			}
 		}
 	}
 	free(pids);
+}
+
+/**
+ * Normal operation happens in here.
+ */
+void
+masterloop(lua_State *L)
+{
+	while(!reset) {
+		char readbuf[INOTIFY_BUF_LEN];
+		int alarm_state;
+		clock_t now = times(NULL);
+		clock_t alarm_time;
+		bool do_read = false;
+		ssize_t len; 
+
+		/* query runner about soonest alarm  */
+		lua_getglobal(L, "lsyncd_get_alarm");
+		lua_pushnumber(L, now);
+		lua_call(L, 1, 2);
+		alarm_state = luaL_checkinteger(L, -2);
+		alarm_time = (clock_t) luaL_checknumber(L, -1);
+		lua_pop(L, 2);
+
+	
+		if (alarm_state < 0) {
+			/* there is a delay that wants to be handled already                  */
+			/* thus do not read from inotify_fd and jump directly to its handling */
+			printf("core: immediately handling delayed entries\n");
+			do_read = 0;
+		} else if (alarm_state > 0) {
+			/* use select() to determine what happens next      */
+			/* + a new event on inotify                         */
+			/* + an alarm on timeout                            */
+			/* + the return of a child process                  */
+			fd_set readfds;
+			struct timeval tv;
+
+			if (time_after(now, alarm_time)) {
+				/* should never happen */
+				printf("Internal failure, alarm_time is in past!\n");
+				exit(-1); //ERRNO
+			}
+
+			tv.tv_sec  = (alarm_time - now) / clocks_per_sec;
+			tv.tv_usec = (alarm_time - now) * 1000000 / clocks_per_sec % 1000000;
+			/* if select returns a positive number there is data on inotify */
+			/* on zero the timemout occured.                                */
+			FD_ZERO(&readfds);
+			FD_SET(inotify_fd, &readfds);
+			do_read = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
+
+			if (do_read) {
+				printf("core: theres data on inotify.\n");
+			} else {
+				printf("core: select() timeout, doing delays.\n");
+			}
+		} else {
+			// if nothing to wait for, enter a blocking read
+			printf("core: gone blocking\n");
+			do_read = 1;
+		}
+
+		if (do_read) {
+			len = read (inotify_fd, readbuf, INOTIFY_BUF_LEN);
+		} else {
+			len = 0;
+		}
+	}
 }
 
 /**
@@ -448,6 +555,9 @@ wait_startup(lua_State *L)
 int
 main(int argc, char *argv[])
 {
+	/* kernel parameters */
+	clocks_per_sec = sysconf(_SC_CLK_TCK);
+
 	/* the Lua interpreter */
 	lua_State* L;
 
@@ -516,7 +626,9 @@ main(int argc, char *argv[])
 
 	/* enter normal operation */
 	lua_getglobal(L, "normalop");
-	lua_call(L, 0, 1);
+	lua_call(L, 0, 0);
+
+	masterloop(L);
 
 	/* cleanup */
 	close(inotify_fd);

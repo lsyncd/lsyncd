@@ -77,6 +77,19 @@ function lsyncd_initialize()
 	end
 end
 
+----
+-- Calle by core to determine soonest alarm.
+--
+-- @param  now   ... the current time representation.
+--
+-- @return two variables.
+--         number -1 means ... alarm is in the past.
+--                 0 means ... no alarm, core can in untimed sleep
+--                 1 means ... alarm time specified.
+--         times           ... the alarm time (only read if number is 1)
+function lsyncd_get_alarm()
+	return 0, 0
+end
 
 ------------------------------------------------------------------------------
 -- lsyncd user interface
@@ -104,7 +117,8 @@ function default_startup()
 	print("--- startup ---")
 	local pids = { }
 	for i, o in ipairs(origins) do
-		print("initialize recursive rsync: " .. o.source .. " -> " .. o.targetpath)
+		print("startup recursive rsync: " .. o.source .. " -> " .. o.targetpath)
+		-- TODO userchangeablefunction
 		pid = lsyncd.exec("/usr/bin/rsync", "-ltrs", o.source, o.targetpath)
 		table.insert(pids, pid)
 	end
