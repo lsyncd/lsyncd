@@ -1,8 +1,17 @@
 ------------------------------------------------------------------------------
--- lsyncd runner implemented in LUA
+-- lsyncd.lua   Live (Mirror) Syncing Demon
+--
+-- License: GPLv2 (see COPYING) or any later version
+--
+-- Authors: Axel Kittenberger <axkibe@gmail.com>
+--
+-- This is the "runner" part of lsyncd. It containts all its high-level logic.
+-- It works closely together with the lsyncd core in lsyncd.c. This means it
+-- cannot be runned directly from the standard lua interpreter.
 ------------------------------------------------------------------------------
 
 ----
+-- A security measurement.
 -- Core will exit if version ids mismatch.
 lsyncd_version = "2.0b1"
 

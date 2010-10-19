@@ -1,3 +1,14 @@
+/** 
+ * lsyncd.c   Live (Mirror) Syncing Demon
+ *
+ * License: GPLv2 (see COPYING) or any later version
+ *
+ * Authors: Axel Kittenberger <axkibe@gmail.com>
+ *
+ * This is the core. It contains as minimal as possible glues 
+ * to the operating system needed for lsyncd operation. All high-level
+ * logic is coded (when feasable) into lsyncd.lua
+ */
 #include "config.h"
 #define LUA_USE_APICHECK 1
 
@@ -560,6 +571,8 @@ main(int argc, char *argv[])
 
 	/* the Lua interpreter */
 	lua_State* L;
+
+	/* TODO check lua version */
 
 	/* load Lua */
 	L = lua_open();

@@ -1,3 +1,8 @@
+----
+-- User configuration file for lsyncd.
+--
+-- TODO documentation-
+--
 settings = {
 	logfile = "/tmp/lsyncd",
 	nodaemon,
