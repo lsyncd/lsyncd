@@ -159,15 +159,14 @@ function default_startup()
 	print("--- startup ---")
 	local pids = { }
 	for i, o in ipairs(origins) do
-		print("startup recursive rsync: " .. o.source .. " -> " .. o.targetpath)
-		-- TODO userchangeablefunction
-		pid = lsyncd.exec("/usr/bin/rsync", "-ltrs", o.source, o.targetpath)
+		startup_action(o.source, o.targetpath)
 		table.insert(pids, pid)
 	end
 	lsyncd.wait_pids(pids, "startup_collector")
 	print("--- Entering normal operation with " .. #watches .. " monitored directories ---")
 end
 startup = default_startup
+
 
 -----
 -- Called by the core for every child process that 
