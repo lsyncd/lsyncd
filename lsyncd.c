@@ -120,6 +120,22 @@ static volatile sig_atomic_t reset = 0;
 static long clocks_per_sec; 
 
 /**
+ * predeclerations -- see belorw.
+ */
+static void 
+logstring0(enum loglevel level,
+	  const char *message);
+/* core logs with CORE flag */
+#define logstring(loglevel, message) logstring0(loglevel | CORE, message)
+
+static void
+printlogf(lua_State *L, 
+          enum loglevel level, 
+		  const char *fmt, ...)
+	__attribute__((format(printf, 3, 4)));
+
+
+/**
  * "secured" calloc.
  */
 void *
@@ -127,7 +143,7 @@ s_calloc(size_t nmemb, size_t size)
 {
 	void *r = calloc(nmemb, size);
 	if (r == NULL) {
-		printf("Out of memory!\n");
+		logstring(ERROR, "Out of memory!");
 		exit(-1); // ERRNO 
 	}
 	return r;
@@ -142,7 +158,7 @@ s_malloc(size_t size)
 {
 	void *r = malloc(size);
 	if (r == NULL) {
-		printf("Out of memory!\n");
+		logstring(ERROR, "Out of memory!");
 		exit(-1);  // ERRNO
 	}
 	return r;
@@ -156,7 +172,7 @@ s_realloc(void *ptr, size_t size)
 {
 	void *r = realloc(ptr, size);
 	if (r == NULL) {
-		printf("Out of memory!\n");
+		logstring(ERROR, "Out of memory!");
 		exit(-1);
 	}
 	return r;
@@ -170,10 +186,89 @@ s_strdup(const char *src)
 {
 	char *s = strdup(src);
 	if (s == NULL) {
-		printf("Out of memory!\n");
+		logstring(ERROR, "Out of memory!");
 		exit(-1); // ERRNO
 	}
 	return s;
+}
+
+/**
+ * Logs a string
+ *
+ * @param level   the level of the log message
+ * @param message the log message
+ */
+static void 
+logstring0(enum loglevel level,
+	   const char *message)
+{
+	const char *prefix;
+	/* true if logmessages comes from core */
+	bool coremsg = (level & CORE) != 0;
+	/* strip flags from level */
+	level &= 0x0F;
+
+	/* skips filtered messagaes */
+	if (level < loglevel) {
+		return;
+	}
+
+	prefix = level == ERROR ? 
+	                  (coremsg ? "CORE ERROR " : "ERROR ") :
+	                  (coremsg ? "core " : "");
+
+	/* writes on console */
+	if (!is_daemon) {
+		char ct[255];
+		/* gets current timestamp hour:minute:second */
+		time_t mtime;
+		time(&mtime);
+		strftime(ct, sizeof(ct), "%T", localtime(&mtime));
+		FILE * flog = level == ERROR ? stderr : stdout;
+		fprintf(flog, "%s %s%s\n", ct, prefix, message);
+	}
+
+	/* writes on file */
+	if (logfile) {
+		FILE * flog = fopen(logfile, "a");
+		/* gets current timestamp day-time-year */
+		char * ct;
+		time_t mtime;
+		time(&mtime);
+		ct = ctime(&mtime);
+	 	/* cuts trailing linefeed */
+ 		ct[strlen(ct) - 1] = 0;
+
+		if (flog == NULL) {
+			fprintf(stderr, "core: cannot open logfile [%s]!\n", logfile);
+			exit(-1);  // ERRNO
+		}
+		fprintf(flog, "%s: %s%s", ct, prefix, message);
+		fclose(flog);
+	}
+
+	/* sends to syslog */
+	if (logsyslog) {
+		int sysp;
+		switch (level) {
+		case DEBUG  :
+			sysp = LOG_DEBUG;
+			break;
+		case VERBOSE :
+		case NORMAL  :
+			sysp = LOG_NOTICE;
+			break;
+		case ERROR  :
+			sysp = LOG_ERR;
+			break;
+		default :
+			/* should never happen */
+			sysp = 0;
+			break;
+		}
+		syslog(sysp, "%s%s", prefix, message);
+	}
+	return;
 }
 
 
@@ -201,7 +296,7 @@ l_add_watch(lua_State *L)
 }
 
 /**
- * Logs a log level
+ * Logs a message.
  *
  * @param loglevel (Lua stack) loglevel of massage
  * @param string   (Lua stack) the string to log
@@ -211,63 +306,14 @@ l_log(lua_State *L)
 {
 	/* log message */
 	const char * message;
-	/* current time */
-	char * ct;
-	time_t mtime;
 	/* log level */
 	int level = luaL_checkinteger(L, 1);
-	/* true if logmessages comes from core */
-	bool core = (level & CORE) != 0;
-	/* strip flags from level */
-	level &= 0x0F;
-
-	/* skips filtered messagaes */
-	if (level < loglevel) {
+	/* skips filtered messages early */
+	if ((level & 0x0F) < loglevel) {
 		return 0;
 	}
 	message = luaL_checkstring(L, 2);
-	
-	/* gets current time */
-	time(&mtime);
-	ct = ctime(&mtime);
- 	/* cuts trailing linefeed */
- 	ct[strlen(ct) - 1] = 0;
-
-	/* writes on console */
-	if (!is_daemon) {
-		if (level == ERROR) {
-			fprintf(stderr, "%s: %sERROR: %s", ct, core ? "CORE " : "", message);
-		} else {
-			fprintf(stdout, "%s: %s%s", ct, core ? "core: " : "", message);
-		}
-	}
-
-	/* writes on file */
-	if (logfile) {
-		FILE * flog = fopen(logfile, "a");
-		if (flog == NULL) {
-			fprintf(stderr, "core: cannot open logfile [%s]!\n", logfile);
-			exit(-1);  // ERRNO
-		}
-		if (level == ERROR) {
-			fprintf(flog, "%s: %sERROR: %s", ct, core  ? "CORE " : "", message);
-		} else {
-			fprintf(flog, "%s: %s%s", ct, core  ? "core: " : "", message);
-		}
-		fclose(flog);
-	}
-
-	/* sends to syslog */
-	/* TODO
-	if (logsyslog) {
-		if (!core) {
-			// TODO
-			syslog(sysp, message);
-		} else {
-			syslog(sysp, message);
-		}
-	}
-	*/
+	logstring0(level, message);
 	return 0;
 }
 
@@ -317,7 +363,7 @@ l_exec(lua_State *L)
 		//}
 		execv(binary, (char **)argv);
 		// in a sane world execv does not return!
-		printf("Failed executing [%s]!\n", binary);
+		printlogf(L, ERROR, "Failed executing [%s]!", binary);
 		exit(-1); // ERRNO
 	}
 
@@ -343,7 +389,7 @@ l_real_dir(lua_State *L)
 	/* use c-library to get absolute path */
 	cbuf = realpath(rdir, NULL);
 	if (cbuf == NULL) {
-		printf("failure getting absolute path of \"%s\"\n", rdir);
+		printlogf(L, ERROR, "failure getting absolute path of [%s]", rdir);
 		return 0;
 	}
 	{
@@ -351,7 +397,7 @@ l_real_dir(lua_State *L)
 	    struct stat st;
 	    stat(cbuf, &st);
 	    if (!S_ISDIR(st.st_mode)) {
-			printf("failure in real_dir \"%s\" is not a directory\n", rdir);
+			printlogf(L, ERROR, "failure in real_dir [%s] is not a directory", rdir);
 			free(cbuf);
 			return 0;
 	    }
@@ -374,26 +420,24 @@ l_stackdump(lua_State* L)
 {
 	int i;
 	int top = lua_gettop(L);
-	printf("total in stack %d\n",top);
+	printlogf(L, DEBUG, "total in stack %d\n",top);
 	for (i = 1; i <= top; i++) { 
 		int t = lua_type(L, i);
 		switch (t) {
 		case LUA_TSTRING:
-			printf("%d string: '%s'\n", i, lua_tostring(L, i));
+			printlogf(L, DEBUG, "%d string: '%s'\n", i, lua_tostring(L, i));
 			break;
 		case LUA_TBOOLEAN:
-			printf("%d boolean %s\n", i, lua_toboolean(L, i) ? "true" : "false");
+			printlogf(L, DEBUG, "%d boolean %s\n", i, lua_toboolean(L, i) ? "true" : "false");
 			break;
 		case LUA_TNUMBER: 
-			printf("%d number: %g\n", i, lua_tonumber(L, i));
+			printlogf(L, DEBUG, "%d number: %g\n", i, lua_tonumber(L, i));
 			break;
 		default: 
-			printf("%d %s\n", i, lua_typename(L, t));
+			printlogf(L, DEBUG, "%d %s\n", i, lua_typename(L, t));
 			break;
 		}
 	}
-	
-	printf("\n");
 	return 0;
 }
 
@@ -412,7 +456,7 @@ l_sub_dirs (lua_State *L)
 
 	d = opendir(dirname);
 	if (d == NULL) {
-		printf("cannot open dir %s.\n", dirname);
+		printlogf(L, ERROR, "cannot open dir [%s].", dirname);
 		return 0;
 	}
 	
@@ -583,21 +627,20 @@ static const luaL_reg lsyncdlib[] = {
  ****************************************************************************/
 
 /**
- * TODO
+ * Let the core print logmessage comfortably.
  */
 static void
 printlogf(lua_State *L, 
           enum loglevel level, 
-		  const char *fmt, ...)
-	__attribute__((format(printf, 3, 4)));
-static void
-printlogf(lua_State *L, 
-          enum loglevel level, 
-		  const char *fmt, ...)
+	  const char *fmt, ...)
 {
 	va_list ap;
+	/* skips filtered messages early */
+	if (level < loglevel) {
+		return;
+	}
 	lua_pushcfunction(L, l_log);
-	lua_pushinteger(L, level);
+	lua_pushinteger(L, level | CORE);
 	va_start(ap, fmt);
 	lua_pushvfstring(L, fmt, ap);
 	va_end(ap);
@@ -656,17 +699,18 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	/* used to execute two events in case of unmatched MOVE_FROM buffer */
 	struct inotify_event *after_buf = NULL;
 
-
-	if (event) {
-		if (IN_Q_OVERFLOW & event->mask) {
-			/* and overflow happened, lets runner/user decide what to do. */
-			lua_getglobal(L, "overflow");
-			lua_call(L, 0, 0);
-			return;
-		}
-		if (IN_IGNORED & event->mask || reset) {
-			return;
-		}
+	if (reset) {
+		return;
+	}
+	if (event && (IN_Q_OVERFLOW & event->mask)) {
+		/* and overflow happened, lets runner/user decide what to do. */
+		lua_getglobal(L, "overflow");
+		lua_call(L, 0, 0);
+		return;
+	}
+	/* cancel on ignored or resetting */
+	if (event && (IN_IGNORED & event->mask)) {
+		return;
 	}
 
 	if (event == NULL) {
@@ -694,7 +738,6 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		}
 		memcpy(move_event_buf, event, sizeof(struct inotify_event) + event->len);
 		move_event = true;
-		printf("buffered\n");
 		return;
 	} else if (IN_MOVED_TO & event->mask) {
 		/* must be an unary moveto */
@@ -715,7 +758,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		/* rm'ed */
 		event_type = DELETE;
 	} else {
-		printf("skipped an event\n");
+		logstring(DEBUG, "skipped some inotify event.");
 		return;
 	}
 
@@ -762,7 +805,7 @@ masterloop(lua_State *L)
 		if (alarm_state < 0) {
 			/* there is a delay that wants to be handled already
 			 * thus do not read from inotify_fd and jump directly to its handling */
-			printf("core: immediately handling delayed entries\n");
+			logstring(DEBUG, "immediately handling delayed entries.");
 			do_read = 0;
 		} else if (alarm_state > 0) {
 			/* use select() to determine what happens next
@@ -774,7 +817,7 @@ masterloop(lua_State *L)
 
 			if (time_after(now, alarm_time)) {
 				/* should never happen */
-				printf("Internal failure, alarm_time is in past!\n");
+				logstring(ERROR, "critical failure, alarm_time is in past!\n");
 				exit(-1); //ERRNO
 			}
 
@@ -787,13 +830,13 @@ masterloop(lua_State *L)
 			do_read = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
 
 			if (do_read) {
-				printf("core: theres data on inotify.\n");
+				logstring(DEBUG, "theres data on inotify.");
 			} else {
-				printf("core: select() timeout or signal, doing delays.\n");
+				logstring(DEBUG, "core: select() timeout or signal.");
 			}
 		} else {
 			// if nothing to wait for, enter a blocking read
-			printf("core: gone blocking\n");
+			logstring(DEBUG, "gone blocking.");
 			do_read = 1;
 		}
 		
@@ -826,12 +869,11 @@ masterloop(lua_State *L)
 			if (do_read) {
 				struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
 				fd_set readfds;
-
 				FD_ZERO(&readfds);
 				FD_SET(inotify_fd, &readfds);
 				do_read = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
 				if (do_read) {
-					printf("core: there is more data on inotify\n");
+					logstring(DEBUG, "there is more data on inotify.");
 				}
 			}
 		} while (do_read);
@@ -855,9 +897,9 @@ main(int argc, char *argv[])
 	int argp = 1; 
 
 	if (argc < 2) {
-		printf("Missing config file\n");
-		printf("Minimal Usage: %s CONFIG_FILE\n", argv[0]);
-		printf("  Specify --help for more help.\n");
+		fprintf(stderr, "Missing config file\n");
+		fprintf(stderr, "Minimal Usage: %s CONFIG_FILE\n", argv[0]);
+		fprintf(stderr, "  Specify --help for more help.\n");
 		return -1; // ERRNO
 	}
 
@@ -891,13 +933,13 @@ main(int argc, char *argv[])
 	/* TODO parse runner */
 	if (!strcmp(argv[argp], "--runner")) {
 		if (argc < 3) {
-			printf("Lsyncd Lua-runner file missing after --runner.\n");
+			fprintf(stderr, "Lsyncd Lua-runner file missing after --runner.\n");
 			return -1; //ERRNO
 		}
 		if (argc < 4) {
-			printf("Missing config file\n");
-			printf("  Usage: %s --runner %s CONFIG_FILE\n", argv[0], argv[2]);
-			printf("  Specify --help for more help.\n");
+			fprintf(stderr, "Missing config file\n");
+			fprintf(stderr, "  Usage: %s --runner %s CONFIG_FILE\n", argv[0], argv[2]);
+			fprintf(stderr, "  Specify --help for more help.\n");
 			return -1; // ERRNO
 		}
 		lsyncd_runner_file = argv[argp + 1];
@@ -909,23 +951,23 @@ main(int argc, char *argv[])
 	{
 		struct stat st;
 		if (stat(lsyncd_runner_file, &st)) {
-			printf("Cannot find Lsyncd Lua-runner at %s.\n", lsyncd_runner_file);
-			printf("Maybe specify another place? %s --runner RUNNER_FILE CONFIG_FILE\n", argv[0]);
+			fprintf(stderr, "Cannot find Lsyncd Lua-runner at %s.\n", lsyncd_runner_file);
+			fprintf(stderr, "Maybe specify another place? %s --runner RUNNER_FILE CONFIG_FILE\n", argv[0]);
 			return -1; // ERRNO
 		}
 		if (stat(lsyncd_config_file, &st)) {
-			printf("Cannot find config file at %s.\n", lsyncd_config_file);
+			fprintf(stderr, "Cannot find config file at %s.\n", lsyncd_config_file);
 			return -1; // ERRNO
 		}
 	}
 
 	if (luaL_loadfile(L, lsyncd_runner_file)) {
-		printf("error loading '%s': %s\n", 
+		fprintf(stderr, "error loading '%s': %s\n", 
 		       lsyncd_runner_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-		printf("error preparing '%s': %s\n", 
+		fprintf(stderr, "error preparing '%s': %s\n", 
 		       lsyncd_runner_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
@@ -937,27 +979,25 @@ main(int argc, char *argv[])
 		lversion = luaL_checkstring(L, -1);
 		lua_pop(L, 1);
 		if (strcmp(lversion, PACKAGE_VERSION)) {
-			printf("Version mismatch '%s' is '%s', but core is '%s'\n",
-			       lsyncd_runner_file,
-			       lversion,
-			       PACKAGE_VERSION);
+			fprintf(stderr, "Version mismatch '%s' is '%s', but core is '%s'\n",
+ 			        lsyncd_runner_file, lversion, PACKAGE_VERSION);
 			return -1; // ERRNO
 		}
 	}
 
 	if (luaL_loadfile(L, lsyncd_config_file)) {
-		printf("error loading %s: %s\n", lsyncd_config_file, lua_tostring(L, -1));
+		fprintf(stderr, "error loading %s: %s\n", lsyncd_config_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-		printf("error preparing %s: %s\n", lsyncd_config_file, lua_tostring(L, -1));
+		fprintf(stderr, "error preparing %s: %s\n", lsyncd_config_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 
 	/* open inotify */
 	inotify_fd = inotify_init();
 	if (inotify_fd == -1) {
-		printf("Cannot create inotify instance! (%d:%s)\n", errno, strerror(errno));
+		fprintf(stderr, "Cannot create inotify instance! (%d:%s)\n", errno, strerror(errno));
 		return -1; // ERRNO
 	}
 

@@ -14,10 +14,12 @@
 -- A security measurement.
 -- Core will exit if version ids mismatch.
 if lsyncd_version ~= nil then
-	print "You cannot use the lsyncd runner as configuration file!"
+	print("You cannot use the lsyncd runner as configuration file!")
 	os.exit(-1)
 end
 lsyncd_version = "2.0b1"
+
+log = lsyncd.log
 
 ----
 -- Table of all directories to watch.
@@ -125,9 +127,9 @@ local event_names = {
 --
 function lsyncd_event(etype, wd, filename, filename2)
 	if filename2 == nil then
-		print("got event " .. event_names[etype] .. " of " .. filename) 
+		log(NORMAL, "got event " .. event_names[etype] .. " of " .. filename) 
 	else 
-		print("got event " .. event_names[etype] .. " of " .. filename .. " to " .. filename2) 
+		log(NORMAL, "got event " .. event_names[etype] .. " of " .. filename .. " to " .. filename2) 
 	end
 end
 
@@ -147,21 +149,11 @@ end
 ----
 -- Called by core when an overflow happened.
 function default_overflow()
-	print("--- OVERFLOW on inotify event queue ---")
+	log(ERROR, "--- OVERFLOW on inotify event queue ---")
 	lsyncd.terminate(-1) -- TODO reset instead.
 
 end
 overflow = default_overflow
-
------
--- Called by core on event
---
---
--- @return the pid of a spawned child process or 0 if no spawn.
-function default_event()
-	print("got an event")
-	return 0
-end
 
 -----
 -- Called by core after initialization.
@@ -173,14 +165,14 @@ end
 -- "startup". (and yet may still call default startup)
 --
 function default_startup()
-	print("--- startup ---")
+	log(NORMAL, "--- startup ---")
 	local pids = { }
 	for i, o in ipairs(origins) do
 		startup_action(o.source, o.targetpath)
 		table.insert(pids, pid)
 	end
 	lsyncd.wait_pids(pids, "startup_collector")
-	print("--- Entering normal operation with " .. #watches .. " monitored directories ---")
+	log(NORMAL, "--- Entering normal operation with " .. #watches .. " monitored directories ---")
 end
 startup = default_startup
 
@@ -197,7 +189,7 @@ startup = default_startup
 --
 function default_startup_collector(pid, exitcode)
 	if exitcode ~= 0 then
-		print("Startup process", pid, " failed")
+		log(ERROR, "Startup process", pid, " failed")
 		lsyncd.terminate(-1) -- ERRNO
 	end
 	return 0

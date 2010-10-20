@@ -16,7 +16,7 @@ add("s", "d")
 -- Returns the pid of a spawned process
 -- Return 0 if you dont exec something.
 function startup_action(source, target)
-	print("startup recursive rsync: " .. source .. " -> " .. target)
+	log(NORMAL, "startup recursive rsync: " .. source .. " -> " .. target)
 	return exec("/usr/bin/rsync", "-ltrs", source, target)
 end
 
