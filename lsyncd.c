@@ -48,6 +48,15 @@
 #define time_before_eq(a,b)     time_after_eq(b,a)
 
 
+enum event {
+	NONE   = 0,
+	ATTRIB = 1,
+	MODIFY = 2,
+	CREATE = 3,
+	DELETE = 4,
+	MOVE   = 5,
+};
+
 /**
  * The Lua part of lsyncd.
  */
@@ -520,12 +529,26 @@ get_settings(lua_State *L)
  */
 struct inotify_event * move_event_buf = NULL;
 size_t move_event_buf_size = 0;
+/* true if the buffer is used.*/
+bool move_event = false;
 
 /**
  * Handles an inotify event.
  */
 void handle_event(lua_State *L, struct inotify_event *event) {
+	/* TODO */
+	int event_type = NONE;
+
+	/* used to execute two events in case of unmatched MOVE_FROM buffer */
+	struct inotify_event *after_buf = NULL;
+
 	printf("handle_event\n");
+	
+	if (event == NULL) {
+		/* masterloop decided buffer was an unary MOVE_FROM event */
+		event = move_event_buf;
+		move_event = false;
+	} 
 	if (IN_Q_OVERFLOW & event->mask) {
 		/* and overflow happened, lets runner/user decide what to do. */
 		lua_getglobal(L, "overflow");
@@ -535,57 +558,50 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	if (IN_IGNORED & event->mask || reset) {
 		return;
 	}
-	{
-		if (IN_ACCESS & event->mask) {
-			printf("ACCESS id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+	if (move_event && (!(IN_MOVED_TO & event->mask)|| event->cookie != move_event_buf->cookie)) {
+		/* there is a MOVE_FROM event in the buffer and this is not the match */
+		/* continue in this function iteration to handler the buffer instead  */
+		after_buf = event;
+		event_type = DELETE;
+		move_event = false;
+	} else if (move_event && (IN_MOVED_TO & event->mask) && event->cookie == move_event_buf->cookie) {
+		/* this is indeed a matched move */
+		event_type = MOVE;
+		move_event = false;
+	} else if (IN_MOVED_FROM & event->mask) {
+		/* just the MOVE_FROM, buffers this event, and wait if next event is a matching 
+		 * MOVED_TO of this was an unary move out of the watched tree. */
+		if (move_event_buf_size < sizeof(struct inotify_event) + event->len) {
+			move_event_buf_size = sizeof(struct inotify_event) + event->len;
+			move_event_buf = s_realloc(move_event_buf, move_event_buf_size);
 		}
-		if (IN_MODIFY & event->mask) {
-			printf("MODIFY id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-		}
-		if (IN_ATTRIB & event->mask) {
-			printf("ATTRIB id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-		}
-		if (IN_CLOSE_WRITE & event->mask) {
-			printf("CLOSE_WRITE id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-		}
-		if (IN_CLOSE_NOWRITE & event->mask) {
-			printf("CLOSE_WRITE id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-		}
-		if (IN_OPEN & event->mask) {
-			printf("OPEN id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-		}
-		if (IN_MOVED_FROM & event->mask) {
-			/* special case, buffers this event, and wait if next event is a matching 
-			 * MOVED_TO of this was an unary move out of the watched tree. */
-			if (move_event_buf_size < sizeof(struct inotify_event) + event->len) {
-				move_event_buf_size = sizeof(struct inotify_event) + event->len;
-				move_event_buf = s_realloc(move_event_buf, move_event_buf_size);
-			}
-			memcpy(move_event_buf, event, sizeof(struct inotify_event) + event->len);
-			printf("MOVED_FROM id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-
-		}
-		if (IN_MOVED_TO & event->mask) {
-			printf("MOVED_TO id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-		}
-		if (IN_CREATE & event->mask) {
-			printf("CREATE id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-		}
-		if (IN_DELETE & event->mask) {
-			printf("DELETE id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-		}
-		if (IN_DELETE_SELF & event->mask) {
-			printf("DELETE_SELF id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-		}
-		if (IN_MOVE_SELF & event->mask) {
-			printf("MOVE_SELF id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-		}
+		memcpy(move_event_buf, event, sizeof(struct inotify_event) + event->len);
+		printf("MOVED_FROM id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		return;
+	} 
+	
+	if (IN_MOVED_FROM & event->mask) {
+		/* must be an unary movefrom */
+		event_type = DELETE;
+	} else if (IN_ATTRIB & event->mask) {
+		event_type = ATTRIB;
+	} else if (IN_CLOSE_WRITE & event->mask) {
+		event_type = MODIFY;
+	} else if (IN_MOVED_TO & event->mask) {
+		/* must be an unary moveto */
+		event_type = CREATE;
+	} else if (IN_CREATE & event->mask) {
+		event_type = CREATE;
+	} else if (IN_DELETE & event->mask) {
+		event_type = DELETE;
 	}
+	lua_getglobal(L, "lsyncd_event");
+	lua_pushnumber(L, event_type);
+	lua_call(L, 1, 0);
 
-	printf("id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
-
-
-	// TODO
+	if (after_buf) {
+		handle_event(L, after_buf);
+	}
 }
 
 /**
@@ -724,17 +740,11 @@ main(int argc, char *argv[])
 	lua_setglobal(L, "lysncd");
 
 	/* register inotify identifiers */
-	lua_pushinteger(L, IN_ACCESS);        lua_setglobal(L, "IN_ACCESS");
-	lua_pushinteger(L, IN_ATTRIB);        lua_setglobal(L, "IN_ATTRIB");
-	lua_pushinteger(L, IN_CLOSE_WRITE);   lua_setglobal(L, "IN_CLOSE_WRITE");
-	lua_pushinteger(L, IN_CLOSE_NOWRITE); lua_setglobal(L, "IN_CLOSE_NOWRITE");
-	lua_pushinteger(L, IN_CREATE);        lua_setglobal(L, "IN_CREATE");
-	lua_pushinteger(L, IN_DELETE);        lua_setglobal(L, "IN_DELETE");
-	lua_pushinteger(L, IN_DELETE_SELF);   lua_setglobal(L, "IN_DELETE_SELF");
-	lua_pushinteger(L, IN_MODIFY);        lua_setglobal(L, "IN_MODIFY");
-	lua_pushinteger(L, IN_MOVED_FROM);    lua_setglobal(L, "IN_MOVED_FROM");
-	lua_pushinteger(L, IN_MOVED_TO);      lua_setglobal(L, "IN_MOVED_TO");
-	lua_pushinteger(L, IN_OPEN);          lua_setglobal(L, "IN_OPEN");
+	lua_pushinteger(L, ATTRIB); lua_setglobal(L, "ATTRIB");
+	lua_pushinteger(L, MODIFY); lua_setglobal(L, "MODIFY");
+	lua_pushinteger(L, CREATE); lua_setglobal(L, "CREATE");
+	lua_pushinteger(L, DELETE); lua_setglobal(L, "DELETE");
+	lua_pushinteger(L, MOVE);   lua_setglobal(L, "MOVE");
 
 	/* TODO parse runner */
 	if (!strcmp(argv[argp], "--runner")) {

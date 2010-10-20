@@ -91,7 +91,7 @@ function lsyncd_initialize()
 end
 
 ----
--- Calle by core to determine soonest alarm.
+-- Called by core to determine soonest alarm.
 --
 -- @param  now   ... the current time representation.
 --
@@ -102,6 +102,21 @@ end
 --         times           ... the alarm time (only read if number is 1)
 function lsyncd_get_alarm()
 	return 0, 0
+end
+
+lsyncd_event_names = {
+	ATTRIB
+
+}
+
+-----
+-- Called by core on inotify event
+--
+-- @param etype    enum (ATTRIB, MODIFY, CREATE, DELETE, MOVE)
+-- @param wd       watch descriptor (matches lsyncd.add_watch())
+-- @param filename string filename without path
+--
+function lsyncd_event(etype, wd, filename) 
 end
 
 ------------------------------------------------------------------------------
@@ -135,20 +150,6 @@ function default_event()
 	print("got an event")
 	return 0
 end
-
-on_access        = default_event
-on_modify        = default_event
-on_attrib        = default_event
-on_close_write   = default_event
-on_close_nowrite = default_event
-on_open          = default_event
-on_moved_from    = default_event -- lsyncd only unary moved from 
-on_moved_to      = default_event -- lsyncd only unary moved to
-on_move          = default_event -- lsyncd Addon TODO
-on_create        = default_event
-on_delete        = default_event
-on_delete_self   = default_event
-on_move_self     = default_event
 
 -----
 -- Called by core after initialization.
