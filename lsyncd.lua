@@ -104,19 +104,31 @@ function lsyncd_get_alarm()
 	return 0, 0
 end
 
-lsyncd_event_names = {
-	ATTRIB
-
+-----
+-- TODO
+--
+local event_names = {
+	[ATTRIB] = "Attrib",
+	[MODIFY] = "Modify",
+	[CREATE] = "Create",
+	[DELETE] = "Delete",
+	[MOVE  ] = "Move",
 }
 
 -----
 -- Called by core on inotify event
 --
--- @param etype    enum (ATTRIB, MODIFY, CREATE, DELETE, MOVE)
--- @param wd       watch descriptor (matches lsyncd.add_watch())
--- @param filename string filename without path
+-- @param etype     enum (ATTRIB, MODIFY, CREATE, DELETE, MOVE)
+-- @param wd        watch descriptor (matches lsyncd.add_watch())
+-- @param filename  string filename without path
+-- @param filename2 
 --
-function lsyncd_event(etype, wd, filename) 
+function lsyncd_event(etype, wd, filename, filename2)
+	if filename2 == nil then
+		print("got event " .. event_names[etype] .. " of " .. filename) 
+	else 
+		print("got event " .. event_names[etype] .. " of " .. filename .. " to " .. filename2) 
+	end
 end
 
 ------------------------------------------------------------------------------

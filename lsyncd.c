@@ -542,26 +542,29 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	/* used to execute two events in case of unmatched MOVE_FROM buffer */
 	struct inotify_event *after_buf = NULL;
 
-	printf("handle_event\n");
-	
+
+	if (event) {
+		if (IN_Q_OVERFLOW & event->mask) {
+			/* and overflow happened, lets runner/user decide what to do. */
+			lua_getglobal(L, "overflow");
+			lua_call(L, 0, 0);
+			return;
+		}
+		if (IN_IGNORED & event->mask || reset) {
+			return;
+		}
+	}
+
 	if (event == NULL) {
-		/* masterloop decided buffer was an unary MOVE_FROM event */
+		/* a buffered MOVE_FROM is not followed by anything, thus it is unary */
 		event = move_event_buf;
+		event_type = DELETE;
 		move_event = false;
-	} 
-	if (IN_Q_OVERFLOW & event->mask) {
-		/* and overflow happened, lets runner/user decide what to do. */
-		lua_getglobal(L, "overflow");
-		lua_call(L, 0, 0);
-		return;
-	}
-	if (IN_IGNORED & event->mask || reset) {
-		return;
-	}
-	if (move_event && (!(IN_MOVED_TO & event->mask)|| event->cookie != move_event_buf->cookie)) {
+	} else if (move_event && (!(IN_MOVED_TO & event->mask)|| event->cookie != move_event_buf->cookie)) {
 		/* there is a MOVE_FROM event in the buffer and this is not the match */
 		/* continue in this function iteration to handler the buffer instead  */
 		after_buf = event;
+		event = move_event_buf;
 		event_type = DELETE;
 		move_event = false;
 	} else if (move_event && (IN_MOVED_TO & event->mask) && event->cookie == move_event_buf->cookie) {
@@ -576,28 +579,43 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 			move_event_buf = s_realloc(move_event_buf, move_event_buf_size);
 		}
 		memcpy(move_event_buf, event, sizeof(struct inotify_event) + event->len);
-		printf("MOVED_FROM id=%d mask=%d cookie=%d name=%s\n", event->wd, event->mask, event->cookie, event->name);
+		move_event = true;
+		printf("buffered\n");
 		return;
-	} 
-	
-	if (IN_MOVED_FROM & event->mask) {
-		/* must be an unary movefrom */
-		event_type = DELETE;
-	} else if (IN_ATTRIB & event->mask) {
-		event_type = ATTRIB;
-	} else if (IN_CLOSE_WRITE & event->mask) {
-		event_type = MODIFY;
 	} else if (IN_MOVED_TO & event->mask) {
 		/* must be an unary moveto */
 		event_type = CREATE;
+	} else if (IN_MOVED_FROM & event->mask) {
+		/* must be an unary movefrom */
+		event_type = DELETE;
+	} else if (IN_ATTRIB & event->mask) {
+		/* just attrib change */
+		event_type = ATTRIB;
+	} else if (IN_CLOSE_WRITE & event->mask) {
+		/* closed after written something */
+		event_type = MODIFY;
 	} else if (IN_CREATE & event->mask) {
+		/* a new file */
 		event_type = CREATE;
 	} else if (IN_DELETE & event->mask) {
+		/* rm'ed */
 		event_type = DELETE;
+	} else {
+		printf("skipped an event\n");
+		return;
 	}
+
 	lua_getglobal(L, "lsyncd_event");
 	lua_pushnumber(L, event_type);
-	lua_call(L, 1, 0);
+	lua_pushnumber(L, event->wd);
+	if (event_type == MOVE) {
+		lua_pushstring(L, move_event_buf->name);
+		lua_pushstring(L, event->name);
+	} else {
+		lua_pushstring(L, event->name);
+		lua_pushnil(L);
+	}
+	lua_call(L, 4, 0);
 
 	if (after_buf) {
 		handle_event(L, after_buf);
@@ -627,7 +645,6 @@ masterloop(lua_State *L)
 		alarm_time = (clock_t) luaL_checknumber(L, -1);
 		lua_pop(L, 2);
 
-	
 		if (alarm_state < 0) {
 			/* there is a delay that wants to be handled already
 			 * thus do not read from inotify_fd and jump directly to its handling */
@@ -704,6 +721,11 @@ masterloop(lua_State *L)
 				}
 			}
 		} while (do_read);
+
+		/* checks if there is an unary MOVE_FROM in the buffer */
+		if (move_event) {
+			handle_event(L, NULL);	
+		}
 	}
 }
 
