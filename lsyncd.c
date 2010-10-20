@@ -30,6 +30,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <syslog.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <lua.h>
@@ -48,7 +50,10 @@
 #define time_before_eq(a,b)     time_after_eq(b,a)
 
 
-enum event {
+/**
+ * Event types core sends to runner.
+ */
+enum event_type {
 	NONE   = 0,
 	ATTRIB = 1,
 	MODIFY = 2,
@@ -61,8 +66,8 @@ enum event {
  * The Lua part of lsyncd.
  */
 #define LSYNCD_DEFAULT_RUNNER_FILE "lsyncd.lua"
-char * lsyncd_runner_file = NULL;
-char * lsyncd_config_file = NULL;
+static char * lsyncd_runner_file = NULL;
+static char * lsyncd_config_file = NULL;
 
 /**
  * The inotify file descriptor.
@@ -72,28 +77,47 @@ static int inotify_fd;
 /**
  * TODO allow configure.
  */
-const uint32_t standard_event_mask =
+static const uint32_t standard_event_mask =
 		IN_ATTRIB   | IN_CLOSE_WRITE | IN_CREATE     |
 		IN_DELETE   | IN_DELETE_SELF | IN_MOVED_FROM |
 		IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR;
 
-/**
- * Configuration settings relevant for core.
+
+/** 
+ * If not null lsyncd logs in this file.
  */
-struct settings {
-	char * logfile;
-};
-struct settings settings = {0,};
+static char * logfile = NULL;
+
+/**
+ * If true lsyncd sends log messages to syslog
+ */
+bool logsyslog = false;
+
+/**
+ * lsyncd log level
+ */
+static enum loglevel {
+	DEBUG   = 1,    /* Log debug messages       */
+	VERBOSE = 2,    /* Log more                 */
+	NORMAL  = 3,    /* Log short summeries      */
+	ERROR   = 4,    /* Log severe errors only   */
+	CORE    = 0x80  /* Indicates a core message */
+} loglevel = NORMAL; 
+
+/**
+ * True when lsyncd daemonized itself.
+ */
+static bool is_daemon;
 
 /**
  * Set to TERM or HUP in signal handler, when lsyncd should end or reset ASAP.
  */
-volatile sig_atomic_t reset = 0;
+static volatile sig_atomic_t reset = 0;
 
 /**
  * The kernels clock ticks per second.
  */
-long clocks_per_sec; 
+static long clocks_per_sec; 
 
 /**
  * "secured" calloc.
@@ -174,6 +198,77 @@ l_add_watch(lua_State *L)
 	lua_Integer wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
 	lua_pushinteger(L, wd);
 	return 1;
+}
+
+/**
+ * Logs a log level
+ *
+ * @param loglevel (Lua stack) loglevel of massage
+ * @param string   (Lua stack) the string to log
+ */
+static int 
+l_log(lua_State *L)
+{
+	/* log message */
+	const char * message;
+	/* current time */
+	char * ct;
+	time_t mtime;
+	/* log level */
+	int level = luaL_checkinteger(L, 1);
+	/* true if logmessages comes from core */
+	bool core = (level & CORE) != 0;
+	/* strip flags from level */
+	level &= 0x0F;
+
+	/* skips filtered messagaes */
+	if (level < loglevel) {
+		return 0;
+	}
+	message = luaL_checkstring(L, 2);
+	
+	/* gets current time */
+	time(&mtime);
+	ct = ctime(&mtime);
+ 	/* cuts trailing linefeed */
+ 	ct[strlen(ct) - 1] = 0;
+
+	/* writes on console */
+	if (!is_daemon) {
+		if (level == ERROR) {
+			fprintf(stderr, "%s: %sERROR: %s", ct, core ? "CORE " : "", message);
+		} else {
+			fprintf(stdout, "%s: %s%s", ct, core ? "core: " : "", message);
+		}
+	}
+
+	/* writes on file */
+	if (logfile) {
+		FILE * flog = fopen(logfile, "a");
+		if (flog == NULL) {
+			fprintf(stderr, "core: cannot open logfile [%s]!\n", logfile);
+			exit(-1);  // ERRNO
+		}
+		if (level == ERROR) {
+			fprintf(flog, "%s: %sERROR: %s", ct, core  ? "CORE " : "", message);
+		} else {
+			fprintf(flog, "%s: %s%s", ct, core  ? "core: " : "", message);
+		}
+		fclose(flog);
+	}
+
+	/* sends to syslog */
+	/* TODO
+	if (logsyslog) {
+		if (!core) {
+			// TODO
+			syslog(sysp, message);
+		} else {
+			syslog(sysp, message);
+		}
+	}
+	*/
+	return 0;
 }
 
 /**
@@ -283,18 +378,18 @@ l_stackdump(lua_State* L)
 	for (i = 1; i <= top; i++) { 
 		int t = lua_type(L, i);
 		switch (t) {
-			case LUA_TSTRING:
-				printf("%d string: '%s'\n", i, lua_tostring(L, i));
-				break;
-			case LUA_TBOOLEAN:
-				printf("%d boolean %s\n", i, lua_toboolean(L, i) ? "true" : "false");
-				break;
-			case LUA_TNUMBER: 
-				printf("%d number: %g\n", i, lua_tonumber(L, i));
-				break;
-			default:  /* other values */
-				printf("%d %s\n", i, lua_typename(L, t));
-				break;
+		case LUA_TSTRING:
+			printf("%d string: '%s'\n", i, lua_tostring(L, i));
+			break;
+		case LUA_TBOOLEAN:
+			printf("%d boolean %s\n", i, lua_toboolean(L, i) ? "true" : "false");
+			break;
+		case LUA_TNUMBER: 
+			printf("%d number: %g\n", i, lua_tonumber(L, i));
+			break;
+		default: 
+			printf("%d %s\n", i, lua_typename(L, t));
+			break;
 		}
 	}
 	
@@ -471,6 +566,7 @@ l_wait_pids(lua_State *L)
 
 static const luaL_reg lsyncdlib[] = {
 		{"add_watch", l_add_watch },
+		{"log",       l_log       },
 		{"now",       l_now       },
 		{"exec",      l_exec      },
 		{"real_dir",  l_real_dir  },
@@ -487,26 +583,45 @@ static const luaL_reg lsyncdlib[] = {
  ****************************************************************************/
 
 /**
+ * TODO
+ */
+static void
+printlogf(lua_State *L, 
+          enum loglevel level, 
+		  const char *fmt, ...)
+	__attribute__((format(printf, 3, 4)));
+static void
+printlogf(lua_State *L, 
+          enum loglevel level, 
+		  const char *fmt, ...)
+{
+	va_list ap;
+	lua_pushcfunction(L, l_log);
+	lua_pushinteger(L, level);
+	va_start(ap, fmt);
+	lua_pushvfstring(L, fmt, ap);
+	va_end(ap);
+	lua_call(L, 2, 0);
+	return;
+}
+
+/**
  * Transfers the core relevant settings from lua's global "settings" into core.
  * This saves time in normal operation instead of bothering lua all the time.
  */
+ /*
 void
 get_settings(lua_State *L)
 {
-	/* frees old settings */
 	if (settings.logfile) {
 		free(settings.logfile);
 		settings.logfile = NULL;
 	}
-	
-	/* gets settings table */
 	lua_getglobal(L, "settings");
 	if (!lua_istable(L, -1)) {
-		/* user has not specified any settings */
 		return;
 	}
 	
-	/* get logfile */
 	lua_pushstring(L, "logfile");
 	lua_gettable(L, -2);
 	if (settings.logfile) {
@@ -518,9 +633,8 @@ get_settings(lua_State *L)
 	}
 	lua_pop(L, 1);
 	
-	/* pop the settings table */
 	lua_pop(L, 1);
-}
+}*/
 
 
 /**
@@ -761,12 +875,18 @@ main(int argc, char *argv[])
 	luaL_register(L, "lsyncd", lsyncdlib);
 	lua_setglobal(L, "lysncd");
 
-	/* register inotify identifiers */
+	/* register event types */
 	lua_pushinteger(L, ATTRIB); lua_setglobal(L, "ATTRIB");
 	lua_pushinteger(L, MODIFY); lua_setglobal(L, "MODIFY");
 	lua_pushinteger(L, CREATE); lua_setglobal(L, "CREATE");
 	lua_pushinteger(L, DELETE); lua_setglobal(L, "DELETE");
 	lua_pushinteger(L, MOVE);   lua_setglobal(L, "MOVE");
+	
+	/* register log levels */
+	lua_pushinteger(L, DEBUG);   lua_setglobal(L, "DEBUG");
+	lua_pushinteger(L, VERBOSE); lua_setglobal(L, "VERBOSE");
+	lua_pushinteger(L, NORMAL);  lua_setglobal(L, "NORMAL");
+	lua_pushinteger(L, ERROR);   lua_setglobal(L, "ERROR");
 
 	/* TODO parse runner */
 	if (!strcmp(argv[argp], "--runner")) {
@@ -846,9 +966,6 @@ main(int argc, char *argv[])
 	lua_getglobal(L, "lsyncd_initialize");
 	lua_call(L, 0, 0);
 
-	/* load core settings into core */
-	get_settings(L);
-	
 	/* let lua code will perform startup calls like recursive rsync */
 	lua_getglobal(L, "startup");
 	lua_call(L, 0, 0);
