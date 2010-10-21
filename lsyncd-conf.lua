@@ -8,7 +8,7 @@ settings = {
 	nodaemon,
 }
 
-add("s", "d")
+directory("s", "d")
 -- add("s/s1", "t")
 
 ----

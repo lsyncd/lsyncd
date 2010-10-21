@@ -19,52 +19,74 @@ if lsyncd_version ~= nil then
 end
 lsyncd_version = "2.0b1"
 
+----
+-- Shortcuts (which user is supposed to be able to use them as well)
 log = lsyncd.log
 
 ----
--- Table of all directories to watch.
+-- Table of all directories to watch, 
+-- filled and used only during initialization.
 origins = {}
 
 ----
--- all targets
+-- a array of all targets
+--
+-- structure:
+-- [#] {
+--    .targetident .. the identifier of target (like string "host:dir")
+--                    for lsyncd this passed competly opaquely to the action handlers
+-- }
 targets = {}
 
 -----
 -- all watches
+--
+-- structure: 
+-- [wd] = {
+--     .wd      ..               the watch descriptor (TODO needed?)
+--     .attends = [#] {
+--                    .odir   .. origin source dir
+--                    .path   .. path of dir
+--                    .target .. link to targets[#]
+--                    .parent .. link to parent directory in watches
+--                               or nil for origin
+--                }
+-- }
+--
 watches = {}
 
 ----
 -- Adds watches for a directory including all subdirectories.
 --
--- @param sdir
--- @param target
+-- @param odir      origin dir
+-- @param path      path in this dir
+-- @param target    link to target in [targets]
+-- @param parent    link to parent directory in watches[]
 --
-local function attend_dir(origin, path, target)
+local function attend_dir(odir, path, target, parent)
 	-- actual dir = origin + path 
-	local op = origin .. path
+	local op = odir .. path
 	-- register watch and receive watch descriptor
 	local wd = lsyncd.add_watch(op);
 	if wd < 0 then
 		-- failed adding the watch
+		log(ERROR, "Failure adding watch " .. op .." -> ignored ")
 		-- TODO die?
 		return
 	end
 
-	if watches[wd] ~= nil then
-		-- this directory is already watched, add the target
-		local watch = watches[wd]
-		table.insert(watch.attends, { origin = origin, path = path, target = target })
-	else
+	local thiswatch = watches[wd]
+	if thiswatch == nil then
 		-- new watch
-		local watch = {wd = wd, attends = { origin = origin, path = path, target = target } }
-		watches[wd] = watch
+		thiswatch = {wd = wd, attends = {} }
+		watches[wd] = thiswatch
 	end
+	table.insert(thiswatch.attends, { odir = odir, path = path, target = target, parent = parent })
 
 	-- register all subdirectories 
-	local subd = lsyncd.sub_dirs(op);
-	local i, o
-	for i, v in ipairs(subd) do
-		attend_dir(origin, path .. v .. "/", target)
+	local subdirs = lsyncd.sub_dirs(op);
+	for i, dirname in ipairs(subdirs) do
+		attend_dir(odir, path .. dirname .. "/", target, thiswatch)
 	end
 end
 
@@ -72,30 +94,33 @@ end
 -- Called from core on init or restart after user configuration.
 -- 
 function lsyncd_initialize()
-	local i, o
+	-- makes sure the user gave lsyncd anything to do 
+	if #origins == 0 then
+		log(ERROR, "nothing to watch. Use directory(SOURCEDIR, TARGET) in your config file.");
+		lsyncd.terminate(-1) -- ERRNO
+	end
+
+	-- runs through the origins table filled by user calling directory()
 	for i, o in ipairs(origins) do
 		-- resolves source to be an absolute path
-		local src = lsyncd.real_dir(o.source)
-		if src == nil then
-			print("Cannot resovle source path: ", src)
-			lsyncd.terminate() -- ERRNO
+		local asrc = lsyncd.real_dir(o.source)
+		if asrc == nil then
+			print("Cannot resolve source path: ", o.source)
+			lsyncd.terminate(-1) -- ERRNO
 		end
-		o.source = src
 
 		-- appends the target on target lists
-		local target = { path = o.targetpath }
+		local target = { ident = o.targetident }
 		table.insert(targets, target)
-		o.target = target
+		o.target = target  -- TODO needed?
 
 		-- and add the dir watch inclusively all subdirs
-		attend_dir(o.source, "", target)
+		attend_dir(asrc, "", target)
 	end
 end
 
 ----
--- Called by core to determine soonest alarm.
---
--- @param  now   ... the current time representation.
+-- Called by core to query soonest alarm.
 --
 -- @return two variables.
 --         number -1 means ... alarm is in the past.
@@ -107,7 +132,7 @@ function lsyncd_get_alarm()
 end
 
 -----
--- TODO
+-- A list of names of the event types the core sends.
 --
 local event_names = {
 	[ATTRIB] = "Attrib",
@@ -127,11 +152,43 @@ local event_names = {
 --
 function lsyncd_event(etype, wd, filename, filename2)
 	if filename2 == nil then
-		log(NORMAL, "got event " .. event_names[etype] .. " of " .. filename) 
+		log(DEBUG, "got event " .. event_names[etype] .. " of " .. filename) 
 	else 
-		log(NORMAL, "got event " .. event_names[etype] .. " of " .. filename .. " to " .. filename2) 
+		log(DEBUG, "got event " .. event_names[etype] .. " of " .. filename .. " to " .. filename2) 
 	end
+
+	-- looks up the watch descriptor id
+	local w = watches[wd]
+	if w == nil then
+		log(NORMAL, "event belongs to unknown or deleted watch descriptor.")
+		return
+	end
+	
+	-- works through all possible source->target pairs
+	for i, a in ipairs(w.attends) do
+		log(DEBUG, "odir = " .. a.odir .. " path = " .. a.path)
+	end
+
 end
+
+-----
+-- Called by the core for every child process that 
+-- finished in startup phase
+--
+-- Parameters are pid and exitcode of child process
+--
+-- Can return either a new pid if one other child process 
+-- has been spawned as replacement (e.g. retry) or 0 if
+-- finished/ok.
+--
+local function startup_collector(pid, exitcode)
+	if exitcode ~= 0 then
+		log(ERROR, "Startup process", pid, " failed")
+		lsyncd.terminate(-1) -- ERRNO
+	end
+	return 0
+end
+
 
 ------------------------------------------------------------------------------
 -- lsyncd user interface
@@ -139,9 +196,10 @@ end
 
 ----
 -- Adds one directory to be watched.
+-- Users primary configuration device.
 --
-function add(source_dir, target_path)
-	local o = { source = source_dir, targetpath = target_path }
+function directory(source_dir, target_identifier)
+	local o = { source = source_dir, targetident = target_identifier }
 	table.insert(origins, o)
 	return o
 end
@@ -168,7 +226,7 @@ function default_startup()
 	log(NORMAL, "--- startup ---")
 	local pids = { }
 	for i, o in ipairs(origins) do
-		startup_action(o.source, o.targetpath)
+		startup_action(o.source, o.targetident)
 		table.insert(pids, pid)
 	end
 	lsyncd.wait_pids(pids, "startup_collector")
@@ -176,25 +234,6 @@ function default_startup()
 end
 startup = default_startup
 
-
------
--- Called by the core for every child process that 
--- finished in startup phase
---
--- Parameters are pid and exitcode of child process
---
--- Can return either a new pid if one other child process 
--- has been spawned as replacement (e.g. retry) or 0 if
--- finished/ok.
---
-function default_startup_collector(pid, exitcode)
-	if exitcode ~= 0 then
-		log(ERROR, "Startup process", pid, " failed")
-		lsyncd.terminate(-1) -- ERRNO
-	end
-	return 0
-end
-startup_collector = default_startup_collector
 
 ----
 -- other functions the user might want to use

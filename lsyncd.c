@@ -15,7 +15,7 @@
 #ifdef HAVE_SYS_INOTIFY_H
 #  include <sys/inotify.h>
 #else
-#  include "inotify-nosys.h"
+#  error Missing <sys/inotify.h> please supply and rerun configure
 #endif
 
 #include <sys/stat.h>
@@ -102,7 +102,7 @@ static enum loglevel {
 	NORMAL  = 3,    /* Log short summeries      */
 	ERROR   = 4,    /* Log severe errors only   */
 	CORE    = 0x80  /* Indicates a core message */
-} loglevel = NORMAL; 
+} loglevel = DEBUG;  // TODO
 
 /**
  * True when lsyncd daemonized itself.
@@ -214,8 +214,8 @@ logstring0(enum loglevel level,
 	}
 
 	prefix = level == ERROR ? 
-	                  (coremsg ? "CORE ERROR " : "ERROR ") :
-	                  (coremsg ? "core " : "");
+	                  (coremsg ? "CORE ERROR: " : "ERROR: ") :
+	                  (coremsg ? "core: " : "");
 
 	/* writes on console */
 	if (!is_daemon) {
