@@ -15,7 +15,7 @@
 #ifdef HAVE_SYS_INOTIFY_H
 #  include <sys/inotify.h>
 #else
-#  error Missing <sys/inotify.h> please supply and rerun configure
+#  error Missing <sys/inotify.h> please supply kernel-headers and rerun configure
 #endif
 
 #include <sys/stat.h>
