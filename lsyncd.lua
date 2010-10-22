@@ -238,7 +238,7 @@ end
 -- has been spawned as replacement (e.g. retry) or 0 if
 -- finished/ok.
 --
-local function startup_collector(pid, exitcode)
+function startup_collector(pid, exitcode)
 	if exitcode ~= 0 then
 		log(ERROR, "Startup process", pid, " failed")
 		lsyncd.terminate(-1) -- ERRNO
@@ -257,7 +257,7 @@ end
 --
 -- @param TODO
 --
-function sync(actions, source_dir, target_identifier)
+function sync(source_dir, target_identifier, actions)
 	local o = { actions = actions, 
 	            source = source_dir, 
 		    targetident = target_identifier, 

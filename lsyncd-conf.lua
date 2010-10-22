@@ -63,6 +63,6 @@ rsync = {
 	end
 }
 
-sync(slowbash, "s", "d")
+sync("s", "d", slowbash)
 
 
