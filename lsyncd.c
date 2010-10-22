@@ -54,12 +54,18 @@
  * Event types core sends to runner.
  */
 enum event_type {
-	NONE   = 0,
-	ATTRIB = 1,
-	MODIFY = 2,
-	CREATE = 3,
-	DELETE = 4,
-	MOVE   = 5,
+	NONE     = 0,
+	ATTRIB   = 1,
+	MODIFY   = 2,
+	CREATE   = 3,
+	DELETE   = 4,
+	MOVE     = 5,
+	/* MOVEFROM/TO never get passed to the runner, but it uses these
+	 * enums to split events again. The core will only send complete
+	 * move events to the runner. Moves into or out of the watch tree
+	 * are replaced with CREATE/DELETE events. */
+	MOVEFROM = 6, 
+	MOVETO   = 7,
 };
 
 /**
@@ -714,36 +720,42 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	}
 
 	if (event == NULL) {
-		/* a buffered MOVE_FROM is not followed by anything, thus it is unary */
+		/* a buffered MOVE_FROM is not followed by anything, 
+		   thus it is unary */
 		event = move_event_buf;
 		event_type = DELETE;
 		move_event = false;
-	} else if (move_event && (!(IN_MOVED_TO & event->mask)|| event->cookie != move_event_buf->cookie)) {
-		/* there is a MOVE_FROM event in the buffer and this is not the match */
-		/* continue in this function iteration to handler the buffer instead  */
+	} else if (move_event && 
+	            ( !(IN_MOVED_TO & event->mask) || 
+			      event->cookie != move_event_buf->cookie) ) {
+		/* there is a MOVE_FROM event in the buffer and this is not the match
+		 * continue in this function iteration to handler the buffer instead */
 		after_buf = event;
 		event = move_event_buf;
 		event_type = DELETE;
 		move_event = false;
-	} else if (move_event && (IN_MOVED_TO & event->mask) && event->cookie == move_event_buf->cookie) {
+	} else if ( move_event && 
+	            (IN_MOVED_TO & event->mask) && 
+			    event->cookie == move_event_buf->cookie ) {
 		/* this is indeed a matched move */
 		event_type = MOVE;
 		move_event = false;
 	} else if (IN_MOVED_FROM & event->mask) {
 		/* just the MOVE_FROM, buffers this event, and wait if next event is a matching 
 		 * MOVED_TO of this was an unary move out of the watched tree. */
-		if (move_event_buf_size < sizeof(struct inotify_event) + event->len) {
-			move_event_buf_size = sizeof(struct inotify_event) + event->len;
-			move_event_buf = s_realloc(move_event_buf, move_event_buf_size);
+		size_t el = sizeof(struct inotify_event) + event->len;
+		if (move_event_buf_size < el) {
+			move_event_buf_size = el;
+			move_event_buf = s_realloc(move_event_buf, el);
 		}
-		memcpy(move_event_buf, event, sizeof(struct inotify_event) + event->len);
+		memcpy(move_event_buf, event, el);
 		move_event = true;
 		return;
 	} else if (IN_MOVED_TO & event->mask) {
-		/* must be an unary moveto */
+		/* must be an unary move-to */
 		event_type = CREATE;
 	} else if (IN_MOVED_FROM & event->mask) {
-		/* must be an unary movefrom */
+		/* must be an unary move-from */
 		event_type = DELETE;
 	} else if (IN_ATTRIB & event->mask) {
 		/* just attrib change */
@@ -762,6 +774,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		return;
 	}
 
+	/* and hands over to runner */
 	lua_getglobal(L, "lsyncd_event");
 	lua_pushnumber(L, event_type);
 	lua_pushnumber(L, event->wd);
@@ -775,6 +788,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	}
 	lua_call(L, 5, 0);
 
+	/* if there is a buffered event executes it */
 	if (after_buf) {
 		handle_event(L, after_buf);
 	}
@@ -842,32 +856,28 @@ masterloop(lua_State *L)
 		}
 		
 		/* reads possible events from inotify stream */
-		do {
+		while(do_read) {
 			int i = 0;
-			if (do_read) {
-				do {
-					len = read (inotify_fd, readbuf, readbuf_size);
-					if (len < 0 && errno == EINVAL) {
-						/* kernel > 2.6.21 indicates that way that way that
-						 * the buffer was too small to fit a filename.
-						 * double its size and try again. When using a lower
-						 * kernel and a filename > 2KB       appears lsyncd
-						 * will fail. (but does a 2KB filename really happen?)*/
-						readbuf_size *= 2;
-						readbuf = s_realloc(readbuf, readbuf_size);
-						continue;
-					}
-				} while(0);
-			} else {
-				len = 0;
-			}
+			do {
+				len = read (inotify_fd, readbuf, readbuf_size);
+				if (len < 0 && errno == EINVAL) {
+					/* kernel > 2.6.21 indicates that way that way that
+					 * the buffer was too small to fit a filename.
+					 * double its size and try again. When using a lower
+					 * kernel and a filename > 2KB       appears lsyncd
+					 * will fail. (but does a 2KB filename really happen?)*/
+					readbuf_size *= 2;
+					readbuf = s_realloc(readbuf, readbuf_size);
+					continue;
+				}
+			} while(0);
 			while (i < len && !reset) {
 				struct inotify_event *event = (struct inotify_event *) &readbuf[i];
 				handle_event(L, event);
 				i += sizeof(struct inotify_event) + event->len;
 			}
 			/* check if there is more data */
-			if (do_read) {
+			{
 				struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
 				fd_set readfds;
 				FD_ZERO(&readfds);
@@ -877,9 +887,9 @@ masterloop(lua_State *L)
 					logstring(DEBUG, "there is more data on inotify.");
 				}
 			}
-		} while (do_read);
+		} 
 
-		/* checks if there is an unary MOVE_FROM in the buffer */
+		/* checks if there is an unary MOVE_FROM left in the buffer */
 		if (move_event) {
 			handle_event(L, NULL);	
 		}

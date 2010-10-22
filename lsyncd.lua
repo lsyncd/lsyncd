@@ -14,6 +14,7 @@
 -- A security measurement.
 -- Core will exit if version ids mismatch.
 if lsyncd_version ~= nil then
+	-- checks if the runner is being loaded twice 
 	print("You cannot use the lsyncd runner as configuration file!")
 	os.exit(-1)
 end
@@ -33,12 +34,16 @@ origins = {}
 --
 -- structure:
 -- [#] {
---    .ident   .. the identifier of target (like string "host:dir")
---                for lsyncd this passed competly opaquely to the action handlers
---    .delays = [#] {
---                  wd    ... watch descriptor
---                  atype ... TODO
---              }   
+--    .ident           .. the identifier of target (like string "host:dir")
+--                        for lsyncd this passed competly opaquely to the 
+--                        action handlers
+--    .delays = [#) {  .. the delays stack
+--         .atype      .. enum, kind of action
+--         .wd         .. watch descriptor id this origins from TODO needed?
+--         .attend     .. link to atttender that raised this.
+--         .filename   .. filename or nil, means dir itself
+--         (.movepeer) .. for MOVEFROM/MOVETO link to other delay
+--    }
 -- }
 targets = {}
 
@@ -58,7 +63,6 @@ targets = {}
 -- }
 --
 watches = {}
-
 
 -- TODO
 collapse_table = {
@@ -161,11 +165,13 @@ end
 -- A list of names of the event types the core sends.
 --
 local event_names = {
-	[ATTRIB] = "Attrib",
-	[MODIFY] = "Modify",
-	[CREATE] = "Create",
-	[DELETE] = "Delete",
-	[MOVE  ] = "Move",
+	[ATTRIB   ] = "Attrib",
+	[MODIFY   ] = "Modify",
+	[CREATE   ] = "Create",
+	[DELETE   ] = "Delete",
+	[MOVE     ] = "Move",
+	[MOVEFROM ] = "MoveFrom",
+	[MOVETO   ] = "MoveTo",
 }
 
 -----
