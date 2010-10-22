@@ -17,7 +17,8 @@ slower = "sleep 10"
 slowbash = {
 	startup = function(source, target)
 		log(NORMAL, "cp -r from "..source.." -> "..target)
-		return 0;
+		return exec("/bin/bash", "-c", "cp -r \"$1\" \"$2\"", "/bin/bash", 
+		            source, target)
 	end,
 
 	create = function(source, path, name, target)
