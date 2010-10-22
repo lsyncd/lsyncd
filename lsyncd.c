@@ -765,6 +765,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	lua_getglobal(L, "lsyncd_event");
 	lua_pushnumber(L, event_type);
 	lua_pushnumber(L, event->wd);
+	lua_pushboolean(L, (event->mask & IN_ISDIR) != 0);
 	if (event_type == MOVE) {
 		lua_pushstring(L, move_event_buf->name);
 		lua_pushstring(L, event->name);
@@ -772,7 +773,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		lua_pushstring(L, event->name);
 		lua_pushnil(L);
 	}
-	lua_call(L, 4, 0);
+	lua_call(L, 5, 0);
 
 	if (after_buf) {
 		handle_event(L, after_buf);

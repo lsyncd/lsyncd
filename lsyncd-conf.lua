@@ -8,8 +8,13 @@ settings = {
 	nodaemon,
 }
 
-directory("s", "d")
--- add("s/s1", "t")
+rsync = {
+	default = function(source, path, target)
+		return exec("/usr/bin/rsync", "--delete", "-ltds", source .. "/" .. path, target .. "/" .. path)
+	end
+}
+
+directory("s", "d", rsync)
 
 ----
 -- Called for every source .. target pair on startup

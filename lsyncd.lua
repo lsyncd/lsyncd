@@ -33,8 +33,12 @@ origins = {}
 --
 -- structure:
 -- [#] {
---    .targetident .. the identifier of target (like string "host:dir")
---                    for lsyncd this passed competly opaquely to the action handlers
+--    .ident   .. the identifier of target (like string "host:dir")
+--                for lsyncd this passed competly opaquely to the action handlers
+--    .delays = [#] {
+--                  wd    ... watch descriptor
+--                  atype ... TODO
+--              }   
 -- }
 targets = {}
 
@@ -44,7 +48,7 @@ targets = {}
 -- structure: 
 -- [wd] = {
 --     .wd      ..               the watch descriptor (TODO needed?)
---     .attends = [#] {
+--     .targets = [#] {
 --                    .odir   .. origin source dir
 --                    .path   .. path of dir
 --                    .target .. link to targets[#]
@@ -55,6 +59,22 @@ targets = {}
 --
 watches = {}
 
+
+-- TODO
+collapse_table = {
+	[ATTRIB] = { [ATTRIB] = ATTRIB, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
+	[MODIFY] = { [ATTRIB] = MODIFY, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
+	[CREATE] = { [ATTRIB] = CREATE, [MODIFY] = CREATE, [CREATE] = CREATE, [DELETE] = DELETE },
+	[DELETE] = { [ATTRIB] = DELETE, [MODIFY] = DELETE, [CREATE] = MODIFY, [DELETE] = DELETE },
+}
+
+
+-----
+-- TODO
+local function delay_action(atype, target, time, wd, odir, path)
+	-- TODO
+end
+
 ----
 -- Adds watches for a directory including all subdirectories.
 --
@@ -62,8 +82,9 @@ watches = {}
 -- @param path      path in this dir
 -- @param target    link to target in [targets]
 -- @param parent    link to parent directory in watches[]
+-- @param actions   TODO
 --
-local function attend_dir(odir, path, target, parent)
+local function attend_dir(odir, path, target, parent, actions)
 	-- actual dir = origin + path 
 	local op = odir .. path
 	-- register watch and receive watch descriptor
@@ -81,12 +102,17 @@ local function attend_dir(odir, path, target, parent)
 		thiswatch = {wd = wd, attends = {} }
 		watches[wd] = thiswatch
 	end
-	table.insert(thiswatch.attends, { odir = odir, path = path, target = target, parent = parent })
+	table.insert(thiswatch.attends, { odir = odir, path = path, target = target, parent = parent, actions = actions })
 
 	-- register all subdirectories 
 	local subdirs = lsyncd.sub_dirs(op);
 	for i, dirname in ipairs(subdirs) do
-		attend_dir(odir, path .. dirname .. "/", target, thiswatch)
+		attend_dir(odir, path .. dirname .. "/", target, thiswatch, actions)
+	end
+
+	-- TODO
+	if actions ~= nil then
+		delay_action(CREATE, target, nil, nil, wd, odir, path)
 	end
 end
 
@@ -110,12 +136,12 @@ function lsyncd_initialize()
 		end
 
 		-- appends the target on target lists
-		local target = { ident = o.targetident }
+		local target = { ident = o.targetident, delays = {} }
 		table.insert(targets, target)
 		o.target = target  -- TODO needed?
 
 		-- and add the dir watch inclusively all subdirs
-		attend_dir(asrc, "", target)
+		attend_dir(asrc, "", target, nil)
 	end
 end
 
@@ -150,11 +176,18 @@ local event_names = {
 -- @param filename  string filename without path
 -- @param filename2 
 --
-function lsyncd_event(etype, wd, filename, filename2)
+function lsyncd_event(etype, wd, isdir, filename, filename2)
+	local ftype;
+	if isdir then
+		ftype = "directory"
+	else
+		ftype = "file"
+	end
+	-- TODO comment out to safe performance
 	if filename2 == nil then
-		log(DEBUG, "got event " .. event_names[etype] .. " of " .. filename) 
+		log(DEBUG, "got event " .. event_names[etype] .. " of " .. ftype .. " " .. filename) 
 	else 
-		log(DEBUG, "got event " .. event_names[etype] .. " of " .. filename .. " to " .. filename2) 
+		log(DEBUG, "got event " .. event_names[etype] .. " of " .. ftype .. " " .. filename .. " to " .. filename2) 
 	end
 
 	-- looks up the watch descriptor id
@@ -167,6 +200,11 @@ function lsyncd_event(etype, wd, filename, filename2)
 	-- works through all possible source->target pairs
 	for i, a in ipairs(w.attends) do
 		log(DEBUG, "odir = " .. a.odir .. " path = " .. a.path)
+		if (isdir) then
+			if (etype == CREATE) then
+				attend_dir(a.odir, a.path .. filename .. "/", w, a.actions)
+			end
+		end
 	end
 
 end
@@ -198,8 +236,10 @@ end
 -- Adds one directory to be watched.
 -- Users primary configuration device.
 --
-function directory(source_dir, target_identifier)
-	local o = { source = source_dir, targetident = target_identifier }
+-- @param TODO
+--
+function directory(source_dir, target_identifier, actions)
+	local o = { source = source_dir, targetident = target_identifier, actions = actions}
 	table.insert(origins, o)
 	return o
 end
