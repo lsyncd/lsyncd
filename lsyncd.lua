@@ -74,6 +74,7 @@ targets = {}
 --
 watches = {}
 
+------
 -- TODO
 collapse_table = {
 	[ATTRIB] = { [ATTRIB] = ATTRIB, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
@@ -82,10 +83,23 @@ collapse_table = {
 	[DELETE] = { [ATTRIB] = DELETE, [MODIFY] = DELETE, [CREATE] = MODIFY, [DELETE] = DELETE },
 }
 
+-----
+-- A list of names of the event types the core sends.
+--
+local event_names = {
+	[ATTRIB   ] = "Attrib",
+	[MODIFY   ] = "Modify",
+	[CREATE   ] = "Create",
+	[DELETE   ] = "Delete",
+	[MOVE     ] = "Move",
+	[MOVEFROM ] = "MoveFrom",
+	[MOVETO   ] = "MoveTo",
+}
 
 -----
 -- TODO
-local function delay_action(atype, target, time, wd, odir, path)
+local function delay_action(atype, wd, sync, filename, time)
+	print("delay_action "..event_names[atype].."("..wd..") ")
 	-- TODO
 end
 
@@ -117,7 +131,7 @@ local function attend_dir(origin, path, parent)
 
 	-- warmstart?
 	if origin.actions.startup == nil then
-		delay_action(CREATE, target, nil, wd, origin, path)
+		delay_action(CREATE, wd, sync, nil, nil)
 	end
 
 	-- register all subdirectories 
@@ -190,19 +204,6 @@ function lsyncd_get_alarm()
 end
 
 -----
--- A list of names of the event types the core sends.
---
-local event_names = {
-	[ATTRIB   ] = "Attrib",
-	[MODIFY   ] = "Modify",
-	[CREATE   ] = "Create",
-	[DELETE   ] = "Delete",
-	[MOVE     ] = "Move",
-	[MOVEFROM ] = "MoveFrom",
-	[MOVETO   ] = "MoveTo",
-}
-
------
 -- Called by core on inotify event
 --
 -- @param etype     enum (ATTRIB, MODIFY, CREATE, DELETE, MOVE)
@@ -233,6 +234,10 @@ function lsyncd_event(etype, wd, isdir, filename, filename2)
 	
 	-- works through all possible source->target pairs
 	for i, sync in ipairs(w.syncs) do
+		time = nil -- TODO
+		delay_action(etype, wd, sync, filename, time)
+
+		-- add subdirs for new directories
 		if isdir and eypte == CREATE then
 			attend_dir(sync.origin, sync.path..filename.."/", w)
 		end
