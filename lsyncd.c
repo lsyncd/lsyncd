@@ -335,6 +335,20 @@ l_now(lua_State *L)
 }
 
 /**
+ * Returns (on Lua stack) the addition of two clock_t times.
+ *
+ * TODO
+ */
+static int
+l_addup_clocks(lua_State *L) 
+{
+	clock_t c1 = luaL_checkinteger(L, 1);
+	clock_t c2 = luaL_checkinteger(L, 2);
+	lua_pop(L, 2);
+	lua_pushinteger(L, c1 + c2);
+	return 1;
+}
+/**
  * Executes a subprocess. Does not wait for it to return.
  * 
  * @param  (Lua stack) Path to binary to call
@@ -615,15 +629,16 @@ l_wait_pids(lua_State *L)
 
 
 static const luaL_reg lsyncdlib[] = {
-		{"add_watch", l_add_watch },
-		{"log",       l_log       },
-		{"now",       l_now       },
-		{"exec",      l_exec      },
-		{"real_dir",  l_real_dir  },
-		{"stackdump", l_stackdump },
-		{"sub_dirs",  l_sub_dirs  },
-		{"terminate", l_terminate },
-		{"wait_pids", l_wait_pids },
+		{"addup_clocks", l_addup_clocks },
+		{"add_watch",    l_add_watch    },
+		{"log",          l_log          },
+		{"now",          l_now          },
+		{"exec",         l_exec         },
+		{"real_dir",     l_real_dir     },
+		{"stackdump",    l_stackdump    },
+		{"sub_dirs",     l_sub_dirs     },
+		{"terminate",    l_terminate    },
+		{"wait_pids",    l_wait_pids    },
 		{NULL, NULL}
 };
 

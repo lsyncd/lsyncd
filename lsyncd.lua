@@ -37,7 +37,7 @@ exec = lsyncd.exec
 --    target      = link to target directory
 -- }
 --
-origins = {}
+local origins = {}
 
 ----
 -- a array of all targets
@@ -56,7 +56,7 @@ origins = {}
 --    }
 -- }
 --
-targets = {}
+local targets = {}
 
 -----
 -- all watches
@@ -72,11 +72,11 @@ targets = {}
 --     }
 -- }
 --
-watches = {}
+local watches = {}
 
 ------
 -- TODO
-collapse_table = {
+local collapse_table = {
 	[ATTRIB] = { [ATTRIB] = ATTRIB, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
 	[MODIFY] = { [ATTRIB] = MODIFY, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
 	[CREATE] = { [ATTRIB] = CREATE, [MODIFY] = CREATE, [CREATE] = CREATE, [DELETE] = DELETE },
@@ -100,7 +100,17 @@ local event_names = {
 -- TODO
 local function delay_action(atype, wd, sync, filename, time)
 	print("delay_action "..event_names[atype].."("..wd..") ")
-	-- TODO
+	local origin = sync.origin
+	local target = origin.target
+	local delays = target.delays
+	local nd = {atype    = atype, 
+	            wd       = wd, 
+		    sync     = sync, 
+		    filename = filename }
+	if time ~= nil and origin.actions.delay ~= nil then
+		nd.alarm = lsyncd.append_time(time, origin.actions.delay) 
+	end
+	table.insert(delays, nd)
 end
 
 ----
@@ -139,6 +149,12 @@ local function attend_dir(origin, path, parent)
 	for i, dirname in ipairs(subdirs) do
 		attend_dir(origin, path..dirname.."/", thiswatch)
 	end
+end
+
+----
+-- Called from core everytime after 
+function lsyncd_alarm()
+	-- TODO
 end
 
 ----

@@ -9,6 +9,7 @@ settings = {
 	loglevel = DEBUG,
 }
 
+print(bla)
 
 ------
 -- for testing purposes
