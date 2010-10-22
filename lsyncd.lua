@@ -22,12 +22,21 @@ lsyncd_version = "2.0b1"
 
 ----
 -- Shortcuts (which user is supposed to be able to use them as well)
+--
 log  = lsyncd.log
 exec = lsyncd.exec
 
 ----
--- Table of all directories to watch, 
--- filled and used only during initialization.
+-- Table of all root directories to sync, 
+-- filled during initialization.
+--
+-- [#] {
+--    actions     = actions, 
+--    source      = source_dir, 
+--    targetident = target_identifier,
+--    target      = link to target directory
+-- }
+--
 origins = {}
 
 ----
@@ -41,11 +50,12 @@ origins = {}
 --    .delays = [#) {  .. the delays stack
 --         .atype      .. enum, kind of action
 --         .wd         .. watch descriptor id this origins from TODO needed?
---         .attend     .. link to atttender that raised this.
---         .filename   .. filename or nil, means dir itself
+--         .attend     .. link to atttender that raised this delay.
+--         .filename   .. filename or nil (=dir itself)
 --         (.movepeer) .. for MOVEFROM/MOVETO link to other delay
 --    }
 -- }
+--
 targets = {}
 
 -----
@@ -53,14 +63,13 @@ targets = {}
 --
 -- structure: 
 -- [wd] = {
---     .wd      ..               the watch descriptor (TODO needed?)
---     .targets = [#] {
---                    .odir   .. origin source dir
---                    .path   .. path of dir
---                    .target .. link to targets[#]
---                    .parent .. link to parent directory in watches
---                               or nil for origin
---                }
+--     .wd      ..              the watch descriptor (TODO needed?)
+--     .syncs = [#] {			list of stuff to sync to
+--         .origin .. link to origin
+--         .path   .. relative path of dir
+--         .parent .. link to parent directory in watches
+--                    or nil for origin
+--     }
 -- }
 --
 watches = {}
@@ -83,41 +92,38 @@ end
 ----
 -- Adds watches for a directory including all subdirectories.
 --
--- @param odir      origin dir
--- @param path      path in this dir
--- @param target    link to target in [targets]
+-- @param origin    link to origins[] entry
+-- @param path      relative path of this dir to origin
 -- @param parent    link to parent directory in watches[]
--- @param actions   TODO
 --
-local function attend_dir(odir, path, target, parent, actions)
-	-- actual dir = origin + path 
-	local op = odir .. path
+local function attend_dir(origin, path, parent)
+	local op = origin.source .. path
 	-- register watch and receive watch descriptor
 	local wd = lsyncd.add_watch(op);
 	if wd < 0 then
 		-- failed adding the watch
-		log(ERROR, "Failure adding watch " .. op .." -> ignored ")
-		-- TODO die?
+		log(ERROR, "Failure adding watch "..op.." -> ignored ")
 		return
 	end
 
 	local thiswatch = watches[wd]
 	if thiswatch == nil then
 		-- new watch
-		thiswatch = {wd = wd, attends = {} }
+		thiswatch = {wd = wd, syncs = {} }
 		watches[wd] = thiswatch
 	end
-	table.insert(thiswatch.attends, { odir = odir, path = path, target = target, parent = parent, actions = actions })
+	local sync = { origin = origin, path = path, parent = parent } 
+	table.insert(thiswatch.syncs, sync)
+
+	-- warmstart?
+	if origin.actions.startup == nil then
+		delay_action(CREATE, target, nil, wd, origin, path)
+	end
 
 	-- register all subdirectories 
 	local subdirs = lsyncd.sub_dirs(op);
 	for i, dirname in ipairs(subdirs) do
-		attend_dir(odir, path .. dirname .. "/", target, thiswatch, actions)
-	end
-
-	-- TODO
-	if actions ~= nil then
-		delay_action(CREATE, target, nil, nil, wd, odir, path)
+		attend_dir(origin, path..dirname.."/", thiswatch)
 	end
 end
 
@@ -131,35 +137,44 @@ function lsyncd_initialize()
 		lsyncd.terminate(-1) -- ERRNO
 	end
 
+	-- set to true if at least one origin has a startup function
+	local have_startup = false
 	-- runs through the origins table filled by user calling directory()
-	for i, o in ipairs(origins) do
+	for i, origin in ipairs(origins) do
 		-- resolves source to be an absolute path
-		local asrc = lsyncd.real_dir(o.source)
+		local asrc = lsyncd.real_dir(origin.source)
 		if asrc == nil then
-			print("Cannot resolve source path: ", o.source)
+			print("Cannot resolve source path: ", origin.source)
 			lsyncd.terminate(-1) -- ERRNO
 		end
+		origin.source = asrc
 
 		-- appends the target on target lists
-		local target = { ident = o.targetident, delays = {} }
+		local target = { ident = origin.targetident, delays = {} }
 		table.insert(targets, target)
-		o.target = target  -- TODO needed?
-
+		origin.target = target 
+		if origin.actions.startup ~= nil then
+			have_startup = true
+		end
 		-- and add the dir watch inclusively all subdirs
-		attend_dir(asrc, "", target, nil)
+		attend_dir(origin, "", nil)
 	end
 	
-	log(NORMAL, "--- startup ---")
-	local pids = { }
-	local pid
-	for i, o in ipairs(origins) do
-		if (o.actions.startup ~= nil) then
-			pid = o.actions.startup(o.source, o.targetident)
+	if have_startup then
+		log(NORMAL, "--- startup ---")
+		local pids = { }
+		for i, origin in ipairs(origins) do
+			local pid
+			if origin.actions.startup ~= nil then
+				local pid = origin.actions.startup(origin.source, origin.targetident)
+				table.insert(pids, pid)
+			end
 		end
-		table.insert(pids, pid)
+		lsyncd.wait_pids(pids, "startup_collector")
+		log(NORMAL, "--- Entering normal operation with "..#watches.." monitored directories ---")
+	else
+		log(NORMAL, "--- Warmstart into normal operation with "..#watches.." monitored directories ---")
 	end
-	lsyncd.wait_pids(pids, "startup_collector")
-	log(NORMAL, "--- Entering normal operation with " .. #watches .. " monitored directories ---")
 end
 
 ----
@@ -204,9 +219,9 @@ function lsyncd_event(etype, wd, isdir, filename, filename2)
 	end
 	-- TODO comment out to safe performance
 	if filename2 == nil then
-		log(DEBUG, "got event " .. event_names[etype] .. " of " .. ftype .. " " .. filename) 
+		log(DEBUG, "got event "..event_names[etype].." of "..ftype.." "..filename) 
 	else 
-		log(DEBUG, "got event " .. event_names[etype] .. " of " .. ftype .. " " .. filename .. " to " .. filename2) 
+		log(DEBUG, "got event "..event_names[etype].." of "..ftype.." "..filename.." to "..filename2) 
 	end
 
 	-- looks up the watch descriptor id
@@ -217,15 +232,11 @@ function lsyncd_event(etype, wd, isdir, filename, filename2)
 	end
 	
 	-- works through all possible source->target pairs
-	for i, a in ipairs(w.attends) do
-		log(DEBUG, "odir = " .. a.odir .. " path = " .. a.path)
-		if (isdir) then
-			if (etype == CREATE) then
-				attend_dir(a.odir, a.path .. filename .. "/", w, a.actions)
-			end
+	for i, sync in ipairs(w.syncs) do
+		if isdir and eypte == CREATE then
+			attend_dir(sync.origin, sync.path..filename.."/", w)
 		end
 	end
-
 end
 
 -----
@@ -258,10 +269,10 @@ end
 -- @param TODO
 --
 function sync(source_dir, target_identifier, actions)
-	local o = { actions = actions, 
-	            source = source_dir, 
-		    targetident = target_identifier, 
-		  }
+	local o = {     actions = actions, 
+	                source  = source_dir, 
+	            targetident = target_identifier, 
+	}
 	table.insert(origins, o)
 	return 
 end
@@ -274,6 +285,4 @@ function default_overflow()
 
 end
 overflow = default_overflow
-
-
 

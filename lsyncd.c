@@ -517,7 +517,7 @@ l_terminate(lua_State *L)
 }
 
 /**
- * Waits after startup for a table of child processes.
+ * Suspends execution until a table of child processes returned.
  * 
  * @param (Lua stack) a table of the children pids.
  * @param (Lua stack) a function of a collector to be called 
