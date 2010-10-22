@@ -929,11 +929,13 @@ main(int argc, char *argv[])
 	lua_setglobal(L, "lysncd");
 
 	/* register event types */
-	lua_pushinteger(L, ATTRIB); lua_setglobal(L, "ATTRIB");
-	lua_pushinteger(L, MODIFY); lua_setglobal(L, "MODIFY");
-	lua_pushinteger(L, CREATE); lua_setglobal(L, "CREATE");
-	lua_pushinteger(L, DELETE); lua_setglobal(L, "DELETE");
-	lua_pushinteger(L, MOVE);   lua_setglobal(L, "MOVE");
+	lua_pushinteger(L, ATTRIB);   lua_setglobal(L, "ATTRIB");
+	lua_pushinteger(L, MODIFY);   lua_setglobal(L, "MODIFY");
+	lua_pushinteger(L, CREATE);   lua_setglobal(L, "CREATE");
+	lua_pushinteger(L, DELETE);   lua_setglobal(L, "DELETE");
+	lua_pushinteger(L, MOVE);     lua_setglobal(L, "MOVE");
+	lua_pushinteger(L, MOVEFROM); lua_setglobal(L, "MOVEFROM");
+	lua_pushinteger(L, MOVETO);   lua_setglobal(L, "MOVETO");
 	
 	/* register log levels */
 	lua_pushinteger(L, DEBUG);   lua_setglobal(L, "DEBUG");
