@@ -1017,10 +1017,6 @@ main(int argc, char *argv[])
 	lua_getglobal(L, "lsyncd_initialize");
 	lua_call(L, 0, 0);
 
-	/* let lua code will perform startup calls like recursive rsync */
-	lua_getglobal(L, "startup");
-	lua_call(L, 0, 0);
-
 	masterloop(L);
 
 	/* cleanup */

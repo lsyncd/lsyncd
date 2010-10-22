@@ -22,7 +22,8 @@ lsyncd_version = "2.0b1"
 
 ----
 -- Shortcuts (which user is supposed to be able to use them as well)
-log = lsyncd.log
+log  = lsyncd.log
+exec = lsyncd.exec
 
 ----
 -- Table of all directories to watch, 
@@ -147,6 +148,18 @@ function lsyncd_initialize()
 		-- and add the dir watch inclusively all subdirs
 		attend_dir(asrc, "", target, nil)
 	end
+	
+	log(NORMAL, "--- startup ---")
+	local pids = { }
+	local pid
+	for i, o in ipairs(origins) do
+		if (o.actions.startup ~= nil) then
+			pid = o.actions.startup(o.source, o.targetident)
+		end
+		table.insert(pids, pid)
+	end
+	lsyncd.wait_pids(pids, "startup_collector")
+	log(NORMAL, "--- Entering normal operation with " .. #watches .. " monitored directories ---")
 end
 
 ----
@@ -239,15 +252,18 @@ end
 ------------------------------------------------------------------------------
 
 ----
--- Adds one directory to be watched.
+-- Adds one directory (incl. subdir) to be synchronized.
 -- Users primary configuration device.
 --
 -- @param TODO
 --
-function directory(source_dir, target_identifier, actions)
-	local o = { source = source_dir, targetident = target_identifier, actions = actions}
+function sync(actions, source_dir, target_identifier)
+	local o = { actions = actions, 
+	            source = source_dir, 
+		    targetident = target_identifier, 
+		  }
 	table.insert(origins, o)
-	return o
+	return 
 end
 
 ----
@@ -259,29 +275,5 @@ function default_overflow()
 end
 overflow = default_overflow
 
------
--- Called by core after initialization.
---
--- Default function will start an simultanous action for every 
--- source -> destination pair. And waits for these processes to finish
---
--- The user can override this function by specifing his/her own
--- "startup". (and yet may still call default startup)
---
-function default_startup()
-	log(NORMAL, "--- startup ---")
-	local pids = { }
-	for i, o in ipairs(origins) do
-		startup_action(o.source, o.targetident)
-		table.insert(pids, pid)
-	end
-	lsyncd.wait_pids(pids, "startup_collector")
-	log(NORMAL, "--- Entering normal operation with " .. #watches .. " monitored directories ---")
-end
-startup = default_startup
 
-
-----
--- other functions the user might want to use
-exec = lsyncd.exec
 
