@@ -229,7 +229,7 @@ local function invoke_action(target, delay)
 			         sync     = delay.sync,
 			         filename = delay.filname
 			}
-			children[pid] = child,
+			children[pid] = child
 		end
 	end
 end
