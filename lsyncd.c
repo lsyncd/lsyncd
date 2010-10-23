@@ -907,6 +907,20 @@ masterloop(lua_State *L)
 			handle_event(L, NULL);	
 		}
 
+		/* collect zombified child processes */
+		while(1) {
+			pid_t pid = waitpid(0, &status, WNOHANG);
+			int status;
+
+			if (pid <= 0) {
+				break;
+			}
+			lua_getglobal(L, "lsyncd_collect_child");
+			lua_pushinteger(L, pid);
+			lua_pushinteger(L, WEXITSTATUS(status));
+			lua_call(L, 2, 0);
+		} 
+
 		/* let the runner spawn child processes */
 		lua_getglobal(L, "lsyncd_alarm");
 		lua_pushinteger(L, times(NULL));
