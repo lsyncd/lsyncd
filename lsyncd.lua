@@ -74,6 +74,21 @@ local targets = {}
 --
 local watches = {}
 
+
+-----
+-- a dictionary of all processes lsyncd spawned.
+--
+-- structure
+-- [pid] = {
+--     target   ..
+--     atpye    .. 
+--     wd       ..
+--     sync     .. 
+--     filename ..
+--
+local children = {}
+
+
 ------
 -- TODO
 local collapse_table = {
@@ -145,23 +160,33 @@ local function attend_dir(origin, path, parent)
 		delay_action(CREATE, wd, sync, nil, nil)
 	end
 
-	-- register all subdirectories 
+	-- registers and adds watches for all subdirectories 
 	local subdirs = lsyncd.sub_dirs(op);
 	for i, dirname in ipairs(subdirs) do
 		attend_dir(origin, path..dirname.."/", thiswatch)
 	end
 end
 
+-----
+-- Called from code whenever a child process finished and 
+-- zombie process was collected by core.
+--
+function lsyncd_collect_child(pid, exitcode) 
+	local child = children[pid]
+	if child == nil then
+		return
+	end
+	local sync = child.sync
+	local origin = sync.origin
+	log(DEBUG, "collected "..pid..": "..event_names[atpye].." "..origin.source.."/"..sync.path..child.filename..
+	           " = "..exitcode)
+end
 
 -----
 -- TODO
 --
 --
 local function invoke_action(target, delay)
---         .origin .. link to origin
---         .path   .. relative path of dir
---         .parent .. link to parent directory in watches
---                    or nil for origin
 	local sync    = delay.sync
 	local origin  = sync.origin
 	local actions = origin.actions
@@ -196,6 +221,16 @@ local function invoke_action(target, delay)
 	
 	if func ~= nil then
 		pid = func(origin.source, sync.path, delay.filename, target.ident)
+		if pid ~= nil and pid > 0 then
+			child = {pid      = pid,
+					 target   = target,
+			         atpye    = delay.atype,
+			         wd       = delay.wd,
+			         sync     = delay.sync,
+			         filename = delay.filname
+			}
+			children[pid] = child,
+		end
 	end
 end
 	
