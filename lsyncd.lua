@@ -98,6 +98,7 @@ local event_names = {
 
 -----
 -- TODO
+--
 local function delay_action(atype, wd, sync, filename, time)
 	print("delay_action "..event_names[atype].."("..wd..") ")
 	local origin = sync.origin
@@ -252,10 +253,11 @@ function lsyncd_event(etype, wd, isdir, filename, filename2)
 	for i, sync in ipairs(w.syncs) do
 		time = nil -- TODO
 		delay_action(etype, wd, sync, filename, time)
-
 		-- add subdirs for new directories
-		if isdir and eypte == CREATE then
-			attend_dir(sync.origin, sync.path..filename.."/", w)
+		if isdir then
+			if etype == CREATE then
+				attend_dir(sync.origin, sync.path..filename.."/", w)
+			end
 		end
 	end
 end
