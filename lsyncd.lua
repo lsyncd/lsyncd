@@ -50,7 +50,7 @@ local origins = {}
 --    .delays = [#) {  .. the delays stack
 --         .atype      .. enum, kind of action
 --         .wd         .. watch descriptor id this origins from TODO needed?
---         .attend     .. link to atttender that raised this delay.
+--         .sync       .. link to sync that raised this delay.
 --         .filename   .. filename or nil (=dir itself)
 --         (.movepeer) .. for MOVEFROM/MOVETO link to other delay
 --    }
@@ -106,8 +106,8 @@ local function delay_action(atype, wd, sync, filename, time)
 	local delays = target.delays
 	local nd = {atype    = atype, 
 	            wd       = wd, 
-		    sync     = sync, 
-		    filename = filename }
+			    sync     = sync, 
+			    filename = filename }
 	if time ~= nil and origin.actions.delay ~= nil then
 		nd.alarm = lsyncd.append_time(time, origin.actions.delay) 
 	end
@@ -152,10 +152,76 @@ local function attend_dir(origin, path, parent)
 	end
 end
 
+
+-----
+-- TODO
+--
+--
+local function invoke_action(target, delay)
+--         .origin .. link to origin
+--         .path   .. relative path of dir
+--         .parent .. link to parent directory in watches
+--                    or nil for origin
+	local sync    = delay.sync
+	local origin  = sync.origin
+	local actions = origin.actions
+	local func = nil
+	if delay.atype == CREATE then
+		if actions.create ~= nil then
+			func = actions.create
+		elseif actions.default ~= nil then
+			func = actions.default
+		end
+	elseif delay.atype == ATTRIB then
+		if actions.attrib ~= nil then
+			func = actions.attrib
+		elseif actions.default ~= nil then
+			func = actions.default
+		end
+	elseif delay.atype == MODIFY then
+		if actions.modify ~= nil then
+			func = actions.modify
+		elseif actions.default ~= nil then
+			func = actions.default
+		end
+	elseif delay.atype == DELETE then
+		if actions.delete ~= nil then
+			func = actions.delete
+		elseif actions.default ~= nil then
+			func = actions.default
+		end
+	elseif delay.atype == MOVE then
+		log(ERROR, "MOVE NOT YET IMPLEMENTED!")
+	end
+	
+	if func ~= nil then
+		pid = func(origin.source, sync.path, delay.filename, target.ident)
+	end
+end
+	
+--    .delays = [#) {  .. the delays stack
+--         .atype      .. enum, kind of action
+--         .wd         .. watch descriptor id this origins from TODO needed?
+--         .attend     .. link to atttender that raised this delay.
+--         .filename   .. filename or nil (=dir itself)
+--         (.movepeer) .. for MOVEFROM/MOVETO link to other delay
+
+
 ----
--- Called from core everytime after 
-function lsyncd_alarm()
-	-- TODO
+-- Called from core everytime at the latest of an 
+-- expired alarm (or more often)
+--
+-- @param now   the time is now
+--
+
+function lsyncd_alarm(now)
+	for i, target in ipairs(targets) do
+		local delays = target.delays
+		if delays[1] ~= nil then
+			invoke_action(target, target.delays[1])
+			table.remove(delays, 1)
+		end
+	end
 end
 
 ----

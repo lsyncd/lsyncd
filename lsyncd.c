@@ -329,8 +329,7 @@ l_log(lua_State *L)
 static int
 l_now(lua_State *L) 
 {
-	clock_t c = times(NULL);
-	lua_pushinteger(L, c);
+	lua_pushinteger(L, times(NULL));
 	return 1;
 }
 
@@ -903,11 +902,15 @@ masterloop(lua_State *L)
 				}
 			}
 		} 
-
 		/* checks if there is an unary MOVE_FROM left in the buffer */
 		if (move_event) {
 			handle_event(L, NULL);	
 		}
+
+		/* let the runner spawn child processes */
+		lua_getglobal(L, "lsyncd_alarm");
+		lua_pushinteger(L, times(NULL));
+		lua_call(L, 1, 0);
 	}
 }
 
