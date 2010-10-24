@@ -126,6 +126,15 @@ static volatile sig_atomic_t reset = 0;
 static long clocks_per_sec; 
 
 /**
+ * signal handler
+ */
+void
+sig_child(int sig)
+{
+	/* nothing */
+}
+
+/**
  * predeclerations -- see belorw.
  */
 static void 
@@ -854,7 +863,7 @@ masterloop(lua_State *L)
 		bool have_alarm;
 		clock_t now = times(NULL);
 		clock_t alarm_time;
-		bool do_read = false;
+		int do_read;
 		ssize_t len; 
 
 		/* query runner about soonest alarm  */
@@ -869,7 +878,7 @@ masterloop(lua_State *L)
 			 * thus do not read from inotify_fd and jump directly to its handling */
 			logstring(DEBUG, "immediately handling delayed entries.");
 			do_read = 0;
-		} else if (have_alarm) {
+		} else {
 			/* use select() to determine what happens next
 			 * + a new event on inotify
 			 * + an alarm on timeout  
@@ -877,33 +886,28 @@ masterloop(lua_State *L)
 			fd_set readfds;
 			struct timeval tv;
 
-			if (time_before(alarm_time, now)) {
-				/* should never happen */
-				logstring(ERROR, "critical failure, alarm_time is in past!\n");
-				exit(-1); //ERRNO
+			if (have_alarm) { 
+				logstring(DEBUG, "going into timed select.");
+				tv.tv_sec  = (alarm_time - now) / clocks_per_sec;
+				tv.tv_usec = (alarm_time - now) * 1000000 / clocks_per_sec % 1000000;
+			} else {
+				logstring(DEBUG, "going into blocking select.");
 			}
-
-			tv.tv_sec  = (alarm_time - now) / clocks_per_sec;
-			tv.tv_usec = (alarm_time - now) * 1000000 / clocks_per_sec % 1000000;
 			/* if select returns a positive number there is data on inotify
 			 * on zero the timemout occured. */
 			FD_ZERO(&readfds);
 			FD_SET(inotify_fd, &readfds);
-			do_read = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
+			do_read = select(inotify_fd + 1, &readfds, NULL, NULL, have_alarm ? &tv : NULL);
 
-			if (do_read) {
+			if (do_read > 0) {
 				logstring(DEBUG, "theres data on inotify.");
 			} else {
 				logstring(DEBUG, "core: select() timeout or signal.");
 			}
-		} else {
-			/* if nothing to wait for, enter a blocking read */
-			logstring(DEBUG, "gone blocking.");
-			do_read = 1;
-		}
+		} 
 		
 		/* reads possible events from inotify stream */
-		while(do_read) {
+		while(do_read > 0) {
 			int i = 0;
 			do {
 				len = read (inotify_fd, readbuf, readbuf_size);
@@ -930,7 +934,7 @@ masterloop(lua_State *L)
 				FD_ZERO(&readfds);
 				FD_SET(inotify_fd, &readfds);
 				do_read = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
-				if (do_read) {
+				if (do_read > 0) {
 					logstring(DEBUG, "there is more data on inotify.");
 				}
 			}
@@ -1078,6 +1082,9 @@ main(int argc, char *argv[])
 		fprintf(stderr, "Cannot create inotify instance! (%d:%s)\n", errno, strerror(errno));
 		return -1; // ERRNO
 	}
+
+	/* add signal handlers */
+	signal(SIGCHLD, sig_child);
 
 	/* initialize */
 	/* lua code will set configuration and add watches */
