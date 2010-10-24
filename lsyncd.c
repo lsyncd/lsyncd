@@ -532,9 +532,9 @@ l_terminate(lua_State *L)
 /**
  * Suspends execution until a table of child processes returned.
  * 
- * @param (Lua stack) a table of the children pids.
+ * @param (Lua stack) a table of the process ids.
  * @param (Lua stack) a function of a collector to be called 
- *                    when a child finishes.
+ *                    when a process finishes.
  */
 int 
 l_wait_pids(lua_State *L) 
@@ -543,7 +543,7 @@ l_wait_pids(lua_State *L)
 	int pidn; 
 	/* the pid table */
 	int *pids; 
-	/* the number of children to be waited for */
+	/* the number of processes to be waited for */
 	int remaining = 0;
 	int i;
 	/* global function to call on finished processes */
@@ -573,9 +573,9 @@ l_wait_pids(lua_State *L)
 			remaining++;
 		}
 	}
-	/* starts waiting for the children */
+	/* starts waiting for the processes */
 	while(remaining) {
-		/* argument for waitpid, and exitcode of child */
+		/* argument for waitpid, and exitcode of process */
 		int status, exitcode;
 		/* new process id in case of retry */
 		int newp;
@@ -909,19 +909,19 @@ masterloop(lua_State *L)
 
 		/* collect zombified child processes */
 		while(1) {
-			pid_t pid = waitpid(0, &status, WNOHANG);
 			int status;
+			pid_t pid = waitpid(0, &status, WNOHANG);
 
 			if (pid <= 0) {
 				break;
 			}
-			lua_getglobal(L, "lsyncd_collect_child");
+			lua_getglobal(L, "lsyncd_collect_process");
 			lua_pushinteger(L, pid);
 			lua_pushinteger(L, WEXITSTATUS(status));
 			lua_call(L, 2, 0);
 		} 
 
-		/* let the runner spawn child processes */
+		/* let the runner spawn new processes */
 		lua_getglobal(L, "lsyncd_alarm");
 		lua_pushinteger(L, times(NULL));
 		lua_call(L, 1, 0);
