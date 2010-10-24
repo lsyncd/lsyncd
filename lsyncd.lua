@@ -106,7 +106,7 @@ local event_names = {
 -- TODO
 --
 local function delay_action(atype, wd, sync, filename, time)
-	print("delay_action "..event_names[atype].."("..wd..") ")
+	log(DEBUG, "delay_action "..event_names[atype].."("..wd..") ")
 	local origin = sync.origin
 	local delays = origin.delays
 	local nd = {atype    = atype, 
@@ -162,14 +162,14 @@ end
 -- zombie process was collected by core.
 --
 function lsyncd_collect_process(pid, exitcode) 
+	log(DEBUG, "collected "..pid)
 	local process = processes[pid]
 	if process == nil then
 		return
 	end
 	local sync = process.sync
 	local origin = sync.origin
-	log(DEBUG, "collected "..pid..": "..event_names[atpye].." "..origin.source.."/"..sync.path..process.filename..
-	           " = "..exitcode)
+	print("collected ", pid, ": ", vent_names[atpye], origin.source, "/", sync.path , process.filename, " = ", exitcode)
 	processes[pid] = nil
 	origin.processes[pid] = nil
 end
@@ -218,7 +218,7 @@ local function invoke_action(delay)
 			           atpye    = delay.atype,
 			           wd       = delay.wd,
 			           sync     = delay.sync,
-			           filename = delay.filname
+			           filename = delay.filename
 			}
 			processes[pid] = process
 			origin.processes[pid] = process

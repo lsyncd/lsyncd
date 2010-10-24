@@ -911,7 +911,7 @@ masterloop(lua_State *L)
 		while(1) {
 			int status;
 			pid_t pid = waitpid(0, &status, WNOHANG);
-
+			printlogf(L, DEBUG, "waitpid=%d", (int) pid);
 			if (pid <= 0) {
 				break;
 			}
