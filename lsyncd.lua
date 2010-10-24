@@ -40,6 +40,7 @@ exec = lsyncd.exec
 --    .processes = [pid] .. a sublist of processes[] for this target
 --    .delays = [#) {    .. the delays stack
 --         .atype        .. enum, kind of action
+--         .alarm        .. when it should fire
 --         .wd           .. watch descriptor id this origins from TODO needed?
 --         .sync         .. link to sync that raised this delay.
 --         .filename     .. filename or nil (=dir itself)
@@ -114,7 +115,9 @@ local function delay_action(atype, wd, sync, filename, time)
 			    sync     = sync, 
 			    filename = filename }
 	if time ~= nil and origin.actions.delay ~= nil then
-		nd.alarm = lsyncd.append_time(time, origin.actions.delay) 
+		nd.alarm = lsyncd.addup_clocks(time, origin.actions.delay)
+	else
+		nd.alarm = lsyncd.now()
 	end
 	table.insert(delays, nd)
 end
@@ -169,7 +172,7 @@ function lsyncd_collect_process(pid, exitcode)
 	end
 	local sync = process.sync
 	local origin = sync.origin
-	print("collected ", pid, ": ", vent_names[atpye], origin.source, "/", sync.path , process.filename, " = ", exitcode)
+	print("collected ", pid, ": ", event_names[atpye], origin.source, "/", sync.path , process.filename, " = ", exitcode)
 	processes[pid] = nil
 	origin.processes[pid] = nil
 end
@@ -226,19 +229,12 @@ local function invoke_action(delay)
 	end
 end
 	
---    .delays = [#) {  .. the delays stack
---         .atype      .. enum, kind of action
---         .wd         .. watch descriptor id this origins from TODO needed?
---         .attend     .. link to atttender that raised this delay.
---         .filename   .. filename or nil (=dir itself)
---         (.movepeer) .. for MOVEFROM/MOVETO link to other delay
-
 
 ----
 -- Called from core everytime at the latest of an 
 -- expired alarm (or more often)
 --
--- @param now   the time is now
+-- @param now   the time now
 --
 function lsyncd_alarm(now)
 	-- goes through all targets and spawns more actions
@@ -246,7 +242,7 @@ function lsyncd_alarm(now)
 	for i, o in ipairs(origins) do
 		if #o.processes < o.actions.max_processes then
 			local delays = o.delays
-			if delays[1] ~= nil then
+			if delays[1] ~= nil and lsyncd.before_eq(delays[1].alarm, now) then
 				invoke_action(o.delays[1])
 				table.remove(delays, 1)
 			end
@@ -310,12 +306,30 @@ end
 -- Called by core to query soonest alarm.
 --
 -- @return two variables.
---         number -1 means ... alarm is in the past.
---                 0 means ... no alarm, core can in untimed sleep
---                 1 means ... alarm time specified.
+--         boolean false   ... no alarm, core can in untimed sleep
+--                 true    ... alarm time specified.
 --         times           ... the alarm time (only read if number is 1)
 function lsyncd_get_alarm()
-	return 0, 0
+	local have_alarm = false
+	local alarm = 0
+	for i, o in ipairs(origins) do
+		if o.delays[1] ~= nil then
+			if have_alarm then
+				alarm = lsyncd.earlier(alarm, o.delays[1].alarm)
+			else
+				alarm = o.delays[1].alarm
+				have_alarm = true
+			end
+		end
+	end
+	local hs
+	if have_alarm then
+		hs = "true"
+	else
+		hs = "false"
+	end
+	log(DEBUG, "lsyncd_get_alarm ("..hs..","..alarm..")")
+	return have_alarm, alarm
 end
 
 -----
@@ -323,10 +337,11 @@ end
 --
 -- @param etype     enum (ATTRIB, MODIFY, CREATE, DELETE, MOVE)
 -- @param wd        watch descriptor (matches lsyncd.add_watch())
+-- @param time      time of event
 -- @param filename  string filename without path
 -- @param filename2 
 --
-function lsyncd_event(etype, wd, isdir, filename, filename2)
+function lsyncd_event(etype, wd, isdir, time, filename, filename2)
 	local ftype;
 	if isdir then
 		ftype = "directory"
@@ -349,7 +364,6 @@ function lsyncd_event(etype, wd, isdir, filename, filename2)
 	
 	-- works through all possible source->target pairs
 	for i, sync in ipairs(w.syncs) do
-		time = nil -- TODO
 		delay_action(etype, wd, sync, filename, time)
 		-- add subdirs for new directories
 		if isdir then

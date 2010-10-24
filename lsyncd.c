@@ -324,6 +324,37 @@ l_log(lua_State *L)
 }
 
 /**
+ * Returns (on Lua stack) true if time1 is earler or eq to time2
+ * @param (on Lua Stack) time1
+ * @param (on Lua Stack) time2
+ * @return the true if time1 <= time2
+ */
+static int
+l_before_eq(lua_State *L) 
+{
+	clock_t t1 = (clock_t) luaL_checkinteger(L, 1);
+	clock_t t2 = (clock_t) luaL_checkinteger(L, 2);
+	lua_pushboolean(L, time_before_eq(t1, t2));
+	return 1;
+}
+
+/**
+ * Returns (on Lua stack) the earlier or two clock times.
+ *
+ * @param (on Lua Stack) time1
+ * @param (on Lua Stack) time2
+ * @return the earlier time
+ */
+static int
+l_earlier(lua_State *L) 
+{
+	clock_t t1 = (clock_t) luaL_checkinteger(L, 1);
+	clock_t t2 = (clock_t) luaL_checkinteger(L, 2);
+	lua_pushinteger(L, time_before(t1, t2) ? t1 : t2);
+	return 1;
+}
+
+/**
  * Returns (on Lua stack) the current kernels clock state (jiffies, times() call)
  */
 static int
@@ -628,11 +659,13 @@ l_wait_pids(lua_State *L)
 
 
 static const luaL_reg lsyncdlib[] = {
-		{"addup_clocks", l_addup_clocks },
 		{"add_watch",    l_add_watch    },
+		{"addup_clocks", l_addup_clocks },
+		{"before_eq",    l_before_eq    },
+		{"earlier",      l_earlier      },
+		{"exec",         l_exec         },
 		{"log",          l_log          },
 		{"now",          l_now          },
-		{"exec",         l_exec         },
 		{"real_dir",     l_real_dir     },
 		{"stackdump",    l_stackdump    },
 		{"sub_dirs",     l_sub_dirs     },
@@ -793,6 +826,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	lua_pushnumber(L, event_type);
 	lua_pushnumber(L, event->wd);
 	lua_pushboolean(L, (event->mask & IN_ISDIR) != 0);
+	lua_pushinteger(L, times(NULL));
 	if (event_type == MOVE) {
 		lua_pushstring(L, move_event_buf->name);
 		lua_pushstring(L, event->name);
@@ -800,7 +834,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		lua_pushstring(L, event->name);
 		lua_pushnil(L);
 	}
-	lua_call(L, 5, 0);
+	lua_call(L, 6, 0);
 
 	/* if there is a buffered event executes it */
 	if (after_buf) {
@@ -817,7 +851,7 @@ masterloop(lua_State *L)
 	size_t readbuf_size = 2048;
 	char *readbuf = s_malloc(readbuf_size);
 	while(!reset) {
-		int alarm_state;
+		bool have_alarm;
 		clock_t now = times(NULL);
 		clock_t alarm_time;
 		bool do_read = false;
@@ -825,18 +859,17 @@ masterloop(lua_State *L)
 
 		/* query runner about soonest alarm  */
 		lua_getglobal(L, "lsyncd_get_alarm");
-		lua_pushnumber(L, now);
-		lua_call(L, 1, 2);
-		alarm_state = luaL_checkinteger(L, -2);
-		alarm_time = (clock_t) luaL_checknumber(L, -1);
+		lua_call(L, 0, 2);
+		have_alarm = lua_toboolean(L, -2);
+		alarm_time = (clock_t) luaL_checkinteger(L, -1);
 		lua_pop(L, 2);
 
-		if (alarm_state < 0) {
+		if (have_alarm && time_before(alarm_time, now)) {
 			/* there is a delay that wants to be handled already
 			 * thus do not read from inotify_fd and jump directly to its handling */
 			logstring(DEBUG, "immediately handling delayed entries.");
 			do_read = 0;
-		} else if (alarm_state > 0) {
+		} else if (have_alarm) {
 			/* use select() to determine what happens next
 			 * + a new event on inotify
 			 * + an alarm on timeout  
@@ -844,7 +877,7 @@ masterloop(lua_State *L)
 			fd_set readfds;
 			struct timeval tv;
 
-			if (time_after(now, alarm_time)) {
+			if (time_before(alarm_time, now)) {
 				/* should never happen */
 				logstring(ERROR, "critical failure, alarm_time is in past!\n");
 				exit(-1); //ERRNO
@@ -852,8 +885,8 @@ masterloop(lua_State *L)
 
 			tv.tv_sec  = (alarm_time - now) / clocks_per_sec;
 			tv.tv_usec = (alarm_time - now) * 1000000 / clocks_per_sec % 1000000;
-			/* if select returns a positive number there is data on inotify *
-			 * on zero the timemout occured.                                */
+			/* if select returns a positive number there is data on inotify
+			 * on zero the timemout occured. */
 			FD_ZERO(&readfds);
 			FD_SET(inotify_fd, &readfds);
 			do_read = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
@@ -864,7 +897,7 @@ masterloop(lua_State *L)
 				logstring(DEBUG, "core: select() timeout or signal.");
 			}
 		} else {
-			// if nothing to wait for, enter a blocking read
+			/* if nothing to wait for, enter a blocking read */
 			logstring(DEBUG, "gone blocking.");
 			do_read = 1;
 		}

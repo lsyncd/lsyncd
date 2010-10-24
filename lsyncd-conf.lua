@@ -14,8 +14,10 @@ print(bla)
 ------
 -- for testing purposes
 --
-slower = "sleep 10 && "
+slower = "sleep 1 && "
 slowbash = {
+	delay = 5,
+
 	startup = function(source, target)
 		log(NORMAL, "cp -r from "..source.." -> "..target)
 		return exec("/bin/bash", "-c", "cp -r \"$1\"* \"$2\"", "/bin/bash", 
