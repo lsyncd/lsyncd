@@ -1,4 +1,4 @@
-------------------------------------------------------------------------------
+--============================================================================
 -- lsyncd.lua   Live (Mirror) Syncing Demon
 --
 -- License: GPLv2 (see COPYING) or any later version
@@ -8,7 +8,7 @@
 -- This is the "runner" part of lsyncd. It containts all its high-level logic.
 -- It works closely together with the lsyncd core in lsyncd.c. This means it
 -- cannot be runned directly from the standard lua interpreter.
-------------------------------------------------------------------------------
+--============================================================================
 
 ----
 -- A security measurement.
@@ -27,134 +27,122 @@ lsyncd_version = "2.0b1"
 log  = lsyncd.log
 exec = lsyncd.exec
 
-------------------------------------------------------------------------------
--- Lsyncd globals
-------------------------------------------------------------------------------
+--============================================================================
+-- Coding checks, ensure termination on some easy to do coding errors.
+--============================================================================
 
-----
--- TODO
+-----
+-- Metatable to limit keys to numerics.
 --
-local function set_valid_keys(t, numeric, keylist) 
-	local mt = getmetatable(t) or {}
-	mt.keylist = keylist
-	for k, v in pairs(t) do
-		if not keylist[k] then
-			error("There is a non-valid key '"..k.."' in this table")
-		end
-	end
-
-	mt.__index = function(t, k) 
-		if type(k) == "number" then
-			if not numeric then
-				error("This table does not have numerics", 2)
-			end
-		else
-			if not keylist[k] then
-				error("Key '"..k.."' not valid for this table", 2)
-			end
+local meta_check_array = {
+	__index = function(t, k) 
+		if type(k) ~= "number" then
+			error("This table is an array and must have numeric keys", 2)
 		end
 		return rawget(t, k)
-	end
-
-	mt.__newindex = function(t, k, v)
-		if type(k) == "number" then
-			if not numeric then
-				error("This table does not have numerics", 2)
-			end
-		else
-			if not keylist[k] then
-				error("Key '"..k.."' not valid for this table", 2)
-			end
+	end,
+	__newindex = function(t, k, v)
+		if type(k) ~= "number" then
+			error("This table is an array and must have numeric keys", 2)
 		end
 		rawset(t, k, v)
 	end
-	setmetatable(t, mt)
+}
+
+-----
+-- Metatable to limit keys to numerics and count the number of entries.
+-- Lua's # operator does not work on tables which key values are not 
+-- strictly linear.
+--
+local meta_check_count_array = {
+	__index = function(t, k) 
+		if k == size then
+			return rawget(t, "size")
+		end
+		if type(k) ~= "number" then
+			error("This table is an array and must have numeric keys", 2)
+		end
+		return rawget(t, "_t")[k]
+	end,
+
+	__newindex = function(t, k, v)
+		if type(k) ~= "number" then
+			error("This table is an array and must have numeric keys", 2)
+		end
+		local _t = rawget(t, "_t")
+		local vb = _t[k]
+		if v and not vb then
+			rawset(t, "size", rawget(t, "size") + 1)
+		elseif not v and vb then
+			rawset(t, "size", rawget(t, "size") - 1)
+		end
+		_t[k] = v
+	end
+}
+
+
+-----
+-- Metatable to limit keys to those only presented in their prototype
+--
+local meta_check_prototype = {
+	__index = function(t, k) 
+		if not t.prototype[k] then
+			error("This table does not have key '"..k.."' in its prototype.", 2)
+		end
+		return rawget(t, k)
+	end,
+	__newindex = function(t, k, v)
+		if not t.prototype[k] then
+			error("This table does not have key '"..k.."' in its prototype.", 2)
+		end
+		rawset(t, k, v)
+	end
+}
+
+-----
+-- Limits the keys of table to numbers.
+--
+local function set_array(t)
+	for k, _ in pairs(t) do
+		if type(k) ~= "number" then
+			error("This table cannot be set as array, it has non-numberic key '"..k.."'", 2)
+		end
+	end
+	setmetatable(t, meta_check_array)
 end
 
-----
--- Table of all root directories to sync, 
--- filled during initialization.
+-----
+-- Creates a table with keys limited to numbers.
 --
--- [#] {
---    actions     = actions, 
---    source      = source_dir, 
---    targetident = the identifier of target (like string "host:dir")
---                  for lsyncd this passed competly opaquely to the 
---                  action handlers
---
---    .processes = [pid] .. a sublist of processes[] for this target
---    .delays = [#) {    .. the delays stack
---         .atype        .. enum, kind of action
---         .alarm        .. when it should fire
---         .wd           .. watch descriptor id this origins from TODO needed?
---         .sync         .. link to sync that raised this delay.
---         .filename     .. filename or nil (=dir itself)
---         (.movepeer)   .. for MOVEFROM/MOVETO link to other delay
---    }
--- }
---
-local origins = {}
-set_valid_keys(origins, true, {})
+local function new_array()
+	local t = {}
+	setmetatable(t, meta_ckeck_array)
+	return t
+end
 
 -----
--- all watches
+-- Creates a table with keys limited to numbers and
+-- which counts the number of entries
 --
--- structure: 
--- [wd] = {
---     .wd      ..              the watch descriptor (TODO needed?)
---     .syncs = [#] {			list of stuff to sync to
---         .origin .. link to origin
---         .path   .. relative path of dir
---         .parent .. link to parent directory in watches
---                    or nil for origin
---     }
--- }
---
-local watches = {}
-set_valid_keys(watches, true, {})
+local function new_count_array()
+	local t = { size = 0, _t = {} }
+	setmetatable(t, meta_check_count_array)
+	return t
+end
 
 
 -----
--- a dictionary of all processes lsyncd spawned.
+-- Sets the prototype of a table limiting its keys to a defined list.
 --
--- structure
--- [pid] = {
---     target   ..
---     atype    .. 
---     wd       ..
---     sync     .. 
---     filename ..
---
-local processes = {}
-
-
-------
--- TODO
---
-local collapse_table = {
-	[ATTRIB] = { [ATTRIB] = ATTRIB, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
-	[MODIFY] = { [ATTRIB] = MODIFY, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
-	[CREATE] = { [ATTRIB] = CREATE, [MODIFY] = CREATE, [CREATE] = CREATE, [DELETE] = DELETE },
-	[DELETE] = { [ATTRIB] = DELETE, [MODIFY] = DELETE, [CREATE] = MODIFY, [DELETE] = DELETE },
-}
-
------
--- A list of names of the event types the core sends.
---
-local event_names = {
-	[ATTRIB   ] = "Attrib",
-	[MODIFY   ] = "Modify",
-	[CREATE   ] = "Create",
-	[DELETE   ] = "Delete",
-	[MOVE     ] = "Move",
-	[MOVEFROM ] = "MoveFrom",
-	[MOVETO   ] = "MoveTo",
-}
-
-------------------------------------------------------------------------------
--- Coding checks. Hinders creation of global variables after init.
---      (inspired by /Niklas Frykholm)
-------------------------------------------------------------------------------
+local function set_prototype(t, prototype) 
+	t.prototype = prototype
+	for k, _ in pairs(t) do
+		if not t.prototype[k] and k ~= "prototype" then
+			error("Cannot set prototype of table, conflicting key: '"..k.."'.", 2)
+		end
+	end
+	setmetatable(t, proto_check_table)
+end
 
 ----
 -- Locks a table
@@ -191,24 +179,98 @@ local function unlock_new_index(t, k, v)
 	rawset(t, k, v)
 end
 
------
--- Tests if a value is nil,
-function is_nil(t, k)
-	return rawget(t, k)
-end
+
+--============================================================================
+-- Lsyncd globals
+--============================================================================
+
+
+----
+-- Table of all root directories to sync, 
+-- filled during initialization.
+--
+-- [#] {
+--    actions     = actions, 
+--    source      = source_dir, 
+--    targetident = the identifier of target (like string "host:dir")
+--                  for lsyncd this passed competly opaquely to the 
+--                  action handlers
+--
+--    .processes = [pid] .. a sublist of processes[] for this target
+--    .delays = [#) {    .. the delays stack
+--         .atype        .. enum, kind of action
+--         .alarm        .. when it should fire
+--         .wd           .. watch descriptor id this origins from TODO needed?
+--         .sync         .. link to sync that raised this delay.
+--         .filename     .. filename or nil (=dir itself)
+--         (.movepeer)   .. for MOVEFROM/MOVETO link to other delay
+--    }
+-- }
+--
+local origins = new_array()
+local proto_delay = {atype=true, alarm=true, wd=true, sync=true, filename=true, movepeer=true}
 
 -----
--- Tests if a value is nil,
-function set_new(t, k, v)
-	return rawset(t, k, v)
-end
+-- all watches
+--
+-- structure: 
+-- [wd] = {
+--     .wd      ..              the watch descriptor (TODO needed?)
+--     .syncs = [#] {			list of stuff to sync to
+--         .origin .. link to origin
+--         .path   .. relative path of dir
+--         .parent .. link to parent directory in watches
+--                    or nil for origin
+--     }
+-- }
+--
+local watches = new_count_array()
+local proto_watch = {wd=true, syncs=true}
+local proto_sync  = {origin=true, path=true, parent=true}
 
 
+-----
+-- a dictionary of all processes lsyncd spawned.
+--
+-- structure
+-- [pid] = {
+--     target   ..
+--     atype    .. 
+--     wd       ..
+--     sync     .. 
+--     filename ..
+--
+local processes = new_count_array()
+local proto_process = {pid=true, atype=true, wd=true, sync=true, filename=true}
 
-------------------------------------------------------------------------------
+------
+-- TODO
+--
+local collapse_table = {
+	[ATTRIB] = { [ATTRIB] = ATTRIB, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
+	[MODIFY] = { [ATTRIB] = MODIFY, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
+	[CREATE] = { [ATTRIB] = CREATE, [MODIFY] = CREATE, [CREATE] = CREATE, [DELETE] = DELETE },
+	[DELETE] = { [ATTRIB] = DELETE, [MODIFY] = DELETE, [CREATE] = MODIFY, [DELETE] = DELETE },
+}
+set_array(collapse_table)
+
+-----
+-- A list of names of the event types the core sends.
+--
+local event_names = {
+	[ATTRIB   ] = "Attrib",
+	[MODIFY   ] = "Modify",
+	[CREATE   ] = "Create",
+	[DELETE   ] = "Delete",
+	[MOVE     ] = "Move",
+	[MOVEFROM ] = "MoveFrom",
+	[MOVETO   ] = "MoveTo",
+}
+set_array(event_names)
+
+--============================================================================
 -- The lsyncd runner 
-------------------------------------------------------------------------------
-
+--============================================================================
 
 -----
 -- Puts an action on the delay stack.
@@ -219,8 +281,9 @@ local function delay_action(atype, wd, sync, filename, time)
 	local delays = origin.delays
 	local nd = {atype    = atype, 
 	            wd       = wd, 
-			    sync     = sync, 
-			    filename = filename }
+	            sync     = sync, 
+	            filename = filename }
+	set_prototype(nd, proto_delay)
 	if time ~= nil and origin.actions.delay ~= nil then
 		nd.alarm = lsyncd.addto_clock(time, origin.actions.delay)
 	else
@@ -250,9 +313,11 @@ local function attend_dir(origin, path, parent)
 	if thiswatch == nil then
 		-- new watch
 		thiswatch = {wd = wd, syncs = {} }
+		set_prototype(thiswatch, proto_watch)
 		watches[wd] = thiswatch
 	end
 	local sync = { origin = origin, path = path, parent = parent } 
+	set_prototype(sync, proto_sync)
 	table.insert(thiswatch.syncs, sync)
 
 	-- warmstart?
@@ -278,10 +343,10 @@ function lsyncd_collect_process(pid, exitcode)
 		return
 	end
 	local sync = process.sync
-	local origin = sync.origin
-	print("collected ", pid, ": ", event_names[process.atype], origin.source, "/", sync.path , process.filename, " = ", exitcode)
+	local o = sync.origin
+	print("collected ", pid, ": ", event_names[process.atype], o.source, "/", sync.path , process.filename, " = ", exitcode)
 	processes[pid] = nil
-	origin.processes[pid] = nil
+	o.processes[pid] = nil
 end
 
 -----
@@ -325,11 +390,12 @@ local function invoke_action(delay)
 		local pid = func(origin.source, sync.path, delay.filename, origin.targetident)
 		if pid ~= nil and pid > 0 then
 			local process = {pid      = pid,
-			           atype    = delay.atype,
-			           wd       = delay.wd,
-			           sync     = delay.sync,
-			           filename = delay.filename
+			                 atype    = delay.atype,
+			                 wd       = delay.wd,
+			                 sync     = delay.sync,
+			                 filename = delay.filename
 			}
+			set_prototype(process, proto_process)
 			processes[pid] = process
 			origin.processes[pid] = process
 		end
@@ -347,7 +413,7 @@ function lsyncd_alarm(now)
 	-- goes through all targets and spawns more actions
 	-- if possible
 	for _, o in ipairs(origins) do
-		if #o.processes < o.actions.max_processes then
+		if o.processes.size < o.actions.max_processes then
 			local delays = o.delays
 			if delays[1] ~= nil and lsyncd.before_eq(delays[1].alarm, now) then
 				invoke_action(o.delays[1])
@@ -382,8 +448,9 @@ function lsyncd_initialize()
 			lsyncd.terminate(-1) -- ERRNO
 		end
 		origin.source = asrc
-		origin.delays = {}
-		origin.processes = {}
+		origin.delays = new_count_array()
+		origin.processes = new_count_array()
+
 		if actions.max_processes == nil then
 			actions.max_processes = 1 -- TODO DEFAULT MAXPROCESS
 		end
@@ -406,9 +473,9 @@ function lsyncd_initialize()
 			end
 		end
 		lsyncd.wait_pids(pids, "startup_collector")
-		log(NORMAL, "--- Entering normal operation with "..#watches.." monitored directories ---")
+		log(NORMAL, "--- Entering normal operation with "..watches.size.." monitored directories ---")
 	else
-		log(NORMAL, "--- Warmstart into normal operation with "..#watches.." monitored directories ---")
+		log(NORMAL, "--- Warmstart into normal operation with "..watches.size.." monitored directories ---")
 	end
 end
 
@@ -423,7 +490,8 @@ function lsyncd_get_alarm()
 	local have_alarm = false
 	local alarm = 0
 	for _, o in ipairs(origins) do
-		if o.delays[1] ~= nil then
+		if o.delays[1] ~= nil and 
+		   o.processes.size < o.actions.max_processes then
 			if have_alarm then
 				alarm = lsyncd.earlier(alarm, o.delays[1].alarm)
 			else
@@ -431,12 +499,6 @@ function lsyncd_get_alarm()
 				have_alarm = true
 			end
 		end
-	end
-	local hs
-	if have_alarm then
-		hs = "true"
-	else
-		hs = "false"
 	end
 	return have_alarm, alarm
 end
@@ -501,9 +563,9 @@ function startup_collector(pid, exitcode)
 end
 
 
-------------------------------------------------------------------------------
+--============================================================================
 -- lsyncd user interface
-------------------------------------------------------------------------------
+--============================================================================
 
 ----
 -- Adds one directory (incl. subdir) to be synchronized.

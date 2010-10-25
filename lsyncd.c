@@ -878,7 +878,7 @@ masterloop(lua_State *L)
 		if (have_alarm && time_before(alarm_time, now)) {
 			/* there is a delay that wants to be handled already
 			 * thus do not read from inotify_fd and jump directly to its handling */
-			logstring(DEBUG, "immediately handling delayed entries.");
+			logstring(DEBUG, "immediately handling delays.");
 			do_read = 0;
 		} else {
 			/* use select() to determine what happens next
