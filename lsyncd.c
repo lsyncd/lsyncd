@@ -374,17 +374,19 @@ l_now(lua_State *L)
 }
 
 /**
- * Returns (on Lua stack) the addition of two clock_t times.
+ * Returns (on Lua stack) the addition of a clock timer by seconds. 
  *
+ * @param1 the clock timer
+ * @param2 seconds to change clock.
  * TODO
  */
 static int
-l_addup_clocks(lua_State *L) 
+l_addto_clock(lua_State *L) 
 {
 	clock_t c1 = luaL_checkinteger(L, 1);
 	clock_t c2 = luaL_checkinteger(L, 2);
 	lua_pop(L, 2);
-	lua_pushinteger(L, c1 + c2);
+	lua_pushinteger(L, c1 + c2 * clocks_per_sec);
 	return 1;
 }
 /**
@@ -669,7 +671,7 @@ l_wait_pids(lua_State *L)
 
 static const luaL_reg lsyncdlib[] = {
 		{"add_watch",    l_add_watch    },
-		{"addup_clocks", l_addup_clocks },
+		{"addto_clock",  l_addto_clock  },
 		{"before_eq",    l_before_eq    },
 		{"earlier",      l_earlier      },
 		{"exec",         l_exec         },
@@ -1092,7 +1094,7 @@ main(int argc, char *argv[])
 		sigemptyset(&set);
 		sigaddset(&set, SIGCHLD);
 		signal(SIGCHLD, sig_child);
-		sigprocmask(SIG_BLOCK, &set, NULL);
+		//sigprocmask(SIG_BLOCK, &set, NULL);
 	}
 
 	/* initialize */

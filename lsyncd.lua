@@ -115,7 +115,7 @@ local function delay_action(atype, wd, sync, filename, time)
 			    sync     = sync, 
 			    filename = filename }
 	if time ~= nil and origin.actions.delay ~= nil then
-		nd.alarm = lsyncd.addup_clocks(time, origin.actions.delay)
+		nd.alarm = lsyncd.addto_clock(time, origin.actions.delay)
 	else
 		nd.alarm = lsyncd.now()
 	end
