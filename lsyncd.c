@@ -883,13 +883,15 @@ masterloop(lua_State *L)
 			 * + a new event on inotify
 			 * + an alarm on timeout  
 			 * + the return of a child process */
+			sigset_t sigset;
 			fd_set readfds;
-			struct timeval tv;
+			struct timespec tv;
+			sigemptyset(&sigset);
 
 			if (have_alarm) { 
 				logstring(DEBUG, "going into timed select.");
 				tv.tv_sec  = (alarm_time - now) / clocks_per_sec;
-				tv.tv_usec = (alarm_time - now) * 1000000 / clocks_per_sec % 1000000;
+				tv.tv_nsec = (alarm_time - now) * 1000000000 / clocks_per_sec % 1000000000;
 			} else {
 				logstring(DEBUG, "going into blocking select.");
 			}
@@ -897,7 +899,8 @@ masterloop(lua_State *L)
 			 * on zero the timemout occured. */
 			FD_ZERO(&readfds);
 			FD_SET(inotify_fd, &readfds);
-			do_read = select(inotify_fd + 1, &readfds, NULL, NULL, have_alarm ? &tv : NULL);
+			do_read = pselect(inotify_fd + 1, &readfds, NULL, NULL, have_alarm ? &tv : NULL, 
+					  &sigset);
 
 			if (do_read > 0) {
 				logstring(DEBUG, "theres data on inotify.");
@@ -929,11 +932,11 @@ masterloop(lua_State *L)
 			}
 			/* check if there is more data */
 			{
-				struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
+				struct timespec tv = {.tv_sec = 0, .tv_nsec = 0};
 				fd_set readfds;
 				FD_ZERO(&readfds);
 				FD_SET(inotify_fd, &readfds);
-				do_read = select(inotify_fd + 1, &readfds, NULL, NULL, &tv);
+				do_read = pselect(inotify_fd + 1, &readfds, NULL, NULL, &tv, NULL);
 				if (do_read > 0) {
 					logstring(DEBUG, "there is more data on inotify.");
 				}
@@ -1084,7 +1087,13 @@ main(int argc, char *argv[])
 	}
 
 	/* add signal handlers */
-	signal(SIGCHLD, sig_child);
+	{
+		sigset_t set;
+		sigemptyset(&set);
+		sigaddset(&set, SIGCHLD);
+		signal(SIGCHLD, sig_child);
+		sigprocmask(SIG_BLOCK, &set, NULL);
+	}
 
 	/* initialize */
 	/* lua code will set configuration and add watches */
