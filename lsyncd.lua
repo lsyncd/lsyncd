@@ -426,9 +426,11 @@ end
 ----
 -- Called from core on init or restart after user configuration.
 -- 
-function lsyncd_initialize()
+function lsyncd_initialize(args)
 	-- From this point on, no globals may be created anymore
 	GLOBAL_lock(_G)
+
+	print(table.concat(args))
 
 	-- makes sure the user gave lsyncd anything to do 
 	if #origins == 0 then

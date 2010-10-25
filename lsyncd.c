@@ -1099,15 +1099,16 @@ main(int argc, char *argv[])
 	/* initialize */
 	/* lua code will set configuration and add watches */
 	{
-		ind idx = 0;
+		int idx = 1;
 		/* creates a table with all option arguments */
-		lua_newtable(L);
-		lua_pushnumber(L, idx++);
-		lua_pushstring(L, argv[argp++]);
-		lua_settable(L, -3);
-
 		lua_getglobal(L, "lsyncd_initialize");
-		lua_call(L, 0, 0);
+		lua_newtable(L);
+		while(argp < argc) {
+			lua_pushnumber(L, idx++);
+			lua_pushstring(L, argv[argp++]);
+			lua_settable(L, -3);
+		}
+		lua_call(L, 1, 0);
 	}
 
 	masterloop(L);
