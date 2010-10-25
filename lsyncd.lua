@@ -13,6 +13,7 @@
 ----
 -- A security measurement.
 -- Core will exit if version ids mismatch.
+--
 if lsyncd_version ~= nil then
 	-- checks if the runner is being loaded twice 
 	print("You cannot use the lsyncd runner as configuration file!")
@@ -25,6 +26,50 @@ lsyncd_version = "2.0b1"
 --
 log  = lsyncd.log
 exec = lsyncd.exec
+
+------------------------------------------------------------------------------
+-- Lsyncd globals
+------------------------------------------------------------------------------
+
+----
+-- TODO
+--
+local function set_valid_keys(t, numeric, keylist) 
+	local mt = getmetatable(t) or {}
+	mt.keylist = keylist
+	for k, v in pairs(t) do
+		if not keylist[k] then
+			error("There is a non-valid key '"..k.."' in this table")
+		end
+	end
+
+	mt.__index = function(t, k) 
+		if type(k) == "number" then
+			if not numeric then
+				error("This table does not have numerics", 2)
+			end
+		else
+			if not keylist[k] then
+				error("Key '"..k.."' not valid for this table", 2)
+			end
+		end
+		return rawget(t, k)
+	end
+
+	mt.__newindex = function(t, k, v)
+		if type(k) == "number" then
+			if not numeric then
+				error("This table does not have numerics", 2)
+			end
+		else
+			if not keylist[k] then
+				error("Key '"..k.."' not valid for this table", 2)
+			end
+		end
+		rawset(t, k, v)
+	end
+	setmetatable(t, mt)
+end
 
 ----
 -- Table of all root directories to sync, 
@@ -49,6 +94,7 @@ exec = lsyncd.exec
 -- }
 --
 local origins = {}
+set_valid_keys(origins, true, {})
 
 -----
 -- all watches
@@ -65,6 +111,7 @@ local origins = {}
 -- }
 --
 local watches = {}
+set_valid_keys(watches, true, {})
 
 
 -----
@@ -73,7 +120,7 @@ local watches = {}
 -- structure
 -- [pid] = {
 --     target   ..
---     atpye    .. 
+--     atype    .. 
 --     wd       ..
 --     sync     .. 
 --     filename ..
@@ -83,6 +130,7 @@ local processes = {}
 
 ------
 -- TODO
+--
 local collapse_table = {
 	[ATTRIB] = { [ATTRIB] = ATTRIB, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
 	[MODIFY] = { [ATTRIB] = MODIFY, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
@@ -103,8 +151,67 @@ local event_names = {
 	[MOVETO   ] = "MoveTo",
 }
 
+------------------------------------------------------------------------------
+-- Coding checks. Hinders creation of global variables after init.
+--      (inspired by /Niklas Frykholm)
+------------------------------------------------------------------------------
+
+----
+-- Locks a table
+local function GLOBAL_lock(t)
+	local mt = getmetatable(t) or {}
+	mt.__newindex = lock_new_index
+	setmetatable(t, mt)
+end
+
+----
+-- Unlocks a table
+---
+local function GLOBAL_unlock(t)
+	local mt = getmetatable(t) or {}
+	mt.__newindex = unlock_new_index
+	setmetatable(t, mt)
+end
+
 -----
--- TODO
+-- ?
+local function lock_new_index(t, k, v)
+	if (k~="_" and string.sub(k,1,2) ~= "__") then
+		GLOBAL_unlock(_G)
+		error("Lsyncd does not allow GLOBALS to be created on the fly." ..
+		      "Declare '" ..k.."' local or declare global on load.", 2)
+	else
+		rawset(t, k, v)
+	end
+end
+
+-----
+-- ?
+local function unlock_new_index(t, k, v)
+	rawset(t, k, v)
+end
+
+-----
+-- Tests if a value is nil,
+function is_nil(t, k)
+	return rawget(t, k)
+end
+
+-----
+-- Tests if a value is nil,
+function set_new(t, k, v)
+	return rawset(t, k, v)
+end
+
+
+
+------------------------------------------------------------------------------
+-- The lsyncd runner 
+------------------------------------------------------------------------------
+
+
+-----
+-- Puts an action on the delay stack.
 --
 local function delay_action(atype, wd, sync, filename, time)
 	log(DEBUG, "delay_action "..event_names[atype].."("..wd..") ")
@@ -155,7 +262,7 @@ local function attend_dir(origin, path, parent)
 
 	-- registers and adds watches for all subdirectories 
 	local subdirs = lsyncd.sub_dirs(op);
-	for i, dirname in ipairs(subdirs) do
+	for _, dirname in ipairs(subdirs) do
 		attend_dir(origin, path..dirname.."/", thiswatch)
 	end
 end
@@ -172,7 +279,7 @@ function lsyncd_collect_process(pid, exitcode)
 	end
 	local sync = process.sync
 	local origin = sync.origin
-	print("collected ", pid, ": ", event_names[atpye], origin.source, "/", sync.path , process.filename, " = ", exitcode)
+	print("collected ", pid, ": ", event_names[process.atype], origin.source, "/", sync.path , process.filename, " = ", exitcode)
 	processes[pid] = nil
 	origin.processes[pid] = nil
 end
@@ -215,10 +322,10 @@ local function invoke_action(delay)
 	end
 	
 	if func ~= nil then
-		pid = func(origin.source, sync.path, delay.filename, origin.targetident)
+		local pid = func(origin.source, sync.path, delay.filename, origin.targetident)
 		if pid ~= nil and pid > 0 then
-			process = {pid      = pid,
-			           atpye    = delay.atype,
+			local process = {pid      = pid,
+			           atype    = delay.atype,
 			           wd       = delay.wd,
 			           sync     = delay.sync,
 			           filename = delay.filename
@@ -239,7 +346,7 @@ end
 function lsyncd_alarm(now)
 	-- goes through all targets and spawns more actions
 	-- if possible
-	for i, o in ipairs(origins) do
+	for _, o in ipairs(origins) do
 		if #o.processes < o.actions.max_processes then
 			local delays = o.delays
 			if delays[1] ~= nil and lsyncd.before_eq(delays[1].alarm, now) then
@@ -254,6 +361,9 @@ end
 -- Called from core on init or restart after user configuration.
 -- 
 function lsyncd_initialize()
+	-- From this point on, no globals may be created anymore
+	GLOBAL_lock(_G)
+
 	-- makes sure the user gave lsyncd anything to do 
 	if #origins == 0 then
 		log(ERROR, "nothing to watch. Use directory(SOURCEDIR, TARGET) in your config file.");
@@ -263,7 +373,7 @@ function lsyncd_initialize()
 	-- set to true if at least one origin has a startup function
 	local have_startup = false
 	-- runs through the origins table filled by user calling directory()
-	for i, origin in ipairs(origins) do
+	for _, origin in ipairs(origins) do
 		-- resolves source to be an absolute path
 		local asrc = lsyncd.real_dir(origin.source)
 		local actions = origin.actions
@@ -288,7 +398,7 @@ function lsyncd_initialize()
 	if have_startup then
 		log(NORMAL, "--- startup ---")
 		local pids = { }
-		for i, origin in ipairs(origins) do
+		for _, origin in ipairs(origins) do
 			local pid
 			if origin.actions.startup ~= nil then
 				local pid = origin.actions.startup(origin.source, origin.targetident)
@@ -312,7 +422,7 @@ end
 function lsyncd_get_alarm()
 	local have_alarm = false
 	local alarm = 0
-	for i, o in ipairs(origins) do
+	for _, o in ipairs(origins) do
 		if o.delays[1] ~= nil then
 			if have_alarm then
 				alarm = lsyncd.earlier(alarm, o.delays[1].alarm)
@@ -328,7 +438,6 @@ function lsyncd_get_alarm()
 	else
 		hs = "false"
 	end
-	log(DEBUG, "lsyncd_get_alarm ("..hs..","..alarm..")")
 	return have_alarm, alarm
 end
 
@@ -363,7 +472,7 @@ function lsyncd_event(etype, wd, isdir, time, filename, filename2)
 	end
 	
 	-- works through all possible source->target pairs
-	for i, sync in ipairs(w.syncs) do
+	for _, sync in ipairs(w.syncs) do
 		delay_action(etype, wd, sync, filename, time)
 		-- add subdirs for new directories
 		if isdir then
@@ -422,4 +531,5 @@ function default_overflow()
 
 end
 overflow = default_overflow
+
 
