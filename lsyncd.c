@@ -1033,7 +1033,7 @@ main(int argc, char *argv[])
 	} else {
 		lsyncd_runner_file = LSYNCD_DEFAULT_RUNNER_FILE;
 	}
-	lsyncd_config_file = argv[argp];
+	lsyncd_config_file = argv[argp++];
 	{
 		struct stat st;
 		if (stat(lsyncd_runner_file, &st)) {
@@ -1093,13 +1093,22 @@ main(int argc, char *argv[])
 		sigemptyset(&set);
 		sigaddset(&set, SIGCHLD);
 		signal(SIGCHLD, sig_child);
-		//sigprocmask(SIG_BLOCK, &set, NULL);
+		sigprocmask(SIG_BLOCK, &set, NULL);
 	}
 
 	/* initialize */
 	/* lua code will set configuration and add watches */
-	lua_getglobal(L, "lsyncd_initialize");
-	lua_call(L, 0, 0);
+	{
+		ind idx = 0;
+		/* creates a table with all option arguments */
+		lua_newtable(L);
+		lua_pushnumber(L, idx++);
+		lua_pushstring(L, argv[argp++]);
+		lua_settable(L, -3);
+
+		lua_getglobal(L, "lsyncd_initialize");
+		lua_call(L, 0, 0);
+	}
 
 	masterloop(L);
 
