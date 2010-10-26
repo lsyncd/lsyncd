@@ -14,7 +14,7 @@
 -- A security measurement.
 -- Core will exit if version ids mismatch.
 --
-if lsyncd_version ~= nil then
+if lsyncd_version then
 	-- checks if the runner is being loaded twice 
 	print("You cannot use the lsyncd runner as configuration file!")
 	os.exit(-1)
@@ -205,10 +205,12 @@ end
 --         .filename     .. filename or nil (=dir itself)
 --         (.movepeer)   .. for MOVEFROM/MOVETO link to other delay
 --    }
+--    .delaywd [wd] = [#]  .. a list of lists of all delays from a watch descriptor.
 -- }
 --
 local origins = new_array()
-local proto_delay = {atype=true, alarm=true, wd=true, sync=true, filename=true, movepeer=true}
+local proto_origin = {actions=true, source=true, targetident=true, processes=true, delays=true, delaywd=true}
+local proto_delay  = {atype  =true, alarm=true, wd=true, sync=true, filename=true, movepeer=true}
 
 -----
 -- all watches
@@ -243,16 +245,6 @@ local proto_sync  = {origin=true, path=true, parent=true}
 local processes = new_count_array()
 local proto_process = {pid=true, atype=true, wd=true, sync=true, filename=true}
 
-------
--- TODO
---
-local collapse_table = {
-	[ATTRIB] = { [ATTRIB] = ATTRIB, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
-	[MODIFY] = { [ATTRIB] = MODIFY, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
-	[CREATE] = { [ATTRIB] = CREATE, [MODIFY] = CREATE, [CREATE] = CREATE, [DELETE] = DELETE },
-	[DELETE] = { [ATTRIB] = DELETE, [MODIFY] = DELETE, [CREATE] = MODIFY, [DELETE] = DELETE },
-}
-set_array(collapse_table)
 
 -----
 -- A list of names of the event types the core sends.
@@ -277,19 +269,61 @@ set_array(event_names)
 --
 local function delay_action(atype, wd, sync, filename, time)
 	log(DEBUG, "delay_action "..event_names[atype].."("..wd..") ")
-	local origin = sync.origin
-	local delays = origin.delays
-	local nd = {atype    = atype, 
-	            wd       = wd, 
-	            sync     = sync, 
-	            filename = filename }
-	set_prototype(nd, proto_delay)
-	if time ~= nil and origin.actions.delay ~= nil then
-		nd.alarm = lsyncd.addto_clock(time, origin.actions.delay)
+	local o  = sync.origin
+	local delays  = o.delays
+	local delaywd = o.delaywd
+	local newd = {atype    = atype, 
+	              wd       = wd, 
+	              sync     = sync, 
+	              filename = filename }
+	set_prototype(newd, proto_delay)
+	if time and o.actions.delay then
+		newd.alarm = lsyncd.addto_clock(time, o.actions.delay)
 	else
-		nd.alarm = lsyncd.now()
+		newd.alarm = lsyncd.now()
 	end
-	table.insert(delays, nd)
+
+	local dwd = delaywd[wd]
+	if not dwd then
+		dwd = {}
+		delaywd[wd] = dwd
+	end
+
+	-- TODO COLLAPSE
+	if dwd[filename] then
+		local oldd = dwd[filename]
+		if newd.atype == MOVE_FROM or newd.atype == MOVE_TO or
+		   oldd.atype == MOVE_FROM or oldd.atype == MOVE_TO then
+		   -- do not collapse moves
+			log(NORMAL, "Not collapsing events with moves on "..filename)
+			-- TODO stackinfo
+			return
+		else
+			local col = o.actions.collapse_table[oldd.atype][newd.atype]
+			if col == -1 then
+				-- events cancel each other
+				log(NORMAL, "Nullfication: " ..event_names[newd.atype].." after "..
+				                               event_names[oldd.atype].." on "..filename)
+				oldd.atype = NONE
+				return
+			elseif col == 0 then
+				-- events tack
+				log(NORMAL, "Stacking " ..event_names[newd.atype].." after "..
+				                          event_names[oldd.atype].." on "..filename)
+				-- TODO stackinfo
+			else
+				log(NORMAL, "Collapsing "..event_names[newd.atype].." upon "..
+				                           event_names[oldd.atype].." to " ..
+										   event_names[col].." on "..filename)
+				oldd.atype = col
+				return
+			end
+		end
+		table.insert(delays, newd)
+	else
+		dwd[filename] = newd
+		table.insert(delays, newd)
+	end
 end
 
 ----
@@ -310,7 +344,7 @@ local function attend_dir(origin, path, parent)
 	end
 
 	local thiswatch = watches[wd]
-	if thiswatch == nil then
+	if not thiswatch then
 		-- new watch
 		thiswatch = {wd = wd, syncs = {} }
 		set_prototype(thiswatch, proto_watch)
@@ -321,7 +355,7 @@ local function attend_dir(origin, path, parent)
 	table.insert(thiswatch.syncs, sync)
 
 	-- warmstart?
-	if origin.actions.startup == nil then
+	if not origin.actions.startup then
 		delay_action(CREATE, wd, sync, nil, nil)
 	end
 
@@ -339,7 +373,7 @@ end
 function lsyncd_collect_process(pid, exitcode) 
 	log(DEBUG, "collected "..pid)
 	local process = processes[pid]
-	if process == nil then
+	if not process then
 		return
 	end
 	local sync = process.sync
@@ -358,37 +392,26 @@ local function invoke_action(delay)
 	local origin  = sync.origin
 	local actions = origin.actions
 	local func = nil
-	if delay.atype == CREATE then
-		if actions.create ~= nil then
-			func = actions.create
-		elseif actions.default ~= nil then
-			func = actions.default
-		end
-	elseif delay.atype == ATTRIB then
-		if actions.attrib ~= nil then
-			func = actions.attrib
-		elseif actions.default ~= nil then
-			func = actions.default
-		end
-	elseif delay.atype == MODIFY then
-		if actions.modify ~= nil then
-			func = actions.modify
-		elseif actions.default ~= nil then
-			func = actions.default
-		end
-	elseif delay.atype == DELETE then
-		if actions.delete ~= nil then
-			func = actions.delete
-		elseif actions.default ~= nil then
-			func = actions.default
-		end
-	elseif delay.atype == MOVE then
-		log(ERROR, "MOVE NOT YET IMPLEMENTED!")
+	local atype = delay.atype
+	if atype == NONE then
+		-- a removed action
+		return
+	elseif atype == CREATE then
+		func = actions.create or actions.default
+	elseif atype == ATTRIB then
+		func = actions.attrib or actions.default
+	elseif atype == MODIFY then
+		func = actions.modify or actions.default
+	elseif atype == DELETE then
+		func = actions.delete or actions.default
+	elseif atype == MOVE then
+		log(ERROR, "MOVE NOT YET IMPLEMENTED!") -- TODO
+		return
 	end
 	
-	if func ~= nil then
+	if func then
 		local pid = func(origin.source, sync.path, delay.filename, origin.targetident)
-		if pid ~= nil and pid > 0 then
+		if pid and pid > 0 then
 			local process = {pid      = pid,
 			                 atype    = delay.atype,
 			                 wd       = delay.wd,
@@ -415,9 +438,11 @@ function lsyncd_alarm(now)
 	for _, o in ipairs(origins) do
 		if o.processes.size < o.actions.max_processes then
 			local delays = o.delays
-			if delays[1] ~= nil and lsyncd.before_eq(delays[1].alarm, now) then
-				invoke_action(o.delays[1])
+			local d = delays[1]
+			if d and lsyncd.before_eq(d.alarm, now) then
+				invoke_action(d)
 				table.remove(delays, 1)
+				o.delaywd[d.wd][d.filename] = nil
 			end
 		end
 	end
@@ -441,36 +466,44 @@ function lsyncd_initialize(args)
 	-- set to true if at least one origin has a startup function
 	local have_startup = false
 	-- runs through the origins table filled by user calling directory()
-	for _, origin in ipairs(origins) do
+	for _, o in ipairs(origins) do
 		-- resolves source to be an absolute path
-		local asrc = lsyncd.real_dir(origin.source)
-		local actions = origin.actions
-		if asrc == nil then
-			print("Cannot resolve source path: ", origin.source)
+		local asrc = lsyncd.real_dir(o.source)
+		local actions = o.actions
+		if not asrc then
+			print("Cannot resolve source path: ", o.source)
 			lsyncd.terminate(-1) -- ERRNO
 		end
-		origin.source = asrc
-		origin.delays = new_count_array()
-		origin.processes = new_count_array()
+		o.source = asrc
+		o.delays = new_count_array()
+		o.delaywd = new_array()
+		o.processes = new_count_array()
 
-		if actions.max_processes == nil then
-			actions.max_processes = 1 -- TODO DEFAULT MAXPROCESS
-		end
-		if actions.startup ~= nil then
+		actions.max_processes = 
+			actions.max_processes or 
+			settings.max_processes or 
+			defaults.max_processes
+
+		actions.collapse_table =
+			actions.collapse_table or
+			settings.collapse_table or 
+			defaults.collapse_table
+
+		if actions.startup then
 			have_startup = true
 		end
 
 		-- and add the dir watch inclusively all subdirs
-		attend_dir(origin, "", nil)
+		attend_dir(o, "", nil)
 	end
 	
 	if have_startup then
 		log(NORMAL, "--- startup ---")
 		local pids = { }
-		for _, origin in ipairs(origins) do
+		for _, o in ipairs(origins) do
 			local pid
-			if origin.actions.startup ~= nil then
-				local pid = origin.actions.startup(origin.source, origin.targetident)
+			if o.actions.startup then
+				local pid = o.actions.startup(o.source, o.targetident)
 				table.insert(pids, pid)
 			end
 		end
@@ -492,7 +525,7 @@ function lsyncd_get_alarm()
 	local have_alarm = false
 	local alarm = 0
 	for _, o in ipairs(origins) do
-		if o.delays[1] ~= nil and 
+		if o.delays[1] and 
 		   o.processes.size < o.actions.max_processes then
 			if have_alarm then
 				alarm = lsyncd.earlier(alarm, o.delays[1].alarm)
@@ -522,15 +555,15 @@ function lsyncd_event(etype, wd, isdir, time, filename, filename2)
 		ftype = "file"
 	end
 	-- TODO comment out to safe performance
-	if filename2 == nil then
-		log(DEBUG, "got event "..event_names[etype].." of "..ftype.." "..filename) 
-	else 
+	if filename2 then
 		log(DEBUG, "got event "..event_names[etype].." of "..ftype.." "..filename.." to "..filename2) 
+	else 
+		log(DEBUG, "got event "..event_names[etype].." of "..ftype.." "..filename) 
 	end
 
 	-- looks up the watch descriptor id
 	local w = watches[wd]
-	if w == nil then
+	if not w then
 		log(NORMAL, "event belongs to unknown or deleted watch descriptor.")
 		return
 	end
@@ -580,8 +613,10 @@ function sync(source_dir, target_identifier, actions)
 	                source  = source_dir, 
 	            targetident = target_identifier, 
 	}
-	if actions.max_actions == nil then
-		actions.max_actions = 1
+	set_prototype(o, proto_origin)
+
+	if not actions.max_actions then
+		actions.max_actions = 1  -- TODO move to init
 	end
 	table.insert(origins, o)
 	return 
@@ -595,5 +630,25 @@ function default_overflow()
 
 end
 overflow = default_overflow
+
+--============================================================================
+-- lsyncd default settings
+--============================================================================
+
+defaults = {
+	-----
+	-- TODO
+	--
+	max_processes = 1,
+	------
+	-- TODO
+	--
+	collapse_table = {
+		[ATTRIB]   = { [ATTRIB] = ATTRIB, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
+		[MODIFY]   = { [ATTRIB] = MODIFY, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
+		[CREATE]   = { [ATTRIB] = CREATE, [MODIFY] = CREATE, [CREATE] = CREATE, [DELETE] = -1     },
+		[DELETE]   = { [ATTRIB] = DELETE, [MODIFY] = DELETE, [CREATE] = MODIFY, [DELETE] = DELETE },
+	}
+}
 
 
