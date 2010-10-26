@@ -71,7 +71,10 @@ enum event_type {
 /**
  * The Lua part of lsyncd.
  */
-#define LSYNCD_DEFAULT_RUNNER_FILE "lsyncd.lua"
+//#define LSYNCD_DEFAULT_RUNNER_FILE "lsyncd.lua"
+extern char _binary_luac_out_start;
+extern char _binary_luac_out_end; 
+
 static char * lsyncd_runner_file = NULL;
 static char * lsyncd_config_file = NULL;
 
@@ -1017,6 +1020,7 @@ main(int argc, char *argv[])
 	lua_pushinteger(L, ERROR);   lua_setglobal(L, "ERROR");
 
 	/* TODO parse runner */
+#ifdef LSYNCD_DEFAULT_RUNNER_FILE
 	if (!strcmp(argv[argp], "--runner")) {
 		if (argc < 3) {
 			fprintf(stderr, "Lsyncd Lua-runner file missing after --runner.\n");
@@ -1033,28 +1037,46 @@ main(int argc, char *argv[])
 	} else {
 		lsyncd_runner_file = LSYNCD_DEFAULT_RUNNER_FILE;
 	}
+#else
+	if (!strcmp(argv[argp], "--runner")) {
+		fprintf(stderr, "This lsyncd binary has its lua runner staticly compiled.\n");
+		fprintf(stderr, "Configure and compile with --with-runner=FILE to use the lsyncd.lua file.\n");
+		return -1; // ERRNO
+	}
+#endif
 	lsyncd_config_file = argv[argp++];
 	{
 		struct stat st;
+#ifdef LSYNCD_DEFAULT_RUNNER_FILE
 		if (stat(lsyncd_runner_file, &st)) {
-			fprintf(stderr, "Cannot find Lsyncd Lua-runner at %s.\n", lsyncd_runner_file);
+			fprintf(stderr, "Cannot find Lsyncd Lua-runner at '%s'.\n", lsyncd_runner_file);
 			fprintf(stderr, "Maybe specify another place? %s --runner RUNNER_FILE CONFIG_FILE\n", argv[0]);
 			return -1; // ERRNO
 		}
+#endif
 		if (stat(lsyncd_config_file, &st)) {
-			fprintf(stderr, "Cannot find config file at %s.\n", lsyncd_config_file);
+			fprintf(stderr, "Cannot find config file at '%s'.\n", lsyncd_config_file);
 			return -1; // ERRNO
 		}
 	}
 
+#ifdef LSYNCD_DEFAULT_RUNNER_FILE
 	if (luaL_loadfile(L, lsyncd_runner_file)) {
 		fprintf(stderr, "error loading '%s': %s\n", 
 		       lsyncd_runner_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
+#else
+	if (luaL_loadbuffer(L, &_binary_luac_out_start, 
+			&_binary_luac_out_end - &_binary_luac_out_start, "lsyncd.lua")) {
+		fprintf(stderr, "error loading precompiled lsyncd.lua runner: %s\n", 
+		        lua_tostring(L, -1));
+		return -1; // ERRNO
+	}
+#endif
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
 		fprintf(stderr, "error preparing '%s': %s\n", 
-		       lsyncd_runner_file, lua_tostring(L, -1));
+			lsyncd_runner_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 
