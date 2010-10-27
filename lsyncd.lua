@@ -16,7 +16,8 @@
 --
 if lsyncd_version then
 	-- checks if the runner is being loaded twice 
-	io.stderr:write("You cannot use the lsyncd runner as configuration file!\n")
+	io.stderr:write(
+		"You cannot use the lsyncd runner as configuration file!\n")
 	os.exit(-1)
 end
 lsyncd_version = "2.0beta1"
@@ -26,6 +27,7 @@ lsyncd_version = "2.0beta1"
 --
 log  = lsyncd.log
 exec = lsyncd.exec
+terminate = lsyncd.terminate
 
 --============================================================================
 -- Coding checks, ensure termination on some easy to do coding errors.
@@ -87,13 +89,13 @@ local meta_check_count_array = {
 local meta_check_prototype = {
 	__index = function(t, k) 
 		if not t.prototype[k] then
-			error("This table does not have key '"..k.."' in its prototype.", 2)
+			error("tables prototype doesn't have key '"..k.."'.", 2)
 		end
 		return rawget(t, k)
 	end,
 	__newindex = function(t, k, v)
 		if not t.prototype[k] then
-			error("This table does not have key '"..k.."' in its prototype.", 2)
+			error("tables prototype doesn't have key '"..k.."'.", 2)
 		end
 		rawset(t, k, v)
 	end
@@ -105,7 +107,7 @@ local meta_check_prototype = {
 local function set_array(t)
 	for k, _ in pairs(t) do
 		if type(k) ~= "number" then
-			error("This table cannot be set as array, it has non-numberic key '"..k.."'", 2)
+			error("table can't become an array, since it has key '"..k.."'", 2)
 		end
 	end
 	setmetatable(t, meta_check_array)
@@ -138,7 +140,7 @@ local function set_prototype(t, prototype)
 	t.prototype = prototype
 	for k, _ in pairs(t) do
 		if not t.prototype[k] and k ~= "prototype" then
-			error("Cannot set prototype of table, conflicting key: '"..k.."'.", 2)
+			error("Cannot set prototype, conflicting key: '"..k.."'.", 2)
 		end
 	end
 	setmetatable(t, proto_check_table)
@@ -205,7 +207,8 @@ end
 --         .filename     .. filename or nil (=dir itself)
 --         (.movepeer)   .. for MOVEFROM/MOVETO link to other delay
 --    }
---    .delaywd [wd] = [#]  .. a list of lists of all delays from a watch descriptor.
+--    .delaywd [wd] = [#]  .. a list of lists of all delays from a 
+--                            watch descriptor.
 -- }
 --
 local origins = new_array()
@@ -387,7 +390,9 @@ function lsyncd_collect_process(pid, exitcode)
 	end
 	local sync = process.sync
 	local o = sync.origin
-	print("collected ", pid, ": ", event_names[process.atype], o.source, "/", sync.path , process.filename, " = ", exitcode)
+	-- TODO
+	print("collected ", pid, ": ", event_names[process.atype], o.source, 
+		  "/", sync.path , process.filename, " = ", exitcode)
 	processes[pid] = nil
 	o.processes[pid] = nil
 end
@@ -398,10 +403,10 @@ end
 --
 local function invoke_action(delay)
 	local sync    = delay.sync
-	local origin  = sync.origin
-	local actions = origin.actions
-	local func = nil
-	local atype = delay.atype
+	local o       = sync.origin
+	local actions = o.actions
+	local func    = nil
+	local atype   = delay.atype
 	if atype == NONE then
 		-- a removed action
 		return
@@ -418,7 +423,7 @@ local function invoke_action(delay)
 	end
 	
 	if func then
-		local pid = func(origin.source, sync.path, delay.filename, origin.targetident)
+		local pid = func(o.source, sync.path, delay.filename, o.targetident)
 		if pid and pid > 0 then
 			local process = {pid      = pid,
 			                 atype    = delay.atype,
@@ -428,7 +433,7 @@ local function invoke_action(delay)
 			}
 			set_prototype(process, proto_process)
 			processes[pid] = process
-			origin.processes[pid] = process
+			o.processes[pid] = process
 		end
 	end
 end
@@ -462,7 +467,7 @@ end
 -- the arguments.
 --
 function lsyncd_help()
-	io.stderr:write(
+	io.stdout:write(
 [[TODO this is a multiline
 help
 ]])
@@ -474,13 +479,18 @@ end
 -- Called from core on init or restart after user configuration.
 -- 
 function lsyncd_initialize(args)
+	-- creates settings if user didnt
+	settings = settings or {}
+
 	-- From this point on, no globals may be created anymore
 	GLOBAL_lock(_G)
 
+	-- parses all arguments
 	for i = 1, #args do
 		local a = args[i]
 		if a:sub(1, 1) ~= "-" then
-			io.stderr:write("Unknown option "..a..". Options must start with '-' or '--'.\n")
+			log(ERROR, "Unknown option "..a..
+				". Options must start with '-' or '--'.")
 			os.exit(-1) -- ERRNO
 		end
 		if a:sub(1, 2) == "--" then
@@ -488,14 +498,48 @@ function lsyncd_initialize(args)
 		else
 			a = a:sub(2)
 		end
-		print(i, a)
+		--TOTO
+	end
+
+	-- all valid settings, first value is 1 if it needs a parameter 
+	local configure_settings = {
+		loglevel = {1, 
+			function(param)
+				if not (param == DEBUG or param == NORMAL or
+				        param == VERBOSE or param == ERROR) then
+					log(ERROR, "unknown settings.loglevel '"..param.."'")
+					terminate(-1); -- ERRNO
+				end
+			end},
+		statuspipe = {1, nil},
+	}
+
+	-- check all entries in the settings table
+	for c, p in pairs(settings) do
+		local cs = configure_settings[c]
+		if not cs then
+			log(ERROR, "unknown setting '"..c.."'")	
+			terminate(-1) -- ERRNO
+		end
+		if cs[1] == 1 and not p then
+			log(ERROR, "setting '"..c.."' needs a parameter")	
+		end
+		-- calls the check function if its not nil
+		if cs[2] then
+			cs[2](p)
+		end
+		lsyncd.configure(c, p)
 	end
 
 	-- makes sure the user gave lsyncd anything to do 
 	if #origins == 0 then
-		log(ERROR, "nothing to watch. Use directory(SOURCEDIR, TARGET) in your config file.");
-		lsyncd.terminate(-1) -- ERRNO
+		log(ERROR, "Nothing to watch!")
+		log(ERROR, "Use sync(SOURCE, TARGET, BEHAVIOR) in your config file.");
+		terminate(-1) -- ERRNO
 	end
+
+	-- from this point on use logging facilities as configured.
+	lsyncd.configure("running");
 
 	-- set to true if at least one origin has a startup function
 	local have_startup = false
@@ -506,7 +550,7 @@ function lsyncd_initialize(args)
 		local actions = o.actions
 		if not asrc then
 			print("Cannot resolve source path: ", o.source)
-			lsyncd.terminate(-1) -- ERRNO
+			terminate(-1) -- ERRNO
 		end
 		o.source = asrc
 		o.delays = new_count_array()
@@ -526,7 +570,7 @@ function lsyncd_initialize(args)
 		if actions.startup then
 			have_startup = true
 		end
-
+-- TODO move above to be before "running"
 		-- and add the dir watch inclusively all subdirs
 		attend_dir(o, "", nil)
 	end
@@ -542,9 +586,11 @@ function lsyncd_initialize(args)
 			end
 		end
 		lsyncd.wait_pids(pids, "startup_collector")
-		log(NORMAL, "--- Entering normal operation with "..watches.size.." monitored directories ---")
+		log(NORMAL, "--- Entering normal operation with "..watches.size..
+			" monitored directories ---")
 	else
-		log(NORMAL, "--- Warmstart into normal operation with "..watches.size.." monitored directories ---")
+		log(NORMAL, "--- Warmstart into normal operation with "..watches.size..
+			" monitored directories ---")
 	end
 end
 
@@ -626,7 +672,7 @@ end
 function startup_collector(pid, exitcode)
 	if exitcode ~= 0 then
 		log(ERROR, "Startup process", pid, " failed")
-		lsyncd.terminate(-1) -- ERRNO
+		terminate(-1) -- ERRNO
 	end
 	return 0
 end
@@ -661,8 +707,7 @@ end
 --
 function default_overflow()
 	log(ERROR, "--- OVERFLOW on inotify event queue ---")
-	lsyncd.terminate(-1) -- TODO reset instead.
-
+	terminate(-1) -- TODO reset instead.
 end
 overflow = default_overflow
 
@@ -677,11 +722,33 @@ end
 -- lsyncd default settings
 --============================================================================
 
+-----
+-- lsyncd classic - sync with rsync
+--
+local default_rsync = {
+	----
+	-- Called for every sync/target pair on startup
+	startup = function(source, target) 
+		log(NORMAL, "startup recursive rsync: "..source.." -> "..target)
+		return exec("/usr/bin/rsync", "-ltrs", 
+			source, target)
+	end,
+
+	default = function(source, target, path)
+		return exec("/usr/bin/rsync", "--delete", "-ltds",
+			source.."/".. path, target .. "/" .. path)
+	end
+}
+
+-----
+-- The defaults table for the user to access 
+--
 defaults = {
 	-----
 	-- TODO
 	--
 	max_processes = 1,
+
 	------
 	-- TODO
 	--
@@ -690,7 +757,9 @@ defaults = {
 		[MODIFY]   = { [ATTRIB] = MODIFY, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
 		[CREATE]   = { [ATTRIB] = CREATE, [MODIFY] = CREATE, [CREATE] = CREATE, [DELETE] = -1     },
 		[DELETE]   = { [ATTRIB] = DELETE, [MODIFY] = DELETE, [CREATE] = MODIFY, [DELETE] = DELETE },
-	}
+	},
+
+	rsync = default_rsync
 }
 
 

@@ -6,7 +6,7 @@
 settings = {
 --	logfile = "/tmp/lsyncd",
 	nodaemon,
-	status = "/tmp/lsyncd.stat",
+	statuspipe = "/tmp/lsyncd.stat",
 	loglevel = DEBUG,
 }
 
@@ -55,23 +55,6 @@ slowbash = {
 --	end,
 }
 
------
--- lsyncd classic - sync with rsync
---
--- All functions return the pid of a spawned process
---               or 0 if they didn't exec something.
-rsync = {
-	----
-	-- Called for every sync/target pair on startup
-	startup = function(source, target) 
-		log(NORMAL, "startup recursive rsync: " .. source .. " -> " .. target)
-		return exec("/usr/bin/rsync", "-ltrs", source, target)
-	end,
-
-	default = function(source, target, path)
-		return exec("/usr/bin/rsync", "--delete", "-ltds", source .. "/" .. path, target .. "/" .. path)
-	end
-}
 
 sync("s", "d/", slowbash)
 

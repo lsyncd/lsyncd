@@ -15,7 +15,7 @@
 #ifdef HAVE_SYS_INOTIFY_H
 #  include <sys/inotify.h>
 #else
-#  error Missing <sys/inotify.h> please supply kernel-headers and rerun configure
+#  error Missing <sys/inotify.h>; supply kernel-headers and rerun configure.
 #endif
 
 #include <sys/stat.h>
@@ -42,12 +42,14 @@
  * Extended debugging, undefine these to enable respective parts.
  */
 #define DBG_MASTERLOOP(x) 
+#define DBG_STARTUP(x) 
 
 /**
  * Debugging definitions
  */
 #ifndef DBG_MASTERLOOP
 #define DBG_MASTERLOOP(x) { logstring(DEBUG, x); }
+#define DBG_STARTUP(x)    { logstring(DEBUG, x); }
 #endif
 
 /**
@@ -117,18 +119,43 @@ bool logsyslog = false;
 /**
  * lsyncd log level
  */
-static enum loglevel {
+enum loglevel {
 	DEBUG   = 1,    /* Log debug messages       */
 	VERBOSE = 2,    /* Log more                 */
 	NORMAL  = 3,    /* Log short summeries      */
 	ERROR   = 4,    /* Log severe errors only   */
 	CORE    = 0x80  /* Indicates a core message */
-} loglevel = DEBUG;  // TODO
+};
+
+/**
+ * configuration parameters
+ */
+static struct settings {
+	enum loglevel loglevel;
+	char * statuspipe;
+} settings = {
+	.loglevel = DEBUG,
+	.statuspipe = NULL,
+};
 
 /**
  * True when lsyncd daemonized itself.
  */
-static bool is_daemon;
+static bool is_daemon = false;
+
+/**
+ * True after first configuration phase. This is to write configuration error
+ * messages to stdout/stderr after being first started. Then it uses whatever
+ * it has been configured to. This survives a reset by HUP signal or 
+ * inotify OVERFLOW!
+ */
+static bool running = false;
+
+/**
+ * loglevel before user configuration took place
+ * set to DEBUG for upstart debugging, Normally its NORMAL.
+ */
+static const enum loglevel startup_loglevel = DEBUG;
 
 /**
  * Set to TERM or HUP in signal handler, when lsyncd should end or reset ASAP.
@@ -238,8 +265,19 @@ logstring0(enum loglevel level,
 	/* strip flags from level */
 	level &= 0x0F;
 
+	if (!running) {
+		/* lsyncd is in intial configuration.
+		 * thus just print to normal stdout/stderr. */
+		if (level == ERROR) {
+			fprintf(stderr, "%s\n", message);
+		} else if (level >= startup_loglevel) {
+			printf("%s\n", message);
+		}
+		return;
+	}
+
 	/* skips filtered messagaes */
-	if (level < loglevel) {
+	if (level < settings.loglevel) {
 		return;
 	}
 
@@ -247,7 +285,7 @@ logstring0(enum loglevel level,
 	                  (coremsg ? "CORE ERROR: " : "ERROR: ") :
 	                  (coremsg ? "core: " : "");
 
-	/* writes on console */
+	/* writes on console if not daemon */
 	if (!is_daemon) {
 		char ct[255];
 		/* gets current timestamp hour:minute:second */
@@ -258,7 +296,7 @@ logstring0(enum loglevel level,
 		fprintf(flog, "%s %s%s\n", ct, prefix, message);
 	}
 
-	/* writes on file */
+	/* writes to file if configured so */
 	if (logfile) {
 		FILE * flog = fopen(logfile, "a");
 		/* gets current timestamp day-time-year */
@@ -277,7 +315,7 @@ logstring0(enum loglevel level,
 		fclose(flog);
 	}
 
-	/* sends to syslog */
+	/* sends to syslog if configured so */
 	if (logsyslog) {
 		int sysp;
 		switch (level) {
@@ -339,7 +377,7 @@ l_log(lua_State *L)
 	/* log level */
 	int level = luaL_checkinteger(L, 1);
 	/* skips filtered messages early */
-	if ((level & 0x0F) < loglevel) {
+	if ((level & 0x0F) < settings.loglevel) {
 		return 0;
 	}
 	message = luaL_checkstring(L, 2);
@@ -379,7 +417,8 @@ l_earlier(lua_State *L)
 }
 
 /**
- * Returns (on Lua stack) the current kernels clock state (jiffies, times() call)
+ * Returns (on Lua stack) the current kernels 
+ * clock state (jiffies)
  */
 static int
 l_now(lua_State *L) 
@@ -429,6 +468,7 @@ l_exec(lua_State *L)
 	pid = fork();
 
 	if (pid == 0) {
+		// TODO
 		//if (!log->flag_nodaemon && log->logfile) {
 		//	if (!freopen(log->logfile, "a", stdout)) {
 		//		printlogf(log, ERROR, "cannot redirect stdout to [%s].", log->logfile);
@@ -473,7 +513,8 @@ l_real_dir(lua_State *L)
 	    struct stat st;
 	    stat(cbuf, &st);
 	    if (!S_ISDIR(st.st_mode)) {
-			printlogf(L, ERROR, "failure in real_dir [%s] is not a directory", rdir);
+			printlogf(L, ERROR, 
+				"failure in real_dir '%s' is not a directory", rdir);
 			free(cbuf);
 			return 0;
 	    }
@@ -496,21 +537,25 @@ l_stackdump(lua_State* L)
 {
 	int i;
 	int top = lua_gettop(L);
-	printlogf(L, DEBUG, "total in stack %d\n",top);
+	printlogf(L, DEBUG, "total in stack %d",top);
 	for (i = 1; i <= top; i++) { 
 		int t = lua_type(L, i);
 		switch (t) {
 		case LUA_TSTRING:
-			printlogf(L, DEBUG, "%d string: '%s'\n", i, lua_tostring(L, i));
+			printlogf(L, DEBUG, "%d string: '%s'", 
+				i, lua_tostring(L, i));
 			break;
 		case LUA_TBOOLEAN:
-			printlogf(L, DEBUG, "%d boolean %s\n", i, lua_toboolean(L, i) ? "true" : "false");
+			printlogf(L, DEBUG, "%d boolean %s", 
+				i, lua_toboolean(L, i) ? "true" : "false");
 			break;
 		case LUA_TNUMBER: 
-			printlogf(L, DEBUG, "%d number: %g\n", i, lua_tonumber(L, i));
+			printlogf(L, DEBUG, "%d number: %g", 
+				i, lua_tonumber(L, i));
 			break;
 		default: 
-			printlogf(L, DEBUG, "%d %s\n", i, lua_typename(L, t));
+			printlogf(L, DEBUG, "%d %s", 
+				i, lua_typename(L, t));
 			break;
 		}
 	}
@@ -558,8 +603,9 @@ l_sub_dirs (lua_State *L)
 			/* readdir can trusted */
 			isdir = de->d_type == DT_DIR;
 		}
-		if (!isdir || !strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) {
-			/* ignore non directories and . and .. */
+		if (!isdir || !strcmp(de->d_name, ".") || 
+			!strcmp(de->d_name, "..")) 
+		{ /* ignore non directories and . and .. */
 			continue;
 		}
 
@@ -675,11 +721,45 @@ l_wait_pids(lua_State *L)
 				if (newp == 0) {
 					remaining--;
 				}
-				/* does not break, in case there are duplicate pids (whyever) */
+				/* does not break!
+				 * in case there are duplicate pids (why-ever) */
 			}
 		}
 	}
 	free(pids);
+	return 0;
+}
+
+/**
+ * Configures core parameters.
+ * 
+ * @param (Lua stack) a string for a core configuratoin
+ * @param (Lua stack) --differes depending on string. 
+ */
+static int 
+l_configure(lua_State *L) 
+{
+	const char * command = luaL_checkstring(L, 1);
+	if (!strcmp(command, "statuspipe")) {
+		/* configures the status pipe lsyncd will dump 
+		 * its status to if opened*/
+		if (settings.statuspipe) {
+			free(settings.statuspipe);
+		}
+		settings.statuspipe = s_strdup(luaL_checkstring(L, 2));
+	} else if (!strcmp(command, "loglevel")) {
+		settings.loglevel = luaL_checkinteger(L, 2);
+	} else if (!strcmp(command, "running")) {
+		/* set by runner after first initialize 
+		 * from this on log to configurated log end instead of 
+		 * stdout/stderr */
+		running = true;
+	} else {
+		printlogf(L, ERROR, 
+			"Internal error, unknown parameter in l_configure(%s)", 
+			command);
+		exit(-1); //ERRNO
+	}
 	return 0;
 }
 
@@ -688,6 +768,7 @@ static const luaL_reg lsyncdlib[] = {
 		{"add_watch",    l_add_watch    },
 		{"addto_clock",  l_addto_clock  },
 		{"before_eq",    l_before_eq    },
+		{"configure",    l_configure    },
 		{"earlier",      l_earlier      },
 		{"exec",         l_exec         },
 		{"log",          l_log          },
@@ -715,7 +796,7 @@ printlogf(lua_State *L,
 {
 	va_list ap;
 	/* skips filtered messages early */
-	if (level < loglevel) {
+	if (level < settings.loglevel) {
 		return;
 	}
 	lua_pushcfunction(L, l_log);
@@ -726,38 +807,6 @@ printlogf(lua_State *L,
 	lua_call(L, 2, 0);
 	return;
 }
-
-/**
- * Transfers the core relevant settings from lua's global "settings" into core.
- * This saves time in normal operation instead of bothering lua all the time.
- */
- /*
-void
-get_settings(lua_State *L)
-{
-	if (settings.logfile) {
-		free(settings.logfile);
-		settings.logfile = NULL;
-	}
-	lua_getglobal(L, "settings");
-	if (!lua_istable(L, -1)) {
-		return;
-	}
-	
-	lua_pushstring(L, "logfile");
-	lua_gettable(L, -2);
-	if (settings.logfile) {
-		free(settings.logfile);
-		settings.logfile = NULL;
-	}
-	if (lua_isstring(L, -1)) {
-		settings.logfile = s_strdup(luaL_checkstring(L, -1));
-	}
-	lua_pop(L, 1);
-	
-	lua_pop(L, 1);
-}*/
-
 
 /**
  * Buffer for MOVE_FROM events.
@@ -814,8 +863,9 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		event_type = MOVE;
 		move_event = false;
 	} else if (IN_MOVED_FROM & event->mask) {
-		/* just the MOVE_FROM, buffers this event, and wait if next event is a matching 
-		 * MOVED_TO of this was an unary move out of the watched tree. */
+		/* just the MOVE_FROM, buffers this event, and wait if next event is 
+		 * a matching MOVED_TO of this was an unary move out of the watched 
+		 * tree. */
 		size_t el = sizeof(struct inotify_event) + event->len;
 		if (move_event_buf_size < el) {
 			move_event_buf_size = el;
@@ -891,8 +941,8 @@ masterloop(lua_State *L)
 		lua_pop(L, 2);
 
 		if (have_alarm && time_before(alarm_time, now)) {
-			/* there is a delay that wants to be handled already
-			 * thus do not read from inotify_fd and jump directly to its handling */
+			/* there is a delay that wants to be handled already thus do not 
+			 * read from inotify_fd and jump directly to its handling */
 			DBG_MASTERLOOP("immediately handling delays.");
 			do_read = 0;
 		} else {
@@ -908,7 +958,8 @@ masterloop(lua_State *L)
 			if (have_alarm) { 
 				DBG_MASTERLOOP("going into timed select.");
 				tv.tv_sec  = (alarm_time - now) / clocks_per_sec;
-				tv.tv_nsec = (alarm_time - now) * 1000000000 / clocks_per_sec % 1000000000;
+				tv.tv_nsec = (alarm_time - now) * 
+					1000000000 / clocks_per_sec % 1000000000;
 			} else {
 				DBG_MASTERLOOP("going into blocking select.");
 			}
@@ -916,14 +967,12 @@ masterloop(lua_State *L)
 			 * on zero the timemout occured. */
 			FD_ZERO(&readfds);
 			FD_SET(inotify_fd, &readfds);
-			do_read = pselect(inotify_fd + 1, &readfds, NULL, NULL, have_alarm ? &tv : NULL, 
-					  &sigset);
+			do_read = pselect(inotify_fd + 1, &readfds, NULL, NULL, 
+				have_alarm ? &tv : NULL, &sigset);
 
-			if (do_read > 0) {
-				DBG_MASTERLOOP("theres data on inotify.");
-			} else {
-				DBG_MASTERLOOP("core: select() timeout or signal.");
-			}
+			DBG_MASTERLOOP(do_read > 0 ? 
+				"theres data on inotify." :
+				"core: select() timeout or signal.");
 		} 
 		
 		/* reads possible events from inotify stream */
@@ -943,7 +992,8 @@ masterloop(lua_State *L)
 				}
 			} while(0);
 			while (i < len && !reset) {
-				struct inotify_event *event = (struct inotify_event *) &readbuf[i];
+				struct inotify_event *event = 
+					(struct inotify_event *) &readbuf[i];
 				handle_event(L, event);
 				i += sizeof(struct inotify_event) + event->len;
 			}
@@ -953,7 +1003,8 @@ masterloop(lua_State *L)
 				fd_set readfds;
 				FD_ZERO(&readfds);
 				FD_SET(inotify_fd, &readfds);
-				do_read = pselect(inotify_fd + 1, &readfds, NULL, NULL, &tv, NULL);
+				do_read = pselect(inotify_fd + 1, &readfds, 
+					NULL, NULL, &tv, NULL);
 				if (do_read > 0) {
 					DBG_MASTERLOOP("there is more data on inotify.");
 				}
@@ -987,7 +1038,7 @@ masterloop(lua_State *L)
 /**
  * Prints a minimal help if e.g. config_file is missing 
  */
-void mini_help(char *arg0) 
+void minihelp(char *arg0) 
 {
 	fprintf(stderr, "Missing config file\n");
 	fprintf(stderr, "Minimal Usage: %s CONFIG_FILE\n", arg0);
@@ -1001,24 +1052,23 @@ void mini_help(char *arg0)
 int
 main(int argc, char *argv[])
 {
+	/* the Lua interpreter */
+	lua_State* L;
+
 	/* position at cores (minimal) argument parsing *
 	 * most arguments are parsed in the lua runner  */
 	int argp = 1; 
 	if (argc <= 1) {
-		mini_help(argv[0]);
+		minihelp(argv[0]);
 		return -1;
 	}
 
 	/* kernel parameters */
 	clocks_per_sec = sysconf(_SC_CLK_TCK);
 
-	/* the Lua interpreter */
-	lua_State* L;
-
-	/* TODO check lua version */
-
 	/* load Lua */
 	L = lua_open();
+	/* TODO check lua version */
 	luaL_openlibs(L);
 	luaL_register(L, "lsyncd", lsyncdlib);
 	lua_setglobal(L, "lysncd");
@@ -1038,52 +1088,73 @@ main(int argc, char *argv[])
 	lua_pushinteger(L, NORMAL);  lua_setglobal(L, "NORMAL");
 	lua_pushinteger(L, ERROR);   lua_setglobal(L, "ERROR");
 
-#ifdef LSYNCD_DEFAULT_RUNNER_FILE
 	/* checks if the user overrode default runner file */ 
 	if (!strcmp(argv[argp], "--runner")) {
 		if (argc < 3) {
-			fprintf(stderr, "Lsyncd Lua-runner file missing after --runner.\n");
+			logstring(ERROR, "Lsyncd Lua-runner file missing after --runner.");
+#ifdef LSYNCD_DEFAULT_RUNNER_FILE
+			printlogf(L, ERROR, 
+				"Using '%s' as default location for runner.",
+				LSYNCD_DEFAULT_RUNNER_FILE);
+#else
+			logstring(ERROR, 
+				"Using a staticly included runner as default.");
+#endif
 			return -1; //ERRNO
 		}
 		lsyncd_runner_file = argv[argp + 1];
 		argp += 2;
 	} else {
+#ifdef LSYNCD_DEFAULT_RUNNER_FILE
 		lsyncd_runner_file = LSYNCD_DEFAULT_RUNNER_FILE;
+#endif
 	}
-	{
-		/* checks if the runne file exists */
+	if (lsyncd_runner_file) {
+		/* checks if the runner file exists */
 		struct stat st;
 		if (stat(lsyncd_runner_file, &st)) {
-			fprintf(stderr, "Cannot find Lsyncd Lua-runner at '%s'.\n", lsyncd_runner_file);
-			fprintf(stderr, "Maybe specify another place? %s --runner RUNNER_FILE CONFIG_FILE\n", argv[0]);
+			printlogf(L, ERROR, 
+				"Cannot find Lsyncd Lua-runner at '%s'.", lsyncd_runner_file);
+			printlogf(L, ERROR, 
+				"Maybe specify another place?");
+			printlogf(L, ERROR, 
+				"%s --runner RUNNER_FILE CONFIG_FILE", argv[0]);
+			return -1; // ERRNO
+		}
+		/* loads the runner file */
+		if (luaL_loadfile(L, lsyncd_runner_file)) {
+			printlogf(L, ERROR, 
+				"error loading '%s': %s", 
+				lsyncd_runner_file, lua_tostring(L, -1));
 			return -1; // ERRNO
 		}
 	}
-	/* loads the runner file */
-	if (luaL_loadfile(L, lsyncd_runner_file)) {
-		fprintf(stderr, "error loading '%s': %s\n", 
-		       lsyncd_runner_file, lua_tostring(L, -1));
-		return -1; // ERRNO
+#ifndef LSYNCD_DEFAULT_RUNNER_FILE
+	else {
+		/* loads the runner from binary */
+		if (luaL_loadbuffer(L, &_binary_luac_out_start, 
+				&_binary_luac_out_end - &_binary_luac_out_start, "lsyncd.lua"))
+		{
+			printlogf(L, ERROR, 
+				"error loading precompiled lsyncd.lua runner: %s", 
+				lua_tostring(L, -1));
+			return -1; // ERRNO
+		}
 	}
 #else
-	/* User cannot override runner file in a static compile */
-	if (!strcmp(argv[argp], "--runner")) {
-		fprintf(stderr, "This lsyncd binary has its lua runner staticly compiled.\n");
-		fprintf(stderr, "Configure and compile with --with-runner=FILE to use the lsyncd.lua file.\n");
-		return -1; // ERRNO
-	}
-	/* loads the runner from binary */
-	if (luaL_loadbuffer(L, &_binary_luac_out_start, 
-			&_binary_luac_out_end - &_binary_luac_out_start, "lsyncd.lua")) {
-		fprintf(stderr, "error loading precompiled lsyncd.lua runner: %s\n", 
-		        lua_tostring(L, -1));
+	else {
+		/* this should never be possible, security code nevertheless */
+		logstring(ERROR, 
+			"Internal fail: lsyncd_runner is NULL with non-static runner");
 		return -1; // ERRNO
 	}
 #endif
 	/* execute the runner defining all its functions */
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-		fprintf(stderr, "error preparing '%s': %s\n", 
-			lsyncd_runner_file, lua_tostring(L, -1));
+		printlogf(L, ERROR, 
+			"error preparing '%s': %s", 
+			lsyncd_runner_file ? lsyncd_runner_file : "internal runner", 
+			lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 
@@ -1094,14 +1165,16 @@ main(int argc, char *argv[])
 		lversion = luaL_checkstring(L, -1);
 		lua_pop(L, 1);
 		if (strcmp(lversion, PACKAGE_VERSION)) {
-			fprintf(stderr, "Version mismatch '%s' is '%s', but core is '%s'\n",
- 			        lsyncd_runner_file, lversion, PACKAGE_VERSION);
+			printlogf(L, ERROR, 
+				"Version mismatch '%s' is '%s', but core is '%s'",
+ 				lsyncd_runner_file ? lsyncd_runner_file : "internal runner",
+				lversion, PACKAGE_VERSION);
 			return -1; // ERRNO
 		}
 	}
 
 	{
-		/* checks if there is a "-help" or "--help" in the args before anything else */
+		/* checks if there is a "-help" or "--help" before anything else */
 		int i;
 		for(i = argp; i < argc; i++) {
 			if (!strcmp(argv[i],"-help") || !strcmp(argv[i],"--help")) {
@@ -1111,39 +1184,50 @@ main(int argc, char *argv[])
 			}
 		}
 	}
-	if (argp + 1 < argc) {
-		mini_help(argv[0]);
-		return -1; // ERRNO
-	}
 
-	lsyncd_config_file = argv[argp++];
 	{	
-		/* checks for the existence of the config file */
+		/* checks for the configuration and existence of the config file */
 		struct stat st;
+		if (argp + 1 > argc) {
+			minihelp(argv[0]);
+			return -1; // ERRNO
+		}
+		lsyncd_config_file = argv[argp++];
 		if (stat(lsyncd_config_file, &st)) {
-			fprintf(stderr, "Cannot find config file at '%s'.\n", lsyncd_config_file);
+			printlogf(L, ERROR, 
+				"Cannot find config file at '%s'.", 
+				lsyncd_config_file);
 			return -1; // ERRNO
 		}
 	}
 
+	/* loads and executes the config file */
 	if (luaL_loadfile(L, lsyncd_config_file)) {
-		fprintf(stderr, "error loading %s: %s\n", lsyncd_config_file, lua_tostring(L, -1));
+		printlogf(L, ERROR, 
+			"error loading %s: %s", 
+			lsyncd_config_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-		fprintf(stderr, "error preparing %s: %s\n", lsyncd_config_file, lua_tostring(L, -1));
+		printlogf(L, ERROR, 
+			"error preparing %s: %s", 
+			lsyncd_config_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 
-	/* open inotify */
+	/* opens inotify */
 	inotify_fd = inotify_init();
 	if (inotify_fd == -1) {
-		fprintf(stderr, "Cannot create inotify instance! (%d:%s)\n", errno, strerror(errno));
+		printlogf(L, ERROR, 
+			"Cannot create inotify instance! (%d:%s)", 
+			errno, strerror(errno));
 		return -1; // ERRNO
 	}
 
-	/* add signal handlers */
 	{
+		/* adds signal handlers *
+		 * listens to SIGCHLD, but blocks it until pselect() 
+		 * opens up*/
 		sigset_t set;
 		sigemptyset(&set);
 		sigaddset(&set, SIGCHLD);
@@ -1151,11 +1235,11 @@ main(int argc, char *argv[])
 		sigprocmask(SIG_BLOCK, &set, NULL);
 	}
 
-	/* initialize */
-	/* lua code will set configuration and add watches */
 	{
+		/* runs initialitions from runner *
+		 * lua code will set configuration and add watches */
 		int idx = 1;
-		/* creates a table with all option arguments */
+		/* creates a table with all remaining argv option arguments */
 		lua_getglobal(L, "lsyncd_initialize");
 		lua_newtable(L);
 		while(argp < argc) {
