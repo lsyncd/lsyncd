@@ -19,24 +19,24 @@ slowbash = {
 
 	startup = function(source, target)
 		log(NORMAL, "cp -r from "..source.." -> "..target)
-		return exec("/bin/bash", "-c", "cp -r \"$1\"* \"$2\"", "/bin/bash", 
-		            source, target)
+		return exec("/bin/bash", "-c", [[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], 
+		            "/bin/bash", source, target)
 	end,
 
 	create = function(source, path, name, target)
 		local src = source..path..name
 		local trg = target..path..name
 		log(NORMAL, "create from "..src.." -> "..trg)
-		return exec("/bin/bash", "-c", slower.."cp \"$1\" \"$2\"", "/bin/bash", 
-		            src, trg)
+		return exec("/bin/bash", "-c", slower..[[cp "$1" "$2"]], 
+		            "/bin/bash", src, trg)
 	end,
 
 	modify = function(source, path, name, target)
 		local src = source..path..name
 		local trg = target..path..name
 		log(NORMAL, "modify from "..src.." -> "..trg)
-		return exec("/bin/bash", "-c", slower.."cp \"$1\" \"$2\"", "/bin/bash", 
-		            src, trg)
+		return exec("/bin/bash", "-c", slower..[[cp "$1" "$2"]], 
+		            "/bin/bash", src, trg)
 	end,
 
 	attrib = function(source, path, name, target)
@@ -46,8 +46,8 @@ slowbash = {
 
 	delete = function(source, path, name, target)
 		log(NORMAL, "delete "..target..path..name)
-		return exec("/bin/bash", "-c", slower.."rm \"$1\"", "/bin/bash", 
-		            target..path..name)
+		return exec("/bin/bash", "-c", slower..[[rm "$1"]], 
+		            "/bin/bash", target..path..name)
 	end,
 
 --	move  = function(source, path, name, destpath, destname, target)

@@ -39,6 +39,18 @@
 #include <lauxlib.h>
 
 /**
+ * Extended debugging, undefine these to enable respective parts.
+ */
+#define DBG_MASTERLOOP(x) 
+
+/**
+ * Debugging definitions
+ */
+#ifndef DBG_MASTERLOOP
+#define DBG_MASTERLOOP(x) { logstring(DEBUG, x); }
+#endif
+
+/**
  * Macros to compare times() values
  * (borrowed from linux/jiffies.h)
  *
@@ -881,7 +893,7 @@ masterloop(lua_State *L)
 		if (have_alarm && time_before(alarm_time, now)) {
 			/* there is a delay that wants to be handled already
 			 * thus do not read from inotify_fd and jump directly to its handling */
-			logstring(DEBUG, "immediately handling delays.");
+			DBG_MASTERLOOP("immediately handling delays.");
 			do_read = 0;
 		} else {
 			/* use select() to determine what happens next
@@ -894,11 +906,11 @@ masterloop(lua_State *L)
 			sigemptyset(&sigset);
 
 			if (have_alarm) { 
-				logstring(DEBUG, "going into timed select.");
+				DBG_MASTERLOOP("going into timed select.");
 				tv.tv_sec  = (alarm_time - now) / clocks_per_sec;
 				tv.tv_nsec = (alarm_time - now) * 1000000000 / clocks_per_sec % 1000000000;
 			} else {
-				logstring(DEBUG, "going into blocking select.");
+				DBG_MASTERLOOP("going into blocking select.");
 			}
 			/* if select returns a positive number there is data on inotify
 			 * on zero the timemout occured. */
@@ -908,9 +920,9 @@ masterloop(lua_State *L)
 					  &sigset);
 
 			if (do_read > 0) {
-				logstring(DEBUG, "theres data on inotify.");
+				DBG_MASTERLOOP("theres data on inotify.");
 			} else {
-				logstring(DEBUG, "core: select() timeout or signal.");
+				DBG_MASTERLOOP("core: select() timeout or signal.");
 			}
 		} 
 		
@@ -943,7 +955,7 @@ masterloop(lua_State *L)
 				FD_SET(inotify_fd, &readfds);
 				do_read = pselect(inotify_fd + 1, &readfds, NULL, NULL, &tv, NULL);
 				if (do_read > 0) {
-					logstring(DEBUG, "there is more data on inotify.");
+					DBG_MASTERLOOP("there is more data on inotify.");
 				}
 			}
 		} 
