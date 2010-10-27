@@ -19,7 +19,7 @@ if lsyncd_version then
 	print("You cannot use the lsyncd runner as configuration file!")
 	os.exit(-1)
 end
-lsyncd_version = "2.0b1"
+lsyncd_version = "2.0beta1"
 
 ----
 -- Shortcuts (which user is supposed to be able to use them as well)
@@ -658,12 +658,20 @@ end
 
 ----
 -- Called by core when an overflow happened.
+--
 function default_overflow()
 	log(ERROR, "--- OVERFLOW on inotify event queue ---")
 	lsyncd.terminate(-1) -- TODO reset instead.
 
 end
 overflow = default_overflow
+
+-----
+-- Spawns a child process using bash.
+--
+function shell(command, ...)
+	return exec("/bin/sh", "-c", command, "/bin/sh", ...)
+end
 
 --============================================================================
 -- lsyncd default settings
