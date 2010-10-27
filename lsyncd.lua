@@ -267,11 +267,20 @@ set_array(event_names)
 -----
 -- Puts an action on the delay stack.
 --
-local function delay_action(atype, wd, sync, filename, time)
+local function delay_action(atype, wd, sync, time, filename, filename2)
 	log(DEBUG, "delay_action "..event_names[atype].."("..wd..") ")
 	local o  = sync.origin
 	local delays  = o.delays
 	local delaywd = o.delaywd
+
+	if atype == MOVE and not o.actions.move then
+		-- if there is no move action defined, split a move as delete/create
+		log(DEBUG, "splitting MOVE into DELETE & CREATE")
+		delay_action(DELETE, wd, sync, time, filename,  nil)
+		delay_action(CREATE, wd, sync, time, filename2, nil)
+		return
+	end
+
 	local newd = {atype    = atype, 
 	              wd       = wd, 
 	              sync     = sync, 
@@ -289,8 +298,8 @@ local function delay_action(atype, wd, sync, filename, time)
 		delaywd[wd] = dwd
 	end
 
-	-- TODO COLLAPSE
 	if dwd[filename] then
+		-- if there is already 
 		local oldd = dwd[filename]
 		if newd.atype == MOVE_FROM or newd.atype == MOVE_TO or
 		   oldd.atype == MOVE_FROM or oldd.atype == MOVE_TO then
@@ -354,9 +363,9 @@ local function attend_dir(origin, path, parent)
 	set_prototype(sync, proto_sync)
 	table.insert(thiswatch.syncs, sync)
 
-	-- warmstart?
+	-- on a warmstart add a CREATE for the directory
 	if not origin.actions.startup then
-		delay_action(CREATE, wd, sync, nil, nil)
+		delay_action(CREATE, wd, sync, nil, nil, nil)
 	end
 
 	-- registers and adds watches for all subdirectories 
@@ -406,7 +415,6 @@ local function invoke_action(delay)
 		func = actions.delete or actions.default
 	elseif atype == MOVE then
 		log(ERROR, "MOVE NOT YET IMPLEMENTED!") -- TODO
-		return
 	end
 	
 	if func then
@@ -596,7 +604,7 @@ function lsyncd_event(etype, wd, isdir, time, filename, filename2)
 	
 	-- works through all possible source->target pairs
 	for _, sync in ipairs(w.syncs) do
-		delay_action(etype, wd, sync, filename, time)
+		delay_action(etype, wd, sync, time, filename, filename2)
 		-- add subdirs for new directories
 		if isdir then
 			if etype == CREATE then

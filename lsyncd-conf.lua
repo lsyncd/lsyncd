@@ -50,12 +50,12 @@ slowbash = {
 		            target..path..name)
 	end,
 
-	move  = function(source, path, name, destpath, destname, target)
-		log(NORMAL, "move from " .. destination .. "/" .. path)
+--	move  = function(source, path, name, destpath, destname, target)
+--		log(NORMAL, "move from " .. destination .. "/" .. path)
 --		return exec("/bin/bash", "-c", "sleep " .. slowsec .. " && rm $1 $2", "/bin/bash", 
 --		            source .. "/" .. path, target .. "/" .. path)
-		return 0
-	end,
+--		return 0
+--	end,
 }
 
 -----

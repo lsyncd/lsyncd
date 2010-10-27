@@ -1099,7 +1099,7 @@ main(int argc, char *argv[])
 			}
 		}
 	}
-	if (argp + 1 >= argc) {
+	if (argp + 1 < argc) {
 		mini_help(argv[0]);
 		return -1; // ERRNO
 	}
