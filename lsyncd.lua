@@ -448,6 +448,20 @@ function lsyncd_alarm(now)
 	end
 end
 
+
+-----
+-- Called by core before anything is "-help" or "--help" is in
+-- the arguments.
+--
+function lsyncd_help()
+	io.stderr:write(
+[[TODO this is a multiline
+help
+]])
+	os.exit(-1) -- ERRNO
+end
+
+
 ----
 -- Called from core on init or restart after user configuration.
 -- 
@@ -455,7 +469,19 @@ function lsyncd_initialize(args)
 	-- From this point on, no globals may be created anymore
 	GLOBAL_lock(_G)
 
-	print(table.concat(args))
+	for i = 1, #args do
+		local a = args[i]
+		if a:sub(1, 1) ~= "-" then
+			io.stderr:write("Unknown option "..a..". Options must start with '-' or '--'.\n")
+			os.exit(-1) -- ERRNO
+		end
+		if a:sub(1, 2) == "--" then
+			a = a:sub(3)
+		else
+			a = a:sub(2)
+		end
+		print(i, a)
+	end
 
 	-- makes sure the user gave lsyncd anything to do 
 	if #origins == 0 then

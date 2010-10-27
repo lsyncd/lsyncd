@@ -6,6 +6,7 @@
 settings = {
 --	logfile = "/tmp/lsyncd",
 	nodaemon,
+	status = "/tmp/lsyncd.stat",
 	loglevel = DEBUG,
 }
 

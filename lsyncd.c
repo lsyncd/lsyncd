@@ -972,6 +972,16 @@ masterloop(lua_State *L)
 	}
 }
 
+/**
+ * Prints a minimal help if e.g. config_file is missing 
+ */
+void mini_help(char *arg0) 
+{
+	fprintf(stderr, "Missing config file\n");
+	fprintf(stderr, "Minimal Usage: %s CONFIG_FILE\n", arg0);
+	fprintf(stderr, "  Specify -help for more help.\n");
+}
+
 
 /**
  * Main
@@ -982,12 +992,9 @@ main(int argc, char *argv[])
 	/* position at cores (minimal) argument parsing *
 	 * most arguments are parsed in the lua runner  */
 	int argp = 1; 
-
-	if (argc < 2) {
-		fprintf(stderr, "Missing config file\n");
-		fprintf(stderr, "Minimal Usage: %s CONFIG_FILE\n", argv[0]);
-		fprintf(stderr, "  Specify --help for more help.\n");
-		return -1; // ERRNO
+	if (argc <= 1) {
+		mini_help(argv[0]);
+		return -1;
 	}
 
 	/* kernel parameters */
@@ -1019,54 +1026,41 @@ main(int argc, char *argv[])
 	lua_pushinteger(L, NORMAL);  lua_setglobal(L, "NORMAL");
 	lua_pushinteger(L, ERROR);   lua_setglobal(L, "ERROR");
 
-	/* TODO parse runner */
 #ifdef LSYNCD_DEFAULT_RUNNER_FILE
+	/* checks if the user overrode default runner file */ 
 	if (!strcmp(argv[argp], "--runner")) {
 		if (argc < 3) {
 			fprintf(stderr, "Lsyncd Lua-runner file missing after --runner.\n");
 			return -1; //ERRNO
-		}
-		if (argc < 4) {
-			fprintf(stderr, "Missing config file\n");
-			fprintf(stderr, "  Usage: %s --runner %s CONFIG_FILE\n", argv[0], argv[2]);
-			fprintf(stderr, "  Specify --help for more help.\n");
-			return -1; // ERRNO
 		}
 		lsyncd_runner_file = argv[argp + 1];
 		argp += 2;
 	} else {
 		lsyncd_runner_file = LSYNCD_DEFAULT_RUNNER_FILE;
 	}
-#else
-	if (!strcmp(argv[argp], "--runner")) {
-		fprintf(stderr, "This lsyncd binary has its lua runner staticly compiled.\n");
-		fprintf(stderr, "Configure and compile with --with-runner=FILE to use the lsyncd.lua file.\n");
-		return -1; // ERRNO
-	}
-#endif
-	lsyncd_config_file = argv[argp++];
 	{
+		/* checks if the runne file exists */
 		struct stat st;
-#ifdef LSYNCD_DEFAULT_RUNNER_FILE
 		if (stat(lsyncd_runner_file, &st)) {
 			fprintf(stderr, "Cannot find Lsyncd Lua-runner at '%s'.\n", lsyncd_runner_file);
 			fprintf(stderr, "Maybe specify another place? %s --runner RUNNER_FILE CONFIG_FILE\n", argv[0]);
 			return -1; // ERRNO
 		}
-#endif
-		if (stat(lsyncd_config_file, &st)) {
-			fprintf(stderr, "Cannot find config file at '%s'.\n", lsyncd_config_file);
-			return -1; // ERRNO
-		}
 	}
-
-#ifdef LSYNCD_DEFAULT_RUNNER_FILE
+	/* loads the runner file */
 	if (luaL_loadfile(L, lsyncd_runner_file)) {
 		fprintf(stderr, "error loading '%s': %s\n", 
 		       lsyncd_runner_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 #else
+	/* User cannot override runner file in a static compile */
+	if (!strcmp(argv[argp], "--runner")) {
+		fprintf(stderr, "This lsyncd binary has its lua runner staticly compiled.\n");
+		fprintf(stderr, "Configure and compile with --with-runner=FILE to use the lsyncd.lua file.\n");
+		return -1; // ERRNO
+	}
+	/* loads the runner from binary */
 	if (luaL_loadbuffer(L, &_binary_luac_out_start, 
 			&_binary_luac_out_end - &_binary_luac_out_start, "lsyncd.lua")) {
 		fprintf(stderr, "error loading precompiled lsyncd.lua runner: %s\n", 
@@ -1074,6 +1068,7 @@ main(int argc, char *argv[])
 		return -1; // ERRNO
 	}
 #endif
+	/* execute the runner defining all its functions */
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
 		fprintf(stderr, "error preparing '%s': %s\n", 
 			lsyncd_runner_file, lua_tostring(L, -1));
@@ -1089,6 +1084,32 @@ main(int argc, char *argv[])
 		if (strcmp(lversion, PACKAGE_VERSION)) {
 			fprintf(stderr, "Version mismatch '%s' is '%s', but core is '%s'\n",
  			        lsyncd_runner_file, lversion, PACKAGE_VERSION);
+			return -1; // ERRNO
+		}
+	}
+
+	{
+		/* checks if there is a "-help" or "--help" in the args before anything else */
+		int i;
+		for(i = argp; i < argc; i++) {
+			if (!strcmp(argv[i],"-help") || !strcmp(argv[i],"--help")) {
+				lua_getglobal(L, "lsyncd_help");
+				lua_call(L, 0, 0);
+				return -1; // ERRNO	
+			}
+		}
+	}
+	if (argp + 1 >= argc) {
+		mini_help(argv[0]);
+		return -1; // ERRNO
+	}
+
+	lsyncd_config_file = argv[argp++];
+	{	
+		/* checks for the existence of the config file */
+		struct stat st;
+		if (stat(lsyncd_config_file, &st)) {
+			fprintf(stderr, "Cannot find config file at '%s'.\n", lsyncd_config_file);
 			return -1; // ERRNO
 		}
 	}
