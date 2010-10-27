@@ -16,7 +16,7 @@
 --
 if lsyncd_version then
 	-- checks if the runner is being loaded twice 
-	print("You cannot use the lsyncd runner as configuration file!")
+	io.stderr:write("You cannot use the lsyncd runner as configuration file!\n")
 	os.exit(-1)
 end
 lsyncd_version = "2.0beta1"
