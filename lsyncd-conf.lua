@@ -5,8 +5,8 @@
 --
 settings = {
 --	logfile = "/tmp/lsyncd",
-	nodaemon,
-	statuspipe = "/tmp/lsyncd.stat",
+--	nodaemon,
+	statusfile = "/tmp/lsyncd.stat",
 	loglevel = DEBUG,
 }
 

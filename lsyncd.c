@@ -24,6 +24,7 @@
 #include <sys/wait.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -100,7 +101,7 @@ static int inotify_fd;
 /**
  * TODO allow configure.
  */
-static const uint32_t standard_event_mask =
+static const uint32_t standard_event_mask = 
 		IN_ATTRIB   | IN_CLOSE_WRITE | IN_CREATE     |
 		IN_DELETE   | IN_DELETE_SELF | IN_MOVED_FROM |
 		IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR;
@@ -131,11 +132,19 @@ enum loglevel {
  * configuration parameters
  */
 static struct settings {
+	/**
+	 * threshold for log messages 
+	 */
 	enum loglevel loglevel;
-	char * statuspipe;
+
+	/**
+	 * lsyncd will periodically write its status in this
+	 * file if configured so. (for special observing only)
+	 */
+	char * statusfile;
 } settings = {
 	.loglevel = DEBUG,
-	.statuspipe = NULL,
+	.statusfile = NULL,
 };
 
 /**
@@ -443,6 +452,7 @@ l_addto_clock(lua_State *L)
 	lua_pushinteger(L, c1 + c2 * clocks_per_sec);
 	return 1;
 }
+
 /**
  * Executes a subprocess. Does not wait for it to return.
  * 
@@ -468,17 +478,20 @@ l_exec(lua_State *L)
 	pid = fork();
 
 	if (pid == 0) {
-		// TODO
-		//if (!log->flag_nodaemon && log->logfile) {
-		//	if (!freopen(log->logfile, "a", stdout)) {
-		//		printlogf(log, ERROR, "cannot redirect stdout to [%s].", log->logfile);
-		//	}
-		//	if (!freopen(log->logfile, "a", stderr)) {
-		//		printlogf(log, ERROR, "cannot redirect stderr to [%s].", log->logfile);
-		//	}
-		//}
+		/* if lsyncd runs as a daemon and has a logfile it will redirect
+		   stdout/stderr of child processes to the logfile. */
+		if (is_daemon && logfile) {
+			if (!freopen(logfile, "a", stdout)) {
+				printlogf(L, ERROR, 
+					"cannot redirect stdout to '%s'.", logfile);
+			}
+			if (!freopen(logfile, "a", stderr)) {
+				printlogf(L, ERROR, 
+					"cannot redirect stderr to '%s'.", logfile);
+			}
+		}
 		execv(binary, (char **)argv);
-		// in a sane world execv does not return!
+		/* in a sane world execv does not return! */
 		printlogf(L, ERROR, "Failed executing [%s]!", binary);
 		exit(-1); // ERRNO
 	}
@@ -511,10 +524,16 @@ l_real_dir(lua_State *L)
 	{
 		/* makes sure its a directory */
 	    struct stat st;
-	    stat(cbuf, &st);
+	    if (stat(cbuf, &st)) {
+			printlogf(L, ERROR, 
+				"cannot get absolute path of dir '%s': %s", 
+				rdir, strerror(errno));
+			return 0;
+		}
 	    if (!S_ISDIR(st.st_mode)) {
 			printlogf(L, ERROR, 
-				"failure in real_dir '%s' is not a directory", rdir);
+				"cannot get absolute path of dir '%s': is not a directory", 
+				rdir);
 			free(cbuf);
 			return 0;
 	    }
@@ -615,6 +634,21 @@ l_sub_dirs (lua_State *L)
 		lua_settable(L, -3);
 	}
 	return 1;
+}
+
+/**
+ * Writes a string to a file descriptor
+ * 
+ * @param (Lua Stack) file descriptor
+ * @param (Lua Stack) string.
+ */
+int 
+l_writefd(lua_State *L) 
+{
+	int fd = luaL_checkinteger(L, 1);
+	const char *s = luaL_checkstring(L, 2);
+	write(fd, s, strlen(s));
+	return 0;
 }
 
 /**
@@ -740,13 +774,12 @@ static int
 l_configure(lua_State *L) 
 {
 	const char * command = luaL_checkstring(L, 1);
-	if (!strcmp(command, "statuspipe")) {
-		/* configures the status pipe lsyncd will dump 
-		 * its status to if opened*/
-		if (settings.statuspipe) {
-			free(settings.statuspipe);
+	if (!strcmp(command, "statusfile")) {
+		/* configures the status file lsyncd will dump its status to */
+		if (settings.statusfile) {
+			free(settings.statusfile);
 		}
-		settings.statuspipe = s_strdup(luaL_checkstring(L, 2));
+		settings.statusfile = s_strdup(luaL_checkstring(L, 2));
 	} else if (!strcmp(command, "loglevel")) {
 		settings.loglevel = luaL_checkinteger(L, 2);
 	} else if (!strcmp(command, "running")) {
@@ -773,6 +806,7 @@ static const luaL_reg lsyncdlib[] = {
 		{"exec",         l_exec         },
 		{"log",          l_log          },
 		{"now",          l_now          },
+		{"writefd",      l_writefd      },
 		{"real_dir",     l_real_dir     },
 		{"stackdump",    l_stackdump    },
 		{"sub_dirs",     l_sub_dirs     },
@@ -813,8 +847,15 @@ printlogf(lua_State *L,
  * Lsyncd buffers MOVE_FROM events to check if 
  */
 struct inotify_event * move_event_buf = NULL;
+
+/**
+ * Memory allocated for move_event_buf
+ */
 size_t move_event_buf_size = 0;
-/* true if the buffer is used.*/
+
+/**
+ * true if the buffer is used.
+ */
 bool move_event = false;
 
 /**
@@ -826,6 +867,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 
 	/* used to execute two events in case of unmatched MOVE_FROM buffer */
 	struct inotify_event *after_buf = NULL;
+	logstring(DEBUG, "got an event");
 
 	if (reset) {
 		return;
@@ -1015,7 +1057,7 @@ masterloop(lua_State *L)
 			handle_event(L, NULL);	
 		}
 
-		/* collect zombified child processes */
+		/* collects zombified child processes */
 		while(1) {
 			int status;
 			pid_t pid = waitpid(0, &status, WNOHANG);
@@ -1028,7 +1070,29 @@ masterloop(lua_State *L)
 			lua_call(L, 2, 0);
 		} 
 
-		/* let the runner spawn new processes */
+		/* writes status of lsyncd in a file */
+		/* this is not a real loop, it will only be runned once max. 
+		 * this is just using break as comfortable jump down. */
+		while (settings.statusfile) {
+			int fd = open(settings.statusfile, O_WRONLY | O_CREAT | O_TRUNC);
+			if (fd < 0) {
+				printlogf(L, ERROR, 
+					"Cannot open statusfile '%s' for writing.", 
+					settings.statusfile);
+				break;
+			}
+			/* calls the lua runner to write the status. */
+			lua_getglobal(L, "lsyncd_status_report");
+			lua_pushinteger(L, fd);
+			lua_call(L, 1, 0);
+
+			/* TODO */
+			fsync(fd);
+			close(fd);
+			break;
+		}
+
+		/* lets the runner spawn new processes */
 		lua_getglobal(L, "lsyncd_alarm");
 		lua_pushinteger(L, times(NULL));
 		lua_call(L, 1, 0);
@@ -1036,7 +1100,7 @@ masterloop(lua_State *L)
 }
 
 /**
- * Prints a minimal help if e.g. config_file is missing 
+ * Prints a minimal help if e.g. config_file is missing. 
  */
 void minihelp(char *arg0) 
 {
@@ -1044,7 +1108,6 @@ void minihelp(char *arg0)
 	fprintf(stderr, "Minimal Usage: %s CONFIG_FILE\n", arg0);
 	fprintf(stderr, "  Specify -help for more help.\n");
 }
-
 
 /**
  * Main

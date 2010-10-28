@@ -188,7 +188,9 @@ end
 
 
 ----
--- Table of all root directories to sync, 
+-- origins 
+--
+-- table of all root directories to sync.
 -- filled during initialization.
 --
 -- [#] {
@@ -212,11 +214,19 @@ end
 -- }
 --
 local origins = new_array()
-local proto_origin = {actions=true, source=true, targetident=true, processes=true, delays=true, delaywd=true}
-local proto_delay  = {atype  =true, alarm=true, wd=true, sync=true, filename=true, movepeer=true}
+local proto_origin = {
+		actions=true, source=true, targetident=true, 
+		processes=true, delays=true, delaywd=true
+	}
+local proto_delay  = {
+		atype  =true, alarm=true, wd=true, 
+		sync=true, filename=true, movepeer=true
+	}
 
 -----
--- all watches
+-- watches
+--
+-- contains all inotify watches.
 --
 -- structure: 
 -- [wd] = {
@@ -440,6 +450,25 @@ end
 	
 
 ----
+-- Called from core to get a status report written into a file descriptor
+--
+function lsyncd_status_report(fd)
+	local w = lsyncd.writefd
+	w(fd, "Lsyncd status report at "..os.date().."\n\n")
+	w(fd, "Watching "..watches.size.." directories\n")
+	for i, v in pairs(watches) do
+		w(fd, "  "..i..": ")
+		if i ~= v.wd then
+			w(fd, "[Error: wd/v.wd "..i.."~="..v.wd.."]")
+		end
+		for _, s in pairs(v.syncs) do 
+			w(fd, "("..s.origin.source.."//"..s.origin.path..")")
+		end
+		w(fd, "\n")
+	end
+end
+
+----
 -- Called from core everytime at the latest of an 
 -- expired alarm (or more often)
 --
@@ -511,7 +540,7 @@ function lsyncd_initialize(args)
 					terminate(-1); -- ERRNO
 				end
 			end},
-		statuspipe = {1, nil},
+		statusfile = {1, nil},
 	}
 
 	-- check all entries in the settings table
