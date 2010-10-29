@@ -1074,7 +1074,8 @@ masterloop(lua_State *L)
 		/* this is not a real loop, it will only be runned once max. 
 		 * this is just using break as comfortable jump down. */
 		while (settings.statusfile) {
-			int fd = open(settings.statusfile, O_WRONLY | O_CREAT | O_TRUNC);
+			int fd = open(settings.statusfile, 
+				O_WRONLY | O_CREAT | O_TRUNC, 0664);
 			if (fd < 0) {
 				printlogf(L, ERROR, 
 					"Cannot open statusfile '%s' for writing.", 

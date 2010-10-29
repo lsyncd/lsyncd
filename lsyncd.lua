@@ -58,27 +58,27 @@ local meta_check_array = {
 --
 local meta_check_count_array = {
 	__index = function(t, k) 
-		if k == size then
-			return rawget(t, "size")
-		end
+--TODO		if k == size then
+--			return rawget(t, "size")
+--		end
 		if type(k) ~= "number" then
 			error("This table is an array and must have numeric keys", 2)
 		end
-		return rawget(t, "_t")[k]
+		return rawget(t, "mt")[k]
 	end,
 
 	__newindex = function(t, k, v)
 		if type(k) ~= "number" then
 			error("This table is an array and must have numeric keys", 2)
 		end
-		local _t = rawget(t, "_t")
-		local vb = _t[k]
+		local mt = rawget(t, "mt")
+		local vb = mt[k]
 		if v and not vb then
 			rawset(t, "size", rawget(t, "size") + 1)
 		elseif not v and vb then
 			rawset(t, "size", rawget(t, "size") - 1)
 		end
-		_t[k] = v
+		mt[k] = v
 	end
 }
 
@@ -127,7 +127,7 @@ end
 -- which counts the number of entries
 --
 local function new_count_array()
-	local t = { size = 0, _t = {} }
+	local t = { size = 0, mt = {} }
 	setmetatable(t, meta_check_count_array)
 	return t
 end
@@ -456,13 +456,15 @@ function lsyncd_status_report(fd)
 	local w = lsyncd.writefd
 	w(fd, "Lsyncd status report at "..os.date().."\n\n")
 	w(fd, "Watching "..watches.size.." directories\n")
-	for i, v in pairs(watches) do
+	for i, v in pairs(watches.mt) do
 		w(fd, "  "..i..": ")
 		if i ~= v.wd then
 			w(fd, "[Error: wd/v.wd "..i.."~="..v.wd.."]")
 		end
-		for _, s in pairs(v.syncs) do 
-			w(fd, "("..s.origin.source.."//"..s.origin.path..")")
+		for _, s in ipairs(v.syncs) do 
+			local o = s.origin
+			w(fd, "("..o.source.."|"..(o.path or "")..
+				"|"..(o.filename or "")..")")
 		end
 		w(fd, "\n")
 	end
