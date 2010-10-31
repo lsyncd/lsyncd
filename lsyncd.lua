@@ -118,7 +118,7 @@ end
 --
 local function new_array()
 	local t = {}
-	setmetatable(t, meta_ckeck_array)
+	setmetatable(t, meta_check_array)
 	return t
 end
 
@@ -143,24 +143,7 @@ local function set_prototype(t, prototype)
 			error("Cannot set prototype, conflicting key: '"..k.."'.", 2)
 		end
 	end
-	setmetatable(t, proto_check_table)
-end
-
-----
--- Locks a table
-local function GLOBAL_lock(t)
-	local mt = getmetatable(t) or {}
-	mt.__newindex = lock_new_index
-	setmetatable(t, mt)
-end
-
-----
--- Unlocks a table
----
-local function GLOBAL_unlock(t)
-	local mt = getmetatable(t) or {}
-	mt.__newindex = unlock_new_index
-	setmetatable(t, mt)
+	setmetatable(t, meta_check_prototype)
 end
 
 -----
@@ -175,11 +158,29 @@ local function lock_new_index(t, k, v)
 	end
 end
 
+----
+-- Locks a table
+local function GLOBAL_lock(t)
+	local mt = getmetatable(t) or {}
+	mt.__newindex = lock_new_index
+	setmetatable(t, mt)
+end
+
 -----
 -- ?
 local function unlock_new_index(t, k, v)
 	rawset(t, k, v)
 end
+
+----
+-- Unlocks a table
+---
+local function GLOBAL_unlock(t)
+	local mt = getmetatable(t) or {}
+	mt.__newindex = unlock_new_index
+	setmetatable(t, mt)
+end
+
 
 
 --============================================================================
@@ -204,23 +205,22 @@ end
 --    .delays = [#) {    .. the delays stack
 --         .atype        .. enum, kind of action
 --         .alarm        .. when it should fire
---         .wd           .. watch descriptor id this origins from TODO needed?
---         .sync         .. link to sync that raised this delay.
+--         .pathname     .. complete path relativ to watch origin
 --         .filename     .. filename or nil (=dir itself)
 --         (.movepeer)   .. for MOVEFROM/MOVETO link to other delay
 --    }
---    .delaywd [wd] = [#]  .. a list of lists of all delays from a 
---                            watch descriptor.
+--    .delayname[pathname] = [#]  .. a list of lists of all delays from a 
+--                                   its pathname.
 -- }
 --
 local origins = new_array()
 local proto_origin = {
 		actions=true, source=true, targetident=true, 
-		processes=true, delays=true, delaywd=true
+		processes=true, delays=true, delayname=true
 	}
 local proto_delay  = {
-		atype  =true, alarm=true, wd=true, 
-		sync=true, filename=true, movepeer=true
+		atype   =true, alarm=true, pathname=true, 
+		filename=true, movepeer=true
 	}
 
 -----
@@ -249,14 +249,11 @@ local proto_sync  = {origin=true, path=true, parent=true}
 --
 -- structure
 -- [pid] = {
---     target   ..
---     atype    .. 
---     wd       ..
---     sync     .. 
---     filename ..
+--     origin   .. origin this belongs to
+--     delay    .. and the delay which invoked this
 --
 local processes = new_count_array()
-local proto_process = {pid=true, atype=true, wd=true, sync=true, filename=true}
+local proto_process = {origin=true, delay=true}
 
 
 -----
@@ -283,8 +280,9 @@ set_array(event_names)
 local function delay_action(atype, wd, sync, time, filename, filename2)
 	log(DEBUG, "delay_action "..event_names[atype].."("..wd..") ")
 	local o  = sync.origin
-	local delays  = o.delays
-	local delaywd = o.delaywd
+	local delays = o.delays
+	local delayname = o.delayname
+	local pathname = sync.path..(filename or "")
 
 	if atype == MOVE and not o.actions.move then
 		-- if there is no move action defined, split a move as delete/create
@@ -294,9 +292,9 @@ local function delay_action(atype, wd, sync, time, filename, filename2)
 		return
 	end
 
+	-- creates the new action
 	local newd = {atype    = atype, 
-	              wd       = wd, 
-	              sync     = sync, 
+	              pathname = pathname,
 	              filename = filename }
 	set_prototype(newd, proto_delay)
 	if time and o.actions.delay then
@@ -305,15 +303,10 @@ local function delay_action(atype, wd, sync, time, filename, filename2)
 		newd.alarm = lsyncd.now()
 	end
 
-	local dwd = delaywd[wd]
-	if not dwd then
-		dwd = {}
-		delaywd[wd] = dwd
-	end
-
-	if dwd[filename] then
-		-- if there is already 
-		local oldd = dwd[filename]
+	local oldd = delayname[pathname] 
+	if oldd then
+		-- if there is already a delay on this pathname.
+		-- decide what should happen with multiple delays.
 		if newd.atype == MOVE_FROM or newd.atype == MOVE_TO or
 		   oldd.atype == MOVE_FROM or oldd.atype == MOVE_TO then
 		   -- do not collapse moves
@@ -325,25 +318,25 @@ local function delay_action(atype, wd, sync, time, filename, filename2)
 			if col == -1 then
 				-- events cancel each other
 				log(NORMAL, "Nullfication: " ..event_names[newd.atype].." after "..
-				                               event_names[oldd.atype].." on "..filename)
+					event_names[oldd.atype].." on "..filename)
 				oldd.atype = NONE
 				return
 			elseif col == 0 then
 				-- events tack
 				log(NORMAL, "Stacking " ..event_names[newd.atype].." after "..
-				                          event_names[oldd.atype].." on "..filename)
-				-- TODO stackinfo
+					event_names[oldd.atype].." on "..filename)
+				-- TODO Stack pointer
 			else
 				log(NORMAL, "Collapsing "..event_names[newd.atype].." upon "..
-				                           event_names[oldd.atype].." to " ..
-										   event_names[col].." on "..filename)
+					event_names[oldd.atype].." to " ..
+					event_names[col].." on "..filename)
 				oldd.atype = col
 				return
 			end
 		end
 		table.insert(delays, newd)
 	else
-		dwd[filename] = newd
+		delayname[pathname] = newd
 		table.insert(delays, newd)
 	end
 end
@@ -398,22 +391,23 @@ function lsyncd_collect_process(pid, exitcode)
 	if not process then
 		return
 	end
-	local sync = process.sync
-	local o = sync.origin
+	local delay = process.delay
+	local origin = process.origin
 	-- TODO
-	print("collected ", pid, ": ", event_names[process.atype], o.source, 
-		  "/", sync.path , process.filename, " = ", exitcode)
+	log(DEBUG, "collected "..pid..": "..
+		event_names[delay.atype].." of "..
+		origin.source..delay.pathname..
+		" = "..exitcode)
 	processes[pid] = nil
-	o.processes[pid] = nil
+	origin.processes[pid] = nil
 end
 
 -----
 -- TODO
 --
 --
-local function invoke_action(delay)
-	local sync    = delay.sync
-	local o       = sync.origin
+local function invoke_action(origin, delay)
+	local o       = origin
 	local actions = o.actions
 	local func    = nil
 	local atype   = delay.atype
@@ -433,14 +427,11 @@ local function invoke_action(delay)
 	end
 	
 	if func then
-		local pid = func(o.source, sync.path, delay.filename, o.targetident)
+		local pid = func(o.source, delay.pathname, o.targetident)
 		if pid and pid > 0 then
-			local process = {pid      = pid,
-			                 atype    = delay.atype,
-			                 wd       = delay.wd,
-			                 sync     = delay.sync,
-			                 filename = delay.filename
-			}
+			local process = {origin = origin,
+							 delay = delay
+				}
 			set_prototype(process, proto_process)
 			processes[pid] = process
 			o.processes[pid] = process
@@ -463,8 +454,7 @@ function lsyncd_status_report(fd)
 		end
 		for _, s in ipairs(v.syncs) do 
 			local o = s.origin
-			w(fd, "("..o.source.."|"..(o.path or "")..
-				"|"..(o.filename or "")..")")
+			w(fd, "("..o.source.."|"..(s.path) or ")..")
 		end
 		w(fd, "\n")
 	end
@@ -484,9 +474,9 @@ function lsyncd_alarm(now)
 			local delays = o.delays
 			local d = delays[1]
 			if d and lsyncd.before_eq(d.alarm, now) then
-				invoke_action(d)
+				invoke_action(o, d)
 				table.remove(delays, 1)
-				o.delaywd[d.wd][d.filename] = nil
+				o.delayname[d.pathname] = nil -- TODO grab from stack
 			end
 		end
 	end
@@ -585,7 +575,7 @@ function lsyncd_initialize(args)
 		end
 		o.source = asrc
 		o.delays = new_count_array()
-		o.delaywd = new_array()
+		o.delayname = {}
 		o.processes = new_count_array()
 
 		actions.max_processes = 

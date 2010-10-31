@@ -22,16 +22,16 @@ slowbash = {
 		return shell([[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], source, target)
 	end,
 
-	create = function(source, path, name, target)
-		local src = source..path..name
-		local trg = target..path..name
+	create = function(source, pathname, target)
+		local src = source..pathname
+		local trg = target..pathname
 		log(NORMAL, "create from "..src.." -> "..trg)
 		return shell(prefix..[[cp "$1" "$2"]], src, trg)
 	end,
 
-	modify = function(source, path, name, target)
-		local src = source..path..name
-		local trg = target..path..name
+	modify = function(source, pathname, target)
+		local src = source..pathname
+		local trg = target..pathname
 		log(NORMAL, "modify from "..src.." -> "..trg)
 		return shell(prefix..[[cp "$1" "$2"]], src, trg)
 	end,
@@ -41,8 +41,8 @@ slowbash = {
 		return 0
 	end,
 
-	delete = function(source, path, name, target)
-		local trg = target..path..name
+	delete = function(source, pathname, target)
+		local trg = target..pathname
 		log(NORMAL, "delete "..trg)
 		return exec(prefix..[[rm "$1"]], trg)
 	end,
