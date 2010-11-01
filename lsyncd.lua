@@ -149,6 +149,13 @@ end
 local function globals_lock()
 	local t = _G
 	local mt = getmetatable(t) or {}
+	mt.__index = function(t, k) 
+		if (k~="_" and string.sub(k, 1, 2) ~= "__") then
+			error("Access of non-existing global.", 2)
+		else
+			rawget(t, k)
+		end
+	end
 	mt.__newindex = function(t, k, v) 
 		if (k~="_" and string.sub(k, 1, 2) ~= "__") then
 			error("Lsyncd does not allow GLOBALS to be created on the fly." ..
@@ -173,7 +180,7 @@ end
 -- filled during initialization.
 --
 -- [#] {
---    actions     = actions, 
+--    config      = config, 
 --    source      = source_dir, 
 --    targetident = the identifier of target (like string "host:dir")
 --                  for lsyncd this passed competly opaquely to the 
@@ -181,10 +188,9 @@ end
 --
 --    .processes = [pid] .. a sublist of processes[] for this target
 --    .delays = [#) {    .. the delays stack
---         .atype        .. enum, kind of action
+--         .ename        .. enum, kind of action
 --         .alarm        .. when it should fire
 --         .pathname     .. complete path relativ to watch origin
---         .filename     .. filename or nil (=dir itself)
 --         (.movepeer)   .. for MOVEFROM/MOVETO link to other delay
 --    }
 --    .delayname[pathname] = [#]  .. a list of lists of all delays from a 
@@ -193,12 +199,11 @@ end
 --
 local origins = new_array()
 local proto_origin = {
-		actions=true, source=true, targetident=true, 
+		config=true, source=true, targetident=true, 
 		processes=true, delays=true, delayname=true
 	}
 local proto_delay  = {
-		atype   =true, alarm=true, pathname=true, 
-		filename=true, movepeer=true
+		ename   =true, alarm=true, pathname=true, movepeer=true
 	}
 
 -----
@@ -222,17 +227,17 @@ local proto_inotify = {origin=true, path=true}
 
 -----
 -- A list of names of the event types the core sends.
+-- (Also makes sure the strings are not collected)
 --
-local event_names = {
-	[ATTRIB   ] = "Attrib",
-	[MODIFY   ] = "Modify",
-	[CREATE   ] = "Create",
-	[DELETE   ] = "Delete",
-	[MOVE     ] = "Move",
-	[MOVEFROM ] = "MoveFrom",
-	[MOVETO   ] = "MoveTo",
+local valid_events = {
+	Attrib = true,
+	Modify = true,
+	Create = true,
+	Delete = true,
+	Move = true,
+	MoveFrom = true,
+	MoveTo = true,
 }
-set_array(event_names)
 
 --============================================================================
 -- The lsyncd runner 
@@ -241,28 +246,26 @@ set_array(event_names)
 -----
 -- Puts an action on the delay stack.
 --
-local function delay_action(atype, wd, sync, time, filename, filename2)
-	log(DEBUG, "delay_action "..event_names[atype].."("..wd..") ")
-	local o  = sync.origin
+local function delay_action(ename, wd, time, origin, pathname, pathname2)
+	log(DEBUG, "delay_action "..ename.."("..wd..") ")
+	local o  = origin
 	local delays = o.delays
 	local delayname = o.delayname
-	local pathname = sync.path..(filename or "")
 
-	if atype == MOVE and not o.actions.move then
+	if ename == "Move" and not o.config.move then
 		-- if there is no move action defined, split a move as delete/create
-		log(DEBUG, "splitting MOVE into DELETE & CREATE")
-		delay_action(DELETE, wd, sync, time, filename,  nil)
-		delay_action(CREATE, wd, sync, time, filename2, nil)
+		log(DEBUG, "splitting Move into Delete & Create")
+		delay_action("Delete", wd, time, pathname,  nil)
+		delay_action("Create", wd, time, pathname2, nil)
 		return
 	end
 
 	-- creates the new action
-	local newd = {atype    = atype, 
-	              pathname = pathname,
-	              filename = filename }
+	local newd = {ename    = ename, 
+	              pathname = pathname }
 	set_prototype(newd, proto_delay)
-	if time and o.actions.delay then
-		newd.alarm = lsyncd.addto_clock(time, o.actions.delay)
+	if time and o.config.delay then
+		newd.alarm = lsyncd.addto_clock(time, o.config.delay)
 	else
 		newd.alarm = lsyncd.now()
 	end
@@ -271,30 +274,30 @@ local function delay_action(atype, wd, sync, time, filename, filename2)
 	if oldd then
 		-- if there is already a delay on this pathname.
 		-- decide what should happen with multiple delays.
-		if newd.atype == MOVE_FROM or newd.atype == MOVE_TO or
-		   oldd.atype == MOVE_FROM or oldd.atype == MOVE_TO then
+		if newd.ename == "MoveFrom" or newd.ename == "MoveTo" or
+		   oldd.ename == "MoveFrom" or oldd.ename == "MoveTo" then
 		   -- do not collapse moves
-			log(NORMAL, "Not collapsing events with moves on "..filename)
+			log(NORMAL, "Not collapsing events with moves on "..pathname)
 			-- TODO stackinfo
 			return
 		else
-			local col = o.actions.collapse_table[oldd.atype][newd.atype]
+			local col = o.config.collapse_table[oldd.ename][newd.ename]
 			if col == -1 then
 				-- events cancel each other
-				log(NORMAL, "Nullfication: " ..event_names[newd.atype].." after "..
-					event_names[oldd.atype].." on "..filename)
-				oldd.atype = NONE
+				log(NORMAL, "Nullfication: " ..newd.ename.." after "..
+					oldd.ename.." on "..pathname)
+				oldd.ename = "none"
 				return
 			elseif col == 0 then
 				-- events tack
-				log(NORMAL, "Stacking " ..event_names[newd.atype].." after "..
-					event_names[oldd.atype].." on "..filename)
+				log(NORMAL, "Stacking " ..newd.ename.." after "..
+					oldd.ename.." on "..pathname)
 				-- TODO Stack pointer
 			else
-				log(NORMAL, "Collapsing "..event_names[newd.atype].." upon "..
-					event_names[oldd.atype].." to " ..
-					event_names[col].." on "..filename)
-				oldd.atype = col
+				log(NORMAL, "Collapsing "..newd.ename.." upon "..
+					oldd.ename.." to " ..
+					col.." on "..pathname)
+				oldd.ename = col
 				return
 			end
 		end
@@ -312,7 +315,7 @@ end
 -- @param path      relative path of this dir to origin
 -- @param parent    link to parent directory in watches[]
 --
-local function inotify_dir(origin, path)
+local function inotify_watch_dir(origin, path)
 	local op = origin.source .. path
 	-- register watch and receive watch descriptor
 	local wd = lsyncd.add_watch(op);
@@ -331,15 +334,15 @@ local function inotify_dir(origin, path)
 	set_prototype(inotify, proto_inotify)
 	table.insert(ilist, inotify)
 
-	-- on a warmstart add a CREATE for the directory
-	if not origin.actions.startup then
-		delay_action(CREATE, wd, sync, nil, nil, nil)
+	-- on a warmstart add a Create for the directory
+	if not origin.config.startup then
+		delay_action("Create", wd, sync, nil, nil, nil)
 	end
 
 	-- registers and adds watches for all subdirectories 
 	local subdirs = lsyncd.sub_dirs(op)
 	for _, dirname in ipairs(subdirs) do
-		inotify_dir(origin, path..dirname.."/")
+		inotify_watch_dir(origin, path..dirname.."/")
 	end
 end
 
@@ -361,7 +364,7 @@ function lsyncd_collect_process(pid, exitcode)
 		return
 	end
 	log(DEBUG, "collected "..pid..": "..
-		event_names[delay.atype].." of "..
+		delay.ename.." of "..
 		origin.source..delay.pathname..
 		" = "..exitcode)
 	origin.processes[pid] = nil
@@ -377,15 +380,20 @@ local hk = {}
 --- TODO
 local inlet = {
 	[hk] = {
-		origin = true,
-		delay  = true,
+		origin  = true,
+		delay   = true,
 	},
+
+	config = function(self)
+		return self[hk].origin.config
+	end,
 
 	nextevent = function(self)
 		local h = self[hk]
 		return { 
-			spath = h.origin.source .. h.delay.pathname,
-			tpath = h.origin.targetident .. h.delay.pathname,
+			spath  = h.origin.source .. h.delay.pathname,
+			tpath  = h.origin.targetident .. h.delay.pathname,
+			ename  = h.delay.ename
 		} 
 	end,
 }
@@ -397,31 +405,17 @@ local inlet = {
 --
 local function invoke_action(origin, delay)
 	local o       = origin
-	local actions = o.actions
-	local func    = nil
-	local atype   = delay.atype
-	if atype == NONE then
+	local config  = o.config
+	if delay.ename == "None" then
 		-- a removed action
 		return
-	elseif atype == CREATE then
-		func = actions.create or actions.default
-	elseif atype == ATTRIB then
-		func = actions.attrib or actions.default
-	elseif atype == MODIFY then
-		func = actions.modify or actions.default
-	elseif atype == DELETE then
-		func = actions.delete or actions.default
-	elseif atype == MOVE then
-		log(ERROR, "MOVE NOT YET IMPLEMENTED!") -- TODO
 	end
 	
-	if func then
-		inlet[hk].origin = origin
-		inlet[hk].delay = delay
-		local pid = func(inlet)
-		if pid and pid > 0 then
-			o.processes[pid] = delay
-		end
+	inlet[hk].origin = origin
+	inlet[hk].delay  = delay
+	local pid = config.action(inlet)
+	if pid and pid > 0 then
+		o.processes[pid] = delay
 	end
 end
 	
@@ -432,15 +426,11 @@ end
 function lsyncd_status_report(fd)
 	local w = lsyncd.writefd
 	w(fd, "Lsyncd status report at "..os.date().."\n\n")
-	w(fd, "Watching "..watches.size.." directories\n")
-	for i, v in pairs(watches.nt) do
-		w(fd, "  "..i..": ")
-		if i ~= v.wd then
-			w(fd, "[Error: wd/v.wd "..i.."~="..v.wd.."]")
-		end
-		for _, s in ipairs(v.syncs) do 
-			local o = s.origin
-			w(fd, "("..o.source.."|"..(s.path) or ")..")
+	w(fd, "Watching "..inotifies.size.." directories\n")
+	for wd, v in pairs(inotifies.nt) do
+		w(fd, "  "..wd..": ")
+		for _, inotify in ipairs(v) do 
+			w(fd, "("..inotify.origin.source.."|"..(inotify.path) or ")..")
 		end
 		w(fd, "\n")
 	end
@@ -456,7 +446,7 @@ function lsyncd_alarm(now)
 	-- goes through all targets and spawns more actions
 	-- if possible
 	for _, o in ipairs(origins) do
-		if o.processes.size < o.actions.max_processes then
+		if o.processes.size < o.config.max_processes then
 			local delays = o.delays
 			local d = delays[1]
 			if d and lsyncd.before_eq(d.alarm, now) then
@@ -552,9 +542,9 @@ function lsyncd_initialize(args)
 	for _, o in ipairs(origins) do
 		-- resolves source to be an absolute path
 		local asrc = lsyncd.real_dir(o.source)
-		local actions = o.actions
+		local config = o.config
 		if not asrc then
-			print("Cannot resolve source path: ", o.source)
+			log(Error, "Cannot resolve source path: " .. o.source)
 			terminate(-1) -- ERRNO
 		end
 		o.source = asrc
@@ -562,21 +552,21 @@ function lsyncd_initialize(args)
 		o.delayname = {}
 		o.processes = new_count_array()
 
-		actions.max_processes = 
-			actions.max_processes or 
+		config.max_processes = 
+			config.max_processes or 
 			settings.max_processes or 
 			defaults.max_processes
 
-		actions.collapse_table =
-			actions.collapse_table or
+		config.collapse_table =
+			config.collapse_table or
 			settings.collapse_table or 
 			defaults.collapse_table
 
-		if actions.startup then
+		if config.startup then
 			have_startup = true
 		end
 		-- adds the dir watch inclusively all subdirs
-		inotify_dir(o, "")
+		inotify_watch_dir(o, "")
 	end
 
 	-- from this point on use logging facilities as configured.
@@ -587,8 +577,8 @@ function lsyncd_initialize(args)
 		local pids = { }
 		for _, o in ipairs(origins) do
 			local pid
-			if o.actions.startup then
-				local pid = o.actions.startup(o.source, o.targetident)
+			if o.config.startup then
+				local pid = o.config.startup(o.source, o.targetident)
 				table.insert(pids, pid)
 			end
 		end
@@ -613,7 +603,7 @@ function lsyncd_get_alarm()
 	local alarm = 0
 	for _, o in ipairs(origins) do
 		if o.delays[1] and 
-		   o.processes.size < o.actions.max_processes then
+		   o.processes.size < o.config.max_processes then
 			if have_alarm then
 				alarm = lsyncd.earlier(alarm, o.delays[1].alarm)
 			else
@@ -628,13 +618,13 @@ end
 -----
 -- Called by core on inotify event
 --
--- @param etype     enum (ATTRIB, MODIFY, CREATE, DELETE, MOVE)
+-- @param ename     "Attrib", "Mofify", "Create", "Delete", "Move")
 -- @param wd        watch descriptor (matches lsyncd.add_watch())
 -- @param time      time of event
 -- @param filename  string filename without path
 -- @param filename2 
 --
-function lsyncd_event(etype, wd, isdir, time, filename, filename2)
+function lsyncd_event(ename, wd, isdir, time, filename, filename2)
 	local ftype;
 	if isdir then
 		ftype = "directory"
@@ -643,25 +633,33 @@ function lsyncd_event(etype, wd, isdir, time, filename, filename2)
 	end
 	-- TODO comment out to safe performance
 	if filename2 then
-		log(DEBUG, "got event "..event_names[etype].." of "..ftype.." "..filename.." to "..filename2) 
+		log(DEBUG, "got event "..ename..
+			" of "..ftype.." "..filename.." to "..filename2) 
 	else 
-		log(DEBUG, "got event "..event_names[etype].." of "..ftype.." "..filename) 
+		log(DEBUG, "got event "..ename..
+			" of "..ftype.." "..filename) 
 	end
 
 	-- looks up the watch descriptor id
-	local w = watches[wd]
-	if not w then
+	local ilist = inotifies[wd]
+	if not ilist then
 		log(NORMAL, "event belongs to unknown or deleted watch descriptor.")
 		return
 	end
 	
 	-- works through all possible source->target pairs
-	for _, sync in ipairs(w.syncs) do
-		delay_action(etype, wd, sync, time, filename, filename2)
+	for _, inotify in ipairs(ilist) do
+		local pathname2 
+		if filename2 then
+			pathname2 = inotify.path..filename2
+		end
+		delay_action(ename, wd, time, inotify.origin, 
+			inotify.path..filename, pathname2)
 		-- add subdirs for new directories
 		if isdir then
-			if etype == CREATE then
-				inotify_dir(sync.origin, sync.path .. filename .. "/")
+			if ename == "Create" then
+				inotify_watch_dir(inotify.origin, 
+					inotify.path .. filename .. "/")
 			end
 		end
 	end
@@ -690,20 +688,20 @@ end
 --============================================================================
 
 ----
--- Adds one directory (incl. subdir) to be synchronized.
+-- Adds one directory (incl. subdirs) to be synchronized.
 -- Users primary configuration device.
 --
 -- @param TODO
 --
-function sync(source_dir, target_identifier, actions)
-	local o = {     actions = actions, 
-	                source  = source_dir, 
+function sync(source_dir, target_identifier, config)
+	local o = {      config = config, 
+	                 source = source_dir, 
 	            targetident = target_identifier, 
 	}
 	set_prototype(o, proto_origin)
 
-	if not actions.max_actions then
-		actions.max_actions = 1  -- TODO move to init
+	if not config.max_actions then
+		config.max_actions = 1  -- TODO move to init
 	end
 	table.insert(origins, o)
 	return 
@@ -760,10 +758,10 @@ defaults = {
 	-- TODO
 	--
 	collapse_table = {
-		[ATTRIB]   = { [ATTRIB] = ATTRIB, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
-		[MODIFY]   = { [ATTRIB] = MODIFY, [MODIFY] = MODIFY, [CREATE] = CREATE, [DELETE] = DELETE },
-		[CREATE]   = { [ATTRIB] = CREATE, [MODIFY] = CREATE, [CREATE] = CREATE, [DELETE] = -1     },
-		[DELETE]   = { [ATTRIB] = DELETE, [MODIFY] = DELETE, [CREATE] = MODIFY, [DELETE] = DELETE },
+		Attrib = { Attrib = "Attrib", Modify = "Modify", Create = "Create", Delete = "Delete" },
+		Modify = { Attrib = "Modify", Modify = "Modify", Create = "Create", Delete = "Delete" },
+		Create = { Attrib = "Create", Modify = "Create", Create = "Create", Delete = -1       },
+		Delete = { Attrib = "Delete", Modify = "Delete", Create = "Modify", Delete = "Delete" },
 	},
 
 	rsync = default_rsync

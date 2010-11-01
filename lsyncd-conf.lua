@@ -22,25 +22,27 @@ slowbash = {
 		return shell([[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], source, target)
 	end,
 
-	create = function(inlet)
+	action = function(inlet)
 		local event = inlet:nextevent()
+		return inlet:config()[string.lower(event.ename)](event)
+	end,
+
+	create = function(event)
 		log(NORMAL, "create from "..event.spath.." -> "..event.tpath)
 		return shell(prefix..[[cp "$1" "$2"]], event.spath, event.tpath)
 	end,
 
-	modify = function(inlet)
-		local event = inlet:nextevent()
+	modify = function(event)
 		log(NORMAL, "modify from "..event.spath.." -> "..event.tpath)
 		return shell(prefix..[[cp "$1" "$2"]], event.spath, event.tpath)
 	end,
 
-	attrib = function(self, inlet)
+	attrib = function(event)
 		-- ignore attribs
 		return 0
 	end,
 
-	delete = function(inlet)
-		local event = inlet:nextevent()
+	delete = function(event)
 		log(NORMAL, "delete "..event.tpath)
 		return exec(prefix..[[rm "$1"]], event.tpath)
 	end,
