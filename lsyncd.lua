@@ -402,6 +402,22 @@ function lsyncd_collect_process(pid, exitcode)
 	origin.processes[pid] = nil
 end
 
+------
+-- TODO
+--
+local unit = {
+	lsyncd_origin = true,
+	lsyncd_delay  = true,
+
+	nextevent = function(self) 
+		return { 
+			spath = self.lsyncd_origin.source..self.lsyncd_delay.pathname,
+			tpath = self.lsyncd_origin.targetident..self.lsyncd_delay.pathname,
+		} 
+	end,
+}
+
+
 -----
 -- TODO
 --
@@ -427,7 +443,9 @@ local function invoke_action(origin, delay)
 	end
 	
 	if func then
-		local pid = func(o.source, delay.pathname, o.targetident)
+		unit.lsyncd_origin = origin
+		unit.lsyncd_delay = delay
+		local pid = func(actions, unit)
 		if pid and pid > 0 then
 			local process = {origin = origin,
 							 delay = delay
