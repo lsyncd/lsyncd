@@ -202,24 +202,23 @@ local proto_delay  = {
 	}
 
 -----
--- watches
+-- inotifies
 --
 -- contains all inotify watches.
 --
--- structure: 
--- [wd] = {
---     .wd      ..              the watch descriptor (TODO needed?)
---     .syncs = [#] {			list of stuff to sync to
+-- structure:
+--    a list indexed by watch descriptor
+-- [wd] 
+--    of a numeric list of all origins watching this dir.
+-- [#]
+--    of inotify {
 --         .origin .. link to origin
 --         .path   .. relative path of dir
---         .parent .. link to parent directory in watches
---                    or nil for origin
 --     }
 -- }
 --
-local watches = new_count_array()
-local proto_watch = {wd=true, syncs=true}
-local proto_sync  = {origin=true, path=true, parent=true}
+local inotifies = new_count_array()
+local proto_inotify = {origin=true, path=true}
 
 -----
 -- A list of names of the event types the core sends.
@@ -313,7 +312,7 @@ end
 -- @param path      relative path of this dir to origin
 -- @param parent    link to parent directory in watches[]
 --
-local function attend_dir(origin, path, parent)
+local function inotify_dir(origin, path)
 	local op = origin.source .. path
 	-- register watch and receive watch descriptor
 	local wd = lsyncd.add_watch(op);
@@ -323,16 +322,14 @@ local function attend_dir(origin, path, parent)
 		return
 	end
 
-	local thiswatch = watches[wd]
-	if not thiswatch then
-		-- new watch
-		thiswatch = {wd = wd, syncs = {} }
-		set_prototype(thiswatch, proto_watch)
-		watches[wd] = thiswatch
+	local ilist = inotifies[wd]
+	if not ilist then
+		ilist = new_array()
+		inotifies[wd] = ilist
 	end
-	local sync = { origin = origin, path = path, parent = parent } 
-	set_prototype(sync, proto_sync)
-	table.insert(thiswatch.syncs, sync)
+	local inotify = { origin = origin, path = path } 
+	set_prototype(inotify, proto_inotify)
+	table.insert(ilist, inotify)
 
 	-- on a warmstart add a CREATE for the directory
 	if not origin.actions.startup then
@@ -340,9 +337,9 @@ local function attend_dir(origin, path, parent)
 	end
 
 	-- registers and adds watches for all subdirectories 
-	local subdirs = lsyncd.sub_dirs(op);
+	local subdirs = lsyncd.sub_dirs(op)
 	for _, dirname in ipairs(subdirs) do
-		attend_dir(origin, path..dirname.."/", thiswatch)
+		inotify_dir(origin, path..dirname.."/")
 	end
 end
 
@@ -548,8 +545,6 @@ function lsyncd_initialize(args)
 		terminate(-1) -- ERRNO
 	end
 
-	-- from this point on use logging facilities as configured.
-	lsyncd.configure("running");
 
 	-- set to true if at least one origin has a startup function
 	local have_startup = false
@@ -580,10 +575,12 @@ function lsyncd_initialize(args)
 		if actions.startup then
 			have_startup = true
 		end
--- TODO move above to be before "running"
-		-- and add the dir watch inclusively all subdirs
-		attend_dir(o, "", nil)
+		-- adds the dir watch inclusively all subdirs
+		inotify_dir(o, "")
 	end
+
+	-- from this point on use logging facilities as configured.
+	lsyncd.configure("running");
 	
 	if have_startup then
 		log(NORMAL, "--- startup ---")
@@ -596,11 +593,11 @@ function lsyncd_initialize(args)
 			end
 		end
 		lsyncd.wait_pids(pids, "startup_collector")
-		log(NORMAL, "--- Entering normal operation with "..watches.size..
-			" monitored directories ---")
+		log(NORMAL, "--- Entering normal operation with "..
+			inotifies.size.." monitored directories ---")
 	else
-		log(NORMAL, "--- Warmstart into normal operation with "..watches.size..
-			" monitored directories ---")
+		log(NORMAL, "--- Warmstart into normal operation with "..
+			inotifies.size.." monitored directories ---")
 	end
 end
 
@@ -664,7 +661,7 @@ function lsyncd_event(etype, wd, isdir, time, filename, filename2)
 		-- add subdirs for new directories
 		if isdir then
 			if etype == CREATE then
-				attend_dir(sync.origin, sync.path..filename.."/", w)
+				inotify_dir(sync.origin, sync.path .. filename .. "/")
 			end
 		end
 	end
