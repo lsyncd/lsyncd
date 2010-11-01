@@ -11,7 +11,7 @@ settings = {
 }
 
 ------
--- for testing purposes
+-- for testing purposes. uses bash command to hold local dirs in sync.
 --
 prefix = "sleep 1 && "
 slowbash = {
@@ -22,25 +22,25 @@ slowbash = {
 		return shell([[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], source, target)
 	end,
 
-	create = function(self, unit)
-		local event = unit:nextevent()
+	create = function(self, events)
+		local event = events:nextevent()
 		log(NORMAL, "create from "..event.spath.." -> "..event.tpath)
 		return shell(prefix..[[cp "$1" "$2"]], event.spath, event.tpath)
 	end,
 
-	modify = function(self, unit)
-		local event = unit:nextevent()
+	modify = function(self, events)
+		local event = events:nextevent()
 		log(NORMAL, "modify from "..event.spath.." -> "..event.tpath)
 		return shell(prefix..[[cp "$1" "$2"]], event.spath, event.tpath)
 	end,
 
-	attrib = function(self, unit)
+	attrib = function(self, events)
 		-- ignore attribs
 		return 0
 	end,
 
-	delete = function(self, unit)
-		local event = unit:nextevent()
+	delete = function(self, events)
+		local event = events:nextevent()
 		log(NORMAL, "delete "..event.tpath)
 		return exec(prefix..[[rm "$1"]], event.tpath)
 	end,

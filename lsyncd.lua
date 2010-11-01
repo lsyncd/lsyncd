@@ -58,27 +58,23 @@ local meta_check_array = {
 --
 local meta_check_count_array = {
 	__index = function(t, k) 
---TODO		if k == size then
---			return rawget(t, "size")
---		end
 		if type(k) ~= "number" then
 			error("This table is an array and must have numeric keys", 2)
 		end
-		return rawget(t, "mt")[k]
+		return t.nt[k]
 	end,
 
 	__newindex = function(t, k, v)
 		if type(k) ~= "number" then
 			error("This table is an array and must have numeric keys", 2)
 		end
-		local mt = rawget(t, "mt")
-		local vb = mt[k]
+		local vb = t.nt[k]
 		if v and not vb then
-			rawset(t, "size", rawget(t, "size") + 1)
+			t.size = t.size + 1
 		elseif not v and vb then
-			rawset(t, "size", rawget(t, "size") - 1)
+			t.size = t.size - 1
 		end
-		mt[k] = v
+		t.nt[k] = v
 	end
 }
 
@@ -127,7 +123,7 @@ end
 -- which counts the number of entries
 --
 local function new_count_array()
-	local t = { size = 0, mt = {} }
+	local t = { size = 0, nt = {} }
 	setmetatable(t, meta_check_count_array)
 	return t
 end
@@ -146,41 +142,23 @@ local function set_prototype(t, prototype)
 	setmetatable(t, meta_check_prototype)
 end
 
------
--- ?
-local function lock_new_index(t, k, v)
-	if (k~="_" and string.sub(k,1,2) ~= "__") then
-		GLOBAL_unlock(_G)
-		error("Lsyncd does not allow GLOBALS to be created on the fly." ..
-		      "Declare '" ..k.."' local or declare global on load.", 2)
-	else
-		rawset(t, k, v)
+----
+-- Locks globals,
+-- no more globals can be created
+--
+local function global_lock()
+	local t = _G
+	local mt = getmetatable(t) or {}
+	mt.__newindex = function(t, k, v) 
+		if (k~="_" and string.sub(k, 1, 2) ~= "__") then
+			error("Lsyncd does not allow GLOBALS to be created on the fly." ..
+			      "Declare '" ..k.."' local or declare global on load.", 2)
+		else
+			rawset(t, k, v)
+		end
 	end
-end
-
-----
--- Locks a table
-local function GLOBAL_lock(t)
-	local mt = getmetatable(t) or {}
-	mt.__newindex = lock_new_index
 	setmetatable(t, mt)
 end
-
------
--- ?
-local function unlock_new_index(t, k, v)
-	rawset(t, k, v)
-end
-
-----
--- Unlocks a table
----
-local function GLOBAL_unlock(t)
-	local mt = getmetatable(t) or {}
-	mt.__newindex = unlock_new_index
-	setmetatable(t, mt)
-end
-
 
 
 --============================================================================
@@ -403,16 +381,24 @@ function lsyncd_collect_process(pid, exitcode)
 end
 
 ------
--- TODO
+-- Hidden key for lsyncd.lua internal variables not ment for
+-- the user to see
 --
-local unit = {
-	lsyncd_origin = true,
-	lsyncd_delay  = true,
+local hk = {}
 
-	nextevent = function(self) 
+------
+--- TODO
+local events = {
+	[hk] = {
+		origin = true,
+		delay  = true,
+	},
+
+	nextevent = function(self)
+		local h = self[hk]
 		return { 
-			spath = self.lsyncd_origin.source..self.lsyncd_delay.pathname,
-			tpath = self.lsyncd_origin.targetident..self.lsyncd_delay.pathname,
+			spath = h.origin.source .. h.delay.pathname,
+			tpath = h.origin.targetident .. h.delay.pathname,
 		} 
 	end,
 }
@@ -443,9 +429,9 @@ local function invoke_action(origin, delay)
 	end
 	
 	if func then
-		unit.lsyncd_origin = origin
-		unit.lsyncd_delay = delay
-		local pid = func(actions, unit)
+		events[hk].origin = origin
+		events[hk].delay = delay
+		local pid = func(actions, events)
 		if pid and pid > 0 then
 			local process = {origin = origin,
 							 delay = delay
@@ -465,7 +451,7 @@ function lsyncd_status_report(fd)
 	local w = lsyncd.writefd
 	w(fd, "Lsyncd status report at "..os.date().."\n\n")
 	w(fd, "Watching "..watches.size.." directories\n")
-	for i, v in pairs(watches.mt) do
+	for i, v in pairs(watches.nt) do
 		w(fd, "  "..i..": ")
 		if i ~= v.wd then
 			w(fd, "[Error: wd/v.wd "..i.."~="..v.wd.."]")
@@ -522,7 +508,7 @@ function lsyncd_initialize(args)
 	settings = settings or {}
 
 	-- From this point on, no globals may be created anymore
-	GLOBAL_lock(_G)
+	global_lock()
 
 	-- parses all arguments
 	for i = 1, #args do
@@ -537,7 +523,7 @@ function lsyncd_initialize(args)
 		else
 			a = a:sub(2)
 		end
-		--TOTO
+		--TODO
 	end
 
 	-- all valid settings, first value is 1 if it needs a parameter 
