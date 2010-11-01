@@ -146,7 +146,7 @@ end
 -- Locks globals,
 -- no more globals can be created
 --
-local function global_lock()
+local function globals_lock()
 	local t = _G
 	local mt = getmetatable(t) or {}
 	mt.__newindex = function(t, k, v) 
@@ -220,19 +220,6 @@ local proto_delay  = {
 local watches = new_count_array()
 local proto_watch = {wd=true, syncs=true}
 local proto_sync  = {origin=true, path=true, parent=true}
-
-
------
--- a dictionary of all processes lsyncd spawned.
---
--- structure
--- [pid] = {
---     origin   .. origin this belongs to
---     delay    .. and the delay which invoked this
---
-local processes = new_count_array()
-local proto_process = {origin=true, delay=true}
-
 
 -----
 -- A list of names of the event types the core sends.
@@ -364,19 +351,22 @@ end
 -- zombie process was collected by core.
 --
 function lsyncd_collect_process(pid, exitcode) 
-	log(DEBUG, "collected "..pid)
-	local process = processes[pid]
-	if not process then
+	local delay = nil
+	local origin = nil
+	for _, o in ipairs(origins) do
+		delay = o.processes[pid]
+		if delay then
+			origin = o
+			break
+		end
+	end
+	if not delay then
 		return
 	end
-	local delay = process.delay
-	local origin = process.origin
-	-- TODO
 	log(DEBUG, "collected "..pid..": "..
 		event_names[delay.atype].." of "..
 		origin.source..delay.pathname..
 		" = "..exitcode)
-	processes[pid] = nil
 	origin.processes[pid] = nil
 end
 
@@ -388,7 +378,7 @@ local hk = {}
 
 ------
 --- TODO
-local events = {
+local inlet = {
 	[hk] = {
 		origin = true,
 		delay  = true,
@@ -429,16 +419,11 @@ local function invoke_action(origin, delay)
 	end
 	
 	if func then
-		events[hk].origin = origin
-		events[hk].delay = delay
-		local pid = func(actions, events)
+		inlet[hk].origin = origin
+		inlet[hk].delay = delay
+		local pid = func(inlet)
 		if pid and pid > 0 then
-			local process = {origin = origin,
-							 delay = delay
-				}
-			set_prototype(process, proto_process)
-			processes[pid] = process
-			o.processes[pid] = process
+			o.processes[pid] = delay
 		end
 	end
 end
@@ -508,7 +493,7 @@ function lsyncd_initialize(args)
 	settings = settings or {}
 
 	-- From this point on, no globals may be created anymore
-	global_lock()
+	globals_lock()
 
 	-- parses all arguments
 	for i = 1, #args do
