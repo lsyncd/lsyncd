@@ -342,6 +342,25 @@ logstring0(enum loglevel level,
 	return;
 }
 
+/**
+ * Turns a loglevel string into a loglevel enum
+ *
+ * @param index the index on lua stack where loglevel is encoded.
+ */
+static int
+get_loglevel(lua_State *L, int index)
+{
+	const char * lstr = luaL_checkstring(L, index);
+	switch (lstr[0]) {
+	case 'D' : return DEBUG; 
+	case 'N' : return NORMAL; 
+	case 'V' : return VERBOSE; 
+	case 'E' : return ERROR; 
+	}
+	printlogf(L, ERROR, "'%s' is not a valid loglevel.", lstr);
+	exit(-1); // ERRNO
+}
+
 
 /*****************************************************************************
  * Library calls for lsyncd.lua
@@ -366,6 +385,8 @@ l_add_watch(lua_State *L)
 	return 1;
 }
 
+
+
 /**
  * Logs a message.
  *
@@ -378,9 +399,9 @@ l_log(lua_State *L)
 	/* log message */
 	const char * message;
 	/* log level */
-	int level = luaL_checkinteger(L, 1);
+	int level = get_loglevel(L, 1);
 	/* skips filtered messages early */
-	if ((level & 0x0F) < settings.loglevel) {
+	if (level < settings.loglevel) {
 		return 0;
 	}
 	
@@ -783,7 +804,7 @@ l_configure(lua_State *L)
 		}
 		settings.statusfile = s_strdup(luaL_checkstring(L, 2));
 	} else if (!strcmp(command, "loglevel")) {
-		settings.loglevel = luaL_checkinteger(L, 2);
+		settings.loglevel = get_loglevel(L, 2);
 	} else if (!strcmp(command, "running")) {
 		/* set by runner after first initialize 
 		 * from this on log to configurated log end instead of 
@@ -827,20 +848,20 @@ static const luaL_reg lsyncdlib[] = {
  */
 static void
 printlogf(lua_State *L, 
-          enum loglevel level, 
-	  const char *fmt, ...)
+	enum loglevel level, 
+	const char *fmt, ...)
 {
 	va_list ap;
 	/* skips filtered messages early */
 	if (level < settings.loglevel) {
 		return;
 	}
-	lua_pushcfunction(L, l_log);
-	lua_pushinteger(L, level | CORE);
+
 	va_start(ap, fmt);
 	lua_pushvfstring(L, fmt, ap);
 	va_end(ap);
-	lua_call(L, 2, 0);
+	logstring(level, luaL_checkstring(L, -1));
+	lua_pop(L, -1);
 	return;
 }
 
@@ -1147,12 +1168,6 @@ main(int argc, char *argv[])
 	luaL_openlibs(L);
 	luaL_register(L, "lsyncd", lsyncdlib);
 	lua_setglobal(L, "lysncd");
-
-	/* register log levels */
-	lua_pushinteger(L, DEBUG);   lua_setglobal(L, "DEBUG");
-	lua_pushinteger(L, VERBOSE); lua_setglobal(L, "VERBOSE");
-	lua_pushinteger(L, NORMAL);  lua_setglobal(L, "NORMAL");
-	lua_pushinteger(L, ERROR);   lua_setglobal(L, "ERROR");
 
 	/* checks if the user overrode default runner file */ 
 	if (!strcmp(argv[argp], "--runner")) {

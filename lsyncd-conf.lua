@@ -5,9 +5,9 @@
 --
 settings = {
 --	logfile = "/tmp/lsyncd",
---	nodaemon,
+--	nodaemon = true,
 	statusfile = "/tmp/lsyncd.stat",
-	loglevel = DEBUG,
+	loglevel = "Debug",
 }
 
 ------
@@ -18,18 +18,17 @@ slowbash = {
 	delay = 5,
 
 	startup = function(source, target)
-		log(NORMAL, "cp -r from "..source.." -> "..target)
+		log("Normal", "cp -r from "..source.." -> "..target)
 		return shell([[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], source, target)
 	end,
 
-
 	create = function(event)
-		log(NORMAL, "create from "..event.spath.." -> "..event.tpath)
+		log("Normal", "create from "..event.spath.." -> "..event.tpath)
 		return shell(prefix..[[cp "$1" "$2"]], event.spath, event.tpath)
 	end,
 
 	modify = function(event)
-		log(NORMAL, "modify from "..event.spath.." -> "..event.tpath)
+		log("Normal", "modify from "..event.spath.." -> "..event.tpath)
 		return shell(prefix..[[cp "$1" "$2"]], event.spath, event.tpath)
 	end,
 
@@ -39,7 +38,7 @@ slowbash = {
 	end,
 
 	delete = function(event)
-		log(NORMAL, "delete "..event.tpath)
+		log("Normal", "delete "..event.tpath)
 		return exec(prefix..[[rm "$1"]], event.tpath)
 	end,
 
@@ -53,5 +52,4 @@ slowbash = {
 
 
 sync{source="s", target="d/", config=slowbash}
-
 

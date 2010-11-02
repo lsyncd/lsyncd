@@ -18,7 +18,7 @@ if lsyncd_version then
 	-- checks if the runner is being loaded twice 
 	io.stderr:write(
 		"You cannot use the lsyncd runner as configuration file!\n")
-	os.exit(-1)
+	os.exit(-1) -- ERRNO
 end
 lsyncd_version = "2.0beta1"
 
@@ -225,14 +225,14 @@ end)()
 -- Puts an action on the delay stack.
 --
 function Origin.delay(origin, ename, time, pathname, pathname2)
-	log(DEBUG, "delay ", ename, " ", pathname)
+	log("Debug", "delay ", ename, " ", pathname)
 	local o = origin
 	local delays = o.delays
 	local delayname = o.delayname
 
 	if ename == "Move" and not o.config.move then
 		-- if there is no move action defined, split a move as delete/create
-		log(DEBUG, "splitting Move into Delete & Create")
+		log("Debug", "splitting Move into Delete & Create")
 		delay(o, "Delete", time, pathname,  nil)
 		delay(o, "Create", time, pathname2, nil)
 		return
@@ -255,24 +255,24 @@ function Origin.delay(origin, ename, time, pathname, pathname2)
 		if newd.ename == "MoveFrom" or newd.ename == "MoveTo" or
 		   oldd.ename == "MoveFrom" or oldd.ename == "MoveTo" then
 		   -- do not collapse moves
-			log(NORMAL, "Not collapsing events with moves on ", pathname)
+			log("Normal", "Not collapsing events with moves on ", pathname)
 			-- TODO stackinfo
 			return
 		else
 			local col = o.config.collapse_table[oldd.ename][newd.ename]
 			if col == -1 then
 				-- events cancel each other
-				log(NORMAL, "Nullfication: ", newd.ename, " after ",
+				log("Normal", "Nullfication: ", newd.ename, " after ",
 					oldd.ename, " on ", pathname)
 				oldd.ename = "None"
 				return
 			elseif col == 0 then
 				-- events tack
-				log(NORMAL, "Stacking ", newd.ename, " after ",
+				log("Normal", "Stacking ", newd.ename, " after ",
 					oldd.ename, " on ", pathname)
 				-- TODO Stack pointer
 			else
-				log(NORMAL, "Collapsing ", newd.ename, " upon ",
+				log("Normal", "Collapsing ", newd.ename, " upon ",
 					oldd.ename, " to ", col, " on ", pathname)
 				oldd.ename = col
 				return
@@ -321,7 +321,7 @@ local Origins = (function()
 		local function require_opt(name)
 			if not config[name] then
 				local info = debug.getinfo(3, "Sl")
-				log(ERROR, info.short_src, ":", info.currentline,
+				log("Error", info.short_src, ":", info.currentline,
 					": ", name, " missing from sync.")
 				terminate(-1) -- ERRNO
 			end
@@ -342,7 +342,7 @@ local Origins = (function()
 		   not config.delete and not config.move
 		then
 			local info = debug.getinfo(2, "Sl")
-			log(ERROR, info.short_src, ":", info.currentline,
+			log("Error", info.short_src, ":", info.currentline,
 				": no actions specified, use e.g. 'config=default.rsync'.")
 			terminate(-1) -- ERRNO
 		end
@@ -355,8 +355,9 @@ local Origins = (function()
 			config[name] = settings[name] or default[name]
 		end
 
+		optional("action")
 		optional("max_processes")
-		optional("collapse_actions")
+		optional("collapse_table")
 
 		local o = Origin.new(config.source, config.target, config)
 		table.insert(list, o)
@@ -427,7 +428,7 @@ local function inotify_watch_dir(origin, path)
 	local wd = lsyncd.add_watch(op);
 	if wd < 0 then
 		-- failed adding the watch
-		log(ERROR, "Failure adding watch ", op, " -> ignored ")
+		log("Error", "Failure adding watch ", op, " -> ignored ")
 		return
 	end
 
@@ -470,7 +471,7 @@ function lsyncd_collect_process(pid, exitcode)
 	if not delay then
 		return
 	end
-	log(DEBUG, "collected ", pid, ": ", 
+	log("Debug", "collected ", pid, ": ", 
 		delay.ename, " of ", origin.source, delay.pathname,
 		" = ", exitcode)
 	origin.processes[pid] = nil
@@ -592,7 +593,7 @@ function lsyncd_initialize(args)
 	for i = 1, #args do
 		local a = args[i]
 		if a:sub(1, 1) ~= "-" then
-			log(ERROR, "Unknown option ", a,
+			log("Error", "Unknown option ", a,
 				". Options must start with '-' or '--'.")
 			os.exit(-1) -- ERRNO
 		end
@@ -608,12 +609,13 @@ function lsyncd_initialize(args)
 	local configure_settings = {
 		loglevel = {1, 
 			function(param)
-				if not (param == DEBUG or param == NORMAL or
-				        param == VERBOSE or param == ERROR) then
-					log(ERROR, "unknown settings.loglevel '", param, "'")
+				if not (param == "Debug" or param == "Normal" or
+				        param == "Verbose" or param == "Error") then
+					log("Error", "unknown settings.loglevel '", param, "'")
 					terminate(-1); -- ERRNO
 				end
-			end},
+			end
+		},
 		statusfile = {1, nil},
 	}
 
@@ -621,11 +623,11 @@ function lsyncd_initialize(args)
 	for c, p in pairs(settings) do
 		local cs = configure_settings[c]
 		if not cs then
-			log(ERROR, "unknown setting '", c, "'")	
+			log("Error", "unknown setting '", c, "'")	
 			terminate(-1) -- ERRNO
 		end
 		if cs[1] == 1 and not p then
-			log(ERROR, "setting '", c, "' needs a parameter")	
+			log("Error", "setting '", c, "' needs a parameter")	
 		end
 		-- calls the check function if its not nil
 		if cs[2] then
@@ -636,8 +638,8 @@ function lsyncd_initialize(args)
 
 	-- makes sure the user gave lsyncd anything to do 
 	if Origins.size() == 0 then
-		log(ERROR, "Nothing to watch!")
-		log(ERROR, "Use sync(SOURCE, TARGET, BEHAVIOR) in your config file.");
+		log("Error", "Nothing to watch!")
+		log("Error", "Use sync(SOURCE, TARGET, BEHAVIOR) in your config file.");
 		terminate(-1) -- ERRNO
 	end
 
@@ -656,7 +658,7 @@ function lsyncd_initialize(args)
 	lsyncd.configure("running");
 	
 	if have_startup then
-		log(NORMAL, "--- startup ---")
+		log("Normal", "--- startup ---")
 		local pids = { }
 		for _, o in Origins.iwalk() do
 			local pid
@@ -666,10 +668,10 @@ function lsyncd_initialize(args)
 			end
 		end
 		lsyncd.wait_pids(pids, "startup_collector")
-		log(NORMAL, "- Entering normal operation with ",
+		log("Normal", "- Entering normal operation with ",
 			inotifies.size, " monitored directories -")
 	else
-		log(NORMAL, "- Warmstart into normal operation with ",
+		log("Normal", "- Warmstart into normal operation with ",
 			inotifies.size, " monitored directories -")
 	end
 end
@@ -715,16 +717,16 @@ function lsyncd_inotify_event(ename, wd, isdir, time, filename, filename2)
 		ftype = "file"
 	end
 	if filename2 then
-		log(DEBUG, "got event ", ename, " of ", ftype, " ", filename, 
+		log("Debug", "got event ", ename, " of ", ftype, " ", filename, 
 			" to ", filename2) 
 	else 
-		log(DEBUG, "got event ", ename, " of ", ftype, " ", filename) 
+		log("Debug", "got event ", ename, " of ", ftype, " ", filename) 
 	end
 
 	-- looks up the watch descriptor id
 	local ilist = inotifies[wd]
 	if not ilist then
-		log(NORMAL, "event belongs to unknown or deleted watch descriptor.")
+		log("Normal", "event belongs to unknown or deleted watch descriptor.")
 		return
 	end
 	
@@ -757,7 +759,7 @@ end
 --
 function startup_collector(pid, exitcode)
 	if exitcode ~= 0 then
-		log(ERROR, "Startup process", pid, " failed")
+		log("Error", "Startup process", pid, " failed")
 		terminate(-1) -- ERRNO
 	end
 	return 0
@@ -774,7 +776,7 @@ sync = Origins.add
 -- Called by core when an overflow happened.
 --
 function default_overflow()
-	log(ERROR, "--- OVERFLOW on inotify event queue ---")
+	log("Error", "--- OVERFLOW on inotify event queue ---")
 	terminate(-1) -- TODO reset instead.
 end
 overflow = default_overflow
@@ -797,7 +799,7 @@ local default_rsync = {
 	----
 	-- Called for every sync/target pair on startup
 	startup = function(source, target) 
-		log(NORMAL, "startup recursive rsync: ", source, " -> ", target)
+		log("Normal", "startup recursive rsync: ", source, " -> ", target)
 		return exec("/usr/bin/rsync", "-ltrs", 
 			source, target)
 	end,
