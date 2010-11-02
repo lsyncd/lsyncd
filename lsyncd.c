@@ -934,7 +934,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	}
 
 	/* and hands over to runner */
-	lua_getglobal(L, "lsyncd_event");
+	lua_getglobal(L, "lsyncd_inotify_event");
 	switch(event_type) {
 	case ATTRIB : lua_pushstring(L, "Attrib"); break;
 	case MODIFY : lua_pushstring(L, "Modify"); break;

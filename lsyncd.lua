@@ -264,7 +264,7 @@ function Origin.delay(origin, ename, time, pathname, pathname2)
 				-- events cancel each other
 				log(NORMAL, "Nullfication: " ..newd.ename.." after "..
 					oldd.ename.." on "..pathname)
-				oldd.ename = "none"
+				oldd.ename = "None"
 				return
 			elseif col == 0 then
 				-- events tack
@@ -713,7 +713,7 @@ end
 -- @param filename  string filename without path
 -- @param filename2 
 --
-function lsyncd_event(ename, wd, isdir, time, filename, filename2)
+function lsyncd_inotify_event(ename, wd, isdir, time, filename, filename2)
 	local ftype;
 	if isdir then
 		ftype = "directory"
