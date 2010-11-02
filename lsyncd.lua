@@ -178,108 +178,75 @@ local function globals_lock()
 	setmetatable(t, mt)
 end
 
+-----
+-- Holds information about a delayed event for one origin/target.
+--
+local Delay = (function()
+	-----
+	-- Creates a new delay.
+	-- 
+	-- @param TODO
+	local new = function(ename, pathname, alarm)
+		local o = {
+			ename = ename,
+			alarm = alarm,
+			pathname = pathname,
+		}
+		return o
+	end
 
---============================================================================
--- Lsyncd globals
---============================================================================
-
-
-----
--- origins 
---
--- table of all root directories to sync.
--- filled during initialization.
---
--- [#] {
---    config      = config, 
---    source      = source_dir, 
---    targetident = the identifier of target (like string "host:dir")
---                  for lsyncd this passed competly opaquely to the 
---                  action handlers
---
---    .processes = [pid] .. a sublist of processes[] for this target
---    .delays = [#) {    .. the delays stack
---         .ename        .. enum, kind of action
---         .alarm        .. when it should fire
---         .pathname     .. complete path relativ to watch origin
---         (.movepeer)   .. for MOVEFROM/MOVETO link to other delay
---    }
---    .delayname[pathname] = [#]  .. a list of lists of all delays from a 
---                                   its pathname.
--- }
---
-local origins = Array.new()
-local proto_origin = {
-		config=true, source=true, targetident=true, 
-		processes=true, delays=true, delayname=true
-	}
-local proto_delay  = {
-		ename   =true, alarm=true, pathname=true, movepeer=true
-	}
+	return {new = new}
+end)()
 
 -----
--- inotifies
+-- TODO
 --
--- contains all inotify watches.
---
--- structure:
---    a list indexed by watch descriptor
--- [wd] 
---    of a numeric list of all origins watching this dir.
--- [#]
---    of inotify {
---         .origin .. link to origin
---         .path   .. relative path of dir
---     }
--- }
---
-local inotifies = CountArray.new()
-local proto_inotify = {origin=true, path=true}
+local Origin = (function()
+	----
+	-- TODO
+	--
+	local new = function(source, targetident, config) 
+		local o = {
+			config = config,
+			delays = CountArray.new(),
+			delayname = {},
+			source = source,
+			targetident = targetident,
+			processes = CountArray.new(),
+		}
+		return o
+	end
 
------
--- A list of names of the event types the core sends.
--- (Also makes sure the strings are not collected)
---
-local valid_events = {
-	Attrib = true,
-	Modify = true,
-	Create = true,
-	Delete = true,
-	Move = true,
-	MoveFrom = true,
-	MoveTo = true,
-}
-
---============================================================================
--- The lsyncd runner 
---============================================================================
+	-- public interface
+	return {new = new}
+end)()
 
 -----
 -- Puts an action on the delay stack.
 --
-local function delay_action(ename, wd, time, origin, pathname, pathname2)
-	log(DEBUG, "delay_action "..ename.."("..wd..") ")
-	local o  = origin
+function Origin.delay(origin, ename, time, pathname, pathname2)
+	log(DEBUG, "delay "..ename.." "..pathname)
+	local o = origin
 	local delays = o.delays
 	local delayname = o.delayname
 
 	if ename == "Move" and not o.config.move then
 		-- if there is no move action defined, split a move as delete/create
 		log(DEBUG, "splitting Move into Delete & Create")
-		delay_action("Delete", wd, time, pathname,  nil)
-		delay_action("Create", wd, time, pathname2, nil)
+		delay(o, "Delete", time, pathname,  nil)
+		delay(o, "Create", time, pathname2, nil)
 		return
 	end
 
 	-- creates the new action
-	local newd = {ename    = ename, 
-	              pathname = pathname }
-	set_prototype(newd, proto_delay)
+	local alarm 
+	-- TODO scope
 	if time and o.config.delay then
-		newd.alarm = lsyncd.addto_clock(time, o.config.delay)
+		alarm = lsyncd.addto_clock(time, o.config.delay)
 	else
-		newd.alarm = lsyncd.now()
+		alarm = lsyncd.now()
 	end
+	local newd = Delay.new(ename, pathname, alarm)
 
 	local oldd = delayname[pathname] 
 	if oldd then
@@ -319,6 +286,117 @@ local function delay_action(ename, wd, time, origin, pathname, pathname2)
 	end
 end
 
+-----
+-- Origins - a singleton
+-- 
+-- It maintains all configured directories to be synced.
+--
+local Origins = (function()
+	-- the list of all origins
+	local list = Array.new()
+	
+	-- adds a configuration
+	local add = function(source, targetident, config)
+		-- absolute path of source
+		local real_src = lsyncd.real_dir(source)
+		if not real_src then
+			log(Error, "Cannot resolve source path: " .. source)
+			terminate(-1) -- ERRNO
+		end
+
+		config.max_processes = 
+			config.max_processes or 
+			settings.max_processes or 
+			defaults.max_processes
+
+		config.collapse_table =
+			config.collapse_table or
+			settings.collapse_table or 
+			defaults.collapse_table
+		
+		config.max_actions = config.max_actions or 1
+		
+		local o = Origin.new(real_src, targetident, config)
+		table.insert(list, o)
+	end
+
+	-- allows to walk through all origins
+	local iwalk = function()
+		return ipairs(list)
+	end
+
+	-- returns the number of origins
+	local size = function()
+		return #list
+	end
+
+	-- public interface
+	return {add = add, iwalk = iwalk, size = size}
+end)()
+
+----
+-- origins 
+--
+-- table of all root directories to sync.
+-- filled during initialization.
+--
+-- [#] {
+--    config      = config, 
+--    source      = source_dir, 
+--    targetident = the identifier of target (like string "host:dir")
+--                  for lsyncd this passed competly opaquely to the 
+--                  action handlers
+--
+--    .processes = [pid] .. a sublist of processes[] for this target
+--    .delays = [#) {    .. the delays stack
+--         .ename        .. enum, kind of action
+--         .alarm        .. when it should fire
+--         .pathname     .. complete path relativ to watch origin
+--         (.movepeer)   .. for MOVEFROM/MOVETO link to other delay
+--    }
+--    .delayname[pathname] = [#]  .. a list of lists of all delays from a 
+--                                   its pathname.
+-- }
+--
+
+-----
+-- inotifies
+--
+-- contains all inotify watches.
+--
+-- structure:
+--    a list indexed by watch descriptor
+-- [wd] 
+--    of a numeric list of all origins watching this dir.
+-- [#]
+--    of inotify {
+--         .origin .. link to origin
+--         .path   .. relative path of dir
+--     }
+-- }
+--
+local inotifies = CountArray.new()
+local proto_inotify = {origin=true, path=true}
+
+-----
+-- A list of names of the event types the core sends.
+-- (Also makes sure the strings are not collected)
+--
+local valid_events = {
+	Attrib = true,
+	Modify = true,
+	Create = true,
+	Delete = true,
+	Move = true,
+	MoveFrom = true,
+	MoveTo = true,
+}
+
+--============================================================================
+-- The lsyncd runner 
+--============================================================================
+
+
 ----
 -- Adds watches for a directory including all subdirectories.
 --
@@ -347,7 +425,8 @@ local function inotify_watch_dir(origin, path)
 
 	-- on a warmstart add a Create for the directory
 	if not origin.config.startup then
-		delay_action("Create", wd, sync, nil, nil, nil)
+		-- TODO BROKEN
+		origin:delay("Create", sync, nil, nil, nil)
 	end
 
 	-- registers and adds watches for all subdirectories 
@@ -364,7 +443,7 @@ end
 function lsyncd_collect_process(pid, exitcode) 
 	local delay = nil
 	local origin = nil
-	for _, o in ipairs(origins) do
+	for _, o in Origins.iwalk() do
 		delay = o.processes[pid]
 		if delay then
 			origin = o
@@ -456,7 +535,7 @@ end
 function lsyncd_alarm(now)
 	-- goes through all targets and spawns more actions
 	-- if possible
-	for _, o in ipairs(origins) do
+	for _, o in Origins.iwalk() do
 		if o.processes.size < o.config.max_processes then
 			local delays = o.delays
 			local d = delays[1]
@@ -540,17 +619,16 @@ function lsyncd_initialize(args)
 	end
 
 	-- makes sure the user gave lsyncd anything to do 
-	if #origins == 0 then
+	if Origins.size() == 0 then
 		log(ERROR, "Nothing to watch!")
 		log(ERROR, "Use sync(SOURCE, TARGET, BEHAVIOR) in your config file.");
 		terminate(-1) -- ERRNO
 	end
 
-
 	-- set to true if at least one origin has a startup function
 	local have_startup = false
 	-- runs through the origins table filled by user calling directory()
-	for _, o in ipairs(origins) do
+	for _, o in Origins.iwalk() do
 		-- resolves source to be an absolute path
 		local asrc = lsyncd.real_dir(o.source)
 		local config = o.config
@@ -586,7 +664,7 @@ function lsyncd_initialize(args)
 	if have_startup then
 		log(NORMAL, "--- startup ---")
 		local pids = { }
-		for _, o in ipairs(origins) do
+		for _, o in Origins.iwalk() do
 			local pid
 			if o.config.startup then
 				local pid = o.config.startup(o.source, o.targetident)
@@ -612,7 +690,7 @@ end
 function lsyncd_get_alarm()
 	local have_alarm = false
 	local alarm = 0
-	for _, o in ipairs(origins) do
+	for _, o in Origins.iwalk() do
 		if o.delays[1] and 
 		   o.processes.size < o.config.max_processes then
 			if have_alarm then
@@ -664,7 +742,7 @@ function lsyncd_event(ename, wd, isdir, time, filename, filename2)
 		if filename2 then
 			pathname2 = inotify.path..filename2
 		end
-		delay_action(ename, wd, time, inotify.origin, 
+		Origin.delay(inotify.origin, ename, time, 
 			inotify.path..filename, pathname2)
 		-- add subdirs for new directories
 		if isdir then
@@ -698,25 +776,7 @@ end
 -- lsyncd user interface
 --============================================================================
 
-----
--- Adds one directory (incl. subdirs) to be synchronized.
--- Users primary configuration device.
---
--- @param TODO
---
-function sync(source_dir, target_identifier, config)
-	local o = {      config = config, 
-	                 source = source_dir, 
-	            targetident = target_identifier, 
-	}
-	set_prototype(o, proto_origin)
-
-	if not config.max_actions then
-		config.max_actions = 1  -- TODO move to init
-	end
-	table.insert(origins, o)
-	return 
-end
+sync = Origins.add
 
 ----
 -- Called by core when an overflow happened.
