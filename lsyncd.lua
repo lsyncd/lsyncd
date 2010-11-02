@@ -34,49 +34,92 @@ terminate = lsyncd.terminate
 --============================================================================
 
 -----
--- Metatable to limit keys to numerics.
+-- The array objects are tables that error if accessed with a non-number.
 --
-local meta_check_array = {
-	__index = function(t, k) 
+local Array = (function()
+	-- Metatable
+	local mt = {}
+
+	-- on accessing a nil index.
+	mt.__index = function(t, k) 
 		if type(k) ~= "number" then
-			error("This table is an array and must have numeric keys", 2)
+			error("Key '"..k.."' invalid for Array", 2)
 		end
 		return rawget(t, k)
-	end,
-	__newindex = function(t, k, v)
+	end
+
+	-- on assigning a new index.
+	mt.__newindex = function(t, k, v)
 		if type(k) ~= "number" then
-			error("This table is an array and must have numeric keys", 2)
+			error("Key '"..k.."' invalid for Array", 2)
 		end
 		rawset(t, k, v)
 	end
-}
+
+	-- creates a new object
+	local new = function()
+		local o = {}
+		setmetatable(o, mt)
+		return o
+	end
+
+	-- objects public interface
+	return {new = new}
+end)()
+
 
 -----
--- Metatable to limit keys to numerics and count the number of entries.
+-- The count array objects are tables that error if accessed with a non-number.
+-- Additionally they maintain their length as "size" attribute.
 -- Lua's # operator does not work on tables which key values are not 
 -- strictly linear.
 --
-local meta_check_count_array = {
-	__index = function(t, k) 
-		if type(k) ~= "number" then
-			error("This table is an array and must have numeric keys", 2)
-		end
-		return t.nt[k]
-	end,
+local CountArray = (function()
+	-- Metatable
+	local mt = {}
 
-	__newindex = function(t, k, v)
+	-- key to native table
+	local k_nt = {}
+	
+	-- on accessing a nil index.
+	mt.__index = function(t, k) 
 		if type(k) ~= "number" then
-			error("This table is an array and must have numeric keys", 2)
+			error("Key '"..k.."' invalid for CountArray", 2)
 		end
-		local vb = t.nt[k]
+		return t[k_nt][k]
+	end
+
+	-- on assigning a new index.
+	mt.__newindex = function(t, k, v)
+		if type(k) ~= "number" then
+			error("Key '"..k.."' invalid for CountArray", 2)
+		end
+		-- value before
+		local vb = t[k_nt][k]
 		if v and not vb then
 			t.size = t.size + 1
 		elseif not v and vb then
 			t.size = t.size - 1
 		end
-		t.nt[k] = v
+		t[k_nt][k] = v
 	end
-}
+
+	-- TODO
+	local iwalk = function(self)
+		return ipairs(self[k_nt])
+	end
+	
+	-- creates a new count array
+	local new = function()
+		-- k_nt is native table, private for this object.
+		local o = {size = 0, iwalk = iwalk, [k_nt] = {} }
+		setmetatable(o, mt)
+		return o
+	end
+
+	-- objects public interface
+	return {new = new}
+end)()
 
 
 -----
@@ -96,38 +139,6 @@ local meta_check_prototype = {
 		rawset(t, k, v)
 	end
 }
-
------
--- Limits the keys of table to numbers.
---
-local function set_array(t)
-	for k, _ in pairs(t) do
-		if type(k) ~= "number" then
-			error("table can't become an array, since it has key '"..k.."'", 2)
-		end
-	end
-	setmetatable(t, meta_check_array)
-end
-
------
--- Creates a table with keys limited to numbers.
---
-local function new_array()
-	local t = {}
-	setmetatable(t, meta_check_array)
-	return t
-end
-
------
--- Creates a table with keys limited to numbers and
--- which counts the number of entries
---
-local function new_count_array()
-	local t = { size = 0, nt = {} }
-	setmetatable(t, meta_check_count_array)
-	return t
-end
-
 
 -----
 -- Sets the prototype of a table limiting its keys to a defined list.
@@ -197,7 +208,7 @@ end
 --                                   its pathname.
 -- }
 --
-local origins = new_array()
+local origins = Array.new()
 local proto_origin = {
 		config=true, source=true, targetident=true, 
 		processes=true, delays=true, delayname=true
@@ -222,7 +233,7 @@ local proto_delay  = {
 --     }
 -- }
 --
-local inotifies = new_count_array()
+local inotifies = CountArray.new()
 local proto_inotify = {origin=true, path=true}
 
 -----
@@ -327,7 +338,7 @@ local function inotify_watch_dir(origin, path)
 
 	local ilist = inotifies[wd]
 	if not ilist then
-		ilist = new_array()
+		ilist = Array.new()
 		inotifies[wd] = ilist
 	end
 	local inotify = { origin = origin, path = path } 
@@ -427,7 +438,7 @@ function lsyncd_status_report(fd)
 	local w = lsyncd.writefd
 	w(fd, "Lsyncd status report at "..os.date().."\n\n")
 	w(fd, "Watching "..inotifies.size.." directories\n")
-	for wd, v in pairs(inotifies.nt) do
+	for wd, v in inotifies:iwalk() do
 		w(fd, "  "..wd..": ")
 		for _, inotify in ipairs(v) do 
 			w(fd, "("..inotify.origin.source.."|"..(inotify.path) or ")..")
@@ -548,9 +559,9 @@ function lsyncd_initialize(args)
 			terminate(-1) -- ERRNO
 		end
 		o.source = asrc
-		o.delays = new_count_array()
+		o.delays = CountArray.new()
 		o.delayname = {}
-		o.processes = new_count_array()
+		o.processes = CountArray.new()
 
 		config.max_processes = 
 			config.max_processes or 

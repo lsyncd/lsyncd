@@ -24,7 +24,12 @@ slowbash = {
 
 	action = function(inlet)
 		local event = inlet:nextevent()
-		return inlet:config()[string.lower(event.ename)](event)
+		local func = inlet:config()[string.lower(event.ename)]
+		if func then
+			return func(event)
+		else 
+			return -1
+		end
 	end,
 
 	create = function(event)
