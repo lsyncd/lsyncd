@@ -383,6 +383,10 @@ l_log(lua_State *L)
 	if ((level & 0x0F) < settings.loglevel) {
 		return 0;
 	}
+	
+	/* concates if there is more than one string parameter */
+	lua_concat(L, lua_gettop(L) - 1);
+
 	message = luaL_checkstring(L, 2);
 	logstring0(level, message);
 	return 0;
@@ -640,8 +644,12 @@ int
 l_writefd(lua_State *L) 
 {
 	int fd = luaL_checkinteger(L, 1);
-	const char *s = luaL_checkstring(L, 2);
-	write(fd, s, strlen(s));
+	/* concates if there is more than one string parameter */
+	lua_concat(L, lua_gettop(L) - 1);
+	{
+		const char *s = luaL_checkstring(L, 2);
+		write(fd, s, strlen(s));
+	}
 	return 0;
 }
 

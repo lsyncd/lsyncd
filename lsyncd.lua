@@ -57,7 +57,7 @@ local Array = (function()
 	end
 
 	-- creates a new object
-	local new = function()
+	local function new()
 		local o = {}
 		setmetatable(o, mt)
 		return o
@@ -105,12 +105,12 @@ local CountArray = (function()
 	end
 
 	-- TODO
-	local iwalk = function(self)
+	local function iwalk(self)
 		return ipairs(self[k_nt])
 	end
 	
 	-- creates a new count array
-	local new = function()
+	local function new()
 		-- k_nt is native table, private for this object.
 		local o = {size = 0, iwalk = iwalk, [k_nt] = {} }
 		setmetatable(o, mt)
@@ -186,7 +186,7 @@ local Delay = (function()
 	-- Creates a new delay.
 	-- 
 	-- @param TODO
-	local new = function(ename, pathname, alarm)
+	local function new(ename, pathname, alarm)
 		local o = {
 			ename = ename,
 			alarm = alarm,
@@ -205,7 +205,7 @@ local Origin = (function()
 	----
 	-- TODO
 	--
-	local new = function(source, targetident, config) 
+	local function new(source, targetident, config) 
 		local o = {
 			config = config,
 			delays = CountArray.new(),
@@ -225,7 +225,7 @@ end)()
 -- Puts an action on the delay stack.
 --
 function Origin.delay(origin, ename, time, pathname, pathname2)
-	log(DEBUG, "delay "..ename.." "..pathname)
+	log(DEBUG, "delay ", ename, " ", pathname)
 	local o = origin
 	local delays = o.delays
 	local delayname = o.delayname
@@ -255,26 +255,25 @@ function Origin.delay(origin, ename, time, pathname, pathname2)
 		if newd.ename == "MoveFrom" or newd.ename == "MoveTo" or
 		   oldd.ename == "MoveFrom" or oldd.ename == "MoveTo" then
 		   -- do not collapse moves
-			log(NORMAL, "Not collapsing events with moves on "..pathname)
+			log(NORMAL, "Not collapsing events with moves on ", pathname)
 			-- TODO stackinfo
 			return
 		else
 			local col = o.config.collapse_table[oldd.ename][newd.ename]
 			if col == -1 then
 				-- events cancel each other
-				log(NORMAL, "Nullfication: " ..newd.ename.." after "..
-					oldd.ename.." on "..pathname)
+				log(NORMAL, "Nullfication: ", newd.ename, " after ",
+					oldd.ename, " on ", pathname)
 				oldd.ename = "None"
 				return
 			elseif col == 0 then
 				-- events tack
-				log(NORMAL, "Stacking " ..newd.ename.." after "..
-					oldd.ename.." on "..pathname)
+				log(NORMAL, "Stacking ", newd.ename, " after ",
+					oldd.ename, " on ", pathname)
 				-- TODO Stack pointer
 			else
-				log(NORMAL, "Collapsing "..newd.ename.." upon "..
-					oldd.ename.." to " ..
-					col.." on "..pathname)
+				log(NORMAL, "Collapsing ", newd.ename, " upon ",
+					oldd.ename, " to ", col, " on ", pathname)
 				oldd.ename = col
 				return
 			end
@@ -296,11 +295,11 @@ local Origins = (function()
 	local list = Array.new()
 	
 	-- adds a configuration
-	local add = function(source, targetident, config)
+	local function add(source, targetident, config)
 		-- absolute path of source
 		local real_src = lsyncd.real_dir(source)
 		if not real_src then
-			log(Error, "Cannot resolve source path: " .. source)
+			log(Error, "Cannot resolve source path: ", source)
 			terminate(-1) -- ERRNO
 		end
 
@@ -321,7 +320,7 @@ local Origins = (function()
 	end
 
 	-- allows to walk through all origins
-	local iwalk = function()
+	local function iwalk()
 		return ipairs(list)
 	end
 
@@ -333,31 +332,6 @@ local Origins = (function()
 	-- public interface
 	return {add = add, iwalk = iwalk, size = size}
 end)()
-
-----
--- origins 
---
--- table of all root directories to sync.
--- filled during initialization.
---
--- [#] {
---    config      = config, 
---    source      = source_dir, 
---    targetident = the identifier of target (like string "host:dir")
---                  for lsyncd this passed competly opaquely to the 
---                  action handlers
---
---    .processes = [pid] .. a sublist of processes[] for this target
---    .delays = [#) {    .. the delays stack
---         .ename        .. enum, kind of action
---         .alarm        .. when it should fire
---         .pathname     .. complete path relativ to watch origin
---         (.movepeer)   .. for MOVEFROM/MOVETO link to other delay
---    }
---    .delayname[pathname] = [#]  .. a list of lists of all delays from a 
---                                   its pathname.
--- }
---
 
 -----
 -- inotifies
@@ -410,7 +384,7 @@ local function inotify_watch_dir(origin, path)
 	local wd = lsyncd.add_watch(op);
 	if wd < 0 then
 		-- failed adding the watch
-		log(ERROR, "Failure adding watch "..op.." -> ignored ")
+		log(ERROR, "Failure adding watch ", op, " -> ignored ")
 		return
 	end
 
@@ -453,10 +427,9 @@ function lsyncd_collect_process(pid, exitcode)
 	if not delay then
 		return
 	end
-	log(DEBUG, "collected "..pid..": "..
-		delay.ename.." of "..
-		origin.source..delay.pathname..
-		" = "..exitcode)
+	log(DEBUG, "collected ", pid, ": ", 
+		delay.ename, " of ", origin.source, delay.pathname,
+		" = ", exitcode)
 	origin.processes[pid] = nil
 end
 
@@ -515,12 +488,12 @@ end
 --
 function lsyncd_status_report(fd)
 	local w = lsyncd.writefd
-	w(fd, "Lsyncd status report at "..os.date().."\n\n")
-	w(fd, "Watching "..inotifies.size.." directories\n")
+	w(fd, "Lsyncd status report at ", os.date(), "\n\n")
+	w(fd, "Watching ", inotifies.size, " directories\n")
 	for wd, v in inotifies:iwalk() do
-		w(fd, "  "..wd..": ")
+		w(fd, "  ", wd, ": ")
 		for _, inotify in ipairs(v) do 
-			w(fd, "("..inotify.origin.source.."|"..(inotify.path) or ")..")
+			w(fd, "(", inotify.origin.source, "/", (inotify.path) or ")")
 		end
 		w(fd, "\n")
 	end
@@ -576,7 +549,7 @@ function lsyncd_initialize(args)
 	for i = 1, #args do
 		local a = args[i]
 		if a:sub(1, 1) ~= "-" then
-			log(ERROR, "Unknown option "..a..
+			log(ERROR, "Unknown option ", a,
 				". Options must start with '-' or '--'.")
 			os.exit(-1) -- ERRNO
 		end
@@ -594,7 +567,7 @@ function lsyncd_initialize(args)
 			function(param)
 				if not (param == DEBUG or param == NORMAL or
 				        param == VERBOSE or param == ERROR) then
-					log(ERROR, "unknown settings.loglevel '"..param.."'")
+					log(ERROR, "unknown settings.loglevel '", param, "'")
 					terminate(-1); -- ERRNO
 				end
 			end},
@@ -605,11 +578,11 @@ function lsyncd_initialize(args)
 	for c, p in pairs(settings) do
 		local cs = configure_settings[c]
 		if not cs then
-			log(ERROR, "unknown setting '"..c.."'")	
+			log(ERROR, "unknown setting '", c, "'")	
 			terminate(-1) -- ERRNO
 		end
 		if cs[1] == 1 and not p then
-			log(ERROR, "setting '"..c.."' needs a parameter")	
+			log(ERROR, "setting '", c, "' needs a parameter")	
 		end
 		-- calls the check function if its not nil
 		if cs[2] then
@@ -633,7 +606,7 @@ function lsyncd_initialize(args)
 		local asrc = lsyncd.real_dir(o.source)
 		local config = o.config
 		if not asrc then
-			log(Error, "Cannot resolve source path: " .. o.source)
+			log(Error, "Cannot resolve source path: ", o.source)
 			terminate(-1) -- ERRNO
 		end
 		o.source = asrc
@@ -672,11 +645,11 @@ function lsyncd_initialize(args)
 			end
 		end
 		lsyncd.wait_pids(pids, "startup_collector")
-		log(NORMAL, "--- Entering normal operation with "..
-			inotifies.size.." monitored directories ---")
+		log(NORMAL, "- Entering normal operation with ",
+			inotifies.size, " monitored directories -")
 	else
-		log(NORMAL, "--- Warmstart into normal operation with "..
-			inotifies.size.." monitored directories ---")
+		log(NORMAL, "- Warmstart into normal operation with ",
+			inotifies.size, " monitored directories -")
 	end
 end
 
@@ -720,13 +693,11 @@ function lsyncd_inotify_event(ename, wd, isdir, time, filename, filename2)
 	else
 		ftype = "file"
 	end
-	-- TODO comment out to safe performance
 	if filename2 then
-		log(DEBUG, "got event "..ename..
-			" of "..ftype.." "..filename.." to "..filename2) 
+		log(DEBUG, "got event ", ename, " of ", ftype, " ", filename, 
+			" to ", filename2) 
 	else 
-		log(DEBUG, "got event "..ename..
-			" of "..ftype.." "..filename) 
+		log(DEBUG, "got event ", ename, " of ", ftype, " ", filename) 
 	end
 
 	-- looks up the watch descriptor id
@@ -805,14 +776,14 @@ local default_rsync = {
 	----
 	-- Called for every sync/target pair on startup
 	startup = function(source, target) 
-		log(NORMAL, "startup recursive rsync: "..source.." -> "..target)
+		log(NORMAL, "startup recursive rsync: ", source, " -> ", target)
 		return exec("/usr/bin/rsync", "-ltrs", 
 			source, target)
 	end,
 
 	default = function(source, target, path)
 		return exec("/usr/bin/rsync", "--delete", "-ltds",
-			source.."/".. path, target .. "/" .. path)
+			source.."/"..path, target.."/"..path)
 	end
 }
 
