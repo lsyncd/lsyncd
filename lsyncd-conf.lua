@@ -22,15 +22,6 @@ slowbash = {
 		return shell([[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], source, target)
 	end,
 
-	action = function(inlet)
-		local event = inlet:nextevent()
-		local func = inlet:config()[string.lower(event.ename)]
-		if func then
-			return func(event)
-		else 
-			return -1
-		end
-	end,
 
 	create = function(event)
 		log(NORMAL, "create from "..event.spath.." -> "..event.tpath)
@@ -61,6 +52,6 @@ slowbash = {
 }
 
 
-sync("s", "d/", slowbash)
+sync{source="s", target="d/", config=slowbash}
 
 

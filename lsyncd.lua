@@ -294,28 +294,71 @@ local Origins = (function()
 	-- the list of all origins
 	local list = Array.new()
 	
+	-----
+	-- inheritly copies all from a configs 'config' key 
+	-- @cd copy destination
+	-- @cs copy source
+	local function inherit(cd, cs)
+		if cs.config then
+			-- recurse into source
+			inherit(cd, cs.config)
+		end
+		for k, v in pairs(cs) do
+			if k ~= "config" and not cd[k] then
+				cd[k] = v
+			end
+		end
+	end
+	
+	-----
 	-- adds a configuration
-	local function add(source, targetident, config)
+	local add = function(config)
+		if config.config then
+			inherit(config, config.config)
+		end
+
+		-- raises an error if 'name' isnt in opts
+		local function require_opt(name)
+			if not config[name] then
+				local info = debug.getinfo(3, "Sl")
+				log(ERROR, info.short_src, ":", info.currentline,
+					": ", name, " missing from sync.")
+				terminate(-1) -- ERRNO
+			end
+		end
+		require_opt("source")
+		require_opt("target")
+
 		-- absolute path of source
-		local real_src = lsyncd.real_dir(source)
+		local real_src = lsyncd.real_dir(config.source)
 		if not real_src then
-			log(Error, "Cannot resolve source path: ", source)
+			log(Error, "Cannot access source directory: ", config.source)
+			terminate(-1) -- ERRNO
+		end
+		config.source = real_src
+
+		if not config.action and not config.attrib and
+		   not config.create and not config.modify and
+		   not config.delete and not config.move
+		then
+			local info = debug.getinfo(2, "Sl")
+			log(ERROR, info.short_src, ":", info.currentline,
+				": no actions specified, use e.g. 'config=default.rsync'.")
 			terminate(-1) -- ERRNO
 		end
 
-		config.max_processes = 
-			config.max_processes or 
-			settings.max_processes or 
-			defaults.max_processes
+		-- loads a default value for an option if not existent
+		local function optional(name)
+			if config[name] then
+				return
+			end
+			config[name] = settings[name] or default[name]
+		end
 
-		config.collapse_table =
-			config.collapse_table or
-			settings.collapse_table or 
-			defaults.collapse_table
-		
-		config.max_actions = config.max_actions or 1
-		
-		local o = Origin.new(real_src, targetident, config)
+		optional("max_processes")
+		optional("collapse_actions")
+
+		local o = Origin.new(config.source, config.target, config)
 		table.insert(list, o)
 	end
 
@@ -602,29 +645,7 @@ function lsyncd_initialize(args)
 	local have_startup = false
 	-- runs through the origins table filled by user calling directory()
 	for _, o in Origins.iwalk() do
-		-- resolves source to be an absolute path
-		local asrc = lsyncd.real_dir(o.source)
-		local config = o.config
-		if not asrc then
-			log(Error, "Cannot resolve source path: ", o.source)
-			terminate(-1) -- ERRNO
-		end
-		o.source = asrc
-		o.delays = CountArray.new()
-		o.delayname = {}
-		o.processes = CountArray.new()
-
-		config.max_processes = 
-			config.max_processes or 
-			settings.max_processes or 
-			defaults.max_processes
-
-		config.collapse_table =
-			config.collapse_table or
-			settings.collapse_table or 
-			defaults.collapse_table
-
-		if config.startup then
+		if o.config.startup then
 			have_startup = true
 		end
 		-- adds the dir watch inclusively all subdirs
@@ -788,9 +809,24 @@ local default_rsync = {
 }
 
 -----
--- The defaults table for the user to access 
---
-defaults = {
+-- The default table for the user to access 
+--   TODO make readonly
+-- 
+default = {
+	-----
+	-- Default action
+	-- TODO desc
+	--
+	action = function(inlet)
+		local event = inlet:nextevent()
+		local func = inlet:config()[string.lower(event.ename)]
+		if func then
+			return func(event)
+		else 
+			return -1
+		end
+	end,
+
 	-----
 	-- TODO
 	--
