@@ -413,17 +413,27 @@ local Inotifies = (function()
 	-----
 	-- Adds watches for a directory including all subdirectories.
 	--
-	-- @param path      relative path of this dir to origin
+	-- @param root      root directory to observer
 	-- @param origin    link to the observer to be notified.
 	--                  Note: Inotifies should handle this opaquely
 	-- @param recurse   true if recursing into subdirs
+	--                  or the relative path to root for recurse
 	--
-	local function add(path, origin, recurse)
+	local function add(root, origin, recurse)
 		-- register watch and receive watch descriptor
-		local wd = lsyncd.add_watch(path);
+		local dir
+		if type(recurse) == "string" then
+			dir = root..recurse
+		else 
+			dir = root
+			if recurse then
+				recurse = ""
+			end
+		end
+		local wd = lsyncd.add_watch(dir);
 		if wd < 0 then
 			-- failed adding the watch
-			log("Error", "Failure adding watch ", path, " -> ignored ")
+			log("Error", "Failure adding watch ", dir, " -> ignored ")
 			return
 		end
 
@@ -432,14 +442,14 @@ local Inotifies = (function()
 			ilist = Array.new()
 			wdlist[wd] = ilist
 		end
-		local inotify = { path = path, origin = origin, recurse = recurse} 
+		local inotify = { root = root, path = recurse, origin = origin } 
 		table.insert(ilist, inotify)
 
 		-- registers and adds watches for all subdirectories 
 		if recurse then
-			local subdirs = lsyncd.sub_dirs(path)
+			local subdirs = lsyncd.sub_dirs(dir)
 			for _, dirname in ipairs(subdirs) do
-				add(path..dirname.."/", origin, true)
+				add(root, origin, dir..dirname.."/")
 			end
 		end
 	end
@@ -487,7 +497,8 @@ local Inotifies = (function()
 			-- add subdirs for new directories
 			if inotify.recurse and isdir then
 				if ename == "Create" then
-					add(pathname.."/", inotify.origin, true)
+					add(inotify.root, inotify.origin, 
+						inotify.path.."/"..filename)
 					-- TODO remove /
 				end
 			end
@@ -503,10 +514,7 @@ local Inotifies = (function()
 		for wd, v in wdlist:iwalk() do
 			w(fd, "  ", wd, ": ")
 			for _, v in ipairs(v) do
-print(v.origin)
-print(v.path)
-print(v.origin.source)
-				w(fd, "(", v.origin.source, "/", (v.path) or ")")
+				w(fd, "(", v.root, "/", (v.path) or ")")
 			end
 			w(fd, "\n")
 		end
