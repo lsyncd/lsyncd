@@ -312,20 +312,17 @@ local Origins = (function()
 	-- all integer keys are treated as new copy sources
 	--
 	local function inherit(cd, cs)
+		-- first copies from source all 
+		-- non-defined non-integer keyed values 
+		for k, v in pairs(cs) do
+			if type(k) ~= "number" and not cd[k] then
+				cd[k] = v
+			end
+		end
 		-- first recurses into all integer keyed tables
 		for i, v in ipairs(cs) do
 			if type(v) == "table" then
 				inherit(cd, v)
-			end
-		end
-		-- does nothing further if source == destination (first step)
-		if (cd == cs) then
-			return
-		end
-		-- then copies from the source all non integer keyed values 
-		for k, v in pairs(cs) do
-			if type(k) ~= "number" and not cd[k] then
-				cd[k] = v
 			end
 		end
 	end
@@ -334,7 +331,9 @@ local Origins = (function()
 	-- Adds a new directory to observe.
 	--
 	local function add(config)
-		inherit(config, config)
+		local uconfig = config
+		config = {}
+		inherit(config, uconfig)
 
 		-- raises an error if 'name' isnt in opts
 		local function require_opt(name)
@@ -449,7 +448,7 @@ local Inotifies = (function()
 		if recurse then
 			local subdirs = lsyncd.sub_dirs(dir)
 			for _, dirname in ipairs(subdirs) do
-				add(root, origin, dir..dirname.."/")
+				add(root, origin, recurse..dirname.."/")
 			end
 		end
 	end
