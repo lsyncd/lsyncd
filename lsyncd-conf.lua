@@ -51,5 +51,5 @@ slowbash = {
 }
 
 
-sync{source="s", target="d/", config=slowbash}
+sync{slowbash, source="s", target="d/"}
 

@@ -189,11 +189,12 @@ logstring0(enum loglevel level,
 #define logstring(loglevel, message) logstring0(loglevel | CORE, message)
 
 static void
-printlogf(lua_State *L, 
+printlogf0(lua_State *L, 
           enum loglevel level, 
 		  const char *fmt, ...)
 	__attribute__((format(printf, 3, 4)));
-
+#define printlogf(L, level, ...) \
+	printlogf0(L, level | CORE, __VA_ARGS__)
 
 /**
  * "secured" calloc.
@@ -205,7 +206,7 @@ s_calloc(size_t nmemb, size_t size)
 	if (r == NULL) {
 		logstring(ERROR, "Out of memory!");
 		exit(-1); // ERRNO 
-	}
+	}	
 	return r;
 }
 
@@ -763,6 +764,7 @@ l_wait_pids(lua_State *L)
 			lua_getglobal(L, collector);
 			lua_pushinteger(L, wp);
 			lua_pushinteger(L, exitcode);
+			printlogf(L, DEBUG, "calling startup collector");
 			lua_call(L, 2, 1);
 			newp = luaL_checkinteger(L, -1);
 			lua_pop(L, 1);
@@ -847,7 +849,7 @@ static const luaL_reg lsyncdlib[] = {
  * Let the core print logmessage comfortably.
  */
 static void
-printlogf(lua_State *L, 
+printlogf0(lua_State *L, 
 	enum loglevel level, 
 	const char *fmt, ...)
 {
@@ -860,8 +862,8 @@ printlogf(lua_State *L,
 	va_start(ap, fmt);
 	lua_pushvfstring(L, fmt, ap);
 	va_end(ap);
-	logstring(level, luaL_checkstring(L, -1));
-	lua_pop(L, -1);
+	logstring0(level, luaL_checkstring(L, -1));
+	lua_pop(L, 1);
 	return;
 }
 
@@ -898,6 +900,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	if (event && (IN_Q_OVERFLOW & event->mask)) {
 		/* and overflow happened, lets runner/user decide what to do. */
 		lua_getglobal(L, "overflow");
+		printlogf(L, DEBUG, "calling overflow()");
 		lua_call(L, 0, 0);
 		return;
 	}
@@ -984,6 +987,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		lua_pushstring(L, event->name);
 		lua_pushnil(L);
 	}
+	printlogf(L, DEBUG, "calling lysncd_inotify_event()");
 	lua_call(L, 6, 0);
 
 	/* if there is a buffered event executes it */
@@ -1009,6 +1013,7 @@ masterloop(lua_State *L)
 
 		/* query runner about soonest alarm  */
 		lua_getglobal(L, "lsyncd_get_alarm");
+		printlogf(L, DEBUG, "calling lsycnd_get_alarm()");
 		lua_call(L, 0, 2);
 		have_alarm = lua_toboolean(L, -2);
 		alarm_time = (clock_t) luaL_checkinteger(L, -1);
@@ -1099,6 +1104,7 @@ masterloop(lua_State *L)
 			lua_getglobal(L, "lsyncd_collect_process");
 			lua_pushinteger(L, pid);
 			lua_pushinteger(L, WEXITSTATUS(status));
+			printlogf(L, DEBUG, "calling lsyncd_collect_process().");
 			lua_call(L, 2, 0);
 		} 
 
@@ -1115,9 +1121,12 @@ masterloop(lua_State *L)
 				break;
 			}
 			/* calls the lua runner to write the status. */
+			lua_getglobal(L, "lsyncd_call_error");
 			lua_getglobal(L, "lsyncd_status_report");
 			lua_pushinteger(L, fd);
-			lua_call(L, 1, 0);
+			printlogf(L, DEBUG, "calling lysncd_status_report()");
+			lua_pcall(L, 1, 0, -3);
+			printlogf(L, DEBUG, "returnd()");
 
 			/* TODO */
 			fsync(fd);
@@ -1128,6 +1137,7 @@ masterloop(lua_State *L)
 		/* lets the runner spawn new processes */
 		lua_getglobal(L, "lsyncd_alarm");
 		lua_pushinteger(L, times(NULL));
+		printlogf(L, DEBUG, "calling lsyncd_alarm().");
 		lua_call(L, 1, 0);
 	}
 }
