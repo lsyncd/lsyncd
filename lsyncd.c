@@ -43,14 +43,12 @@
  * Extended debugging, undefine these to enable respective parts.
  */
 #define DBG_MASTERLOOP(x) 
-#define DBG_STARTUP(x) 
 
 /**
  * Debugging definitions
  */
 #ifndef DBG_MASTERLOOP
 #define DBG_MASTERLOOP(x) { logstring(DEBUG, x); }
-#define DBG_STARTUP(x)    { logstring(DEBUG, x); }
 #endif
 
 /**
@@ -178,116 +176,127 @@ sig_child(int sig)
 {
 	/* nothing */
 }
-
 /**
  * predeclerations -- see belorw.
  */
-static void 
-logstring0(enum loglevel level,
-	  const char *message);
+static void * s_calloc(size_t nmemb, size_t size);
+static void * s_malloc(size_t size);
+static void * s_realloc(void *ptr, size_t size);
+static char * s_strdup(const char *src);
+
+/*****************************************************************************
+ * Logging
+ ****************************************************************************/
+
 /* core logs with CORE flag */
-#define logstring(loglevel, message) logstring0(loglevel | CORE, message)
+#define logstring(cat, message) \
+	{int p; if ((p = check_logcat(cat)) >= 0) \
+	{logstring0(p, cat, message); }}
 
 static void
 printlogf0(lua_State *L, 
-          enum loglevel level, 
-		  const char *fmt, ...)
-	__attribute__((format(printf, 3, 4)));
-#define printlogf(L, level, ...) \
-	printlogf0(L, level | CORE, __VA_ARGS__)
+          int priority, 
+		  const char *cat,
+		  const char *fmt, 
+		  ...)
+	__attribute__((format(printf, 4, 5)));
+#define printlogf(L, cat, ...) \
+	{int p; if ((p = check_logcat(cat)) >= 0) \
+	{printlogf0(L, p, cat, __VA_ARGS__);}}
 
 /**
- * "secured" calloc.
+ * A logging category 
  */
-void *
-s_calloc(size_t nmemb, size_t size)
-{
-	void *r = calloc(nmemb, size);
-	if (r == NULL) {
-		logstring(ERROR, "Out of memory!");
-		exit(-1); // ERRNO 
-	}	
-	return r;
-}
+struct logcat {
+	char *name;
+	int priority;
+};
+
 
 /**
- * "secured" malloc. the deamon shall kill itself
- * in case of out of memory.
+ * A table of all enabled logging categories.
+ * Sorted by first letter to have to do less comparisons;
  */
-void *
-s_malloc(size_t size)
+static struct logcat *logcats[26] = {0,};
+
+/**
+ * Returns the positive priority if category is configured to be logged.
+ * or -1 
+ */
+static int
+check_logcat(const char *name)
 {
-	void *r = malloc(size);
-	if (r == NULL) {
-		logstring(ERROR, "Out of memory!");
-		exit(-1);  // ERRNO
+	struct logcat *lc;
+	if (name[0] < 'A' || name[0] > 'Z') {
+		return false;
 	}
-	return r;
-}
-
-/**
- * "secured" realloc.
- */
-void *
-s_realloc(void *ptr, size_t size)
-{
-	void *r = realloc(ptr, size);
-	if (r == NULL) {
-		logstring(ERROR, "Out of memory!");
-		exit(-1);
+	lc = logcats[name[0]-'A'];
+	if (!lc) {
+		return -1;
 	}
-	return r;
-}
-
-/**
- * "secured" strdup.
- */
-char *
-s_strdup(const char *src)
-{
-	char *s = strdup(src);
-	if (s == NULL) {
-		logstring(ERROR, "Out of memory!");
-		exit(-1); // ERRNO
+	while (lc->name) {
+		if (!strcmp(lc->name, name)) {
+			return lc->priority;
+		}
+		lc++;
 	}
-	return s;
+	return -1;
 }
 
 /**
- * Logs a string
- *
- * @param level   the level of the log message
- * @param message the log message
+ * Adds a logging category
  */
 static void 
-logstring0(enum loglevel level,
-	   const char *message)
+add_logcat(const char *name, int priority)
 {
-	const char *prefix;
-	/* true if logmessages comes from core */
-	bool coremsg = (level & CORE) != 0;
-	/* strip flags from level */
-	level &= 0x0F;
+	struct logcat *lc; 
 
+	/* category must start with capital letter */
+	if (name[0] < 'A' || name[0] > 'Z') {
+		return;
+	}
+	if (!logcats[name[0]-'A']) {
+		/* en empty capital letter */
+		lc = logcats[name[0]-'A'] = s_calloc(2, sizeof(struct logcat));
+	} else {
+		/* length of letter list */
+		int ll = 0; 	
+		/* counts list length */
+		for(lc = logcats[name[0]-'A']; lc->name; lc++) {
+			ll++;
+		}
+		/* enlarge list */
+		logcats[name[0]-'A'] = 
+			s_realloc(logcats[name[0]-'A'], (ll + 2) * sizeof(struct logcat)); 
+		/* go to list end */ 
+		for(lc = logcats[name[0]-'A']; lc->name; lc++);
+	}
+	lc->name = s_strdup(name);
+	lc->priority = priority;
+	/* terminates the list */
+	lc[1].name = NULL;
+}
+
+/**
+ * Logs a string.
+ *
+ * @param priorty  the priority of the log message
+ * @param cat      the category
+ * @param message  the log message
+ */
+static void 
+logstring0(int priority, const char *cat, const char *message)
+{
 	if (!running) {
 		/* lsyncd is in intial configuration.
 		 * thus just print to normal stdout/stderr. */
-		if (level == ERROR) {
+		if (priority <= LOG_ERR) {
 			fprintf(stderr, "%s\n", message);
-		} else if (level >= startup_loglevel) {
+		} else {
 			printf("%s\n", message);
 		}
 		return;
 	}
-
-	/* skips filtered messagaes */
-	if (level < settings.loglevel) {
-		return;
-	}
-
-	prefix = level == ERROR ? 
-	                  (coremsg ? "CORE ERROR: " : "ERROR: ") :
-	                  (coremsg ? "core: " : "");
 
 	/* writes on console if not daemon */
 	if (!is_daemon) {
@@ -296,8 +305,8 @@ logstring0(enum loglevel level,
 		time_t mtime;
 		time(&mtime);
 		strftime(ct, sizeof(ct), "%T", localtime(&mtime));
-		FILE * flog = level == ERROR ? stderr : stdout;
-		fprintf(flog, "%s %s%s\n", ct, prefix, message);
+		FILE * flog = priority <= LOG_ERR ? stderr : stdout;
+		fprintf(flog, "%s %s: %s\n", ct, cat, message);
 	}
 
 	/* writes to file if configured so */
@@ -312,56 +321,80 @@ logstring0(enum loglevel level,
  		ct[strlen(ct) - 1] = 0;
 
 		if (flog == NULL) {
-			fprintf(stderr, "core: cannot open logfile [%s]!\n", logfile);
+			fprintf(stderr, "Cannot open logfile [%s]!\n", logfile);
 			exit(-1);  // ERRNO
 		}
-		fprintf(flog, "%s: %s%s", ct, prefix, message);
+		fprintf(flog, "%s %s: %s", ct, cat, message);
 		fclose(flog);
 	}
 
 	/* sends to syslog if configured so */
 	if (logsyslog) {
-		int sysp;
-		switch (level) {
-		case DEBUG  :
-			sysp = LOG_DEBUG;
-			break;
-		case VERBOSE :
-		case NORMAL  :
-			sysp = LOG_NOTICE;
-			break;
-		case ERROR  :
-			sysp = LOG_ERR;
-			break;
-		default :
-			/* should never happen */
-			sysp = 0;
-			break;
-		}
-		syslog(sysp, "%s%s", prefix, message);
+		syslog(priority, "%s, %s", cat, message);
 	}
 	return;
 }
 
+/*****************************************************************************
+ * Simple memory management
+ ****************************************************************************/
+
 /**
- * Turns a loglevel string into a loglevel enum
- *
- * @param index the index on lua stack where loglevel is encoded.
+ * "secured" calloc.
  */
-static int
-get_loglevel(lua_State *L, int index)
+void *
+s_calloc(size_t nmemb, size_t size)
 {
-	const char * lstr = luaL_checkstring(L, index);
-	switch (lstr[0]) {
-	case 'D' : return DEBUG; 
-	case 'N' : return NORMAL; 
-	case 'V' : return VERBOSE; 
-	case 'E' : return ERROR; 
-	}
-	printlogf(L, ERROR, "'%s' is not a valid loglevel.", lstr);
-	exit(-1); // ERRNO
+	void *r = calloc(nmemb, size);
+	if (r == NULL) {
+		logstring0(LOG_ERR, "Error", "Out of memory!");
+		exit(-1); // ERRNO 
+	}	
+	return r;
 }
 
+/**
+ * "secured" malloc. the deamon shall kill itself
+ * in case of out of memory.
+ */
+static void *
+s_malloc(size_t size)
+{
+	void *r = malloc(size);
+	if (r == NULL) {
+		logstring0(LOG_ERR, "Error", "Out of memory!");
+		exit(-1);  // ERRNO
+	}
+	return r;
+}
+
+/**
+ * "secured" realloc.
+ */
+static void *
+s_realloc(void *ptr, size_t size)
+{
+	void *r = realloc(ptr, size);
+	if (r == NULL) {
+		logstring0(LOG_ERR, "Error", "Out of memory!");
+		exit(-1);
+	}
+	return r;
+}
+
+/**
+ * "secured" strdup.
+ */
+static char *
+s_strdup(const char *src)
+{
+	char *s = strdup(src);
+	if (s == NULL) {
+		logstring0(LOG_ERR, "Error", "Out of memory!");
+		exit(-1); // ERRNO
+	}
+	return s;
+}
 
 /*****************************************************************************
  * Library calls for lsyncd.lua
@@ -397,20 +430,26 @@ l_add_watch(lua_State *L)
 static int 
 l_log(lua_State *L)
 {
+	/* log category */
+	const char * cat;
 	/* log message */
 	const char * message;
-	/* log level */
-	int level = get_loglevel(L, 1);
-	/* skips filtered messages early */
-	if (level < settings.loglevel) {
+	/* log priority */
+	int priority;
+
+	cat = luaL_checkstring(L, 1);
+	priority = check_logcat(cat);
+
+	/* skips filtered messages */
+	if (priority < 0) {
 		return 0;
 	}
-	
+
 	/* concates if there is more than one string parameter */
 	lua_concat(L, lua_gettop(L) - 1);
 
 	message = luaL_checkstring(L, 2);
-	logstring0(level, message);
+	logstring0(priority, cat, message);
 	return 0;
 }
 
@@ -502,17 +541,17 @@ l_exec(lua_State *L)
 		   stdout/stderr of child processes to the logfile. */
 		if (is_daemon && logfile) {
 			if (!freopen(logfile, "a", stdout)) {
-				printlogf(L, ERROR, 
+				printlogf(L, "Error", 
 					"cannot redirect stdout to '%s'.", logfile);
 			}
 			if (!freopen(logfile, "a", stderr)) {
-				printlogf(L, ERROR, 
+				printlogf(L, "Error", 
 					"cannot redirect stderr to '%s'.", logfile);
 			}
 		}
 		execv(binary, (char **)argv);
 		/* in a sane world execv does not return! */
-		printlogf(L, ERROR, "Failed executing [%s]!", binary);
+		printlogf(L, "Error", "Failed executing [%s]!", binary);
 		exit(-1); // ERRNO
 	}
 
@@ -538,20 +577,20 @@ l_real_dir(lua_State *L)
 	/* use c-library to get absolute path */
 	cbuf = realpath(rdir, NULL);
 	if (cbuf == NULL) {
-		printlogf(L, ERROR, "failure getting absolute path of [%s]", rdir);
+		printlogf(L, "Error", "failure getting absolute path of [%s]", rdir);
 		return 0;
 	}
 	{
 		/* makes sure its a directory */
 	    struct stat st;
 	    if (stat(cbuf, &st)) {
-			printlogf(L, ERROR, 
+			printlogf(L, "Error", 
 				"cannot get absolute path of dir '%s': %s", 
 				rdir, strerror(errno));
 			return 0;
 		}
 	    if (!S_ISDIR(st.st_mode)) {
-			printlogf(L, ERROR, 
+			printlogf(L, "Error", 
 				"cannot get absolute path of dir '%s': is not a directory", 
 				rdir);
 			free(cbuf);
@@ -576,24 +615,24 @@ l_stackdump(lua_State* L)
 {
 	int i;
 	int top = lua_gettop(L);
-	printlogf(L, DEBUG, "total in stack %d",top);
+	printlogf(L, "Debug", "total in stack %d",top);
 	for (i = 1; i <= top; i++) { 
 		int t = lua_type(L, i);
 		switch (t) {
 		case LUA_TSTRING:
-			printlogf(L, DEBUG, "%d string: '%s'", 
+			printlogf(L, "Debug", "%d string: '%s'", 
 				i, lua_tostring(L, i));
 			break;
 		case LUA_TBOOLEAN:
-			printlogf(L, DEBUG, "%d boolean %s", 
+			printlogf(L, "Debug", "%d boolean %s", 
 				i, lua_toboolean(L, i) ? "true" : "false");
 			break;
 		case LUA_TNUMBER: 
-			printlogf(L, DEBUG, "%d number: %g", 
+			printlogf(L, "Debug", "%d number: %g", 
 				i, lua_tonumber(L, i));
 			break;
 		default: 
-			printlogf(L, DEBUG, "%d %s", 
+			printlogf(L, "Debug", "%d %s", 
 				i, lua_typename(L, t));
 			break;
 		}
@@ -616,7 +655,7 @@ l_sub_dirs (lua_State *L)
 
 	d = opendir(dirname);
 	if (d == NULL) {
-		printlogf(L, ERROR, "cannot open dir [%s].", dirname);
+		printlogf(L, "Error", "cannot open dir [%s].", dirname);
 		return 0;
 	}
 	
@@ -764,7 +803,7 @@ l_wait_pids(lua_State *L)
 			lua_getglobal(L, collector);
 			lua_pushinteger(L, wp);
 			lua_pushinteger(L, exitcode);
-			printlogf(L, DEBUG, "calling startup collector");
+			printlogf(L, "Debug", "calling startup collector");
 			lua_call(L, 2, 1);
 			newp = luaL_checkinteger(L, -1);
 			lua_pop(L, 1);
@@ -805,15 +844,13 @@ l_configure(lua_State *L)
 			free(settings.statusfile);
 		}
 		settings.statusfile = s_strdup(luaL_checkstring(L, 2));
-	} else if (!strcmp(command, "loglevel")) {
-		settings.loglevel = get_loglevel(L, 2);
 	} else if (!strcmp(command, "running")) {
 		/* set by runner after first initialize 
 		 * from this on log to configurated log end instead of 
 		 * stdout/stderr */
 		running = true;
 	} else {
-		printlogf(L, ERROR, 
+		printlogf(L, "Error", 
 			"Internal error, unknown parameter in l_configure(%s)", 
 			command);
 		exit(-1); //ERRNO
@@ -843,26 +880,22 @@ static const luaL_reg lsyncdlib[] = {
 
 /*****************************************************************************
  * Lsyncd Core 
- ****************************************************************************/
+****************************************************************************/
 
 /**
  * Let the core print logmessage comfortably.
  */
 static void
 printlogf0(lua_State *L, 
-	enum loglevel level, 
+	int priority,
+	const char *cat,
 	const char *fmt, ...)
 {
 	va_list ap;
-	/* skips filtered messages early */
-	if (level < settings.loglevel) {
-		return;
-	}
-
 	va_start(ap, fmt);
 	lua_pushvfstring(L, fmt, ap);
 	va_end(ap);
-	logstring0(level, luaL_checkstring(L, -1));
+	logstring0(priority, cat, luaL_checkstring(L, -1));
 	lua_pop(L, 1);
 	return;
 }
@@ -892,7 +925,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 
 	/* used to execute two events in case of unmatched MOVE_FROM buffer */
 	struct inotify_event *after_buf = NULL;
-	logstring(DEBUG, "got an event");
+	logstring("Inotify", "got an event");
 
 	if (reset) {
 		return;
@@ -900,7 +933,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	if (event && (IN_Q_OVERFLOW & event->mask)) {
 		/* and overflow happened, lets runner/user decide what to do. */
 		lua_getglobal(L, "overflow");
-		printlogf(L, DEBUG, "calling overflow()");
+		printlogf(L, "Call", "calling overflow()");
 		lua_call(L, 0, 0);
 		return;
 	}
@@ -961,7 +994,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		/* rm'ed */
 		event_type = DELETE;
 	} else {
-		logstring(DEBUG, "skipped some inotify event.");
+		logstring("Inotify", "skipped some inotify event.");
 		return;
 	}
 
@@ -974,7 +1007,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	case DELETE : lua_pushstring(L, "Delete"); break;
 	case MOVE   : lua_pushstring(L, "Move");   break;
 	default : 
-		logstring(ERROR, "Internal: unknown event in handle_event()"); 
+		logstring("Inotify", "Internal: unknown event in handle_event()"); 
 		exit(-1);	// ERRNO
 	}
 	lua_pushnumber(L, event->wd);
@@ -987,7 +1020,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		lua_pushstring(L, event->name);
 		lua_pushnil(L);
 	}
-	printlogf(L, DEBUG, "calling lysncd_inotify_event()");
+	printlogf(L, "Call", "calling lysncd_inotify_event()");
 	lua_call(L, 6, 0);
 
 	/* if there is a buffered event executes it */
@@ -1013,7 +1046,7 @@ masterloop(lua_State *L)
 
 		/* query runner about soonest alarm  */
 		lua_getglobal(L, "lsyncd_get_alarm");
-		printlogf(L, DEBUG, "calling lsycnd_get_alarm()");
+		printlogf(L, "Call", "calling lsycnd_get_alarm()");
 		lua_call(L, 0, 2);
 		have_alarm = lua_toboolean(L, -2);
 		alarm_time = (clock_t) luaL_checkinteger(L, -1);
@@ -1104,7 +1137,7 @@ masterloop(lua_State *L)
 			lua_getglobal(L, "lsyncd_collect_process");
 			lua_pushinteger(L, pid);
 			lua_pushinteger(L, WEXITSTATUS(status));
-			printlogf(L, DEBUG, "calling lsyncd_collect_process().");
+			printlogf(L, "Call", "calling lsyncd_collect_process().");
 			lua_call(L, 2, 0);
 		} 
 
@@ -1115,7 +1148,7 @@ masterloop(lua_State *L)
 			int fd = open(settings.statusfile, 
 				O_WRONLY | O_CREAT | O_TRUNC, 0664);
 			if (fd < 0) {
-				printlogf(L, ERROR, 
+				printlogf(L, "Error",
 					"Cannot open statusfile '%s' for writing.", 
 					settings.statusfile);
 				break;
@@ -1124,9 +1157,8 @@ masterloop(lua_State *L)
 			lua_getglobal(L, "lsyncd_call_error");
 			lua_getglobal(L, "lsyncd_status_report");
 			lua_pushinteger(L, fd);
-			printlogf(L, DEBUG, "calling lysncd_status_report()");
+			printlogf(L, "Call", "calling lysncd_status_report()");
 			lua_pcall(L, 1, 0, -3);
-			printlogf(L, DEBUG, "returnd()");
 
 			/* TODO */
 			fsync(fd);
@@ -1137,7 +1169,7 @@ masterloop(lua_State *L)
 		/* lets the runner spawn new processes */
 		lua_getglobal(L, "lsyncd_alarm");
 		lua_pushinteger(L, times(NULL));
-		printlogf(L, DEBUG, "calling lsyncd_alarm().");
+		printlogf(L, "Call", "calling lsyncd_alarm().");
 		lua_call(L, 1, 0);
 	}
 }
@@ -1161,6 +1193,10 @@ main(int argc, char *argv[])
 	/* the Lua interpreter */
 	lua_State* L;
 
+	add_logcat("Debug",  LOG_DEBUG); // TODO
+	add_logcat("Normal", LOG_NOTICE);
+	add_logcat("Error",  LOG_ERR);
+
 	/* position at cores (minimal) argument parsing *
 	 * most arguments are parsed in the lua runner  */
 	int argp = 1; 
@@ -1182,13 +1218,14 @@ main(int argc, char *argv[])
 	/* checks if the user overrode default runner file */ 
 	if (!strcmp(argv[argp], "--runner")) {
 		if (argc < 3) {
-			logstring(ERROR, "Lsyncd Lua-runner file missing after --runner.");
+			logstring("Error", 
+				"Lsyncd Lua-runner file missing after --runner.");
 #ifdef LSYNCD_DEFAULT_RUNNER_FILE
-			printlogf(L, ERROR, 
+			printlogf(L, "Error", 
 				"Using '%s' as default location for runner.",
 				LSYNCD_DEFAULT_RUNNER_FILE);
 #else
-			logstring(ERROR, 
+			logstring("Error", 
 				"Using a staticly included runner as default.");
 #endif
 			return -1; //ERRNO
@@ -1204,17 +1241,16 @@ main(int argc, char *argv[])
 		/* checks if the runner file exists */
 		struct stat st;
 		if (stat(lsyncd_runner_file, &st)) {
-			printlogf(L, ERROR, 
+			printlogf(L, "Error", 
 				"Cannot find Lsyncd Lua-runner at '%s'.", lsyncd_runner_file);
-			printlogf(L, ERROR, 
-				"Maybe specify another place?");
-			printlogf(L, ERROR, 
+			printlogf(L, "Error", "Maybe specify another place?");
+			printlogf(L, "Error", 
 				"%s --runner RUNNER_FILE CONFIG_FILE", argv[0]);
 			return -1; // ERRNO
 		}
 		/* loads the runner file */
 		if (luaL_loadfile(L, lsyncd_runner_file)) {
-			printlogf(L, ERROR, 
+			printlogf(L, "Error", 
 				"error loading '%s': %s", 
 				lsyncd_runner_file, lua_tostring(L, -1));
 			return -1; // ERRNO
@@ -1226,7 +1262,7 @@ main(int argc, char *argv[])
 		if (luaL_loadbuffer(L, &_binary_luac_out_start, 
 				&_binary_luac_out_end - &_binary_luac_out_start, "lsyncd.lua"))
 		{
-			printlogf(L, ERROR, 
+			printlogf(L, "Error", 
 				"error loading precompiled lsyncd.lua runner: %s", 
 				lua_tostring(L, -1));
 			return -1; // ERRNO
@@ -1235,14 +1271,14 @@ main(int argc, char *argv[])
 #else
 	else {
 		/* this should never be possible, security code nevertheless */
-		logstring(ERROR, 
+		logstring("Error", 
 			"Internal fail: lsyncd_runner is NULL with non-static runner");
 		return -1; // ERRNO
 	}
 #endif
 	/* execute the runner defining all its functions */
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-		printlogf(L, ERROR, 
+		printlogf(L, "Error", 
 			"error preparing '%s': %s", 
 			lsyncd_runner_file ? lsyncd_runner_file : "internal runner", 
 			lua_tostring(L, -1));
@@ -1256,7 +1292,7 @@ main(int argc, char *argv[])
 		lversion = luaL_checkstring(L, -1);
 		lua_pop(L, 1);
 		if (strcmp(lversion, PACKAGE_VERSION)) {
-			printlogf(L, ERROR, 
+			printlogf(L, "Error",
 				"Version mismatch '%s' is '%s', but core is '%s'",
  				lsyncd_runner_file ? lsyncd_runner_file : "internal runner",
 				lversion, PACKAGE_VERSION);
@@ -1285,8 +1321,8 @@ main(int argc, char *argv[])
 		}
 		lsyncd_config_file = argv[argp++];
 		if (stat(lsyncd_config_file, &st)) {
-			printlogf(L, ERROR, 
-				"Cannot find config file at '%s'.", 
+			printlogf(L, "Error",
+				"Cannot find config file at '%s'.",
 				lsyncd_config_file);
 			return -1; // ERRNO
 		}
@@ -1294,14 +1330,14 @@ main(int argc, char *argv[])
 
 	/* loads and executes the config file */
 	if (luaL_loadfile(L, lsyncd_config_file)) {
-		printlogf(L, ERROR, 
-			"error loading %s: %s", 
+		printlogf(L, "Error",
+			"error loading %s: %s",
 			lsyncd_config_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-		printlogf(L, ERROR, 
-			"error preparing %s: %s", 
+		printlogf(L, "Error",
+			"error preparing %s: %s",
 			lsyncd_config_file, lua_tostring(L, -1));
 		return -1; // ERRNO
 	}
@@ -1309,7 +1345,7 @@ main(int argc, char *argv[])
 	/* opens inotify */
 	inotify_fd = inotify_init();
 	if (inotify_fd == -1) {
-		printlogf(L, ERROR, 
+		printlogf(L, "Error", 
 			"Cannot create inotify instance! (%d:%s)", 
 			errno, strerror(errno));
 		return -1; // ERRNO

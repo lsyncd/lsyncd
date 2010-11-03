@@ -690,15 +690,6 @@ function lsyncd_initialize(args)
 
 	-- all valid settings, first value is 1 if it needs a parameter 
 	local configure_settings = {
-		loglevel = {1, 
-			function(param)
-				if not (param == "Debug" or param == "Normal" or
-				        param == "Verbose" or param == "Error") then
-					log("Error", "unknown settings.loglevel '", param, "'")
-					terminate(-1); -- ERRNO
-				end
-			end
-		},
 		statusfile = {1, nil},
 	}
 
