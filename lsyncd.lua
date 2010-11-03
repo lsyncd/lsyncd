@@ -669,31 +669,61 @@ help
 end
 
 
+-----
+-- Called from core to parse the command line arguments
+-- @returns a string as user script to load.
+--          or simply 'true' if running with rsync bevaiour
+-- terminates on invalid arguments
+--
+function lsyncd_configure(args)
+	-- a list of all valid --options
+	local options = {
+		-- log is handled by core already.
+		log = {1},
+
+	}
+	-- filled with all args that were non --options
+	local nonopts = {}
+	local i = 1
+	while i <= #args do
+		local a = args[i]
+		if a:sub(1, 1) ~= "-" then
+			table.insert(nonopts, args[i])
+		else
+			if a:sub(1, 2) == "--" then
+				a = a:sub(3)
+			else
+				a = a:sub(2)
+			end
+			local o = options[a]
+			if (o) then
+				-- TODO --
+				i = i + o[1]
+			end
+		end
+		i = i + 1
+	end
+
+	if #nonopts == 0 then
+		lsyncd_help()
+	elseif #nonopts == 1 then
+		return nonopts[1]
+	else 
+		-- TODO
+		return true
+	end
+end
+
+
 ----
 -- Called from core on init or restart after user configuration.
 -- 
-function lsyncd_initialize(args)
+function lsyncd_initialize()
 	-- creates settings if user didnt
 	settings = settings or {}
 
 	-- From this point on, no globals may be created anymore
 	globals_lock()
-
-	-- parses all arguments
-	for i = 1, #args do
-		local a = args[i]
-		if a:sub(1, 1) ~= "-" then
-			log("Error", "Unknown option ", a,
-				". Options must start with '-' or '--'.")
-			os.exit(-1) -- ERRNO
-		end
-		if a:sub(1, 2) == "--" then
-			a = a:sub(3)
-		else
-			a = a:sub(2)
-		end
-		--TODO
-	end
 
 	-- all valid settings, first value is 1 if it needs a parameter 
 	local configure_settings = {

@@ -66,12 +66,10 @@ enum event_type {
 /**
  * The Lua part of lsyncd.
  */
-//#define LSYNCD_DEFAULT_RUNNER_FILE "lsyncd.lua"
+#ifndef LSYNCD_DEFAULT_RUNNER_FILE
 extern char _binary_luac_out_start;
 extern char _binary_luac_out_end; 
-
-static char * lsyncd_runner_file = NULL;
-static char * lsyncd_config_file = NULL;
+#endif
 
 /**
  * The inotify file descriptor.
@@ -86,44 +84,36 @@ static const uint32_t standard_event_mask =
 		IN_DELETE   | IN_DELETE_SELF | IN_MOVED_FROM |
 		IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR;
 
-
-/** 
- * If not null lsyncd logs in this file.
- */
-static char * logfile = NULL;
-
-/**
- * If true lsyncd sends log messages to syslog
- */
-bool logsyslog = false;
-
-/**
- * lsyncd log level
- */
-enum loglevel {
-	DEBUG   = 1,    /* Log debug messages       */
-	VERBOSE = 2,    /* Log more                 */
-	NORMAL  = 3,    /* Log short summeries      */
-	ERROR   = 4,    /* Log severe errors only   */
-	CORE    = 0x80  /* Indicates a core message */
-};
-
 /**
  * configuration parameters
  */
 static struct settings {
-	/**
-	 * threshold for log messages 
+	/** 
+	 * If not null lsyncd logs in this file.
 	 */
-	enum loglevel loglevel;
+	char * log_file;
+
+	/**
+	 * If true lsyncd sends log messages to syslog
+	 */
+	bool log_syslog;
+
+	/**
+	 * -1 logs everything, 0 normal mode,
+	 * LOG_ERROR errors only
+	 */
+	int log_level;
 
 	/**
 	 * lsyncd will periodically write its status in this
 	 * file if configured so. (for special observing only)
 	 */
 	char * statusfile;
+
 } settings = {
-	.loglevel = DEBUG,
+	.log_file = NULL,
+	.log_syslog = false,
+	.log_level = 0,
 	.statusfile = NULL,
 };
 
@@ -139,12 +129,6 @@ static bool is_daemon = false;
  * inotify OVERFLOW!
  */
 static bool running = false;
-
-/**
- * loglevel before user configuration took place
- * set to DEBUG for upstart debugging, Normally its NORMAL.
- */
-static const enum loglevel startup_loglevel = DEBUG;
 
 /**
  * Set to TERM or HUP in signal handler, when lsyncd should end or reset ASAP.
@@ -176,14 +160,9 @@ static char * s_strdup(const char *src);
  * Logging
  ****************************************************************************/
 
-/**
- * if true logs everything
- */
-bool logall = false;
-
 /* core logs with CORE flag */
 #define logstring(cat, message) \
-	{int p; if ((p = check_logcat(cat)) >= 0 || logall)  \
+	{int p; if ((p = check_logcat(cat)) >= settings.log_level) \
 	{logstring0(p, cat, message); }}
 
 static void
@@ -194,7 +173,7 @@ printlogf0(lua_State *L,
 		  ...)
 	__attribute__((format(printf, 4, 5)));
 #define printlogf(L, cat, ...) \
-	{int p; if ((p = check_logcat(cat)) >= 0 || logall) \
+	{int p; if ((p = check_logcat(cat)) >= settings.log_level)  \
 	{printlogf0(L, p, cat, __VA_ARGS__);}}
 
 /**
@@ -238,19 +217,24 @@ check_logcat(const char *name)
 
 /**
  * Adds a logging category
+ * @return true if OK.
  */
-static void 
+static bool
 add_logcat(const char *name, int priority)
 {
 	struct logcat *lc; 
 	if (!strcmp("all", name)) {
-		logall = true;
-		return;
+		settings.log_level = -1;
+		return true;
+	}
+	if (!strcmp("scarce", name)) {
+		settings.log_level = LOG_ERR;
+		return true;
 	}
 
 	/* category must start with capital letter */
 	if (name[0] < 'A' || name[0] > 'Z') {
-		return;
+		return false;
 	}
 	if (!logcats[name[0]-'A']) {
 		/* en empty capital letter */
@@ -266,12 +250,18 @@ add_logcat(const char *name, int priority)
 		logcats[name[0]-'A'] = 
 			s_realloc(logcats[name[0]-'A'], (ll + 2) * sizeof(struct logcat)); 
 		/* go to list end */ 
-		for(lc = logcats[name[0]-'A']; lc->name; lc++);
+		for(lc = logcats[name[0]-'A']; lc->name; lc++) {
+			if (!strcmp(name, lc->name)) {
+				/* already there */
+				return true;
+			}
+		}
 	}
 	lc->name = s_strdup(name);
 	lc->priority = priority;
 	/* terminates the list */
 	lc[1].name = NULL;
+	return true;
 }
 
 /**
@@ -291,10 +281,10 @@ logstring0(int priority, const char *cat, const char *message)
 	if (!running) {
 		/* lsyncd is in intial configuration.
 		 * thus just print to normal stdout/stderr. */
-		if (priority <= LOG_ERR) {
-			fprintf(stderr, "%s\n", message);
+		if (priority >= LOG_ERR) {
+			fprintf(stderr, "%s: %s\n", cat, message);
 		} else {
-			printf("%s\n", message);
+			printf("%s: %s\n", cat, message);
 		}
 		return;
 	}
@@ -311,8 +301,8 @@ logstring0(int priority, const char *cat, const char *message)
 	}
 
 	/* writes to file if configured so */
-	if (logfile) {
-		FILE * flog = fopen(logfile, "a");
+	if (settings.log_file) {
+		FILE * flog = fopen(settings.log_file, "a");
 		/* gets current timestamp day-time-year */
 		char * ct;
 		time_t mtime;
@@ -322,7 +312,8 @@ logstring0(int priority, const char *cat, const char *message)
  		ct[strlen(ct) - 1] = 0;
 
 		if (flog == NULL) {
-			fprintf(stderr, "Cannot open logfile [%s]!\n", logfile);
+			fprintf(stderr, "Cannot open logfile [%s]!\n", 
+				settings.log_file);
 			exit(-1);  // ERRNO
 		}
 		fprintf(flog, "%s %s: %s", ct, cat, message);
@@ -330,7 +321,7 @@ logstring0(int priority, const char *cat, const char *message)
 	}
 
 	/* sends to syslog if configured so */
-	if (logsyslog) {
+	if (settings.log_syslog) {
 		syslog(priority, "%s, %s", cat, message);
 	}
 	return;
@@ -540,14 +531,16 @@ l_exec(lua_State *L)
 	if (pid == 0) {
 		/* if lsyncd runs as a daemon and has a logfile it will redirect
 		   stdout/stderr of child processes to the logfile. */
-		if (is_daemon && logfile) {
-			if (!freopen(logfile, "a", stdout)) {
+		if (is_daemon && settings.log_file) {
+			if (!freopen(settings.log_file, "a", stdout)) {
 				printlogf(L, "Error", 
-					"cannot redirect stdout to '%s'.", logfile);
+					"cannot redirect stdout to '%s'.", 
+					settings.log_file);
 			}
-			if (!freopen(logfile, "a", stderr)) {
+			if (!freopen(settings.log_file, "a", stderr)) {
 				printlogf(L, "Error", 
-					"cannot redirect stderr to '%s'.", logfile);
+					"cannot redirect stderr to '%s'.", 
+					settings.log_file);
 			}
 		}
 		execv(binary, (char **)argv);
@@ -801,13 +794,14 @@ l_wait_pids(lua_State *L)
 		}
 		/* calls the lua collector to determine further actions */
 		if (collector) {
+			printlogf(L, "Call", "startup collector");
+			lua_getglobal(L, "lsyncd_call_error");
 			lua_getglobal(L, collector);
 			lua_pushinteger(L, wp);
 			lua_pushinteger(L, exitcode);
-			printlogf(L, "Call", "startup collector");
-			lua_call(L, 2, 1);
+			lua_pcall(L, 2, 1, -4);
 			newp = luaL_checkinteger(L, -1);
-			lua_pop(L, 1);
+			lua_pop(L, 2);
 		} else {
 			newp = 0;
 		}
@@ -878,7 +872,6 @@ static const luaL_reg lsyncdlib[] = {
 		{NULL, NULL}
 };
 
-
 /*****************************************************************************
  * Lsyncd Core 
 ****************************************************************************/
@@ -933,9 +926,11 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	}
 	if (event && (IN_Q_OVERFLOW & event->mask)) {
 		/* and overflow happened, lets runner/user decide what to do. */
-		lua_getglobal(L, "overflow");
 		printlogf(L, "Call", "overflow()");
-		lua_call(L, 0, 0);
+		lua_getglobal(L, "lsyncd_call_error");
+		lua_getglobal(L, "overflow");
+		lua_pcall(L, 0, 0, -2);
+		lua_pop(L, 1);
 		return;
 	}
 	/* cancel on ignored or resetting */
@@ -1000,6 +995,8 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	}
 
 	/* and hands over to runner */
+	printlogf(L, "Call", "lysncd_inotify_event()");
+	lua_getglobal(L, "lsyncd_call_error");
 	lua_getglobal(L, "lsyncd_inotify_event");
 	switch(event_type) {
 	case ATTRIB : lua_pushstring(L, "Attrib"); break;
@@ -1021,8 +1018,8 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		lua_pushstring(L, event->name);
 		lua_pushnil(L);
 	}
-	printlogf(L, "Call", "lysncd_inotify_event()");
-	lua_call(L, 6, 0);
+	lua_pcall(L, 6, 0, -8);
+	lua_pop(L, 1);
 
 	/* if there is a buffered event executes it */
 	if (after_buf) {
@@ -1045,13 +1042,14 @@ masterloop(lua_State *L)
 		int do_read;
 		ssize_t len; 
 
-		/* query runner about soonest alarm  */
-		lua_getglobal(L, "lsyncd_get_alarm");
+		/* queries runner about soonest alarm  */
 		printlogf(L, "Call", "lsycnd_get_alarm()");
-		lua_call(L, 0, 2);
+		lua_getglobal(L, "lsyncd_call_error");
+		lua_getglobal(L, "lsyncd_get_alarm");
+		lua_pcall(L, 0, 2, -2);
 		have_alarm = lua_toboolean(L, -2);
 		alarm_time = (clock_t) luaL_checkinteger(L, -1);
-		lua_pop(L, 2);
+		lua_pop(L, 3);
 
 		if (have_alarm && time_before(alarm_time, now)) {
 			/* there is a delay that wants to be handled already thus do not 
@@ -1136,10 +1134,12 @@ masterloop(lua_State *L)
 				break;
 			}
 			lua_getglobal(L, "lsyncd_collect_process");
+			lua_getglobal(L, "lsyncd_call_error");
 			lua_pushinteger(L, pid);
 			lua_pushinteger(L, WEXITSTATUS(status));
 			printlogf(L, "Call", "lsyncd_collect_process()");
-			lua_call(L, 2, 0);
+			lua_pcall(L, 2, 0, -4);
+			lua_pop(L, 1);
 		} 
 
 		/* writes status of lsyncd in a file */
@@ -1155,11 +1155,12 @@ masterloop(lua_State *L)
 				break;
 			}
 			/* calls the lua runner to write the status. */
+			printlogf(L, "Call", "lysncd_status_report()");
 			lua_getglobal(L, "lsyncd_call_error");
 			lua_getglobal(L, "lsyncd_status_report");
 			lua_pushinteger(L, fd);
-			printlogf(L, "Call", "lysncd_status_report()");
 			lua_pcall(L, 1, 0, -3);
+			lua_pop(L, 1);
 
 			/* TODO */
 			fsync(fd);
@@ -1168,21 +1169,13 @@ masterloop(lua_State *L)
 		}
 
 		/* lets the runner spawn new processes */
+		printlogf(L, "Call", "lsyncd_alarm()");
+		lua_getglobal(L, "lsyncd_call_error");
 		lua_getglobal(L, "lsyncd_alarm");
 		lua_pushinteger(L, times(NULL));
-		printlogf(L, "Call", "lsyncd_alarm()");
-		lua_call(L, 1, 0);
+		lua_pcall(L, 1, 0, -3);
+		lua_pop(L, 1);
 	}
-}
-
-/**
- * Prints a minimal help if e.g. config_file is missing. 
- */
-void minihelp(char *arg0) 
-{
-	fprintf(stderr, "Missing config file\n");
-	fprintf(stderr, "Minimal Usage: %s CONFIG_FILE\n", arg0);
-	fprintf(stderr, "  Specify -help for more help.\n");
 }
 
 /**
@@ -1194,11 +1187,23 @@ main(int argc, char *argv[])
 	/* the Lua interpreter */
 	lua_State* L;
 
+	/* scripts */
+	char * lsyncd_runner_file = NULL;
+	char * lsyncd_config_file = NULL;
+
+	int argp = 1;
+
+	/* kernel parameters */
+	clocks_per_sec = sysconf(_SC_CLK_TCK);
+
+	/* load Lua */
+	L = lua_open();
+
 	{
+		int i = 1;
+		/* Prepares logging early */
 		add_logcat("Normal", LOG_NOTICE);
 		add_logcat("Error",  LOG_ERR);
-		/* Prepates logging early */
-		int i = 1;
 		while (i < argc) {
 			if (strcmp(argv[i], "-log") && strcmp(argv[i], "--log")) {
 				i++; continue;
@@ -1206,35 +1211,23 @@ main(int argc, char *argv[])
 			if (++i >= argc) {
 				break;
 			}
-			if (argv[i][0] < 'A' || argv[i][0] > 'Z') {
-				XXX
+			if (!add_logcat(argv[i], LOG_NOTICE)) {
+				printlogf(L, "Error", "'%s' is not a valid logging category", 
+					argv[i]);
+				return -1; // ERRNO
 			}
-			add_logcat(argv[i], LOG_NOTICE);
 		}
 	}
 	
 
-	/* position at cores (minimal) argument parsing *
-	 * most arguments are parsed in the lua runner  */
-	int argp = 1; 
-	if (argc <= 1) {
-		minihelp(argv[0]);
-		return -1;
-	}
-
-	/* kernel parameters */
-	clocks_per_sec = sysconf(_SC_CLK_TCK);
-
-	/* load Lua */
-	L = lua_open();
 	/* TODO check lua version */
 	luaL_openlibs(L);
 	luaL_register(L, "lsyncd", lsyncdlib);
 	lua_setglobal(L, "lysncd");
 
 	/* checks if the user overrode default runner file */ 
-	if (!strcmp(argv[argp], "--runner")) {
-		if (argc < 3) {
+	if (argp < argc && !strcmp(argv[argp], "--runner")) {
+		if (argp + 1 < argc) {
 			logstring("Error", 
 				"Lsyncd Lua-runner file missing after --runner.");
 #ifdef LSYNCD_DEFAULT_RUNNER_FILE
@@ -1272,9 +1265,8 @@ main(int argc, char *argv[])
 				lsyncd_runner_file, lua_tostring(L, -1));
 			return -1; // ERRNO
 		}
-	}
+	} else {
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
-	else {
 		/* loads the runner from binary */
 		if (luaL_loadbuffer(L, &_binary_luac_out_start, 
 				&_binary_luac_out_end - &_binary_luac_out_start, "lsyncd.lua"))
@@ -1284,16 +1276,15 @@ main(int argc, char *argv[])
 				lua_tostring(L, -1));
 			return -1; // ERRNO
 		}
-	}
 #else
-	else {
 		/* this should never be possible, security code nevertheless */
 		logstring("Error", 
 			"Internal fail: lsyncd_runner is NULL with non-static runner");
 		return -1; // ERRNO
-	}
 #endif
-	/* execute the runner defining all its functions */
+	}
+
+	/* executes the runner defining all its functions */
 	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
 		printlogf(L, "Error", 
 			"error preparing '%s': %s", 
@@ -1307,7 +1298,6 @@ main(int argc, char *argv[])
 		const char *lversion;
 		lua_getglobal(L, "lsyncd_version");
 		lversion = luaL_checkstring(L, -1);
-		lua_pop(L, 1);
 		if (strcmp(lversion, PACKAGE_VERSION)) {
 			printlogf(L, "Error",
 				"Version mismatch '%s' is '%s', but core is '%s'",
@@ -1315,48 +1305,70 @@ main(int argc, char *argv[])
 				lversion, PACKAGE_VERSION);
 			return -1; // ERRNO
 		}
+		lua_pop(L, 1);
 	}
 
 	{
-		/* checks if there is a "-help" or "--help" before anything else */
+		/* checks if there is a "-help" or "--help" before anything more */
 		int i;
 		for(i = argp; i < argc; i++) {
 			if (!strcmp(argv[i],"-help") || !strcmp(argv[i],"--help")) {
+				logstring("Call", "lsyncd_help()");
+				lua_getglobal(L, "lsyncd_call_error");
 				lua_getglobal(L, "lsyncd_help");
-				lua_call(L, 0, 0);
+				lua_pcall(L, 0, 0, -2);
+				lua_pop(L, 1);
 				return -1; // ERRNO	
 			}
 		}
 	}
 
-	{	
+	{
+		/* start the option parser in lua script */
+		int idx = 1;
+		const char *s;
+		/* creates a table with all remaining argv option arguments */
+		logstring("Call", "lsyncd_configure()");
+		lua_getglobal(L, "lsyncd_call_error");
+		lua_getglobal(L, "lsyncd_configure");
+		lua_newtable(L);
+		while(argp < argc) {
+			lua_pushnumber(L, idx++);
+			lua_pushstring(L, argv[argp++]);
+			lua_settable(L, -3);
+		}
+		lua_pcall(L, 1, 1, -3);
+		s = lua_tostring(L, -1);
+		if (s) {
+			lsyncd_config_file = s_strdup(s);
+		}
+		lua_pop(L, 2); // TODO
+	}
+
+
+	if (lsyncd_config_file) {
 		/* checks for the configuration and existence of the config file */
 		struct stat st;
-		if (argp + 1 > argc) {
-			minihelp(argv[0]);
-			return -1; // ERRNO
-		}
-		lsyncd_config_file = argv[argp++];
 		if (stat(lsyncd_config_file, &st)) {
 			printlogf(L, "Error",
 				"Cannot find config file at '%s'.",
 				lsyncd_config_file);
 			return -1; // ERRNO
 		}
-	}
 
-	/* loads and executes the config file */
-	if (luaL_loadfile(L, lsyncd_config_file)) {
-		printlogf(L, "Error",
-			"error loading %s: %s",
-			lsyncd_config_file, lua_tostring(L, -1));
-		return -1; // ERRNO
-	}
-	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-		printlogf(L, "Error",
-			"error preparing %s: %s",
-			lsyncd_config_file, lua_tostring(L, -1));
-		return -1; // ERRNO
+		/* loads and executes the config file */
+		if (luaL_loadfile(L, lsyncd_config_file)) {
+			printlogf(L, "Error",
+				"error loading %s: %s",
+				lsyncd_config_file, lua_tostring(L, -1));
+			return -1; // ERRNO
+		}
+		if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
+			printlogf(L, "Error",
+				"error preparing %s: %s",
+				lsyncd_config_file, lua_tostring(L, -1));
+			return -1; // ERRNO
+		}
 	}
 
 	/* opens inotify */
@@ -1380,18 +1392,13 @@ main(int argc, char *argv[])
 	}
 
 	{
-		/* runs initialitions from runner *
+		/* runs initialitions from runner 
 		 * lua code will set configuration and add watches */
-		int idx = 1;
-		/* creates a table with all remaining argv option arguments */
+		logstring("Call", "lsyncd_initalize()");
+		lua_getglobal(L, "lsyncd_call_error");
 		lua_getglobal(L, "lsyncd_initialize");
-		lua_newtable(L);
-		while(argp < argc) {
-			lua_pushnumber(L, idx++);
-			lua_pushstring(L, argv[argp++]);
-			lua_settable(L, -3);
-		}
-		lua_call(L, 1, 0);
+		lua_pcall(L, 0, 0, -2);
+		lua_pop(L, 1);
 	}
 
 	masterloop(L);
