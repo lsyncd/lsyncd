@@ -179,7 +179,7 @@ static char * s_strdup(const char *src);
 /**
  * if true logs everything
  */
-bool logall = true;
+bool logall = false;
 
 /* core logs with CORE flag */
 #define logstring(cat, message) \
@@ -243,6 +243,10 @@ static void
 add_logcat(const char *name, int priority)
 {
 	struct logcat *lc; 
+	if (!strcmp("all", name)) {
+		logall = true;
+		return;
+	}
 
 	/* category must start with capital letter */
 	if (name[0] < 'A' || name[0] > 'Z') {
@@ -1190,9 +1194,25 @@ main(int argc, char *argv[])
 	/* the Lua interpreter */
 	lua_State* L;
 
-	add_logcat("Debug",  LOG_DEBUG); // TODO
-	add_logcat("Normal", LOG_NOTICE);
-	add_logcat("Error",  LOG_ERR);
+	{
+		add_logcat("Normal", LOG_NOTICE);
+		add_logcat("Error",  LOG_ERR);
+		/* Prepates logging early */
+		int i = 1;
+		while (i < argc) {
+			if (strcmp(argv[i], "-log") && strcmp(argv[i], "--log")) {
+				i++; continue;
+			}
+			if (++i >= argc) {
+				break;
+			}
+			if (argv[i][0] < 'A' || argv[i][0] > 'Z') {
+				XXX
+			}
+			add_logcat(argv[i], LOG_NOTICE);
+		}
+	}
+	
 
 	/* position at cores (minimal) argument parsing *
 	 * most arguments are parsed in the lua runner  */
