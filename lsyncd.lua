@@ -16,9 +16,9 @@
 --
 if lsyncd_version then
 	-- checks if the runner is being loaded twice 
-	io.stderr:write(
-		"You cannot use the lsyncd runner as configuration file!\n")
-	os.exit(-1) -- ERRNO
+	lsyncd.log("Error",
+		"You cannot use the lsyncd runner as configuration file!")
+	lsyncd.terminate(-1) -- ERRNO
 end
 lsyncd_version = "2.0beta1"
 
@@ -191,6 +191,11 @@ end
 -----
 -- Holds information about a delayed event for one origin/target.
 --
+-- valid stati are:
+--    delay
+--    active
+--    TODO
+--
 local Delay = (function()
 	-----
 	-- Creates a new delay.
@@ -201,6 +206,7 @@ local Delay = (function()
 			ename = ename,
 			alarm = alarm,
 			pathname = pathname,
+			status = "delay",
 		}
 		return o
 	end
@@ -234,8 +240,8 @@ end)()
 -----
 -- Puts an action on the delay stack.
 --
-function Origin:delay(origin, ename, time, pathname, pathname2)
-	log("Debug", "delay ", ename, " ", pathname)
+function Origin.delay(origin, ename, time, pathname, pathname2)
+	log("Function", "delay(", origin, ", ", ename, ", ", pathname, ")")
 	local o = origin
 	local delays = o.delays
 	local delayname = o.delayname
@@ -419,6 +425,7 @@ local Inotifies = (function()
 	--                  or the relative path to root for recurse
 	--
 	local function add(root, origin, recurse)
+		log("Function", "Inotifies.add(", root, ", ", origin, ", ", recurse, ")")
 		-- register watch and receive watch descriptor
 		local dir
 		if type(recurse) == "string" then
@@ -493,7 +500,7 @@ local Inotifies = (function()
 				pathname2 = inotify.path..filename2
 			end
 			Origin.delay(inotify.origin, ename, time, pathname, pathname2)
-			-- add subdirs for new directories
+			-- adds subdirs for new directories
 			if inotify.recurse and isdir then
 				if ename == "Create" then
 					add(inotify.root, inotify.origin, 
@@ -526,7 +533,12 @@ local Inotifies = (function()
 	end
 
 	-- public interface
-	return { add = add, size = size, status_report = status_report }
+	return { 
+		add = add, 
+		size = size, 
+		event = event, 
+		status_report = status_report 
+	}
 end)()
 
 --============================================================================
@@ -574,52 +586,59 @@ function lsyncd_collect_process(pid, exitcode)
 	origin.processes[pid] = nil
 end
 
-------
--- Hidden key for lsyncd.lua internal variables not ment for
--- the user to see
+-----
+-- User interface to grap events
 --
-local hk = {}
+-- inlet_control is the Luas runner part to control the interface
+-- hidden from the user.
+--
+local Inlet, inlet_control = (function()
+	local origin  = true
+	local delay   = true
 
-------
---- TODO
-local inlet = {
-	[hk] = {
-		origin  = true,
-		delay   = true,
-	},
+	-----	
+	-- TODO
+	local function control(set_origin, set_delay)
+		origin = set_origin
+		delay  = set_delay
+	end
 
-	config = function(self)
-		return self[hk].origin.config
-	end,
-
-	nextevent = function(self)
-		local h = self[hk]
+	-----
+	-- TODO
+	local function get_event()
 		return { 
-			spath  = h.origin.source .. h.delay.pathname,
-			tpath  = h.origin.targetident .. h.delay.pathname,
-			ename  = h.delay.ename
-		} 
-	end,
-}
+			spath  = origin.source .. delay.pathname,
+			tpath  = origin.targetident .. delay.pathname,
+			ename  = delay.ename
+		}
+	end
 
+	------
+	-- TODO
+	local function get_config()
+		-- TODO give a readonly handler only.
+		return origin.config
+	end
+
+	-- public interface
+	return {get_event = get_event, get_config = get_config}, control
+end)()
 
 -----
 -- TODO
 --
 --
 local function invoke_action(origin, delay)
-	local o       = origin
-	local config  = o.config
 	if delay.ename == "None" then
 		-- a removed action
 		return
 	end
-	
-	inlet[hk].origin = origin
-	inlet[hk].delay  = delay
-	local pid = config.action(inlet)
+
+	inlet_control(origin, delay)
+	local pid = origin.config.action(Inlet)
 	if pid and pid > 0 then
-		o.processes[pid] = delay
+		delay.status = "active"
+		origin.processes[pid] = delay
 	end
 end
 	
@@ -662,8 +681,27 @@ end
 --
 function lsyncd_help()
 	io.stdout:write(
-[[TODO this is a multiline
-help
+[[
+USAGE: 
+  run a config file:
+    lsyncd [OPTIONS] [CONFIG-FILE]
+
+  default rsync behaviour:
+    lsyncd [OPTIONS] -rsync [SOURCE] [TARGET1]  [TARGET2] ...
+
+OPTIONS:
+  -help               Shows this
+  -log    [Category]  Turns logging on for debug categories.
+  -log    all         Logs everything
+  -log    scarce      Logs errors only
+  -runner FILE        Loads lsyncds lua part from FILE
+
+LICENSE:
+  GPLv2 or any later version.
+
+SEE:
+  `man lsyncd` for further information.
+
 ]])
 	os.exit(-1) -- ERRNO
 end
@@ -705,7 +743,7 @@ function lsyncd_configure(args)
 	end
 
 	if #nonopts == 0 then
-		lsyncd_help()
+		lsyncd_help(args[0])
 	elseif #nonopts == 1 then
 		return nonopts[1]
 	else 
@@ -762,7 +800,7 @@ function lsyncd_initialize()
 			have_startup = true
 		end
 		-- adds the dir watch inclusively all subdirs
-		Inotifies.add(o.source, "", true)
+		Inotifies.add(o.source, o, true)
 	end
 
 	-- from now on use logging as configured instead of stdout/err.
@@ -798,6 +836,7 @@ function lsyncd_get_alarm()
 	local have_alarm = false
 	local alarm = 0
 	for _, o in Origins.iwalk() do
+		-- TODO better handling of stati.
 		if o.delays[1] and 
 		   o.processes:size() < o.config.max_processes then
 			if have_alarm then
@@ -808,6 +847,7 @@ function lsyncd_get_alarm()
 			end
 		end
 	end
+	log("Debug", "lysncd_get_alarm returns: ", have_alarm, ", ", alarm)
 	return have_alarm, alarm
 end
 
@@ -885,8 +925,8 @@ default = {
 	-- TODO desc
 	--
 	action = function(inlet)
-		local event = inlet:nextevent()
-		local func = inlet:config()[string.lower(event.ename)]
+		local event = inlet.get_event()
+		local func = inlet.get_config()[string.lower(event.ename)]
 		if func then
 			return func(event)
 		else 

@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
+#include <math.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -64,7 +65,7 @@ enum event_type {
 };
 
 /**
- * The Lua part of lsyncd.
+ * The Lua part of lsyncd if compiled into the binary.
  */
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
 extern char _binary_luac_out_start;
@@ -149,7 +150,7 @@ sig_child(int sig)
 	/* nothing */
 }
 /**
- * predeclerations -- see belorw.
+ * predeclerations -- see below
  */
 static void * s_calloc(size_t nmemb, size_t size);
 static void * s_malloc(size_t size);
@@ -160,22 +161,6 @@ static char * s_strdup(const char *src);
  * Logging
  ****************************************************************************/
 
-/* core logs with CORE flag */
-#define logstring(cat, message) \
-	{int p; if ((p = check_logcat(cat)) >= settings.log_level) \
-	{logstring0(p, cat, message); }}
-
-static void
-printlogf0(lua_State *L, 
-          int priority, 
-		  const char *cat,
-		  const char *fmt, 
-		  ...)
-	__attribute__((format(printf, 4, 5)));
-#define printlogf(L, cat, ...) \
-	{int p; if ((p = check_logcat(cat)) >= settings.log_level)  \
-	{printlogf0(L, p, cat, __VA_ARGS__);}}
-
 /**
  * A logging category 
  */
@@ -183,7 +168,6 @@ struct logcat {
 	char *name;
 	int priority;
 };
-
 
 /**
  * A table of all enabled logging categories.
@@ -271,6 +255,11 @@ add_logcat(const char *name, int priority)
  * @param cat      the category
  * @param message  the log message
  */
+
+#define logstring(cat, message) \
+	{int p; if ((p = check_logcat(cat)) >= settings.log_level) \
+	{logstring0(p, cat, message);}}
+
 static void 
 logstring0(int priority, const char *cat, const char *message)
 {
@@ -327,6 +316,36 @@ logstring0(int priority, const char *cat, const char *message)
 	return;
 }
 
+/**
+ * Let the core print logmessage comfortably.
+ * This uses the lua_State for it easy string buffers only.
+ */
+#define printlogf(L, cat, ...) \
+	{int p; if ((p = check_logcat(cat)) >= settings.log_level)  \
+	{printlogf0(L, p, cat, __VA_ARGS__);}}
+
+static void
+printlogf0(lua_State *L, 
+          int priority, 
+		  const char *cat,
+		  const char *fmt, 
+		  ...)
+	__attribute__((format(printf, 4, 5)));
+
+static void
+printlogf0(lua_State *L, 
+	int priority,
+	const char *cat,
+	const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	lua_pushvfstring(L, fmt, ap);
+	va_end(ap);
+	logstring0(priority, cat, luaL_checkstring(L, -1));
+	lua_pop(L, 1);
+	return;
+}
 /*****************************************************************************
  * Simple memory management
  ****************************************************************************/
@@ -396,6 +415,8 @@ s_strdup(const char *src)
  *
  ****************************************************************************/
 
+static int l_stackdump(lua_State* L);
+
 /**
  * Adds an inotify watch
  * 
@@ -431,10 +452,32 @@ l_log(lua_State *L)
 
 	cat = luaL_checkstring(L, 1);
 	priority = check_logcat(cat);
-
 	/* skips filtered messages */
-	if (priority < 0) {
+	if (priority < settings.log_level) {
 		return 0;
+	}
+
+	{
+		// replace non string values
+		int i;
+		int top = lua_gettop(L);
+		for (i = 1; i <= top; i++) { 
+			int t = lua_type(L, i);
+			switch (t) {
+			case LUA_TTABLE:
+				lua_pushfstring(L, "(Table: %p)", lua_topointer(L, i));
+				lua_replace(L, i);
+				break;
+			case LUA_TBOOLEAN:
+				if (lua_toboolean(L, i)) {
+					lua_pushstring(L, "(true)");
+				} else {
+					lua_pushstring(L, "(false)");
+				}
+				lua_replace(L, i);
+				break;
+			}
+		}
 	}
 
 	/* concates if there is more than one string parameter */
@@ -876,23 +919,7 @@ static const luaL_reg lsyncdlib[] = {
  * Lsyncd Core 
 ****************************************************************************/
 
-/**
- * Let the core print logmessage comfortably.
- */
-static void
-printlogf0(lua_State *L, 
-	int priority,
-	const char *cat,
-	const char *fmt, ...)
-{
-	va_list ap;
-	va_start(ap, fmt);
-	lua_pushvfstring(L, fmt, ap);
-	va_end(ap);
-	logstring0(priority, cat, luaL_checkstring(L, -1));
-	lua_pop(L, 1);
-	return;
-}
+
 
 /**
  * Buffer for MOVE_FROM events.
@@ -1005,7 +1032,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	case DELETE : lua_pushstring(L, "Delete"); break;
 	case MOVE   : lua_pushstring(L, "Move");   break;
 	default : 
-		logstring("Inotify", "Internal: unknown event in handle_event()"); 
+		logstring("Error", "Internal: unknown event in handle_event()"); 
 		exit(-1);	// ERRNO
 	}
 	lua_pushnumber(L, event->wd);
@@ -1051,7 +1078,7 @@ masterloop(lua_State *L)
 		alarm_time = (clock_t) luaL_checkinteger(L, -1);
 		lua_pop(L, 3);
 
-		if (have_alarm && time_before(alarm_time, now)) {
+		if (have_alarm && time_before_eq(alarm_time, now)) {
 			/* there is a delay that wants to be handled already thus do not 
 			 * read from inotify_fd and jump directly to its handling */
 			logstring("Masterloop", "immediately handling delays.");
@@ -1067,12 +1094,13 @@ masterloop(lua_State *L)
 			sigemptyset(&sigset);
 
 			if (have_alarm) { 
-				logstring("Masterloop", "going into timed select.");
-				tv.tv_sec  = (alarm_time - now) / clocks_per_sec;
-				tv.tv_nsec = (alarm_time - now) * 
-					1000000000 / clocks_per_sec % 1000000000;
+				double d = ((double)(alarm_time - now)) / clocks_per_sec;
+				tv.tv_sec  = d;
+				tv.tv_nsec = ((d - (long) d)) * 1000000000.0;
+				printlogf(L, "Masterloop", 
+					"going into select (timeout %f seconds)", d);
 			} else {
-				logstring("Masterloop", "going into blocking select.");
+				logstring("Masterloop", "going into select (no timeout).");
 			}
 			/* if select returns a positive number there is data on inotify
 			 * on zero the timemout occured. */
@@ -1218,12 +1246,16 @@ main(int argc, char *argv[])
 			}
 		}
 	}
-	
 
 	/* TODO check lua version */
 	luaL_openlibs(L);
 	luaL_register(L, "lsyncd", lsyncdlib);
 	lua_setglobal(L, "lysncd");
+
+	if (check_logcat("Debug") >= settings.log_level) {
+		/* printlogf doesnt support %ld :-( */
+		printf("kernels clocks_per_sec=%ld\n", clocks_per_sec);
+	}
 
 	/* checks if the user overrode default runner file */ 
 	if (argp < argc && !strcmp(argv[argp], "--runner")) {
