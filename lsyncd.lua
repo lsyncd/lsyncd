@@ -691,10 +691,10 @@ USAGE:
 
 OPTIONS:
   -help               Shows this
-  -log    [Category]  Turns logging on for debug categories.
   -log    all         Logs everything
   -log    scarce      Logs errors only
-  -runner FILE        Loads lsyncds lua part from FILE
+  -log    [Category]  Turns on logging for a debug category
+  -runner FILE        Loads lsyncds lua part from FILE 
 
 LICENSE:
   GPLv2 or any later version.

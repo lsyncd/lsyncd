@@ -1273,7 +1273,7 @@ main(int argc, char *argv[])
 
 	/* checks if the user overrode default runner file */ 
 	if (argp < argc && !strcmp(argv[argp], "--runner")) {
-		if (argp + 1 < argc) {
+		if (argp + 1 >= argc) {
 			logstring("Error", 
 				"Lsyncd Lua-runner file missing after --runner.");
 #ifdef LSYNCD_DEFAULT_RUNNER_FILE
