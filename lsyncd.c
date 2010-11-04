@@ -842,7 +842,9 @@ l_wait_pids(lua_State *L)
 			lua_getglobal(L, collector);
 			lua_pushinteger(L, wp);
 			lua_pushinteger(L, exitcode);
-			lua_pcall(L, 2, 1, -4);
+			if (lua_pcall(L, 2, 1, -4)) {
+				exit(-1); // ERRNO
+			}
 			newp = luaL_checkinteger(L, -1);
 			lua_pop(L, 2);
 		} else {
@@ -956,7 +958,9 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		printlogf(L, "Call", "overflow()");
 		lua_getglobal(L, "lsyncd_call_error");
 		lua_getglobal(L, "overflow");
-		lua_pcall(L, 0, 0, -2);
+		if (lua_pcall(L, 0, 0, -2)) {
+			exit(-1); // ERRNO
+		}
 		lua_pop(L, 1);
 		return;
 	}
@@ -1045,7 +1049,9 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 		lua_pushstring(L, event->name);
 		lua_pushnil(L);
 	}
-	lua_pcall(L, 6, 0, -8);
+	if (lua_pcall(L, 6, 0, -8)) {
+		exit(-1); // ERRNO
+	}
 	lua_pop(L, 1);
 
 	/* if there is a buffered event executes it */
@@ -1073,7 +1079,9 @@ masterloop(lua_State *L)
 		printlogf(L, "Call", "lsycnd_get_alarm()");
 		lua_getglobal(L, "lsyncd_call_error");
 		lua_getglobal(L, "lsyncd_get_alarm");
-		lua_pcall(L, 0, 2, -2);
+		if (lua_pcall(L, 0, 2, -2)) {
+			exit(-1); // ERRNO
+		}
 		have_alarm = lua_toboolean(L, -2);
 		alarm_time = (clock_t) luaL_checkinteger(L, -1);
 		lua_pop(L, 3);
@@ -1161,12 +1169,14 @@ masterloop(lua_State *L)
 			if (pid <= 0) {
 				break;
 			}
-			lua_getglobal(L, "lsyncd_collect_process");
+			printlogf(L, "Call", "lsyncd_collect_process()");
 			lua_getglobal(L, "lsyncd_call_error");
+			lua_getglobal(L, "lsyncd_collect_process");
 			lua_pushinteger(L, pid);
 			lua_pushinteger(L, WEXITSTATUS(status));
-			printlogf(L, "Call", "lsyncd_collect_process()");
-			lua_pcall(L, 2, 0, -4);
+			if (lua_pcall(L, 2, 0, -4)) {
+				exit(-1); // ERRNO
+			}
 			lua_pop(L, 1);
 		} 
 
@@ -1187,7 +1197,9 @@ masterloop(lua_State *L)
 			lua_getglobal(L, "lsyncd_call_error");
 			lua_getglobal(L, "lsyncd_status_report");
 			lua_pushinteger(L, fd);
-			lua_pcall(L, 1, 0, -3);
+			if (lua_pcall(L, 1, 0, -3)) {
+				exit(-1); // ERRNO
+			}
 			lua_pop(L, 1);
 
 			/* TODO */
@@ -1201,7 +1213,9 @@ masterloop(lua_State *L)
 		lua_getglobal(L, "lsyncd_call_error");
 		lua_getglobal(L, "lsyncd_alarm");
 		lua_pushinteger(L, times(NULL));
-		lua_pcall(L, 1, 0, -3);
+		if (lua_pcall(L, 1, 0, -3)) {
+			exit(-1); // ERRNO
+		}
 		lua_pop(L, 1);
 	}
 }
@@ -1348,7 +1362,9 @@ main(int argc, char *argv[])
 				logstring("Call", "lsyncd_help()");
 				lua_getglobal(L, "lsyncd_call_error");
 				lua_getglobal(L, "lsyncd_help");
-				lua_pcall(L, 0, 0, -2);
+				if (lua_pcall(L, 0, 0, -2)) {
+					exit(-1); // ERRNO
+				}
 				lua_pop(L, 1);
 				return -1; // ERRNO	
 			}
@@ -1369,7 +1385,9 @@ main(int argc, char *argv[])
 			lua_pushstring(L, argv[argp++]);
 			lua_settable(L, -3);
 		}
-		lua_pcall(L, 1, 1, -3);
+		if (lua_pcall(L, 1, 1, -3)) {
+			exit(-1); // ERRNO
+		}
 		s = lua_tostring(L, -1);
 		if (s) {
 			lsyncd_config_file = s_strdup(s);
@@ -1429,7 +1447,9 @@ main(int argc, char *argv[])
 		logstring("Call", "lsyncd_initalize()");
 		lua_getglobal(L, "lsyncd_call_error");
 		lua_getglobal(L, "lsyncd_initialize");
-		lua_pcall(L, 0, 0, -2);
+		if (lua_pcall(L, 0, 0, -2)) {
+			exit(-1); // ERRNO
+		}
 		lua_pop(L, 1);
 	}
 
