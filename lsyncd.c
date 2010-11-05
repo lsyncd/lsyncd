@@ -346,6 +346,7 @@ printlogf0(lua_State *L,
 	lua_pop(L, 1);
 	return;
 }
+
 /*****************************************************************************
  * Simple memory management
  ****************************************************************************/
@@ -562,13 +563,26 @@ l_exec(lua_State *L)
 	pid_t pid;
 	int i;
 	char const **argv = s_calloc(argc + 2, sizeof(char *));
+	
+	if (check_logcat("Exec") >= settings.log_level) {
+		lua_pushvalue(L, 1);
+		for(i = 1; i <= argc; i++) {
+			lua_pushstring(L, " [");
+			lua_pushvalue(L, i + 1);
+			lua_pushstring(L, "]");
+		}
+		lua_concat(L, 3 * argc + 1);
+		logstring0(LOG_DEBUG, "Exec", luaL_checkstring(L, -1));
+		lua_pop(L, 1);
+	}
+
 
 	argv[0] = binary;
 	for(i = 1; i <= argc; i++) {
 		argv[i] = luaL_checkstring(L, i + 1);
 	}
 	argv[i] = NULL;
-
+	
 	pid = fork();
 
 	if (pid == 0) {
@@ -1180,38 +1194,11 @@ masterloop(lua_State *L)
 			lua_pop(L, 1);
 		} 
 
-		/* writes status of lsyncd in a file */
-		/* this is not a real loop, it will only be runned once max. 
-		 * this is just using break as comfortable jump down. */
-		while (settings.statusfile) {
-			int fd = open(settings.statusfile, 
-				O_WRONLY | O_CREAT | O_TRUNC, 0664);
-			if (fd < 0) {
-				printlogf(L, "Error",
-					"Cannot open statusfile '%s' for writing.", 
-					settings.statusfile);
-				break;
-			}
-			/* calls the lua runner to write the status. */
-			printlogf(L, "Call", "lysncd_status_report()");
-			lua_getglobal(L, "lsyncd_call_error");
-			lua_getglobal(L, "lsyncd_status_report");
-			lua_pushinteger(L, fd);
-			if (lua_pcall(L, 1, 0, -3)) {
-				exit(-1); // ERRNO
-			}
-			lua_pop(L, 1);
-
-			/* TODO */
-			fsync(fd);
-			close(fd);
-			break;
-		}
-
-		/* lets the runner spawn new processes */
-		printlogf(L, "Call", "lsyncd_alarm()");
+		/* lets the runner do stuff every cycle, 
+		 * like starting new processes, writing the statusfile etc. */
+		printlogf(L, "Call", "lsyncd_cycle()");
 		lua_getglobal(L, "lsyncd_call_error");
-		lua_getglobal(L, "lsyncd_alarm");
+		lua_getglobal(L, "lsyncd_cycle");
 		lua_pushinteger(L, times(NULL));
 		if (lua_pcall(L, 1, 0, -3)) {
 			exit(-1); // ERRNO

@@ -31,7 +31,7 @@ slowbash = {
 		local source = config.source .. event.pathbasename
 		local target = config.target .. event.pathbasename
 		log("Normal", "create from ", source, " -> ", target)
-		return shell(prefix..[[cp "$1" "$2"]], source, target)
+		return shell(prefix..[[cp -r "$1" "$2"]], source, target)
 	end,
 
 	onModify = function(config, event)
@@ -39,14 +39,14 @@ slowbash = {
 		local source = config.source .. event.pathbasename
 		local target = config.target .. event.pathbasename
 		log("Normal", "modify from ", source, " -> ", target)
-		return shell(prefix..[[cp "$1" "$2"]], source, target)
+		return shell(prefix..[[cp -r "$1" "$2"]], source, target)
 	end,
 
 	onDelete = function(config, event)
 		-- similar for deletes
 		local target = config.target .. event.pathbasename
 		log("Normal", "delete ", target)
-		return shell(prefix..[[rm "$1"]], target)
+		return shell(prefix..[[rm -rf "$1"]], target)
 	end,
 }
 

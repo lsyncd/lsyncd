@@ -416,44 +416,36 @@ local Inotifies = (function()
 	-----
 	-- Adds watches for a directory including all subdirectories.
 	--
-	-- @param root      root directory to observer
-	-- @param origin    link to the observer to be notified.
-	--                  Note: Inotifies should handle this opaquely
-	-- @param recurse   true if recursing into subdirs
-	--                  or the relative path to root for recurse
-	--
-	local function add(root, origin, recurse)
-		log("Function", "Inotifies.add(", root, ", ", origin, ", ", recurse, ")")
-		-- register watch and receive watch descriptor
-		local dir
-		if type(recurse) == "string" then
-			dir = root..recurse
-		else 
-			dir = root
-			if recurse then
-				recurse = ""
-			end
-		end
-		local wd = lsyncd.add_watch(dir);
+	-- @param root+path  directory to observe
+	-- @param recurse    true if recursing into subdirs or 
+	--                   the relative path to root for recursed inotifies
+	-- @param origin     link to the observer to be notified.
+	--                   Note: Inotifies should handle this opaquely
+	local function add(root, path, recurse, origin)
+		log("Function", 
+			"Inotifies.add(",root,", ",path,", ",recurse,", ",origin,")")
+		-- registers watch 
+		local wd = lsyncd.add_watch(root .. path);
 		if wd < 0 then
-			-- failed adding the watch
-			log("Error", "Failure adding watch ", dir, " -> ignored ")
+			log("Error","Failure adding watch ",dir," -> ignored ")
 			return
 		end
 
-		local ilist = wdlist[wd]
-		if not ilist then
-			ilist = Array.new()
-			wdlist[wd] = ilist
+		if not wdlist[wd] then
+			wdlist[wd] = Array.new()
 		end
-		local inotify = { root = root, path = recurse, origin = origin } 
-		table.insert(ilist, inotify)
+		table.insert(wdlist[wd], {
+			root = root,
+			path = path,
+			recurse = recurse, 
+			origin = origin
+		})
 
 		-- registers and adds watches for all subdirectories 
 		if recurse then
-			local subdirs = lsyncd.sub_dirs(dir)
+			local subdirs = lsyncd.sub_dirs(root .. path)
 			for _, dirname in ipairs(subdirs) do
-				add(root, origin, recurse..dirname.."/")
+				add(root, path..dirname.."/", true, origin)
 			end
 		end
 	end
@@ -503,7 +495,7 @@ local Inotifies = (function()
 			-- adds subdirs for new directories
 			if inotify.recurse and isdir then
 				if ename == "Create" then
-					add(inotify.root, inotify.origin, pathname)
+					add(inotify.root, pathname, true, inotify.origin)
 				elseif ename == "Delete" then
 					-- TODO
 				end
@@ -514,15 +506,16 @@ local Inotifies = (function()
 	-----
 	-- Writes a status report about inotifies to a filedescriptor
 	--
-	local function status_report(fd)
-		local w = lsyncd.writefd
-		w(fd, "Watching ", wdlist:size(), " directories\n")
+	local function status_report(f)
+		f:write("Watching ",wdlist:size()," directories\n")
 		for wd, v in wdlist:iwalk() do
-			w(fd, "  ", wd, ": ")
+			f:write("  ",wd,": ")
+			local sep = ""
 			for _, v in ipairs(v) do
-				w(fd, "(", v.root, "/", (v.path) or ")")
+				f:write(v.root,"/",v.path or "",sep)
+				sep = ", "
 			end
-			w(fd, "\n")
+			f:write("\n")
 		end
 	end
 
@@ -629,7 +622,7 @@ local Inlet, inlet_control = (function()
 		
 		pathbasename = function()
 			if string.byte(delay.pathname, -1) == 47 then
-				return string.sub(delay.pathname, 1, -1)
+				return string.sub(delay.pathname, 1, -2)
 			else 
 				return delay.pathname
 			end
@@ -702,21 +695,34 @@ end
 ----
 -- Called from core to get a status report written into a file descriptor
 --
-function lsyncd_status_report(fd)
-	local w = lsyncd.writefd
-	w(fd, "Lsyncd status report at ", os.date(), "\n\n")
-	Inotifies.status_report(fd)
+local function write_statusfile()
+	local f, err = io.open(settings.statusfile, "w")
+	if not f then
+		log("Error", "Cannot open statusfile '"..settings.statusfile..
+			"' :"..err)
+		return
+	end
+	f:write("Lsyncd status report at ", os.date(), "\n\n")
+	Inotifies.status_report(f)
+	f:close()
 end
 
 ----
--- Called from core everytime at the latest of an 
--- expired alarm (or more often)
+-- Called from core everytime a masterloop cycle runs through.
+-- This happens in case of 
+--   * an expired alarm.
+--   * a returned child process.
+--   * received inotify events.
+--   * received a HUP or TERM signal.
 --
--- @param now   the time now
+-- @param now   the current kernel time (in jiffies)
 --
-function lsyncd_alarm(now)
+function lsyncd_cycle(now)
 	-- goes through all targets and spawns more actions
 	-- if possible
+	if settings.statusfile then
+		write_statusfile()
+	end
 	for _, o in Origins.iwalk() do
 		if o.processes:size() < o.config.max_processes then
 			local delays = o.delays
@@ -856,7 +862,7 @@ function lsyncd_initialize()
 			have_startup = true
 		end
 		-- adds the dir watch inclusively all subdirs
-		Inotifies.add(o.source, o, true)
+		Inotifies.add(o.source, "", true, o)
 	end
 
 	-- from now on use logging as configured instead of stdout/err.
@@ -904,7 +910,7 @@ function lsyncd_get_alarm()
 			end
 		end
 	end
-	log("Debug", "lysncd_get_alarm returns: ", have_alarm, ", ", alarm)
+	log("Debug", "lysncd_get_alarm returns: ",have_alarm,", ",alarm)
 	return have_alarm, alarm
 end
 
