@@ -218,15 +218,14 @@ end)()
 --
 local Origin = (function()
 	----
-	-- TODO
+	-- Creates a new origin
 	--
-	local function new(source, targetident, config) 
+	local function new(config) 
 		local o = {
 			config = config,
 			delays = CountArray.new(),
 			delayname = {},
-			source = source,
-			targetident = targetident,
+			source = config.source,
 			processes = CountArray.new(),
 		}
 		return o
@@ -360,11 +359,11 @@ local Origins = (function()
 		end
 		config.source = real_src
 
-		if not config.action and not config.attrib and
-		   not config.create and not config.modify and
-		   not config.delete and not config.move
+		if not config.onAction and not config.onAttrib and
+		   not config.onCreate and not config.onModify and
+		   not config.onDelete and not config.onMove
 		then
-			local info = debug.getinfo(2, "Sl")
+			local info = debug.getinfo(3, "Sl")
 			log("Error", info.short_src, ":", info.currentline,
 				": no actions specified, use e.g. 'config=default.rsync'.")
 			terminate(-1) -- ERRNO
@@ -381,7 +380,7 @@ local Origins = (function()
 		optional("action")
 		optional("max_processes")
 		optional("collapse_table")
-		local o = Origin.new(config.source, config.target, config)
+		local o = Origin.new(config)
 		table.insert(list, o)
 	end
 
@@ -547,6 +546,11 @@ end)()
 --============================================================================
 
 -----
+-- true after lsyncd_initalized()
+--
+local running = false
+
+-----
 -- Called from core whenever a lua failed.
 --
 function lsyncd_call_error(message)
@@ -631,40 +635,8 @@ local Inlet, inlet_control = (function()
 			end
 		end,
 		
-		source = function()
+		root = function()
 			return origin.source
-		end,
-		
-		sourcename = function()
-			return origin.source .. delay.pathname
-		end,
-		
-		sourcebasename = function()
-			local pn
-			if string.byte(delay.pathname, -1) == 47 then
-				pn = string.sub(delay.pathname, 1, -1)
-			else 
-				pn = delay.pathname
-			end
-			return origin.source .. pn
-		end,
-
-		target =  function()
-			return origin.config.target
-		end,
-
-		targetname = function()
-			return origin.config.target .. delay.pathname
-		end,
-		
-		targetbasename = function()
-			local pn
-			if string.byte(delay.pathname, -1) == 47 then
-				pn = string.sub(delay.pathname, 1, -1)
-			else 
-				pn = delay.pathname
-			end
-			return origin.config.target .. pn
 		end,
 	}
 	local event_meta = {
@@ -880,7 +852,7 @@ function lsyncd_initialize()
 	local have_startup = false
 	-- runs through the origins table filled by user calling directory()
 	for _, o in Origins.iwalk() do
-		if o.config.startup then
+		if o.config.onStartup then
 			have_startup = true
 		end
 		-- adds the dir watch inclusively all subdirs
@@ -888,6 +860,7 @@ function lsyncd_initialize()
 	end
 
 	-- from now on use logging as configured instead of stdout/err.
+	running = true;
 	lsyncd.configure("running");
 	
 	if have_startup then
@@ -895,8 +868,8 @@ function lsyncd_initialize()
 		local pids = { }
 		for _, o in Origins.iwalk() do
 			local pid
-			if o.config.startup then
-				local pid = o.config.startup(o.source, o.targetident)
+			if o.config.onStartup then
+				local pid = o.config.onStartup(o.config)
 				table.insert(pids, pid)
 			end
 		end
@@ -959,7 +932,15 @@ end
 -- lsyncd user interface
 --============================================================================
 
-sync = Origins.add
+-----
+-- Main utility to create new observations.
+--
+function sync(opts)
+	if running then
+		error("Cannot add syncs while running!")
+	end
+	Origins.add(opts)
+end
 
 ----
 -- Called by core when an overflow happened.
@@ -1014,9 +995,11 @@ default = {
 	--
 	action = function(inlet)
 		local event = inlet.get_event()
-		local func = inlet.get_config()[string.lower(event.etype)]
+		local config = inlet.get_config()
+		local func = config["on".. event.etype]
 		if func then
-			return func(event)
+			-- TODO Moves?
+			return func(config, event)
 		else 
 			return -1
 		end
