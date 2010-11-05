@@ -26,7 +26,6 @@ lsyncd_version = "2.0beta1"
 -- Shortcuts (which user is supposed to be able to use them as well)
 --
 log  = lsyncd.log
-exec = lsyncd.exec
 terminate = lsyncd.terminate
 
 --============================================================================
@@ -172,7 +171,7 @@ local function globals_lock()
 	local mt = getmetatable(t) or {}
 	mt.__index = function(t, k) 
 		if (k~="_" and string.sub(k, 1, 2) ~= "__") then
-			error("Access of non-existing global.", 2)
+			error("Access of non-existing global '"..k.."'", 2)
 		else
 			rawget(t, k)
 		end
@@ -474,21 +473,23 @@ local Inotifies = (function()
 		local ftype;
 		if isdir then
 			ftype = "directory"
-		else
-			ftype = "file"
+			filename = filename .. "/"
+			if filename2 then
+				filename2 = filename2 .. "/"
+			end
 		end
 		if filename2 then
-			log("Debug", "got event ", ename, " of ", ftype, " ", filename, 
+			log("Inotify", "got event ", ename, " ", filename, 
 				" to ", filename2) 
 		else 
-			log("Debug", "got event ", ename, " of ", ftype, " ", filename) 
+			log("Inotify", "got event ", ename, " ", filename) 
 		end
 
 		local ilist = wdlist[wd]
 		-- looks up the watch descriptor id
 		if not ilist then
 			-- this is normal in case of deleted subdirs
-			log("Normal", "event belongs to unknown/deleted watch descriptor.")
+			log("Inotify", "event belongs to unknown watch descriptor.")
 			return
 		end
 	
@@ -503,9 +504,9 @@ local Inotifies = (function()
 			-- adds subdirs for new directories
 			if inotify.recurse and isdir then
 				if ename == "Create" then
-					add(inotify.root, inotify.origin, 
-						inotify.path.."/"..filename)
-					-- TODO remove /
+					add(inotify.root, inotify.origin, pathname)
+				elseif ename == "Delete" then
+					-- TODO
 				end
 			end
 		end
@@ -593,33 +594,106 @@ end
 -- hidden from the user.
 --
 local Inlet, inlet_control = (function()
+	-- lua runner controlled variables
 	local origin  = true
 	local delay   = true
 
-	-----	
+	-- event to be passed to the user
+	local event = {}
+
 	-- TODO
+	local event_fields = {
+
+		config = function()
+			return origin.config
+		end,
+
+		etype = function()
+			return delay.ename
+		end,
+
+		name = function()
+			error("not implemented")
+		end,
+		
+		basename = function()
+			error("not implemented")
+			return string.match(delay.pathname, "[^/]+[/]?$")
+		end,
+
+		pathname = function()
+			return string.match(delay.pathname, "[^/]+[/]?$")
+		end,
+		
+		pathbasename = function()
+			if string.byte(delay.pathname, -1) == 47 then
+				return string.sub(delay.pathname, 1, -1)
+			else 
+				return delay.pathname
+			end
+		end,
+		
+		source = function()
+			return origin.source
+		end,
+		
+		sourcename = function()
+			return origin.source .. delay.pathname
+		end,
+		
+		sourcebasename = function()
+			error("not implemented")
+		end,
+
+		target =  function()
+			return origin.config.target
+		end,
+
+		targetname = function()
+			return origin.config.target .. delay.pathname
+		end,
+		
+		sourcebasename = function()
+			error("not implemented")
+		end,
+	}
+	local event_meta = {
+		__index = function(t, k)
+			local f=event_fields[k]
+			if not f then
+				error("event does not have field '"..k.."'", 2)
+			end
+			return f()
+		end
+	}
+	setmetatable(event, event_meta)
+
+	-----	
+	-- Interface for lsyncd runner to control what
+	-- the inlet will present the user.
+	--
 	local function control(set_origin, set_delay)
 		origin = set_origin
 		delay  = set_delay
 	end
 
 	-----
-	-- TODO
+	-- Gets the next event from queue.
+	--
 	local function get_event()
-		return { 
-			spath  = origin.source .. delay.pathname,
-			tpath  = origin.targetident .. delay.pathname,
-			ename  = delay.ename
-		}
+		-- TODO actually aquire here
+		return event
 	end
 
 	------
-	-- TODO
+	-- Returns the configuration table specified by sync{}
+	--
 	local function get_config()
 		-- TODO give a readonly handler only.
 		return origin.config
 	end
 
+	------
 	-- public interface
 	return {get_event = get_event, get_config = get_config}, control
 end)()
@@ -890,7 +964,11 @@ overflow = default_overflow
 -- Spawns a child process using bash.
 --
 function shell(command, ...)
-	return exec("/bin/sh", "-c", command, "/bin/sh", ...)
+	return lsyncd.exec("/bin/sh", "-c", command, "/bin/sh", ...)
+end
+
+function exec(...)
+	return lsyncd.exec(...)
 end
 
 --============================================================================
@@ -926,7 +1004,7 @@ default = {
 	--
 	action = function(inlet)
 		local event = inlet.get_event()
-		local func = inlet.get_config()[string.lower(event.ename)]
+		local func = inlet.get_config()[string.lower(event.etype)]
 		if func then
 			return func(event)
 		else 

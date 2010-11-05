@@ -17,18 +17,25 @@ slowbash = {
 	delay = 5,
 
 	startup = function(source, target)
-		log("Normal", "cp -r from "..source.." -> "..target)
-		return shell([[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], source, target)
+		log("Normal", "cp -r from ", source, " -> ", target)
+		return shell([[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], 
+			source, target)
 	end,
 
 	create = function(event)
-		log("Normal", "create from "..event.spath.." -> "..event.tpath)
-		return shell(prefix..[[cp "$1" "$2"]], event.spath, event.tpath)
+		log("Normal", 
+			"create from ", event.sourcebasename,
+			" -> ", event.targetbasename)
+		return shell(prefix..[[cp "$1" "$2"]],
+			event.sourcebasename, event.targetbasename)
 	end,
 
 	modify = function(event)
-		log("Normal", "modify from "..event.spath.." -> "..event.tpath)
-		return shell(prefix..[[cp "$1" "$2"]], event.spath, event.tpath)
+		log("Normal", 
+			"modify from ", event.sourcename,
+			" -> ", event.targetname)
+		return shell(prefix..[[cp "$1" "$2"]],
+			event.sourcebasename, event.targetbasename)
 	end,
 
 	attrib = function(event)
@@ -37,15 +44,11 @@ slowbash = {
 	end,
 
 	delete = function(event)
-		log("Normal", "delete "..event.tpath)
-		return exec(prefix..[[rm "$1"]], event.tpath)
+		log("Normal", "delete "..event.targetbasename)
+		return shell(prefix..[[rm "$1"]], event.targetbasename)
 	end,
 
---	move  = function(source, path, name, destpath, destname, target)
---		log(NORMAL, "move from " .. destination .. "/" .. path)
---		return exec("/bin/bash", "-c", "sleep " .. slowsec .. " && rm $1 $2", "/bin/bash", 
---		            source .. "/" .. path, target .. "/" .. path)
---		return 0
+--	move  = function(event)
 --	end,
 }
 
