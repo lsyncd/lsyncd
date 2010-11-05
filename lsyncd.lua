@@ -603,7 +603,6 @@ local Inlet, inlet_control = (function()
 
 	-- TODO
 	local event_fields = {
-
 		config = function()
 			return origin.config
 		end,
@@ -613,16 +612,15 @@ local Inlet, inlet_control = (function()
 		end,
 
 		name = function()
-			error("not implemented")
+			return string.match(delay.pathname, "[^/]+/?$")
 		end,
 		
 		basename = function()
-			error("not implemented")
-			return string.match(delay.pathname, "[^/]+[/]?$")
+			return string.match(delay.pathname, "([^/]+)/?$")
 		end,
 
 		pathname = function()
-			return string.match(delay.pathname, "[^/]+[/]?$")
+			return delay.pathname
 		end,
 		
 		pathbasename = function()
@@ -642,7 +640,13 @@ local Inlet, inlet_control = (function()
 		end,
 		
 		sourcebasename = function()
-			error("not implemented")
+			local pn
+			if string.byte(delay.pathname, -1) == 47 then
+				pn = string.sub(delay.pathname, 1, -1)
+			else 
+				pn = delay.pathname
+			end
+			return origin.source .. pn
 		end,
 
 		target =  function()
@@ -653,8 +657,14 @@ local Inlet, inlet_control = (function()
 			return origin.config.target .. delay.pathname
 		end,
 		
-		sourcebasename = function()
-			error("not implemented")
+		targetbasename = function()
+			local pn
+			if string.byte(delay.pathname, -1) == 47 then
+				pn = string.sub(delay.pathname, 1, -1)
+			else 
+				pn = delay.pathname
+			end
+			return origin.config.target .. pn
 		end,
 	}
 	local event_meta = {
