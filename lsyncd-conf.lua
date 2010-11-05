@@ -9,7 +9,7 @@ settings = {
 	statusfile = "/tmp/lsyncd.stat",
 }
 
-------
+----
 -- for testing purposes. uses bash command to hold local dirs in sync.
 --
 prefix = "sleep 1 && "

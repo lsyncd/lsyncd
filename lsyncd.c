@@ -1093,12 +1093,14 @@ masterloop(lua_State *L)
 		printlogf(L, "Call", "lsycnd_get_alarm()");
 		lua_getglobal(L, "lsyncd_call_error");
 		lua_getglobal(L, "lsyncd_get_alarm");
-		if (lua_pcall(L, 0, 2, -2)) {
+		if (lua_pcall(L, 0, 1, -2)) {
 			exit(-1); // ERRNO
 		}
-		have_alarm = lua_toboolean(L, -2);
-		alarm_time = (clock_t) luaL_checkinteger(L, -1);
-		lua_pop(L, 3);
+		have_alarm = lua_toboolean(L, -1);
+		if (have_alarm) {
+			alarm_time = (clock_t) luaL_checkinteger(L, -1);
+		}
+		lua_pop(L, 2);
 
 		if (have_alarm && time_before_eq(alarm_time, now)) {
 			/* there is a delay that wants to be handled already thus do not 

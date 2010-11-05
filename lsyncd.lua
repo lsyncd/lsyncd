@@ -22,6 +22,14 @@ if lsyncd_version then
 end
 lsyncd_version = "2.0beta1"
 
+-----
+-- Hides the core interface from user scripts
+--
+_l = lsyncd
+lsyncd = nil
+local lsyncd = _l
+_l = nil
+
 ----
 -- Shortcuts (which user is supposed to be able to use them as well)
 --
@@ -578,9 +586,8 @@ function lsyncd_collect_process(pid, exitcode)
 	if not delay then
 		return
 	end
-	log("Debug", "collected ", pid, ": ", 
-		delay.ename, " of ", origin.source, delay.pathname,
-		" = ", exitcode)
+	log("Debug", "collected ",pid, ": ",delay.ename," of ",
+		origin.source,delay.pathname," = ",exitcode)
 	origin.processes[pid] = nil
 end
 
@@ -598,7 +605,9 @@ local Inlet, inlet_control = (function()
 	-- event to be passed to the user
 	local event = {}
 
-	-- TODO
+	-----
+	-- Interface for the user to get fields.
+	--
 	local event_fields = {
 		config = function()
 			return origin.config
@@ -891,27 +900,24 @@ end
 ----
 -- Called by core to query soonest alarm.
 --
--- @return two variables.
---         boolean false   ... no alarm, core can in untimed sleep
---                 true    ... alarm time specified.
---         times           ... the alarm time (only read if number is 1)
+-- @return false ... no alarm, core can in untimed sleep, or
+--         times ... the alarm time (only read if number is 1)
+--
 function lsyncd_get_alarm()
-	local have_alarm = false
-	local alarm = 0
+	local alarm = false
 	for _, o in Origins.iwalk() do
 		-- TODO better handling of stati.
 		if o.delays[1] and 
 		   o.processes:size() < o.config.max_processes then
-			if have_alarm then
+			if alarm then
 				alarm = lsyncd.earlier(alarm, o.delays[1].alarm)
 			else
 				alarm = o.delays[1].alarm
-				have_alarm = true
 			end
 		end
 	end
-	log("Debug", "lysncd_get_alarm returns: ",have_alarm,", ",alarm)
-	return have_alarm, alarm
+	log("Debug", "lysncd_get_alarm returns: ",alarm)
+	return alarm
 end
 
 lsyncd_inotify_event = Inotifies.event
