@@ -419,7 +419,6 @@ l_add_watch(lua_State *L)
 }
 
 
-
 /**
  * Logs a message.
  *
