@@ -224,7 +224,7 @@ end)()
 -----
 -- Holds information about one observed directory inclusively subdirs.
 --
-local Origin = (function()
+local Sync = (function()
 	----
 	-- Creates a new origin
 	--
@@ -246,25 +246,24 @@ end)()
 -----
 -- Puts an action on the delay stack.
 --
-function Origin.delay(origin, ename, time, pathname, pathname2)
-	log("Function", "delay(", origin, ", ", ename, ", ", pathname, ")")
-	local o = origin
-	local delays = o.delays
-	local delayname = o.delayname
+function Sync.delay(self, ename, time, pathname, pathname2)
+	log("Function", "delay(", self, ", ", ename, ", ", pathname, ")")
+	local delays = self.delays
+	local delayname = self.delayname
 
-	if ename == "Move" and not o.config.move then
+	if ename == "Move" and not self.config.move then
 		-- if there is no move action defined, split a move as delete/create
 		log("Debug", "splitting Move into Delete & Create")
-		delay(o, "Delete", time, pathname,  nil)
-		delay(o, "Create", time, pathname2, nil)
+		delay(self, "Delete", time, pathname,  nil)
+		delay(self, "Create", time, pathname2, nil)
 		return
 	end
 
 	-- creates the new action
 	local alarm 
 	-- TODO scope
-	if time and o.config.delay then
-		alarm = lsyncd.addto_clock(time, o.config.delay)
+	if time and self.config.delay then
+		alarm = lsyncd.addto_clock(time, self.config.delay)
 	else
 		alarm = lsyncd.now()
 	end
@@ -281,7 +280,7 @@ function Origin.delay(origin, ename, time, pathname, pathname2)
 			-- TODO stackinfo
 			return
 		else
-			local col = o.config.collapse_table[oldd.ename][newd.ename]
+			local col = self.config.collapse_table[oldd.ename][newd.ename]
 			if col == -1 then
 				-- events cancel each other
 				log("Normal", "Nullfication: ", newd.ename, " after ",
@@ -308,11 +307,11 @@ function Origin.delay(origin, ename, time, pathname, pathname2)
 end
 
 -----
--- Origins - a singleton
+-- Syncs - a singleton
 -- 
 -- It maintains all configured directories to be synced.
 --
-local Origins = (function()
+local Syncs = (function()
 	-- the list of all origins
 	local list = Array.new()
 	
@@ -343,11 +342,15 @@ local Origins = (function()
 	-- Adds a new directory to observe.
 	--
 	local function add(config)
+		-----
+		-- Creates a new config table and inherit all keys/values
+		-- from integer keyed tables
 		local uconfig = config
 		config = {}
 		inherit(config, uconfig)
 
-		-- raises an error if 'name' isnt in opts
+		------
+		-- raises an error if @param name isnt in opts
 		local function require_opt(name)
 			if not config[name] then
 				local info = debug.getinfo(3, "Sl")
@@ -357,7 +360,6 @@ local Origins = (function()
 			end
 		end
 		require_opt("source")
-		require_opt("target")
 
 		-- absolute path of source
 		local real_src = lsyncd.real_dir(config.source)
@@ -365,9 +367,10 @@ local Origins = (function()
 			log(Error, "Cannot access source directory: ", config.source)
 			terminate(-1) -- ERRNO
 		end
+		config._source = config.source
 		config.source = real_src
 
-		if not config.onAction and not config.onAttrib and
+		if not config.action   and not config.onAttrib and
 		   not config.onCreate and not config.onModify and
 		   not config.onDelete and not config.onMove
 		then
@@ -388,8 +391,8 @@ local Origins = (function()
 		optional("action")
 		optional("max_processes")
 		optional("collapse_table")
-		local o = Origin.new(config)
-		table.insert(list, o)
+		local s = Sync.new(config)
+		table.insert(list, s)
 	end
 
 	-- allows to walk through all origins
@@ -499,7 +502,7 @@ local Inotifies = (function()
 			if filename2 then
 				pathname2 = inotify.path..filename2
 			end
-			Origin.delay(inotify.origin, ename, time, pathname, pathname2)
+			Sync.delay(inotify.origin, ename, time, pathname, pathname2)
 			-- adds subdirs for new directories
 			if inotify.recurse and isdir then
 				if ename == "Create" then
@@ -576,10 +579,10 @@ end
 function lsyncd_collect_process(pid, exitcode) 
 	local delay = nil
 	local origin = nil
-	for _, o in Origins.iwalk() do
-		delay = o.processes[pid]
+	for _, s in Syncs.iwalk() do
+		delay = s.processes[pid]
 		if delay then
-			origin = o
+			origin = s
 			break
 		end
 	end
@@ -732,14 +735,14 @@ function lsyncd_cycle(now)
 	if settings.statusfile then
 		write_statusfile()
 	end
-	for _, o in Origins.iwalk() do
-		if o.processes:size() < o.config.max_processes then
-			local delays = o.delays
+	for _, s in Syncs.iwalk() do
+		if s.processes:size() < s.config.max_processes then
+			local delays = s.delays
 			local d = delays[1]
 			if d and lsyncd.before_eq(d.alarm, now) then
-				invoke_action(o, d)
+				invoke_action(s, d)
 				table.remove(delays, 1)
-				o.delayname[d.pathname] = nil -- TODO grab from stack
+				s.delayname[d.pathname] = nil -- TODO grab from stack
 			end
 		end
 	end
@@ -805,7 +808,7 @@ function lsyncd_configure(args)
 				a = a:sub(2)
 			end
 			local o = options[a]
-			if (o) then
+			if o then
 				-- TODO --
 				i = i + o[1]
 			end
@@ -857,7 +860,7 @@ function lsyncd_initialize()
 	end
 
 	-- makes sure the user gave lsyncd anything to do 
-	if Origins.size() == 0 then
+	if Syncs.size() == 0 then
 		log("Error", "Nothing to watch!")
 		log("Error", "Use sync(SOURCE, TARGET, BEHAVIOR) in your config file.");
 		terminate(-1) -- ERRNO
@@ -866,12 +869,12 @@ function lsyncd_initialize()
 	-- set to true if at least one origin has a startup function
 	local have_startup = false
 	-- runs through the origins table filled by user calling directory()
-	for _, o in Origins.iwalk() do
-		if o.config.onStartup then
+	for _, s in Syncs.iwalk() do
+		if s.config.onStartup then
 			have_startup = true
 		end
 		-- adds the dir watch inclusively all subdirs
-		Inotifies.add(o.source, "", true, o)
+		Inotifies.add(s.source, "", true, o)
 	end
 
 	-- from now on use logging as configured instead of stdout/err.
@@ -881,10 +884,10 @@ function lsyncd_initialize()
 	if have_startup then
 		log("Normal", "--- startup ---")
 		local pids = { }
-		for _, o in Origins.iwalk() do
+		for _, s in Syncs.iwalk() do
 			local pid
-			if o.config.onStartup then
-				local pid = o.config.onStartup(o.config)
+			if s.config.onStartup then
+				local pid = s.config.onStartup(s.config)
 				table.insert(pids, pid)
 			end
 		end
@@ -905,14 +908,14 @@ end
 --
 function lsyncd_get_alarm()
 	local alarm = false
-	for _, o in Origins.iwalk() do
+	for _, s in Syncs.iwalk() do
 		-- TODO better handling of stati.
-		if o.delays[1] and 
-		   o.processes:size() < o.config.max_processes then
+		if s.delays[1] and 
+		   s.processes:size() < s.config.max_processes then
 			if alarm then
-				alarm = lsyncd.earlier(alarm, o.delays[1].alarm)
+				alarm = lsyncd.earlier(alarm, s.delays[1].alarm)
 			else
-				alarm = o.delays[1].alarm
+				alarm = s.delays[1].alarm
 			end
 		end
 	end
@@ -951,7 +954,7 @@ function sync(opts)
 	if running then
 		error("Cannot add syncs while running!")
 	end
-	Origins.add(opts)
+	Syncs.add(opts)
 end
 
 ----
