@@ -10,7 +10,7 @@
 -- cannot be runned directly from the standard lua interpreter.
 --============================================================================
 
-----
+-----
 -- A security measurement.
 -- Core will exit if version ids mismatch.
 --
@@ -30,7 +30,7 @@ lsyncd = nil
 local lsyncd = _l
 _l = nil
 
-----
+-----
 -- Shortcuts (which user is supposed to be able to use them as well)
 --
 log  = lsyncd.log
@@ -119,13 +119,13 @@ local CountArray = (function()
 		return ipairs(self[k_nt])
 	end
 
-	------
+	-----
 	-- returns the count
 	local function size(self)
 		return self._size
 	end
 
-	----
+	-----
 	-- creates a new count array
 	local function new()
 		-- k_nt is native table, private for this object.
@@ -137,38 +137,6 @@ local CountArray = (function()
 	-- objects public interface
 	return {new = new}
 end)()
-
---
--------
----- Metatable to limit keys to those only presented in their prototype
-----
---local meta_check_prototype = {
---	__index = function(t, k) 
---		if not t.prototype[k] then
---			error("tables prototype doesn't have key '"..k.."'.", 2)
---		end
---		return rawget(t, k)
---	end,
---	__newindex = function(t, k, v)
---		if not t.prototype[k] then
---			error("tables prototype doesn't have key '"..k.."'.", 2)
---		end
---		rawset(t, k, v)
---	end
---}
---
--------
----- Sets the prototype of a table limiting its keys to a defined list.
-----
---local function set_prototype(t, prototype) 
---	t.prototype = prototype
---	for k, _ in pairs(t) do
---		if not t.prototype[k] and k ~= "prototype" then
---			error("Cannot set prototype, conflicting key: '"..k.."'.", 2)
---		end
---	end
---	setmetatable(t, meta_check_prototype)
---end
 
 ----
 -- Locks globals,
@@ -225,7 +193,7 @@ end)()
 -- Holds information about one observed directory inclusively subdirs.
 --
 local Sync = (function()
-	----
+	-----
 	-- Creates a new Sync
 	--
 	local function new(config) 
@@ -349,7 +317,7 @@ local Syncs = (function()
 		config = {}
 		inherit(config, uconfig)
 
-		------
+		-----
 		-- raises an error if @param name isnt in opts
 		local function require_opt(name)
 			if not config[name] then
@@ -672,7 +640,7 @@ local Inlet, inlet_control = (function()
 		return event
 	end
 
-	------
+	-----
 	-- Returns the configuration table specified by sync{}
 	--
 	local function get_config()
@@ -680,7 +648,7 @@ local Inlet, inlet_control = (function()
 		return sync.config
 	end
 
-	------
+	-----
 	-- public interface
 	return {get_event = get_event, get_config = get_config}, control
 end)()
@@ -1021,7 +989,7 @@ end
 -- lsyncd classic - sync with rsync
 --
 local defaultRsync = {
-	----
+	-----
 	-- Called for every sync/target pair on startup
 	startup = function(source, target) 
 		log("Normal", "startup recursive rsync: ", source, " -> ", target)
@@ -1061,12 +1029,12 @@ default = {
 	--
 	maxProcesses = 1,
 
-	------
+	-----
 	-- Minimum seconds between two writes of a status file.
 	--
 	statusIntervall = 10,
 
-	------
+	-----
 	-- TODO
 	--
 	collapseTable = {
