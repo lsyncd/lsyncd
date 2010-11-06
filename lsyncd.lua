@@ -193,7 +193,6 @@ end)()
 -- Holds information about one observed directory inclusively subdirs.
 --
 local Sync = (function()
-
 	-----
 	-- Syncs that have no name specified get an incremental default name
 	--
@@ -260,18 +259,36 @@ local Sync = (function()
 			table.insert(delays, newd)
 		end
 	end
+		
+	-----	
+	-- Return the nearest alarm for this Sync.
+	--
+	local function getAlarm(self)
+		-- first checks if more processses could be spawned 
+		if self.processes:size() >= self.config.maxProcesses then
+			return nil
+		end
+
+		if self.delays[1] then 
+			return self.delays[1].alarm
+		end
+	end
 
 	-----
 	-- Creates a new Sync
 	--
 	local function new(config) 
 		local s = {
+			-- TODO document.
 			config = config,
 			delays = CountArray.new(),
 			delayname = {},
 			source = config.source,
 			processes = CountArray.new(),
+
+			-- functions
 			delay = delay,
+			getAlarm = getAlarm,
 		}
 		-- provides a default name if needed
 		if not config.name then
@@ -1003,21 +1020,27 @@ end
 --
 function lsyncd_get_alarm()
 	local alarm = false
-	for _, s in Syncs.iwalk() do
-		-- TODO better handling of stati.
-		if s.delays[1] and 
-		   s.processes:size() < s.config.maxProcesses then
-			if alarm then
-				alarm = lsyncd.earlier(alarm, s.delays[1].alarm)
-			else
-				alarm = s.delays[1].alarm
-			end
+
+	----
+	-- checks if current nearest alarm or a is earlier
+	--
+	local function checkAlarm(a) 
+		if not a then
+			return
+		end
+		if not alarm then
+			alarm = a
+		else
+			alarm = lsyncd.earlier(alarm, a)
 		end
 	end
-	local sa = StatusFile.getAlarm()
-	if sa then
-		alarm = (alarm and lsyncd.earlier(sa, alarm)) or sa
+
+	-- checks all syncs for their earliest alarm
+	for _, s in Syncs.iwalk() do
+		checkAlarm(s:getAlarm())
 	end
+	-- checks if a statusfile write has been delayed
+	checkAlarm(StatusFile.getAlarm())
 
 	log("Debug", "lysncd_get_alarm returns: ",alarm)
 	return alarm
