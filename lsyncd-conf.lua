@@ -25,28 +25,31 @@ slowbash = {
 			source, target)
 	end,
 
-	onCreate = function(config, event)
-		-- concats the source and the target with the file/dirs path and name
-		-- basename removes the trailing '/' on dirs.
-		local source = config.source .. event.pathbasename
-		local target = config.target .. event.pathbasename
-		log("Normal", "create from ", source, " -> ", target)
-		return shell(prefix..[[cp -r "$1" "$2"]], source, target)
+	onCreate = function(event)
+		local s = event.sourcePathname
+		local t = event.targetPathname
+		log("Normal", "create from ", s, " -> ", t)
+		return shell(prefix..[[cp -r "$1" "$2"]], s, t)
 	end,
 
-	onModify = function(config, event)
-		-- same game for modifies
-		local source = config.source .. event.pathbasename
-		local target = config.target .. event.pathbasename
-		log("Normal", "modify from ", source, " -> ", target)
-		return shell(prefix..[[cp -r "$1" "$2"]], source, target)
+	onModify = function(event)
+		local s = event.sourcePathname
+		local t = event.targetPathname
+		log("Normal", "modify from ", s, " -> ", t)
+		return shell(prefix..[[cp -r "$1" "$2"]], s, t)
 	end,
 
-	onDelete = function(config, event)
-		-- similar for deletes
-		local target = config.target .. event.pathbasename
-		log("Normal", "delete ", target)
-		return shell(prefix..[[rm -rf "$1"]], target)
+	onDelete = function(event)
+		local t = event.targetPathname
+		log("Normal", "delete ", t)
+		return shell(prefix..[[rm -rf "$1"]], t)
+	end,
+
+	onMove = function(event)
+		local t = event.targetPathname
+		local d = event.dest.targetPathname
+		log("Normal", "delete ", t)
+		return shell(prefix..[[mv "$1" "$2"]], t, d)
 	end,
 }
 

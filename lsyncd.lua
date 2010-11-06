@@ -176,11 +176,11 @@ local Delay = (function()
 	-- Creates a new delay.
 	-- 
 	-- @param TODO
-	local function new(ename, pathname, alarm)
+	local function new(ename, path, alarm)
 		local o = {
-			ename = ename,
+			ename = ename, -- TODO rename
 			alarm = alarm,
-			pathname = pathname,
+			path  = path,
 			status = "delay",
 		}
 		return o
@@ -214,16 +214,16 @@ end)()
 -----
 -- Puts an action on the delay stack.
 --
-function Sync.delay(self, ename, time, pathname, pathname2)
-	log("Function", "delay(", self, ", ", ename, ", ", pathname, ")")
+function Sync.delay(self, ename, time, path, path2)
+	log("Function", "delay(", self, ", ", ename, ", ", path, ")")
 	local delays = self.delays
 	local delayname = self.delayname
 
 	if ename == "Move" and not self.config.move then
 		-- if there is no move action defined, split a move as delete/create
 		log("Debug", "splitting Move into Delete & Create")
-		delay(self, "Delete", time, pathname,  nil)
-		delay(self, "Create", time, pathname2, nil)
+		delay(self, "Delete", time, path,  nil)
+		delay(self, "Create", time, path2, nil)
 		return
 	end
 
@@ -235,16 +235,16 @@ function Sync.delay(self, ename, time, pathname, pathname2)
 	else
 		alarm = lsyncd.now()
 	end
-	local newd = Delay.new(ename, pathname, alarm)
+	local newd = Delay.new(ename, path, alarm)
 
-	local oldd = delayname[pathname] 
+	local oldd = delayname[path] 
 	if oldd then
-		-- if there is already a delay on this pathname.
+		-- if there is already a delay on this path.
 		-- decide what should happen with multiple delays.
 		if newd.ename == "MoveFrom" or newd.ename == "MoveTo" or
 		   oldd.ename == "MoveFrom" or oldd.ename == "MoveTo" then
 		   -- do not collapse moves
-			log("Normal", "Not collapsing events with moves on ", pathname)
+			log("Normal", "Not collapsing events with moves on ", path)
 			-- TODO stackinfo
 			return
 		else
@@ -252,24 +252,24 @@ function Sync.delay(self, ename, time, pathname, pathname2)
 			if col == -1 then
 				-- events cancel each other
 				log("Normal", "Nullfication: ", newd.ename, " after ",
-					oldd.ename, " on ", pathname)
+					oldd.ename, " on ", path)
 				oldd.ename = "None"
 				return
 			elseif col == 0 then
 				-- events tack
 				log("Normal", "Stacking ", newd.ename, " after ",
-					oldd.ename, " on ", pathname)
+					oldd.ename, " on ", path)
 				-- TODO Stack pointer
 			else
 				log("Normal", "Collapsing ", newd.ename, " upon ",
-					oldd.ename, " to ", col, " on ", pathname)
+					oldd.ename, " to ", col, " on ", path)
 				oldd.ename = col
 				return
 			end
 		end
 		table.insert(delays, newd)
 	else
-		delayname[pathname] = newd
+		delayname[path] = newd
 		table.insert(delays, newd)
 	end
 end
@@ -465,16 +465,16 @@ local Inotifies = (function()
 	
 		-- works through all observers interested in this directory
 		for _, inotify in ipairs(ilist) do
-			local pathname = inotify.path .. filename
-			local pathname2 
+			local path = inotify.path .. filename
+			local path2 
 			if filename2 then
-				pathname2 = inotify.path..filename2
+				path2 = inotify.path..filename2
 			end
-			Sync.delay(inotify.sync, ename, time, pathname, pathname2)
+			Sync.delay(inotify.sync, ename, time, path, path2)
 			-- adds subdirs for new directories
 			if inotify.recurse and isdir then
 				if ename == "Create" then
-					add(inotify.root, pathname, true, inotify.sync)
+					add(inotify.root, path, true, inotify.sync)
 				elseif ename == "Delete" then
 					-- TODO
 				end
@@ -558,7 +558,7 @@ function lsyncd_collect_process(pid, exitcode)
 		return
 	end
 	log("Debug", "collected ",pid, ": ",delay.ename," of ",
-		sync.source,delay.pathname," = ",exitcode)
+		sync.source, delay.path," = ",exitcode)
 	sync.processes[pid] = nil
 end
 
@@ -577,51 +577,126 @@ local Inlet, inlet_control = (function()
 	local event = {}
 
 	-----
+	-- removes the trailing slash from a path
+	local function cutSlash(path) 
+		if string.byte(path, -1) == 47 then
+			return string.sub(path, 1, -2)
+		else
+			return path
+		end
+	end
+
+	-----
 	-- Interface for the user to get fields.
-	--
-	local event_fields = {
+	local eventFields = {
 		config = function()
 			return sync.config
 		end,
 
+		-----
+		-- Returns the type of the event.
+		-- Can be:
+		--    "Attrib"
+		--    "Create"
+		--    "Delete"
+		--    "Modify"
+		--    "Move"
 		etype = function()
 			return delay.ename
 		end,
+		
+		-----
+		-- Returns true if event relates to a directory.
+		isdir = function() 
+			return string.byte(delay.path, -1) == 47
+		end,
 
+		-----
+		-- Returns the name of the file/dir.
+		-- Includes a trailing slash for dirs.
 		name = function()
-			return string.match(delay.pathname, "[^/]+/?$")
+			return string.match(delay.path, "[^/]+/?$")
 		end,
 		
+		-----
+		-- Returns the name of the file/dir.
+		-- Excludes a trailing slash for dirs.
 		basename = function()
-			return string.match(delay.pathname, "([^/]+)/?$")
+			return string.match(delay.path, "([^/]+)/?$")
 		end,
 
+		-----
+		-- Returns the file/dir relative to watch root
+		-- Includes a trailing slash for dirs.
+		path = function()
+			return delay.path
+		end,
+		
+		-----
+		-- Returns the file/dir relativ to watch root
+		-- Excludes a trailing slash for dirs.
 		pathname = function()
-			return delay.pathname
+			return cutSlash(delay.path)
 		end,
 		
-		pathbasename = function()
-			if string.byte(delay.pathname, -1) == 47 then
-				return string.sub(delay.pathname, 1, -2)
-			else 
-				return delay.pathname
-			end
-		end,
-		
-		root = function()
+		------
+		-- Returns the absolute path of the watch root.
+		-- All symlinks will have been resolved.
+		source = function()
 			return sync.source
 		end,
+
+		------
+		-- Returns the absolute path of the file/dir.
+		-- Includes a trailing slash for dirs.
+		sourcePath = function()
+			return sync.source .. delay.path
+		end,
+		
+		------
+		-- Returns the absolute path of the file/dir.
+		-- Excludes a trailing slash for dirs.
+		sourcePathname = function()
+			return sync.source .. cutSlash(delay.path)
+		end,
+		
+		------
+		-- Returns the target. 
+		-- Just for user comfort, for most case
+		-- (Actually except of here, the lsyncd.runner itself 
+		--  does not care event about the existance of "target",
+		--  this is completly up to the action scripts.)
+		target = function()
+			return sync.config.target
+		end,
+
+		------
+		-- Returns the relative dir/file appended to the target.
+		-- Includes a trailing slash for dirs.
+		targetPath = function()
+			return sync.config.target .. delay.path
+		end,
+		
+		------
+		-- Returns the relative dir/file appended to the target.
+		-- Excludes a trailing slash for dirs.
+		targetPathname = function()
+			return sync.config.target .. cutSlash(delay.path)
+		end,
 	}
-	local event_meta = {
+
+	-----
+	-- Calls event functions for the user.
+	local eventMeta = {
 		__index = function(t, k)
-			local f=event_fields[k]
+			local f = eventFields[k]
 			if not f then
 				error("event does not have field '"..k.."'", 2)
 			end
 			return f()
 		end
 	}
-	setmetatable(event, event_meta)
+	setmetatable(event, eventMeta)
 
 	-----	
 	-- Interface for lsyncd runner to control what
@@ -701,7 +776,7 @@ local StatusFile = (function()
 		-- some logic to not write too often
 		if settings.statusIntervall > 0 then
 			-- already waiting
-			if alarm and lsyncd.clockbeforeq(now, alarm) then
+			if alarm and lsyncd.clockbefore(now, alarm) then
 				log("Statusfile", "waiting(",now," < ",alarm,")")
 				return
 			end
@@ -709,7 +784,7 @@ local StatusFile = (function()
 			if not alarm then
 				local nextWrite = lastWritten and
 					lsyncd.addtoclock(now, settings.statusIntervall)
-				if nextWrite and lsyncd.clockbeforeq(now, nextWrite) then
+				if nextWrite and lsyncd.clockbefore(now, nextWrite) then
 					log("Statusfile", "setting alarm: ", nextWrite)
 					alarm = nextWrite
 					return
@@ -758,7 +833,7 @@ function lsyncd_cycle(now)
 			if d and lsyncd.clockbeforeq(d.alarm, now) then
 				invoke_action(s, d)
 				table.remove(delays, 1)
-				s.delayname[d.pathname] = nil -- TODO grab from stack
+				s.delayname[d.path] = nil -- TODO grab from stack
 			end
 		end
 	end
@@ -991,15 +1066,15 @@ end
 local defaultRsync = {
 	-----
 	-- Called for every sync/target pair on startup
-	startup = function(source, target) 
+	startup = function(source, config) 
 		log("Normal", "startup recursive rsync: ", source, " -> ", target)
-		return exec("/usr/bin/rsync", "-ltrs", 
-			source, target)
+		return exec("/usr/bin/rsync", "-ltrs", source, target)
 	end,
 
-	default = function(source, target, path)
-		return exec("/usr/bin/rsync", "--delete", "-ltds",
-			source.."/"..path, target.."/"..path)
+	default = function(inlet)
+		-- TODO
+		--return exec("/usr/bin/rsync", "--delete", "-ltds",
+		--	source.."/"..path, target.."/"..path)
 	end
 }
 
@@ -1018,7 +1093,7 @@ default = {
 		local func = config["on".. event.etype]
 		if func then
 			-- TODO Moves?
-			return func(config, event)
+			return func(event)
 		else 
 			return -1
 		end

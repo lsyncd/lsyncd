@@ -474,6 +474,21 @@ l_log(lua_State *L)
 }
 
 /**
+ * Returns (on Lua stack) true if time1 is earler than time2
+ * @param (on Lua Stack) time1
+ * @param (on Lua Stack) time2
+ * @return the true if time1 < time2
+ */
+static int
+l_clockbefore(lua_State *L) 
+{
+	clock_t t1 = (clock_t) luaL_checkinteger(L, 1);
+	clock_t t2 = (clock_t) luaL_checkinteger(L, 2);
+	lua_pushboolean(L, time_before(t1, t2));
+	return 1;
+}
+
+/**
  * Returns (on Lua stack) true if time1 is earler or eq to time2
  * @param (on Lua Stack) time1
  * @param (on Lua Stack) time2
@@ -894,6 +909,7 @@ l_configure(lua_State *L)
 static const luaL_reg lsyncdlib[] = {
 		{"add_watch",    l_add_watch    },
 		{"addtoclock",   l_addtoclock   },
+		{"clockbefore",  l_clockbefore  },
 		{"clockbeforeq", l_clockbeforeq },
 		{"configure",    l_configure    },
 		{"earlier",      l_earlier      },
