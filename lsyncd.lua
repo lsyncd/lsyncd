@@ -389,8 +389,8 @@ local Syncs = (function()
 		end
 
 		optional("action")
-		optional("max_processes")
-		optional("collapse_table")
+		optional("maxProcesses")
+		optional("collapseTable")
 		local s = Sync.new(config)
 		table.insert(list, s)
 	end
@@ -705,19 +705,67 @@ end
 	
 
 ----
--- Called from core to get a status report written into a file descriptor
+-- Writes a status report file at most every [statusintervall] seconds.
 --
-local function write_statusfile()
-	local f, err = io.open(settings.statusfile, "w")
-	if not f then
-		log("Error", "Cannot open statusfile '"..settings.statusfile..
-			"' :"..err)
-		return
+--
+local StatusFile = (function() 
+	-----
+	-- Timestamp when the status file has been written.
+	local lastWritten = false
+
+	-----
+	-- Timestamp when a statusfile should be written
+	local alarm = false
+
+	-----
+	-- Returns when the statusfile should be written
+	--
+	local function getAlarm()
+		return alarm
 	end
-	f:write("Lsyncd status report at ", os.date(), "\n\n")
-	Inotifies.status_report(f)
-	f:close()
-end
+
+	-----
+	-- Called to check if to write a status file.
+	--
+	local function write(now)
+		log("Function", "write(", now, ")")
+
+		-- some logic to not write too often
+		if settings.statusIntervall > 0 then
+			-- already waiting
+			if alarm and lsyncd.earlier(now, alarm) then
+				log("Statusfile", "waiting")
+				return
+			end
+			-- when a next Write will be possible
+			if not alarm then
+				local nextWrite = lastWritten and
+					lsyncd.addto_clock(now, settings.statusIntervall)
+				if nextWrite and lsyncd.earlier(now, nextWrite) then
+					log("Statusfile", "setting alarm", nextWrite)
+					alarm = nextWrite
+					return
+				end
+			end
+			lastWritten = now
+			alarm = false
+		end
+
+		log("Statusfile", "writing now")
+		local f, err = io.open(settings.statusfile, "w")
+		if not f then
+			log("Error", "Cannot open statusfile '"..settings.statusfile..
+				"' :"..err)
+			return
+		end
+		f:write("Lsyncd status report at ", os.date(), "\n\n")
+		Inotifies.status_report(f)
+		f:close()
+	end
+
+	-- public interface
+	return {write = write, getAlarm = getAlarm}
+end)()
 
 ----
 -- Called from core everytime a masterloop cycle runs through.
@@ -733,7 +781,7 @@ function lsyncd_cycle(now)
 	-- goes through all targets and spawns more actions
 	-- if possible
 	if settings.statusfile then
-		write_statusfile()
+		StatusFile.write(now)
 	end
 	for _, s in Syncs.iwalk() do
 		if s.processes:size() < s.config.max_processes then
@@ -919,6 +967,11 @@ function lsyncd_get_alarm()
 			end
 		end
 	end
+	local sa = StatusFile.getAlarm()
+	if sa then
+		alarm = lsyncd.earlier(sa, alarm) 
+	end
+
 	log("Debug", "lysncd_get_alarm returns: ",alarm)
 	return alarm
 end
@@ -1023,12 +1076,17 @@ default = {
 	-----
 	-- TODO
 	--
-	max_processes = 1,
+	maxProcesses = 1,
+
+	------
+	-- Minimum seconds between two writes of a status file.
+	--
+	statusIntervall = 60,
 
 	------
 	-- TODO
 	--
-	collapse_table = {
+	collapseTable = {
 		Attrib = { Attrib = "Attrib", Modify = "Modify", Create = "Create", Delete = "Delete" },
 		Modify = { Attrib = "Modify", Modify = "Modify", Create = "Create", Delete = "Delete" },
 		Create = { Attrib = "Create", Modify = "Create", Create = "Create", Delete = -1       },
