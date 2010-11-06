@@ -174,7 +174,7 @@ end
 -- Locks globals,
 -- no more globals can be created
 --
-local function globals_lock()
+local function globalsLock()
 	local t = _G
 	local mt = getmetatable(t) or {}
 	mt.__index = function(t, k) 
@@ -196,7 +196,7 @@ local function globals_lock()
 end
 
 -----
--- Holds information about a delayed event for one origin/target.
+-- Holds information about a delayed event for one Sync.
 --
 -- valid stati are:
 --    delay
@@ -226,7 +226,7 @@ end)()
 --
 local Sync = (function()
 	----
-	-- Creates a new origin
+	-- Creates a new Sync
 	--
 	local function new(config) 
 		local o = {
@@ -280,7 +280,7 @@ function Sync.delay(self, ename, time, pathname, pathname2)
 			-- TODO stackinfo
 			return
 		else
-			local col = self.config.collapse_table[oldd.ename][newd.ename]
+			local col = self.config.collapseTable[oldd.ename][newd.ename]
 			if col == -1 then
 				-- events cancel each other
 				log("Normal", "Nullfication: ", newd.ename, " after ",
@@ -312,7 +312,7 @@ end
 -- It maintains all configured directories to be synced.
 --
 local Syncs = (function()
-	-- the list of all origins
+	-- the list of all syncs
 	local list = Array.new()
 	
 	-----
@@ -395,12 +395,12 @@ local Syncs = (function()
 		table.insert(list, s)
 	end
 
-	-- allows to walk through all origins
+	-- allows to walk through all syncs
 	local function iwalk()
 		return ipairs(list)
 	end
 
-	-- returns the number of origins
+	-- returns the number of syncs
 	local size = function()
 		return #list
 	end
@@ -420,7 +420,7 @@ end)()
 local Inotifies = (function()
 	-----
 	-- A list indexed by inotifies watch descriptor.
-	-- Contains a list of all origins observing this directory
+	-- Contains a list of all syncs observing this directory
 	-- (directly or by recurse)
 	local wdlist = CountArray.new()
 
@@ -430,11 +430,11 @@ local Inotifies = (function()
 	-- @param root+path  directory to observe
 	-- @param recurse    true if recursing into subdirs or 
 	--                   the relative path to root for recursed inotifies
-	-- @param origin     link to the observer to be notified.
+	-- @param sync       link to the observer to be notified.
 	--                   Note: Inotifies should handle this opaquely
-	local function add(root, path, recurse, origin)
+	local function add(root, path, recurse, sync)
 		log("Function", 
-			"Inotifies.add(",root,", ",path,", ",recurse,", ",origin,")")
+			"Inotifies.add(",root,", ",path,", ",recurse,", ",sync,")")
 		-- registers watch 
 		local wd = lsyncd.add_watch(root .. path);
 		if wd < 0 then
@@ -449,14 +449,14 @@ local Inotifies = (function()
 			root = root,
 			path = path,
 			recurse = recurse, 
-			origin = origin
+			sync = sync
 		})
 
 		-- registers and adds watches for all subdirectories 
 		if recurse then
 			local subdirs = lsyncd.sub_dirs(root .. path)
 			for _, dirname in ipairs(subdirs) do
-				add(root, path..dirname.."/", true, origin)
+				add(root, path..dirname.."/", true, sync)
 			end
 		end
 	end
@@ -502,11 +502,11 @@ local Inotifies = (function()
 			if filename2 then
 				pathname2 = inotify.path..filename2
 			end
-			Sync.delay(inotify.origin, ename, time, pathname, pathname2)
+			Sync.delay(inotify.sync, ename, time, pathname, pathname2)
 			-- adds subdirs for new directories
 			if inotify.recurse and isdir then
 				if ename == "Create" then
-					add(inotify.root, pathname, true, inotify.origin)
+					add(inotify.root, pathname, true, inotify.sync)
 				elseif ename == "Delete" then
 					-- TODO
 				end
@@ -578,11 +578,11 @@ end
 --
 function lsyncd_collect_process(pid, exitcode) 
 	local delay = nil
-	local origin = nil
+	local sync = nil
 	for _, s in Syncs.iwalk() do
 		delay = s.processes[pid]
 		if delay then
-			origin = s
+			sync = s
 			break
 		end
 	end
@@ -590,8 +590,8 @@ function lsyncd_collect_process(pid, exitcode)
 		return
 	end
 	log("Debug", "collected ",pid, ": ",delay.ename," of ",
-		origin.source,delay.pathname," = ",exitcode)
-	origin.processes[pid] = nil
+		sync.source,delay.pathname," = ",exitcode)
+	sync.processes[pid] = nil
 end
 
 -----
@@ -602,8 +602,8 @@ end
 --
 local Inlet, inlet_control = (function()
 	-- lua runner controlled variables
-	local origin  = true
-	local delay   = true
+	local sync  = true
+	local delay = true
 
 	-- event to be passed to the user
 	local event = {}
@@ -613,7 +613,7 @@ local Inlet, inlet_control = (function()
 	--
 	local event_fields = {
 		config = function()
-			return origin.config
+			return sync.config
 		end,
 
 		etype = function()
@@ -641,7 +641,7 @@ local Inlet, inlet_control = (function()
 		end,
 		
 		root = function()
-			return origin.source
+			return sync.source
 		end,
 	}
 	local event_meta = {
@@ -659,9 +659,9 @@ local Inlet, inlet_control = (function()
 	-- Interface for lsyncd runner to control what
 	-- the inlet will present the user.
 	--
-	local function control(set_origin, set_delay)
-		origin = set_origin
-		delay  = set_delay
+	local function control(set_sync, set_delay)
+		sync  = set_sync
+		delay = set_delay
 	end
 
 	-----
@@ -677,7 +677,7 @@ local Inlet, inlet_control = (function()
 	--
 	local function get_config()
 		-- TODO give a readonly handler only.
-		return origin.config
+		return sync.config
 	end
 
 	------
@@ -689,17 +689,17 @@ end)()
 -- TODO
 --
 --
-local function invoke_action(origin, delay)
+local function invoke_action(sync, delay)
 	if delay.ename == "None" then
 		-- a removed action
 		return
 	end
 
-	inlet_control(origin, delay)
-	local pid = origin.config.action(Inlet)
+	inlet_control(sync, delay)
+	local pid = sync.config.action(Inlet)
 	if pid and pid > 0 then
 		delay.status = "active"
-		origin.processes[pid] = delay
+		sync.processes[pid] = delay
 	end
 end
 	
@@ -733,16 +733,16 @@ local StatusFile = (function()
 		-- some logic to not write too often
 		if settings.statusIntervall > 0 then
 			-- already waiting
-			if alarm and lsyncd.earlier(now, alarm) then
-				log("Statusfile", "waiting")
+			if alarm and lsyncd.is_before_eq(now, alarm) then
+				log("Statusfile", "waiting(",now," < ",alarm,")")
 				return
 			end
-			-- when a next Write will be possible
+			-- determines when a next write will be possible
 			if not alarm then
 				local nextWrite = lastWritten and
 					lsyncd.addto_clock(now, settings.statusIntervall)
-				if nextWrite and lsyncd.earlier(now, nextWrite) then
-					log("Statusfile", "setting alarm", nextWrite)
+				if nextWrite and lsyncd.is_before_eq(now, nextWrite) then
+					log("Statusfile", "setting alarm: ", nextWrite)
 					alarm = nextWrite
 					return
 				end
@@ -784,10 +784,10 @@ function lsyncd_cycle(now)
 		StatusFile.write(now)
 	end
 	for _, s in Syncs.iwalk() do
-		if s.processes:size() < s.config.max_processes then
+		if s.processes:size() < s.config.maxProcesses then
 			local delays = s.delays
 			local d = delays[1]
-			if d and lsyncd.before_eq(d.alarm, now) then
+			if d and lsyncd.is_before_eq(d.alarm, now) then
 				invoke_action(s, d)
 				table.remove(delays, 1)
 				s.delayname[d.pathname] = nil -- TODO grab from stack
@@ -883,28 +883,11 @@ function lsyncd_initialize()
 	settings = settings or {}
 
 	-- From this point on, no globals may be created anymore
-	globals_lock()
+	globalsLock()
 
-	-- all valid settings, first value is 1 if it needs a parameter 
-	local configure_settings = {
-		statusfile = {1, nil},
-	}
-
-	-- check all entries in the settings table
-	for c, p in pairs(settings) do
-		local cs = configure_settings[c]
-		if not cs then
-			log("Error", "unknown setting '", c, "'")	
-			terminate(-1) -- ERRNO
-		end
-		if cs[1] == 1 and not p then
-			log("Error", "setting '", c, "' needs a parameter")	
-		end
-		-- calls the check function if its not nil
-		if cs[2] then
-			cs[2](p)
-		end
-		lsyncd.configure(c, p)
+	-- TODO
+	if settings.statusIntervall == nil then
+		settings.statusIntervall = default.statusIntervall
 	end
 
 	-- makes sure the user gave lsyncd anything to do 
@@ -914,15 +897,15 @@ function lsyncd_initialize()
 		terminate(-1) -- ERRNO
 	end
 
-	-- set to true if at least one origin has a startup function
+	-- set to true if at least one sync has a startup function
 	local have_startup = false
-	-- runs through the origins table filled by user calling directory()
+	-- runs through the syncs table filled by user calling directory()
 	for _, s in Syncs.iwalk() do
 		if s.config.onStartup then
 			have_startup = true
 		end
 		-- adds the dir watch inclusively all subdirs
-		Inotifies.add(s.source, "", true, o)
+		Inotifies.add(s.source, "", true, s)
 	end
 
 	-- from now on use logging as configured instead of stdout/err.
@@ -959,7 +942,7 @@ function lsyncd_get_alarm()
 	for _, s in Syncs.iwalk() do
 		-- TODO better handling of stati.
 		if s.delays[1] and 
-		   s.processes:size() < s.config.max_processes then
+		   s.processes:size() < s.config.maxProcesses then
 			if alarm then
 				alarm = lsyncd.earlier(alarm, s.delays[1].alarm)
 			else
@@ -969,7 +952,7 @@ function lsyncd_get_alarm()
 	end
 	local sa = StatusFile.getAlarm()
 	if sa then
-		alarm = lsyncd.earlier(sa, alarm) 
+		alarm = (alarm and lsyncd.earlier(sa, alarm)) or sa
 	end
 
 	log("Debug", "lysncd_get_alarm returns: ",alarm)
@@ -1081,7 +1064,7 @@ default = {
 	------
 	-- Minimum seconds between two writes of a status file.
 	--
-	statusIntervall = 60,
+	statusIntervall = 10,
 
 	------
 	-- TODO

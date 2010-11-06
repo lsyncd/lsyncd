@@ -104,18 +104,10 @@ static struct settings {
 	 * LOG_ERROR errors only
 	 */
 	int log_level;
-
-	/**
-	 * lsyncd will periodically write its status in this
-	 * file if configured so. (for special observing only)
-	 */
-	char * statusfile;
-
 } settings = {
 	.log_file = NULL,
 	.log_syslog = false,
 	.log_level = 0,
-	.statusfile = NULL,
 };
 
 /**
@@ -496,7 +488,7 @@ l_log(lua_State *L)
  * @return the true if time1 <= time2
  */
 static int
-l_before_eq(lua_State *L) 
+l_is_before_eq(lua_State *L) 
 {
 	clock_t t1 = (clock_t) luaL_checkinteger(L, 1);
 	clock_t t2 = (clock_t) luaL_checkinteger(L, 2);
@@ -892,13 +884,7 @@ static int
 l_configure(lua_State *L) 
 {
 	const char * command = luaL_checkstring(L, 1);
-	if (!strcmp(command, "statusfile")) {
-		/* configures the status file lsyncd will dump its status to */
-		if (settings.statusfile) {
-			free(settings.statusfile);
-		}
-		settings.statusfile = s_strdup(luaL_checkstring(L, 2));
-	} else if (!strcmp(command, "running")) {
+	if (!strcmp(command, "running")) {
 		/* set by runner after first initialize 
 		 * from this on log to configurated log end instead of 
 		 * stdout/stderr */
@@ -916,7 +902,7 @@ l_configure(lua_State *L)
 static const luaL_reg lsyncdlib[] = {
 		{"add_watch",    l_add_watch    },
 		{"addto_clock",  l_addto_clock  },
-		{"before_eq",    l_before_eq    },
+		{"is_before_eq", l_is_before_eq },
 		{"configure",    l_configure    },
 		{"earlier",      l_earlier      },
 		{"exec",         l_exec         },
