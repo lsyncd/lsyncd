@@ -138,37 +138,37 @@ local CountArray = (function()
 	return {new = new}
 end)()
 
-
------
--- Metatable to limit keys to those only presented in their prototype
 --
-local meta_check_prototype = {
-	__index = function(t, k) 
-		if not t.prototype[k] then
-			error("tables prototype doesn't have key '"..k.."'.", 2)
-		end
-		return rawget(t, k)
-	end,
-	__newindex = function(t, k, v)
-		if not t.prototype[k] then
-			error("tables prototype doesn't have key '"..k.."'.", 2)
-		end
-		rawset(t, k, v)
-	end
-}
-
------
--- Sets the prototype of a table limiting its keys to a defined list.
+-------
+---- Metatable to limit keys to those only presented in their prototype
+----
+--local meta_check_prototype = {
+--	__index = function(t, k) 
+--		if not t.prototype[k] then
+--			error("tables prototype doesn't have key '"..k.."'.", 2)
+--		end
+--		return rawget(t, k)
+--	end,
+--	__newindex = function(t, k, v)
+--		if not t.prototype[k] then
+--			error("tables prototype doesn't have key '"..k.."'.", 2)
+--		end
+--		rawset(t, k, v)
+--	end
+--}
 --
-local function set_prototype(t, prototype) 
-	t.prototype = prototype
-	for k, _ in pairs(t) do
-		if not t.prototype[k] and k ~= "prototype" then
-			error("Cannot set prototype, conflicting key: '"..k.."'.", 2)
-		end
-	end
-	setmetatable(t, meta_check_prototype)
-end
+-------
+---- Sets the prototype of a table limiting its keys to a defined list.
+----
+--local function set_prototype(t, prototype) 
+--	t.prototype = prototype
+--	for k, _ in pairs(t) do
+--		if not t.prototype[k] and k ~= "prototype" then
+--			error("Cannot set prototype, conflicting key: '"..k.."'.", 2)
+--		end
+--	end
+--	setmetatable(t, meta_check_prototype)
+--end
 
 ----
 -- Locks globals,
@@ -263,7 +263,7 @@ function Sync.delay(self, ename, time, pathname, pathname2)
 	local alarm 
 	-- TODO scope
 	if time and self.config.delay then
-		alarm = lsyncd.addto_clock(time, self.config.delay)
+		alarm = lsyncd.addtoclock(time, self.config.delay)
 	else
 		alarm = lsyncd.now()
 	end
@@ -362,7 +362,7 @@ local Syncs = (function()
 		require_opt("source")
 
 		-- absolute path of source
-		local real_src = lsyncd.real_dir(config.source)
+		local real_src = lsyncd.realdir(config.source)
 		if not real_src then
 			log(Error, "Cannot access source directory: ", config.source)
 			terminate(-1) -- ERRNO
@@ -454,7 +454,7 @@ local Inotifies = (function()
 
 		-- registers and adds watches for all subdirectories 
 		if recurse then
-			local subdirs = lsyncd.sub_dirs(root .. path)
+			local subdirs = lsyncd.subdirs(root .. path)
 			for _, dirname in ipairs(subdirs) do
 				add(root, path..dirname.."/", true, sync)
 			end
@@ -733,15 +733,15 @@ local StatusFile = (function()
 		-- some logic to not write too often
 		if settings.statusIntervall > 0 then
 			-- already waiting
-			if alarm and lsyncd.is_before_eq(now, alarm) then
+			if alarm and lsyncd.clockbeforeq(now, alarm) then
 				log("Statusfile", "waiting(",now," < ",alarm,")")
 				return
 			end
 			-- determines when a next write will be possible
 			if not alarm then
 				local nextWrite = lastWritten and
-					lsyncd.addto_clock(now, settings.statusIntervall)
-				if nextWrite and lsyncd.is_before_eq(now, nextWrite) then
+					lsyncd.addtoclock(now, settings.statusIntervall)
+				if nextWrite and lsyncd.clockbeforeq(now, nextWrite) then
 					log("Statusfile", "setting alarm: ", nextWrite)
 					alarm = nextWrite
 					return
@@ -787,7 +787,7 @@ function lsyncd_cycle(now)
 		if s.processes:size() < s.config.maxProcesses then
 			local delays = s.delays
 			local d = delays[1]
-			if d and lsyncd.is_before_eq(d.alarm, now) then
+			if d and lsyncd.clockbeforeq(d.alarm, now) then
 				invoke_action(s, d)
 				table.remove(delays, 1)
 				s.delayname[d.pathname] = nil -- TODO grab from stack
@@ -922,7 +922,7 @@ function lsyncd_initialize()
 				table.insert(pids, pid)
 			end
 		end
-		lsyncd.wait_pids(pids, "startup_collector")
+		lsyncd.waitpids(pids, "startup_collector")
 		log("Normal", "- Entering normal operation with ",
 			Inotifies.size(), " monitored directories -")
 	else
@@ -1020,7 +1020,7 @@ end
 -----
 -- lsyncd classic - sync with rsync
 --
-local default_rsync = {
+local defaultRsync = {
 	----
 	-- Called for every sync/target pair on startup
 	startup = function(source, target) 
@@ -1076,7 +1076,6 @@ default = {
 		Delete = { Attrib = "Delete", Modify = "Delete", Create = "Modify", Delete = "Delete" },
 	},
 
-	rsync = default_rsync
+	rsync = defaultRsync
 }
-
 

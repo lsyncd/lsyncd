@@ -40,17 +40,10 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-/**
- * Macros to compare times() values
- * (borrowed from linux/jiffies.h)
- *
- * time_after(a,b) returns true if the time a is after time b.
- */
 #define time_after(a,b)         ((long)(b) - (long)(a) < 0)
 #define time_before(a,b)        time_after(b,a)
 #define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
 #define time_before_eq(a,b)     time_after_eq(b,a)
-
 
 /**
  * Event types core sends to runner.
@@ -488,7 +481,7 @@ l_log(lua_State *L)
  * @return the true if time1 <= time2
  */
 static int
-l_is_before_eq(lua_State *L) 
+l_clockbeforeq(lua_State *L) 
 {
 	clock_t t1 = (clock_t) luaL_checkinteger(L, 1);
 	clock_t t2 = (clock_t) luaL_checkinteger(L, 2);
@@ -531,7 +524,7 @@ l_now(lua_State *L)
  * TODO
  */
 static int
-l_addto_clock(lua_State *L) 
+l_addtoclock(lua_State *L) 
 {
 	clock_t c1 = luaL_checkinteger(L, 1);
 	clock_t c2 = luaL_checkinteger(L, 2);
@@ -611,7 +604,7 @@ l_exec(lua_State *L)
  * @return    absolute path of directory
  */
 static int
-l_real_dir(lua_State *L)
+l_realdir(lua_State *L)
 {
 	luaL_Buffer b;
 	char *cbuf;
@@ -690,7 +683,7 @@ l_stackdump(lua_State* L)
  * @return (Lua stack) a table of directory names.
  */
 static int
-l_sub_dirs (lua_State *L)
+l_subdirs (lua_State *L)
 {
 	const char * dirname = luaL_checkstring(L, 1);
 	DIR *d;
@@ -780,7 +773,7 @@ l_terminate(lua_State *L)
  *                    when a process finishes.
  */
 int 
-l_wait_pids(lua_State *L) 
+l_waitpids(lua_State *L) 
 {
 	/* the number of pids in table */
 	int pidn; 
@@ -901,19 +894,19 @@ l_configure(lua_State *L)
 
 static const luaL_reg lsyncdlib[] = {
 		{"add_watch",    l_add_watch    },
-		{"addto_clock",  l_addto_clock  },
-		{"is_before_eq", l_is_before_eq },
+		{"addtoclock",   l_addtoclock   },
+		{"clockbeforeq", l_clockbeforeq },
 		{"configure",    l_configure    },
 		{"earlier",      l_earlier      },
 		{"exec",         l_exec         },
 		{"log",          l_log          },
 		{"now",          l_now          },
 		{"writefd",      l_writefd      },
-		{"real_dir",     l_real_dir     },
+		{"realdir",      l_realdir      },
 		{"stackdump",    l_stackdump    },
-		{"sub_dirs",     l_sub_dirs     },
+		{"subdirs",      l_subdirs      },
 		{"terminate",    l_terminate    },
-		{"wait_pids",    l_wait_pids    },
+		{"waitpids",     l_waitpids     },
 		{NULL, NULL}
 };
 
