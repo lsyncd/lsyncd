@@ -142,7 +142,7 @@ end)()
 -- Locks globals,
 -- no more globals can be created
 --
-local function globalsLock()
+local function lockGlobals()
 	local t = _G
 	local mt = getmetatable(t) or {}
 	mt.__index = function(t, k) 
@@ -193,86 +193,100 @@ end)()
 -- Holds information about one observed directory inclusively subdirs.
 --
 local Sync = (function()
+
+	-----
+	-- Syncs that have no name specified get an incremental default name
+	--
+	local nextDefaultName = 1
+
+	-----
+	-- Puts an action on the delay stack.
+	--
+	local function delay(self, ename, time, path, path2)
+		log("Function", "delay(", self, ", ", ename, ", ", path, ")")
+		local delays = self.delays
+		local delayname = self.delayname
+
+		if ename == "Move" and not self.config.move then
+			-- if there is no move action defined, split a move as delete/create
+			log("Debug", "splitting Move into Delete & Create")
+			delay(self, "Delete", time, path,  nil)
+			delay(self, "Create", time, path2, nil)
+			return
+		end
+
+		-- creates the new action
+		local alarm 
+		if time and self.config.delay then
+			alarm = lsyncd.addtoclock(time, self.config.delay)
+		else
+			alarm = lsyncd.now()
+		end
+		local newd = Delay.new(ename, path, alarm)
+
+		local oldd = delayname[path] 
+		if oldd then
+			-- if there is already a delay on this path.
+			-- decide what should happen with multiple delays.
+			if newd.ename == "MoveFrom" or newd.ename == "MoveTo" or
+			   oldd.ename == "MoveFrom" or oldd.ename == "MoveTo" then
+			   -- do not collapse moves
+				log("Normal", "Not collapsing events with moves on ", path)
+				-- TODO stackinfo
+				return
+			else
+				local col = self.config.collapseTable[oldd.ename][newd.ename]
+				if col == -1 then
+					-- events cancel each other
+					log("Normal", "Nullfication: ", newd.ename, " after ",
+						oldd.ename, " on ", path)
+					oldd.ename = "None"
+					return
+				elseif col == 0 then
+					-- events tack
+					log("Normal", "Stacking ", newd.ename, " after ",
+						oldd.ename, " on ", path)
+					-- TODO Stack pointer
+				else
+					log("Normal", "Collapsing ", newd.ename, " upon ",
+						oldd.ename, " to ", col, " on ", path)
+					oldd.ename = col
+					return
+				end
+			end
+			table.insert(delays, newd)
+		else
+			delayname[path] = newd
+			table.insert(delays, newd)
+		end
+	end
+
 	-----
 	-- Creates a new Sync
 	--
 	local function new(config) 
-		local o = {
+		local s = {
 			config = config,
 			delays = CountArray.new(),
 			delayname = {},
 			source = config.source,
 			processes = CountArray.new(),
+			delay = delay,
 		}
-		return o
+		-- provides a default name if needed
+		if not config.name then
+			config.name = "Sync" .. nextDefaultName
+		end
+		-- increment default nevertheless to cause less confusion
+		nextDefaultName = nextDefaultName + 1
+		return s
 	end
 
+	-----
 	-- public interface
 	return {new = new}
 end)()
 
------
--- Puts an action on the delay stack.
---
-function Sync.delay(self, ename, time, path, path2)
-	log("Function", "delay(", self, ", ", ename, ", ", path, ")")
-	local delays = self.delays
-	local delayname = self.delayname
-
-	if ename == "Move" and not self.config.move then
-		-- if there is no move action defined, split a move as delete/create
-		log("Debug", "splitting Move into Delete & Create")
-		delay(self, "Delete", time, path,  nil)
-		delay(self, "Create", time, path2, nil)
-		return
-	end
-
-	-- creates the new action
-	local alarm 
-	-- TODO scope
-	if time and self.config.delay then
-		alarm = lsyncd.addtoclock(time, self.config.delay)
-	else
-		alarm = lsyncd.now()
-	end
-	local newd = Delay.new(ename, path, alarm)
-
-	local oldd = delayname[path] 
-	if oldd then
-		-- if there is already a delay on this path.
-		-- decide what should happen with multiple delays.
-		if newd.ename == "MoveFrom" or newd.ename == "MoveTo" or
-		   oldd.ename == "MoveFrom" or oldd.ename == "MoveTo" then
-		   -- do not collapse moves
-			log("Normal", "Not collapsing events with moves on ", path)
-			-- TODO stackinfo
-			return
-		else
-			local col = self.config.collapseTable[oldd.ename][newd.ename]
-			if col == -1 then
-				-- events cancel each other
-				log("Normal", "Nullfication: ", newd.ename, " after ",
-					oldd.ename, " on ", path)
-				oldd.ename = "None"
-				return
-			elseif col == 0 then
-				-- events tack
-				log("Normal", "Stacking ", newd.ename, " after ",
-					oldd.ename, " on ", path)
-				-- TODO Stack pointer
-			else
-				log("Normal", "Collapsing ", newd.ename, " upon ",
-					oldd.ename, " to ", col, " on ", path)
-				oldd.ename = col
-				return
-			end
-		end
-		table.insert(delays, newd)
-	else
-		delayname[path] = newd
-		table.insert(delays, newd)
-	end
-end
 
 -----
 -- Syncs - a singleton
@@ -280,7 +294,9 @@ end
 -- It maintains all configured directories to be synced.
 --
 local Syncs = (function()
+	-----
 	-- the list of all syncs
+	--
 	local list = Array.new()
 	
 	-----
@@ -313,6 +329,7 @@ local Syncs = (function()
 		-----
 		-- Creates a new config table and inherit all keys/values
 		-- from integer keyed tables
+		--
 		local uconfig = config
 		config = {}
 		inherit(config, uconfig)
@@ -363,12 +380,16 @@ local Syncs = (function()
 		table.insert(list, s)
 	end
 
+	-----
 	-- allows to walk through all syncs
+	--
 	local function iwalk()
 		return ipairs(list)
 	end
 
+	-----
 	-- returns the number of syncs
+	--
 	local size = function()
 		return #list
 	end
@@ -470,7 +491,7 @@ local Inotifies = (function()
 			if filename2 then
 				path2 = inotify.path..filename2
 			end
-			Sync.delay(inotify.sync, ename, time, path, path2)
+			inotify.sync:delay(ename, time, path, path2)
 			-- adds subdirs for new directories
 			if inotify.recurse and isdir then
 				if ename == "Create" then
@@ -926,7 +947,7 @@ function lsyncd_initialize()
 	settings = settings or {}
 
 	-- From this point on, no globals may be created anymore
-	globalsLock()
+	lockGlobals()
 
 	-- TODO
 	if settings.statusIntervall == nil then
