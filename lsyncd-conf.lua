@@ -16,14 +16,23 @@ prefix = "sleep 1 && "
 slowbash = {
 	delay = 5,
 
-	onStartup = function(config)
-		-- called on startup
-		local source = config.source
-		local target = config.target
-		log("Normal", "cp -r from ", source, " -> ", target)
-		spawnShell("all", {[0]="ok", others="fail"},
+	init = function(inlet)
+		local c = inlet.getConfig()
+		log("Normal", "cp -r from ", c.source, " -> ", c.target)
+
+		-- collect gets called when spawned process finished
+		local function collect(exitcode)
+			if exitcode == 0 then
+				log("Normal", "Startup of '"..c.source.."' finished.")
+			else
+				log("Error", "Failure on startup of '"...source.."'.")
+				terminate(-1) -- ERRNO
+			end
+		end
+
+		spawnShell(inlet.blanketEvent(), collect,
 			[[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], 
-			source, target)
+			config.source, config.target)
 	end,
 
 	onCreate = function(event)

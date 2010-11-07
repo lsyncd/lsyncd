@@ -176,9 +176,9 @@ local Delay = (function()
 	-- Creates a new delay.
 	-- 
 	-- @param TODO
-	local function new(ename, path, alarm)
+	local function new(etype, path, alarm)
 		local o = {
-			ename = ename, -- TODO rename
+			etype = etype,
 			alarm = alarm,
 			path  = path,
 			status = "delay",
@@ -201,12 +201,12 @@ local Sync = (function()
 	-----
 	-- Puts an action on the delay stack.
 	--
-	local function delay(self, ename, time, path, path2)
-		log("Function", "delay(", self, ", ", ename, ", ", path, ")")
+	local function delay(self, etype, time, path, path2)
+		log("Function", "delay(", self, ", ", etype, ", ", path, ")")
 		local delays = self.delays
 		local delayname = self.delayname
 
-		if ename == "Move" and not self.config.move then
+		if etype == "Move" and not self.config.move then
 			-- if there is no move action defined, split a move as delete/create
 			log("Debug", "splitting Move into Delete & Create")
 			delay(self, "Delete", time, path,  nil)
@@ -221,35 +221,35 @@ local Sync = (function()
 		else
 			alarm = lsyncd.now()
 		end
-		local newd = Delay.new(ename, path, alarm)
+		local newd = Delay.new(etype, path, alarm)
 
 		local oldd = delayname[path] 
 		if oldd then
 			-- if there is already a delay on this path.
 			-- decide what should happen with multiple delays.
-			if newd.ename == "MoveFrom" or newd.ename == "MoveTo" or
-			   oldd.ename == "MoveFrom" or oldd.ename == "MoveTo" then
+			if newd.etype == "MoveFrom" or newd.etype == "MoveTo" or
+			   oldd.etype == "MoveFrom" or oldd.etype == "MoveTo" then
 			   -- do not collapse moves
 				log("Normal", "Not collapsing events with moves on ", path)
 				-- TODO stackinfo
 				return
 			else
-				local col = self.config.collapseTable[oldd.ename][newd.ename]
+				local col = self.config.collapseTable[oldd.etype][newd.etype]
 				if col == -1 then
 					-- events cancel each other
-					log("Normal", "Nullfication: ", newd.ename, " after ",
-						oldd.ename, " on ", path)
-					oldd.ename = "None"
+					log("Normal", "Nullfication: ", newd.etype, " after ",
+						oldd.etype, " on ", path)
+					oldd.etype = "None" -- TODO remove name block
 					return
 				elseif col == 0 then
 					-- events tack
-					log("Normal", "Stacking ", newd.ename, " after ",
-						oldd.ename, " on ", path)
+					log("Normal", "Stacking ", newd.etype, " after ",
+						oldd.etype, " on ", path)
 					-- TODO Stack pointer
 				else
-					log("Normal", "Collapsing ", newd.ename, " upon ",
-						oldd.ename, " to ", col, " on ", path)
-					oldd.ename = col
+					log("Normal", "Collapsing ", newd.etype, " upon ",
+						oldd.etype, " to ", col, " on ", path)
+					oldd.etype = col
 					return
 				end
 			end
@@ -287,12 +287,18 @@ local Sync = (function()
 		if d and lsyncd.clockbeforeq(d.alarm, now) then
 			InletControl.set(sync, delay)
 			sync.config.action(Inlet)
-			invoke_action(s, d)
 
 			-- TODO do not remove
 			table.remove(delays, 1)
 			s.delayname[d.path] = nil 
 		end
+	end
+
+	------
+	-- adds a blanketEvent thats blocks all (startup)
+	--
+	local function addBlanketEvent()
+		
 	end
 
 	-----
@@ -492,14 +498,14 @@ local Inotifies = (function()
 	-----
 	-- Called when an event has occured.
 	--
-	-- @param ename     "Attrib", "Mofify", "Create", "Delete", "Move")
+	-- @param etype     "Attrib", "Mofify", "Create", "Delete", "Move")
 	-- @param wd        watch descriptor (matches lsyncd.add_watch())
 	-- @param isdir     true if filename is a directory
 	-- @param time      time of event
 	-- @param filename  string filename without path
 	-- @param filename2 
 	--
-	function event(ename, wd, isdir, time, filename, filename2)
+	function event(etype, wd, isdir, time, filename, filename2)
 		local ftype;
 		if isdir then
 			ftype = "directory"
@@ -509,10 +515,10 @@ local Inotifies = (function()
 			end
 		end
 		if filename2 then
-			log("Inotify", "got event ", ename, " ", filename, 
+			log("Inotify", "got event ", etype, " ", filename, 
 				" to ", filename2) 
 		else 
-			log("Inotify", "got event ", ename, " ", filename) 
+			log("Inotify", "got event ", etype, " ", filename) 
 		end
 
 		local ilist = wdlist[wd]
@@ -530,12 +536,12 @@ local Inotifies = (function()
 			if filename2 then
 				path2 = inotify.path..filename2
 			end
-			inotify.sync:delay(ename, time, path, path2)
+			inotify.sync:delay(etype, time, path, path2)
 			-- adds subdirs for new directories
 			if inotify.recurse and isdir then
-				if ename == "Create" then
+				if etype == "Create" then
 					add(inotify.root, path, true, inotify.sync)
-				elseif ename == "Delete" then
+				elseif etype == "Delete" then
 					-- TODO
 				end
 			end
@@ -617,7 +623,7 @@ function lsyncd_collect_process(pid, exitcode)
 	if not delay then
 		return
 	end
-	log("Debug", "collected ",pid, ": ",delay.ename," of ",
+	log("Debug", "collected ",pid, ": ",delay.etype," of ",
 		sync.source, delay.path," = ",exitcode)
 	sync.processes[pid] = nil
 end
@@ -647,6 +653,14 @@ local Inlet, InletControl = (function()
 	end
 
 	-----
+	-- Creates a blanketEvent that blocks everything
+	-- and is blocked by everything.
+	--
+	local function blanketEvent()
+		return sync.addBlanketEvent()
+	end
+
+	-----
 	-- Interface for the user to get fields.
 	local eventFields = {
 		config = function()
@@ -662,7 +676,7 @@ local Inlet, InletControl = (function()
 		--    "Modify"
 		--    "Move"
 		etype = function()
-			return delay.ename
+			return delay.etype
 		end,
 		
 		-----
@@ -791,17 +805,17 @@ local Inlet, InletControl = (function()
 	end
 
 	-----
-	-- public interface
-	return {getEvent = getEvent, getConfig = getConfig}, 
-		{set = set, getInterior = getInterior }
+	-- public interface.
+	-- this one is split, one for user one for runner.
+	return {
+			getEvent = getEvent, 
+			getConfig = getConfig, 
+			blanketEvent = blanketEvent
+		}, {
+			set = set, 
+			getInterior = getInterior 
+		}
 end)()
-
------
--- TODO
---
---
-local function invoke_action(sync, delay)
-end
 
 
 ----
@@ -989,37 +1003,17 @@ function lsyncd_initialize()
 		terminate(-1) -- ERRNO
 	end
 
-	-- set to true if at least one sync has a startup function
-	local have_startup = false
-	-- runs through the syncs table filled by user calling directory()
-	for _, s in Syncs.iwalk() do
-		if s.config.onStartup then
-			have_startup = true
-		end
-		-- adds the dir watch inclusively all subdirs
-		Inotifies.add(s.source, "", true, s)
-	end
-
 	-- from now on use logging as configured instead of stdout/err.
 	running = true;
 	lsyncd.configure("running");
-	
-	if have_startup then
-		log("Normal", "--- startup ---")
-		local pids = { }
-		for _, s in Syncs.iwalk() do
-			local pid
-			if s.config.onStartup then
-				local pid = s.config.onStartup(s.config)
-				table.insert(pids, pid)
-			end
+
+	-- runs through the syncs table filled by user calling directory()
+	for _, s in Syncs.iwalk() do
+		Inotifies.add(s.source, "", true, s)
+		if s.config.init then
+			InletControl(s, nil)
+			s.config.init(Inlet)
 		end
-		lsyncd.waitpids(pids, "startup_collector")
-		log("Normal", "- Entering normal operation with ",
-			Inotifies.size(), " monitored directories -")
-	else
-		log("Normal", "- Warmstart into normal operation with ",
-			Inotifies.size(), " monitored directories -")
 	end
 end
 
@@ -1110,11 +1104,15 @@ overflow = default_overflow
 --                process blocks all events and is blocked by all
 --                this is used on startup.
 -- @param collect a table of exitvalues and the action that shall taken.
--- @param ...     binary and arguments to execute.
+-- @param binary  binary to call
+-- @param ...     arguments
 --
-function spawn(agent, collect, ...)
-	local pid = lsyncd.exec(...)
+function spawn(agent, collect, binary, ...)
+	local pid = lsyncd.exec(binary, ...)
 	if pid and pid > 0 then
+		if agent == "full" then
+
+		end
 		local sync, delay = InletControl.getInterior(agent)
 		delay.status = "active"
 		delay.collect = collect

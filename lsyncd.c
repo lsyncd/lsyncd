@@ -780,108 +780,6 @@ l_terminate(lua_State *L)
 }
 
 /**
- * Suspends execution until a table of child processes returned.
- * 
- * @param (Lua stack) a table of the process ids.
- * @param (Lua stack) a function of a collector to be called 
- *                    when a process finishes.
- */
-int 
-l_waitpids(lua_State *L) 
-{
-	/* the number of pids in table */
-	int pidn; 
-	/* the pid table */
-	int *pids; 
-	/* the number of processes to be waited for */
-	int remaining = 0;
-	int i;
-	/* global function to call on finished processes */
-	const char * collector;
-	/* checks if Lua script returned a table */
-	luaL_checktype(L, 1, LUA_TTABLE);
-	if (lua_type(L, 2) == LUA_TNIL) {
-		collector = NULL;
-	} else {
-		collector = luaL_checkstring(L, 2);
-	}
-
-	/* determines size of the pid-table */
-	pidn = lua_objlen (L, 1);
-	if (pidn == 0) {
-		/* nothing to do on zero pids */
-		return 0;
-	}
-	/* reads the pid table from Lua stack */
-	pids = s_calloc(pidn, sizeof(int));
-	for(i = 0; i < pidn; i++) {
-		lua_rawgeti(L, 1, i + 1);
-		pids[i] = luaL_checkinteger(L, -1);
-		lua_pop(L, 1);
-		/* ignores zero pids */
-		if (pids[i]) {
-			remaining++;
-		}
-	}
-	/* starts waiting for the processes */
-	while(remaining) {
-		/* argument for waitpid, and exitcode of process */
-		int status, exitcode;
-		/* new process id in case of retry */
-		int newp;
-		/* process id of terminated child process */
-		int wp = waitpid(0, &status, 0);
-
-		/* if nothing really finished ignore */
-		if (wp == 0 || !WIFEXITED(status)) {
-			continue;
-		}
-
-		exitcode = WEXITSTATUS(status);
-		/* checks if the pid is one waited for */
-		for(i = 0; i < pidn; i++) {
-			if (pids[i] == wp) {
-				break;
-			}
-		}
-		if (i >= pidn) {
-			/* not a pid waited for */
-			continue;
-		}
-		/* calls the lua collector to determine further actions */
-		if (collector) {
-			printlogf(L, "Call", "startup collector");
-			lua_getglobal(L, "lsyncd_call_error");
-			lua_getglobal(L, collector);
-			lua_pushinteger(L, wp);
-			lua_pushinteger(L, exitcode);
-			if (lua_pcall(L, 2, 1, -4)) {
-				exit(-1); // ERRNO
-			}
-			newp = luaL_checkinteger(L, -1);
-			lua_pop(L, 2);
-		} else {
-			newp = 0;
-		}
-
-		/* replace the new pid in the pidtable,
-		   or zero it on no new pid */
-		for(i = 0; i < pidn; i++) {
-			if (pids[i] == wp) {
-				pids[i] = newp;
-				if (newp == 0) {
-					remaining--;
-				}
-				/* does not break!
-				 * in case there are duplicate pids (why-ever) */
-			}
-		}
-	}
-	free(pids);
-	return 0;
-}
-
-/**
  * Configures core parameters.
  * 
  * @param (Lua stack) a string for a core configuratoin
@@ -921,7 +819,6 @@ static const luaL_reg lsyncdlib[] = {
 		{"stackdump",    l_stackdump    },
 		{"subdirs",      l_subdirs      },
 		{"terminate",    l_terminate    },
-		{"waitpids",     l_waitpids     },
 		{NULL, NULL}
 };
 
