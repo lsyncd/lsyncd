@@ -21,7 +21,8 @@ slowbash = {
 		local source = config.source
 		local target = config.target
 		log("Normal", "cp -r from ", source, " -> ", target)
-		return shell([[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], 
+		spawnShell("all", {[0]="ok", others="fail"},
+			[[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], 
 			source, target)
 	end,
 
@@ -29,27 +30,27 @@ slowbash = {
 		local s = event.sourcePathname
 		local t = event.targetPathname
 		log("Normal", "create from ", s, " -> ", t)
-		return shell(prefix..[[cp -r "$1" "$2"]], s, t)
+		spawnShell(event, "ok", prefix..[[cp -r "$1" "$2"]], s, t)
 	end,
 
 	onModify = function(event)
 		local s = event.sourcePathname
 		local t = event.targetPathname
 		log("Normal", "modify from ", s, " -> ", t)
-		return shell(prefix..[[cp -r "$1" "$2"]], s, t)
+		spawnShell(event, "ok", prefix..[[cp -r "$1" "$2"]], s, t)
 	end,
 
 	onDelete = function(event)
 		local t = event.targetPathname
 		log("Normal", "delete ", t)
-		return shell(prefix..[[rm -rf "$1"]], t)
+		spawnShell(event, "ok", prefix..[[rm -rf "$1"]], t)
 	end,
 
 	onMove = function(event)
 		local t = event.targetPathname
 		local d = event.dest.targetPathname
 		log("Normal", "delete ", t)
-		return shell(prefix..[[mv "$1" "$2"]], t, d)
+		spawnShell(event, "ok", prefix..[[mv "$1" "$2"]], t, d)
 	end,
 }
 

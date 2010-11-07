@@ -275,6 +275,27 @@ local Sync = (function()
 	end
 
 	-----
+	-- Creates new actions
+	--
+	local function invokeActions(self)
+		if self.processes:size() >= self.config.maxProcesses then
+			return
+		end
+
+		local delays = self.delays
+		local d = delays[1]
+		if d and lsyncd.clockbeforeq(d.alarm, now) then
+			InletControl.set(sync, delay)
+			sync.config.action(Inlet)
+			invoke_action(s, d)
+
+			-- TODO do not remove
+			table.remove(delays, 1)
+			s.delayname[d.path] = nil 
+		end
+	end
+
+	-----
 	-- Creates a new Sync
 	--
 	local function new(config) 
@@ -289,6 +310,7 @@ local Sync = (function()
 			-- functions
 			delay = delay,
 			getAlarm = getAlarm,
+			invokeActions = invokeActions,
 		}
 		-- provides a default name if needed
 		if not config.name then
@@ -384,7 +406,7 @@ local Syncs = (function()
 
 		-- loads a default value for an option if not existent
 		local function optional(name)
-			if config[name] then
+			if config[name] ~= nil then
 				return
 			end
 			config[name] = settings[name] or default[name]
@@ -603,10 +625,10 @@ end
 -----
 -- User interface to grap events
 --
--- inlet_control is the Luas runner part to control the interface
+-- InletControl is the Luas runner part to control the interface
 -- hidden from the user.
 --
-local Inlet, inlet_control = (function()
+local Inlet, InletControl = (function()
 	-- lua runner controlled variables
 	local sync  = true
 	local delay = true
@@ -736,19 +758,19 @@ local Inlet, inlet_control = (function()
 	}
 	setmetatable(event, eventMeta)
 
-	-----	
+	-----
 	-- Interface for lsyncd runner to control what
 	-- the inlet will present the user.
 	--
-	local function control(set_sync, set_delay)
-		sync  = set_sync
-		delay = set_delay
+	local function set(setSync, setDelay)
+		sync  = setSync
+		delay = setDelay
 	end
 
 	-----
 	-- Gets the next event from queue.
 	--
-	local function get_event()
+	local function getEvent()
 		-- TODO actually aquire here
 		return event
 	end
@@ -756,14 +778,22 @@ local Inlet, inlet_control = (function()
 	-----
 	-- Returns the configuration table specified by sync{}
 	--
-	local function get_config()
+	local function getConfig()
 		-- TODO give a readonly handler only.
 		return sync.config
 	end
 
 	-----
+	-- Return the inner config
+	--    not to be called from user
+	local function getInterior(event)
+		return sync, delay
+	end
+
+	-----
 	-- public interface
-	return {get_event = get_event, get_config = get_config}, control
+	return {getEvent = getEvent, getConfig = getConfig}, 
+		{set = set, getInterior = getInterior }
 end)()
 
 -----
@@ -771,19 +801,8 @@ end)()
 --
 --
 local function invoke_action(sync, delay)
-	if delay.ename == "None" then
-		-- a removed action
-		return
-	end
-
-	inlet_control(sync, delay)
-	local pid = sync.config.action(Inlet)
-	if pid and pid > 0 then
-		delay.status = "active"
-		sync.processes[pid] = delay
-	end
 end
-	
+
 
 ----
 -- Writes a status report file at most every [statusintervall] seconds.
@@ -865,15 +884,7 @@ function lsyncd_cycle(now)
 		StatusFile.write(now)
 	end
 	for _, s in Syncs.iwalk() do
-		if s.processes:size() < s.config.maxProcesses then
-			local delays = s.delays
-			local d = delays[1]
-			if d and lsyncd.clockbeforeq(d.alarm, now) then
-				invoke_action(s, d)
-				table.remove(delays, 1)
-				s.delayname[d.path] = nil -- TODO grab from stack
-			end
-		end
+		s:invokeActions()
 	end
 end
 
@@ -1075,7 +1086,7 @@ end
 --
 function sync(opts)
 	if running then
-		error("Cannot add syncs while running!")
+		error("Cannot add new syncs while running!")
 	end
 	Syncs.add(opts)
 end
@@ -1090,14 +1101,32 @@ end
 overflow = default_overflow
 
 -----
--- Spawns a child process using bash.
+-- Spawn a new child process
 --
-function shell(command, ...)
-	return lsyncd.exec("/bin/sh", "-c", command, "/bin/sh", ...)
+-- @param agent   the reason why a process is spawned.
+--                normally this is a delay/event of a sync.
+--                it will mark the related files as blocked.
+--                or it is a string saying "all", that this 
+--                process blocks all events and is blocked by all
+--                this is used on startup.
+-- @param collect a table of exitvalues and the action that shall taken.
+-- @param ...     binary and arguments to execute.
+--
+function spawn(agent, collect, ...)
+	local pid = lsyncd.exec(...)
+	if pid and pid > 0 then
+		local sync, delay = InletControl.getInterior(agent)
+		delay.status = "active"
+		delay.collect = collect
+		sync.processes[pid] = delay
+	end
 end
 
-function exec(...)
-	return lsyncd.exec(...)
+-----
+-- Spawns a child process using bash.
+--
+function spawnShell(agent, collect, command, ...)
+	return spawn(agent, collect, "/bin/sh", "-c", command, "/bin/sh", ...)
 end
 
 --============================================================================
