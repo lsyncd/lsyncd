@@ -987,8 +987,11 @@ masterloop(lua_State *L)
 		if (lua_pcall(L, 0, 1, -2)) {
 			exit(-1); // ERRNO
 		}
-		have_alarm = lua_toboolean(L, -1);
-		if (have_alarm) {
+		
+		if (lua_type(L, -1) == LUA_TBOOLEAN) {
+			have_alarm = lua_toboolean(L, -1);
+		} else {
+			have_alarm = true;
 			alarm_time = (clock_t) luaL_checkinteger(L, -1);
 		}
 		lua_pop(L, 2);

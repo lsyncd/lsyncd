@@ -23,16 +23,16 @@ slowbash = {
 		-- collect gets called when spawned process finished
 		local function collect(exitcode)
 			if exitcode == 0 then
-				log("Normal", "Startup of '"..c.source.."' finished.")
+				log("Normal", "Startup of '",c.source,"' finished.")
 			else
-				log("Error", "Failure on startup of '"...source.."'.")
+				log("Error", "Failure on startup of '",c.source,"'.")
 				terminate(-1) -- ERRNO
 			end
 		end
 
 		spawnShell(inlet.blanketEvent(), collect,
 			[[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], 
-			config.source, config.target)
+			c.source, c.target)
 	end,
 
 	onCreate = function(event)
