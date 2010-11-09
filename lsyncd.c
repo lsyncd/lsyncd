@@ -410,7 +410,7 @@ static int l_stackdump(lua_State* L);
  * @return    (Lua stack) numeric watch descriptor
  */
 static int
-l_add_watch(lua_State *L)
+l_inotifyadd(lua_State *L)
 {
 	const char *path = luaL_checkstring(L, 1);
 	lua_Integer wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
@@ -418,6 +418,19 @@ l_add_watch(lua_State *L)
 	return 1;
 }
 
+/**
+ * Removes an inotify watch
+ * 
+ * @param dir (Lua stack) numeric watch descriptor
+ * @return    nil
+ */
+static int
+l_inotifyrm(lua_State *L)
+{
+	lua_Integer wd = luaL_checkinteger(L, 1);
+	inotify_rm_watch(inotify_fd, wd);
+	return 0;
+}
 
 /**
  * Logs a message.
@@ -805,20 +818,21 @@ l_configure(lua_State *L)
 
 
 static const luaL_reg lsyncdlib[] = {
-		{"add_watch",    l_add_watch    },
 		{"addtoclock",   l_addtoclock   },
 		{"clockbefore",  l_clockbefore  },
 		{"clockbeforeq", l_clockbeforeq },
 		{"configure",    l_configure    },
 		{"earlier",      l_earlier      },
 		{"exec",         l_exec         },
+		{"inotifyadd",   l_inotifyadd   },
+		{"inotifyrm",    l_inotifyrm    },
 		{"log",          l_log          },
 		{"now",          l_now          },
-		{"writefd",      l_writefd      },
 		{"realdir",      l_realdir      },
 		{"stackdump",    l_stackdump    },
 		{"subdirs",      l_subdirs      },
 		{"terminate",    l_terminate    },
+		{"writefd",      l_writefd      },
 		{NULL, NULL}
 };
 

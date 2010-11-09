@@ -114,27 +114,33 @@ local CountArray = (function()
 		t[k_nt][k] = v
 	end
 
-	-- TODO
-	local function iwalk(self)
-		return ipairs(self[k_nt])
+	-----
+	-- Walks through all entries in any order.
+	--
+	local function walk(self)
+		return pairs(self[k_nt])
 	end
 
 	-----
 	-- returns the count
+	--
 	local function size(self)
 		return self._size
 	end
 
 	-----
 	-- creates a new count array
+	--
 	local function new()
 		-- k_nt is native table, private for this object.
-		local o = {_size = 0, iwalk = iwalk, size = size, [k_nt] = {} }
+		local o = {_size = 0, walk = walk, size = size, [k_nt] = {} }
 		setmetatable(o, mt)
 		return o
 	end
 
-	-- objects public interface
+	-----
+	-- public interface
+	--
 	return {new = new}
 end)()
 
@@ -527,34 +533,24 @@ local Sync = (function()
 	local function invokeActions(self, now)
 		log("Function", "invokeActions('",self.config.name,"',",now,")")
 		if self.processes:size() >= self.config.maxProcesses then
-			log("Debug", "no new processes")
 			-- no new processes
 			return
 		end
 		for _, d in ipairs(self.delays) do
-			log("Debug", "iter")
 			if d.alarm ~= true and lsyncd.clockbefore(now, d.alarm) then
 				-- reached point in stack where delays are in future
-				log("Debug", "waits in future.")
 				return
 			end
 			if d.status == "wait" then
 				-- found a waiting delay
-				log("Debug", "invoke")
 				InletControl.set(self)
-				log("Debug", "invoke2")
 				self.config.action(Inlet)
-				log("Debug", "invoke3")
 				if self.processes:size() >= self.config.maxProcesses then
 					-- no further processes
-					log("Debug", "no further processes")
 					return
 				end
-				log("Debug", "finInvoke")
 			end
-			log("Debug", "next")
 		end
-		log("Debug", "finInvoke")
 	end
 
 
@@ -732,6 +728,11 @@ local Inotifies = (function()
 	local wdlist = CountArray.new()
 
 	-----
+	-- A list indexed by sync's containing a list of all paths
+	-- watches by this sync pointing to the watch descriptor.
+	local syncpaths = {}
+
+	-----
 	-- Adds watches for a directory including all subdirectories.
 	--
 	-- @param root+path  directory to observe
@@ -743,7 +744,7 @@ local Inotifies = (function()
 		log("Function", 
 			"Inotifies.add(",root,", ",path,", ",recurse,", ",sync,")")
 		-- registers watch 
-		local wd = lsyncd.add_watch(root .. path);
+		local wd = lsyncd.inotifyadd(root .. path);
 		if wd < 0 then
 			log("Error","Failure adding watch ",dir," -> ignored ")
 			return
@@ -755,9 +756,16 @@ local Inotifies = (function()
 		table.insert(wdlist[wd], {
 			root = root,
 			path = path,
-			recurse = recurse, 
+			recurse = recurse,
 			sync = sync
 		})
+		-- create an entry for receival of with sync/path keys
+		local sp = syncpaths[sync]
+		if not sp then
+			sp = {}
+			syncpaths[sync] = sp
+		end
+		sp[path] = wd
 
 		-- registers and adds watches for all subdirectories 
 		if recurse then
@@ -766,6 +774,41 @@ local Inotifies = (function()
 				add(root, path..dirname.."/", true, sync)
 			end
 		end
+	end
+
+	-----
+	-- Removes one event receiver from a directory.
+	--
+	function removeSync(sync, path)
+	    local sp = syncpaths[sync]
+		if not sp then
+			error("internal fail, removeSync, nonexisting syncpath-sync.")
+		end
+		local wd = sp[path]
+		if not wd then
+			error("internal fail, removeSync, nonexisting syncpath-wd.")
+		end
+		local ilist = wdlist[wd]
+		if not ilist then
+			error("internal fail, removeSync, nonexisting syncpath-ilist.")
+		end
+		-- TODO optimize for 1 entry only case
+		local i, found
+		for i, v in ipairs(ilist) do
+			if v.sync == sync then
+				found = true
+				break
+			end
+		end
+		if not found then
+			error("internal fail, removeSync, nonexisiting syncpath-i.")
+		end
+		table.remove(ilist, i)
+		if #ilist == 0 then
+			wdlist[wd] = nil
+			lsyncd.inotifyrm(wd)
+		end
+		sp[path] = nil
 	end
 
 	-----
@@ -807,15 +850,15 @@ local Inotifies = (function()
 			local path = inotify.path .. filename
 			local path2 
 			if filename2 then
-				path2 = inotify.path..filename2
+				path2 = inotify.path .. filename2
 			end
 			inotify.sync:delay(etype, time, path, path2)
 			-- adds subdirs for new directories
-			if inotify.recurse and isdir then
-				if etype == "Create" then
+			if isdir then
+				if inotify.recurse and etype == "Create" then
 					add(inotify.root, path, true, inotify.sync)
 				elseif etype == "Delete" then
-					-- TODO
+					removeSync(inotify.sync, path)
 				end
 			end
 		end
@@ -826,7 +869,7 @@ local Inotifies = (function()
 	--
 	local function status_report(f)
 		f:write("Watching ",wdlist:size()," directories\n")
-		for wd, v in wdlist:iwalk() do
+		for wd, v in wdlist:walk() do
 			f:write("  ",wd,": ")
 			local sep = ""
 			for _, v in ipairs(v) do
