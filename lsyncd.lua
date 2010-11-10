@@ -354,20 +354,30 @@ local Inlet, InletControl = (function()
 	-- pairs(), use a weak table as referencer instead.
 	--
 	local function toEvent(delay)
-		if not delay.event then
-			if delay.etype ~= "Move" then
+		if delay.etype ~= "Move" then
+			if not delay.event then
 				delay.event = {}
 				setmetatable(delay.event, eventMeta)
 				delay.event[delayKey] = delay
 			end
+			return delay.event
+		else
+			-- moves have 2 events - origin and destination
+			if not delay.event then
 				delay.event = {}
 				delay.event2 = {}
+
 				setmetatable(delay.event, eventMeta)
 				setmetatable(delay.event2, eventMeta)
+
 				delay.event[delayKey] = delay
 				delay.event2[delayKey] = delay
+
+				delay.event[moveDestKey] = false
+				delay.event2[moveDestKey] = true
+			end
+			return delay.event, delay.event2
 		end
-		return delay.event, delay.event2
 	end
 
 	
@@ -491,6 +501,7 @@ local Sync = (function()
 		if nd.etype == "Move" then
 			log("Normal", "Stacking a move event ",path," -> ",path2)
 			table.insert(self.delays, nd)
+			return
 		end
 
 		-----
@@ -731,9 +742,11 @@ local Syncs = (function()
 		end
 
 		-- loads a default value for an option if not existent
-		for dn, dv in pairs(default) do
+		local defaultValues = 
+			{'action', 'collapse', 'collapseTable', 'maxProcesses'}
+		for _, dn in pairs(defaultValues) do
 			if config[dn] == nil then
-				config[dn] = settings[dn] or dv
+				config[dn] = settings[dn] or default[dn]
 			end
 		end
 
@@ -918,7 +931,7 @@ local Inotifies = (function()
 	-----
 	-- Writes a status report about inotifies to a filedescriptor
 	--
-	local function status_report(f)
+	local function statusReport(f)
 		f:write("Watching ",wdlist:size()," directories\n")
 		for wd, v in wdlist:walk() do
 			f:write("  ",wd,": ")
@@ -942,7 +955,7 @@ local Inotifies = (function()
 		add = add, 
 		size = size, 
 		event = event, 
-		status_report = status_report 
+		statusReport = statusReport 
 	}
 end)()
 
@@ -1041,7 +1054,7 @@ local StatusFile = (function()
 			return
 		end
 		f:write("Lsyncd status report at ", os.date(), "\n\n")
-		Inotifies.status_report(f)
+		Inotifies.statusReport(f)
 		f:close()
 	end
 
@@ -1161,7 +1174,9 @@ function lsyncd_initialize()
 	-- From this point on, no globals may be created anymore
 	lockGlobals()
 
-	-- TODO
+	-----
+	-- transfers some defaults to settings 
+	-- TODO: loop
 	if settings.statusIntervall == nil then
 		settings.statusIntervall = default.statusIntervall
 	end
