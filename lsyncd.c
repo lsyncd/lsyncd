@@ -1252,7 +1252,7 @@ main(int argc, char *argv[])
 	}
 
 	{
-		/* checks if there is a "-help" or "--help" before anything more */
+		/* checks if there is a "-help" or "--help" */
 		int i;
 		for(i = argp; i < argc; i++) {
 			if (!strcmp(argv[i],"-help") || !strcmp(argv[i],"--help")) {
@@ -1291,7 +1291,6 @@ main(int argc, char *argv[])
 		}
 		lua_pop(L, 2); // TODO
 	}
-
 
 	if (lsyncd_config_file) {
 		/* checks for the configuration and existence of the config file */

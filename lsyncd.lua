@@ -182,11 +182,12 @@ local Delay = (function()
 	-- Creates a new delay.
 	-- 
 	-- @param TODO
-	local function new(etype, path, alarm)
+	local function new(etype, alarm, path, path2)
 		local o = {
 			etype = etype,
 			alarm = alarm,
 			path  = path,
+			path2  = path2,
 			status = "wait",
 		}
 		return o
@@ -349,7 +350,7 @@ local Inlet, InletControl = (function()
 	-- Creates a blanketEvent that blocks everything
 	-- and is blocked by everything.
 	--
-	local function blanketEvent()
+	local function createBlanketEvent()
 		return toEvent(sync:addBlanketDelay())
 	end
 
@@ -372,7 +373,7 @@ local Inlet, InletControl = (function()
 	-- Interface for lsyncd runner to control what
 	-- the inlet will present the user.
 	--
-	local function set(setSync)
+	local function setSync(setSync)
 		sync = setSync
 	end
 
@@ -389,10 +390,11 @@ local Inlet, InletControl = (function()
 	return {
 			getEvent = getEvent, 
 			getConfig = getConfig, 
-			blanketEvent = blanketEvent
+			createBlanketEvent = createBlanketEvent,
 		}, {
-			set = set, 
-			getInterior = getInterior 
+			setSync = setSync, 
+			getInterior = getInterior, -- TODO <- remove
+			toEvent = toEvent,
 		}
 end)()
 
@@ -433,17 +435,18 @@ local Sync = (function()
 		log("Debug", "collected ",pid, ": ",delay.etype," of ",
 			self.source, delay.path," = ",exitcode)
 		self.processes[pid] = nil
-		self.delayname[delay.path] = nil 
 	end
 
 	-----
 	-- Puts an action on the delay stack.
 	--
 	local function delay(self, etype, time, path, path2)
-		log("Function", "delay(", self.config.name,", ",etype,", ",path,"...)")
-		local delayname = self.delayname
+		log("Function", "delay(", self.config.name,", ",etype,", ",path,")")
+		if path2 then
+			log("Function", "...delay(+",path2,")")
+		end
 
-		if etype == "Move" and not self.config.move then
+		if etype == "Move" and not self.config.onMove then
 			-- if there is no move action defined, split a move as delete/create
 			log("Debug", "splitting Move into Delete & Create")
 			delay(self, "Delete", time, path,  nil)
@@ -458,43 +461,53 @@ local Sync = (function()
 		else
 			alarm = lsyncd.now()
 		end
-		local newd = Delay.new(etype, path, alarm)
+		-- new delay
+		local nd = Delay.new(etype, alarm, path, path2)
 
-		local oldd = delayname[path] 
-		if oldd then
-			-- if there is already a delay on this path.
-			-- decide what should happen with multiple delays.
-			if newd.etype == "MoveFrom" or newd.etype == "MoveTo" or
-			   oldd.etype == "MoveFrom" or oldd.etype == "MoveTo" then
-			   -- do not collapse moves
-				log("Normal", "Not collapsing events with moves on ", path)
-				-- TODO stackinfo
-				return
-			else
-				local col = self.config.collapseTable[oldd.etype][newd.etype]
-				if col == -1 then
-					-- events cancel each other
-					log("Normal", "Nullfication: ", newd.etype, " after ",
-						oldd.etype, " on ", path)
-					oldd.etype = "None" -- TODO remove name block
-					return
-				elseif col == 0 then
-					-- events tack
-					log("Normal", "Stacking ", newd.etype, " after ",
-						oldd.etype, " on ", path)
-					-- TODO Stack pointer
-				else
-					log("Normal", "Collapsing ", newd.etype, " upon ",
-						oldd.etype, " to ", col, " on ", path)
-					oldd.etype = col
-					return
+		if nd.etype == "Move" then
+			log("Normal", "Stacking a move event ",path," -> ",path2)
+			table.insert(self.delays, nd)
+		end
+
+		-----
+		-- detects blocks and collapses by working from back til 
+		-- front through the fifo
+		InletControl.setSync(self)
+		local il = #self.delays -- last delay
+		while il > 0 do
+			local od = self.delays[il]
+			if od.etype ~= "Move" then
+				if nd.path == od.path then
+					-- tries to collapse identical paths
+					local oe = InletControl.toEvent(od)
+					local ne = InletControl.toEvent(nd)
+					local c = self.config.collapse( 
+						InletControl.toEvent(od), InletControl.toEvent(nd), 
+						self.config)
+					if c==0 then
+						-- events nullificate each ether
+						od.etype = "None"  -- TODO better remove?
+						return
+					elseif c == 1 then
+						log("Normal", nd.etype, " is absored by event ",
+							od.etype, " on ", path)
+						return
+					elseif c == 2 then
+						log("Normal", nd.etype, " replaces event ",
+							od.etype, " on ", path)
+						self.delays[il] = nd
+						return
+					elseif c == 3 then
+						log("Normal", "Stacking ", nd.etype, " upon ",
+							o.etype, " on ", path)
+						break
+					end
 				end
 			end
-			table.insert(self.delays, newd)
-		else
-			delayname[path] = newd
-			table.insert(self.delays, newd)
+			il = il - 1
 		end
+		-- there was no hit on collapse or it decided to stack.
+		table.insert(self.delays, nd)
 	end
 		
 	-----	
@@ -543,7 +556,7 @@ local Sync = (function()
 			end
 			if d.status == "wait" then
 				-- found a waiting delay
-				InletControl.set(self)
+				InletControl.setSync(self)
 				self.config.action(Inlet)
 				if self.processes:size() >= self.config.maxProcesses then
 					-- no further processes
@@ -559,8 +572,7 @@ local Sync = (function()
 	-- (used in startup)
 	--
 	local function addBlanketDelay(self)
-		local newd = Delay.new("Blanket", "/", true)
-		self.delayname["/"] = newd -- TODO remove delayname
+		local newd = Delay.new("Blanket", true, "/")
 		table.insert(self.delays, newd)
 		return newd 
 	end
@@ -570,10 +582,9 @@ local Sync = (function()
 	--
 	local function new(config) 
 		local s = {
-			-- TODO document.
+			-- fields
 			config = config,
 			delays = CountArray.new(),
-			delayname = {},
 			source = config.source,
 			processes = CountArray.new(),
 
@@ -663,7 +674,7 @@ local Syncs = (function()
 		-- absolute path of source
 		local real_src = lsyncd.realdir(config.source)
 		if not real_src then
-			log(Error, "Cannot access source directory: ", config.source)
+			log("Error", "Cannot access source directory: ",config.source)
 			terminate(-1) -- ERRNO
 		end
 		config._source = config.source
@@ -687,9 +698,14 @@ local Syncs = (function()
 			config[name] = settings[name] or default[name]
 		end
 
+		-----
+		-- TODO simplify simply go through all keys of defaults table.
 		optional("action")
-		optional("maxProcesses")
+		optional("collapse")
 		optional("collapseTable")
+		optional("init")
+		optional("maxProcesses")
+		optional("statusIntervall")
 		local s = Sync.new(config)
 		table.insert(list, s)
 	end
@@ -1130,7 +1146,7 @@ function lsyncd_initialize()
 	for _, s in Syncs.iwalk() do
 		Inotifies.add(s.source, "", true, s)
 		if s.config.init then
-			InletControl.set(s)
+			InletControl.setSync(s)
 			s.config.init(Inlet)
 		end
 	end
@@ -1287,26 +1303,42 @@ default = {
 	end,
 
 	-----
+	-- Called if two events relate to the same file or directory.
+	-- @param event1    first event
+	-- @param event2    second event
+	-- @return 0  ... drop both events.
+	--         1  ... keep first event only
+	--         2  ... keep second event only
+	--         3  ... keep both events.
+	collapse = function(event1, event2, config)
+		if event1.etype == "Move" or event2.etype == "Move" then
+			return 3
+		end
+		return(config.collapseTable[event1.etype][event2.etype])
+	end,
+	
+	-----
+	-- used by default collapse function
+	--
+	collapseTable = {
+		Attrib = { Attrib = 1, Modify = 2, Create = 2, Delete = 2 },
+		Modify = { Attrib = 1, Modify = 1, Create = 2, Delete = 2 },
+		Create = { Attrib = 1, Modify = 1, Create = 1, Delete = 0 },
+		Delete = { Attrib = 1, Modify = 1, Create = 3, Delete = 1 },
+	},
+
+	-----
 	-- TODO
 	--
 	maxProcesses = 1,
 
 	-----
+	-- a default rsync configuration for easy usage.
+	rsync = defaultRsync,
+
+	-----
 	-- Minimum seconds between two writes of a status file.
 	--
 	statusIntervall = 10,
-
-	-----
-	-- TODO
-	--
-	collapseTable = {
-		Attrib = { Attrib = "Attrib", Modify = "Modify", Create = "Create", Delete = "Delete" },
-		Modify = { Attrib = "Modify", Modify = "Modify", Create = "Create", Delete = "Delete" },
-		Create = { Attrib = "Create", Modify = "Create", Create = "Create", Delete = -1       },
-		Delete = { Attrib = "Delete", Modify = "Delete", Create = "Modify", Delete = "Delete" },
-	},
-
-	rsync = defaultRsync
 }
 
-return "x3x"

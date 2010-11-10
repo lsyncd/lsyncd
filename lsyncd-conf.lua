@@ -31,7 +31,7 @@ slowbash = {
 			end
 		end
 
-		spawnShell(inlet.blanketEvent(), collect,
+		spawnShell(inlet.createBlanketEvent(), collect,
 			[[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], 
 			c.source, c.target)
 	end,
