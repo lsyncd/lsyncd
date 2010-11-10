@@ -22,7 +22,7 @@ slowbash = {
 		log("Normal", "cp -r from ", c.source, " -> ", c.target)
 
 		-- collect gets called when spawned process finished
-		local function collect(exitcode)
+		local function collect(event, exitcode)
 			if exitcode == 0 then
 				log("Normal", "Startup of '",c.source,"' finished.")
 			else

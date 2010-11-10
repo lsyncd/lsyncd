@@ -170,12 +170,7 @@ local function lockGlobals()
 end
 
 -----
--- Holds information about a delayed event for one Sync.
---
--- valid stati are:
---    delay
---    active
---    TODO
+-- Holds information about a delayed event of one Sync.
 --
 local Delay = (function()
 	-----
@@ -184,10 +179,34 @@ local Delay = (function()
 	-- @param TODO
 	local function new(etype, alarm, path, path2)
 		local o = {
+			-----
+			-- Type of event.
+			-- Can be 'Create', 'Modify', 'Attrib', 'Delete' and 'Move'
 			etype = etype,
+
+			-----
+			-- Latest point in time this should be catered for.
+			-- This value is in kernel ticks, return of the C's 
+			-- times(NULL) call.
 			alarm = alarm,
+
+			-----
+			-- path and filename or dirname of the delay relative 
+			-- to the syncs root.
+			-- for the directories it contains a trailing slash
+			--
 			path  = path,
+
+			------
+			-- only not nil for 'Move's.
+			-- path and file/dirname of a move destination.
+			--
 			path2  = path2,
+		
+			------
+			-- Status of the event
+			-- valid stati are: 'wait' and 'active'
+			--
 			status = "wait",
 		}
 		return o
@@ -199,7 +218,7 @@ end)()
 -----
 -- User interface to grap events
 --
--- InletControl is the Luas runner part to control the interface
+-- InletControl is the runners part to control the interface
 -- hidden from the user.
 --
 local Inlet, InletControl = (function()
@@ -233,8 +252,15 @@ local Inlet, InletControl = (function()
 	end
 
 	-----
-	-- Interface for the user to get fields.
+	-- Interface for userscripts to get event fields..
+	--
 	local eventFields = {
+		-----
+		-- Returns a copy of the configuration as called by sync.
+		-- But including all inherited data and default values.
+		--
+		-- TODO give user a readonly version.
+		--
 		config = function(event)
 			return event[delayKey].sync.config
 		end,
@@ -242,17 +268,19 @@ local Inlet, InletControl = (function()
 		-----
 		-- Returns the type of the event.
 		-- Can be:
-		--    "Attrib"
-		--    "Create"
-		--    "Delete"
-		--    "Modify"
+		--    "Attrib",
+		--    "Create",
+		--    "Delete",
+		--    "Modify",
 		--    "Move"
+		--
 		etype = function(event)
 			return event[delayKey].etype
 		end,
 		
 		-----
 		-- Returns true if event relates to a directory.
+		--
 		isdir = function(event) 
 			return string.byte(getPath(event), -1) == 47
 		end,
@@ -260,6 +288,7 @@ local Inlet, InletControl = (function()
 		-----
 		-- Returns the name of the file/dir.
 		-- Includes a trailing slash for dirs.
+		--
 		name = function(event)
 			return string.match(getPath(event), "[^/]+/?$")
 		end,
@@ -267,6 +296,7 @@ local Inlet, InletControl = (function()
 		-----
 		-- Returns the name of the file/dir.
 		-- Excludes a trailing slash for dirs.
+		--
 		basename = function(event)
 			return string.match(getPath(event), "([^/]+)/?$")
 		end,
@@ -274,6 +304,7 @@ local Inlet, InletControl = (function()
 		-----
 		-- Returns the file/dir relative to watch root
 		-- Includes a trailing slash for dirs.
+		--
 		path = function(event)
 			return getPath(event)
 		end,
@@ -281,6 +312,7 @@ local Inlet, InletControl = (function()
 		-----
 		-- Returns the file/dir relativ to watch root
 		-- Excludes a trailing slash for dirs.
+		--
 		pathname = function(event)
 			return cutSlash(getPath(event))
 		end,
@@ -288,6 +320,7 @@ local Inlet, InletControl = (function()
 		------
 		-- Returns the absolute path of the watch root.
 		-- All symlinks will have been resolved.
+		--
 		source = function(event)
 			return sync.source
 		end,
@@ -295,6 +328,7 @@ local Inlet, InletControl = (function()
 		------
 		-- Returns the absolute path of the file/dir.
 		-- Includes a trailing slash for dirs.
+		--
 		sourcePath = function(event)
 			return sync.source ..getPath(event)
 		end,
@@ -302,6 +336,7 @@ local Inlet, InletControl = (function()
 		------
 		-- Returns the absolute path of the file/dir.
 		-- Excludes a trailing slash for dirs.
+		--
 		sourcePathname = function(event)
 			return sync.source .. cutSlash(getPath(event))
 		end,
@@ -312,6 +347,7 @@ local Inlet, InletControl = (function()
 		-- (Actually except of here, the lsyncd.runner itself 
 		--  does not care event about the existance of "target",
 		--  this is completly up to the action scripts.)
+		--
 		target = function(event)
 			return sync.config.target
 		end,
@@ -319,6 +355,7 @@ local Inlet, InletControl = (function()
 		------
 		-- Returns the relative dir/file appended to the target.
 		-- Includes a trailing slash for dirs.
+		--
 		targetPath = function(event)
 			return sync.config.target .. getPath(event)
 		end,
@@ -326,13 +363,15 @@ local Inlet, InletControl = (function()
 		------
 		-- Returns the relative dir/file appended to the target.
 		-- Excludes a trailing slash for dirs.
+		--
 		targetPathname = function(event)
 			return sync.config.target .. cutSlash(getPath(event))
 		end,
 	}
 
 	-----
-	-- Calls event functions for the user.
+	-- Retrievs event fields for the user.
+	--
 	local eventMeta = {
 		__index = function(t, k)
 			local f = eventFields[k]
@@ -390,7 +429,7 @@ local Inlet, InletControl = (function()
 	end
 
 	-----
-	-- Gets the next event from queue.
+	-- Gets the next not blocked event from queue.
 	--
 	local function getEvent()
 		return toEvent(sync:getNextDelay(lysncd.now()))
@@ -439,7 +478,8 @@ end)()
 local Sync = (function()
 
 	-----
-	-- Syncs that have no name specified get an incremental default name
+	-- Syncs that have no name specified by the user script 
+	-- get an incremental default name 'Sync[X]'
 	--
 	local nextDefaultName = 1
 	
@@ -455,7 +495,18 @@ local Sync = (function()
 		if delay.status ~= "active" then
 			error("internal fail, collecting a non-active process")
 		end
-		-- TODO call user collector
+		if delay.collector then
+			local cr
+			if type(delay.collector) == "function" then
+				InletControl.setSync(self)
+				cr = delay.collector(InletControl.toEvent(delay), exitcode)
+			else
+				cr = delay.collector
+			end
+		end
+		-- TODO honor return codes of the collector
+
+		-- Remove the delay.
 		local found
 		for i, d in ipairs(self.delays) do
 			if d == delay then
@@ -467,7 +518,7 @@ local Sync = (function()
 		if not found then
 			error("Did not find a delay!")
 		end
-		log("Normal","Return of ",delay.etype," on ",
+		log("Delay","Finish of ",delay.etype," on ",
 			self.source,delay.path," = ",exitcode)
 		self.processes[pid] = nil
 	end
@@ -483,7 +534,7 @@ local Sync = (function()
 
 		if etype == "Move" and not self.config.onMove then
 			-- if there is no move action defined, split a move as delete/create
-			log("Debug", "splitting Move into Delete & Create")
+			log("Delay", "splitting Move into Delete & Create")
 			delay(self, "Delete", time, path,  nil)
 			delay(self, "Create", time, path2, nil)
 			return
@@ -498,8 +549,15 @@ local Sync = (function()
 		end
 		-- new delay
 		local nd = Delay.new(etype, alarm, path, path2)
+		if nd.etype == "Blanket" then
+			-- always stack blanket events.
+			log("Delay", "Stacking blanket event.")
+			table.insert(self.delays, nd)
+			return
+		end
+
 		if nd.etype == "Move" then
-			log("Normal", "Stacking a move event ",path," -> ",path2)
+			log("Delay", "Stacking a move event ",path," -> ",path2)
 			table.insert(self.delays, nd)
 			return
 		end
@@ -511,41 +569,44 @@ local Sync = (function()
 		local ne = InletControl.toEvent(nd)
 		local il = #self.delays -- last delay
 
-		-----
-		-- TODO
-		--
-		local function doCollapse(oe, ne)
-		end
-
 		while il > 0 do
 			local od = self.delays[il]
 			-- tries to collapse identical paths
 			local oe, oe2 = InletControl.toEvent(od) 
 			local ne = InletControl.toEvent(nd) -- TODO more logic on moves
 
+			if oe.etype == "Blanket" then
+				-- everything is blocked by a blanket event.
+				log("Delay", "Stacking ",nd.etype," upon blanket event.")
+				table.insert(self.delays, nd)
+				return
+			end
+
+			-- this mini loop repeats the collapse a second 
+			-- time for move events
 			local oel = oe
-			-- this mini loop repeats the collapse a second time for move 
-			-- events
 			while oel do
 				local c = self.config.collapse(oel, ne, self.config)
 				if c == 0 then
 					-- events nullificate each ether
 					od.etype = "None"  -- TODO better remove?
-					return "return"
+					return
 				elseif c == 1 then
-					log("Normal", nd.etype, " is absored by event ",
-						od.etype, " on ", path)
-					return "return"
+					log("Delay",nd.etype," is absored by event ",
+						od.etype," on ",path)
+					return
 				elseif c == 2 then
-					log("Normal", nd.etype, " replaces event ",
-						od.etype, " on ", path)
+					log("Delay",nd.etype," replaces event ",
+						od.etype," on ",path)
 					self.delays[il] = nd
-					return "return"
+					return
 				elseif c == 3 then
-					log("Normal", "Stacking ", nd.etype, " upon ",
-						od.etype, " on ", path)
-					return "break"
-				end	
+					log("Delay", "Stacking ",nd.etype," upon ",
+						od.etype," on ",path)
+					break
+				end
+				-- after first iteration check move destination
+				-- after second stop eitherway
 				if oel == oe2 then
 					oel = false
 				else
@@ -555,13 +616,13 @@ local Sync = (function()
 			il = il - 1
 		end
 		if il <= 0 then
-				log("Normal", "Stacking ", nd.etype, " upon on ", path)
+			log("Delay", "Stacking ",nd.etype," on ",path)
 		end
 		-- there was no hit on collapse or it decided to stack.
 		table.insert(self.delays, nd)
 	end
 		
-	-----	
+	-----
 	-- Returns the nearest alarm for this Sync.
 	--
 	local function getAlarm(self)
@@ -623,7 +684,7 @@ local Sync = (function()
 	-- (used in startup)
 	--
 	local function addBlanketDelay(self)
-		local newd = Delay.new("Blanket", true, "/")
+		local newd = Delay.new("Blanket", true, "")
 		table.insert(self.delays, newd)
 		return newd 
 	end
@@ -712,7 +773,7 @@ local Syncs = (function()
 
 		-----
 		-- raises an error if @param name isnt in opts
-		local function require_opt(name)
+		local function requireOpt(name)
 			if not config[name] then
 				local info = debug.getinfo(3, "Sl")
 				log("Error", info.short_src, ":", info.currentline,
@@ -720,16 +781,16 @@ local Syncs = (function()
 				terminate(-1) -- ERRNO
 			end
 		end
-		require_opt("source")
+		requireOpt("source")
 
 		-- absolute path of source
-		local real_src = lsyncd.realdir(config.source)
-		if not real_src then
+		local realsrc = lsyncd.realdir(config.source)
+		if not realsrc then
 			log("Error", "Cannot access source directory: ",config.source)
 			terminate(-1) -- ERRNO
 		end
 		config._source = config.source
-		config.source = real_src
+		config.source = realsrc
 
 		if not config.action   and not config.onAttrib and
 		   not config.onCreate and not config.onModify and
@@ -876,7 +937,7 @@ local Inotifies = (function()
 	-- Called when an event has occured.
 	--
 	-- @param etype     "Attrib", "Mofify", "Create", "Delete", "Move")
-	-- @param wd        watch descriptor (matches lsyncd.add_watch())
+	-- @param wd        watch descriptor (matches lsyncd.inotifyadd())
 	-- @param isdir     true if filename is a directory
 	-- @param time      time of event
 	-- @param filename  string filename without path
@@ -1028,8 +1089,8 @@ end)()
 --============================================================================
 
 -----
--- true after lsyncd_initalized()
--- TODO change to string
+-- true after runner.initalized()
+-- TODO change to string X2
 --
 local running = false
 
@@ -1060,7 +1121,7 @@ end
 -- Called from code whenever a child process finished and 
 -- zombie process was collected by core.
 --
-function runner.collect_process(pid, exitcode) 
+function runner.collectProcess(pid, exitcode) 
 	for _, s in Syncs.iwalk() do
 		if s:collect(pid, exitcode) then
 			return
@@ -1088,7 +1149,6 @@ function runner.cycle(now)
 	if settings.statusfile then
 		StatusFile.write(now)
 	end
-	log("Debug", "fin lsyncd_cycle")
 end
 
 
@@ -1160,7 +1220,7 @@ function runner.configure(args)
 	end
 
 	if #nonopts == 0 then
-		lsyncd_help(args[0])
+		runner.help(args[0])
 	elseif #nonopts == 1 then
 		return nonopts[1]
 	else 
@@ -1215,7 +1275,7 @@ end
 --         true  ... immediate action
 --         times ... the alarm time (only read if number is 1)
 --
-function runner.get_alarm()
+function runner.getAlarm()
 	local alarm = false
 
 	----
@@ -1240,7 +1300,7 @@ function runner.get_alarm()
 	-- checks if a statusfile write has been delayed
 	checkAlarm(StatusFile.getAlarm())
 
-	log("Debug", "lysncd_get_alarm returns: ",alarm)
+	log("Debug", "getAlarm returns: ",alarm)
 	return alarm
 end
 
@@ -1248,7 +1308,7 @@ end
 -----
 -- Called when an inotify event arrived.
 -- Simply forwards it directly to the object.
-runner.inotify_event = Inotifies.event
+runner.inotifyEvent = Inotifies.event
 
 -----
 -- Collector for every child process that finished in startup phase
@@ -1403,10 +1463,10 @@ default = {
 		-----
 		-- Block events if one is a parent directory of another
 		--
-		if event1.isdir and string.start(event2.path, event1.path) then
+		if event1.isdir and string.starts(event2.path, event1.path) then
 			return 3
 		end
-		if event2.isdir and string.start(event1.path, event2.path) then
+		if event2.isdir and string.starts(event1.path, event2.path) then
 			return 3
 		end
 

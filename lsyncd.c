@@ -975,7 +975,7 @@ handle_event(lua_State *L, struct inotify_event *event) {
 	}
 
 	/* and hands over to runner */
-	load_runner_func(L, "inotify_event"); // TODO CamelCase
+	load_runner_func(L, "inotifyEvent"); 
 	switch(event_type) {
 	case ATTRIB : lua_pushstring(L, "Attrib"); break;
 	case MODIFY : lua_pushstring(L, "Modify"); break;
@@ -1023,7 +1023,7 @@ masterloop(lua_State *L)
 		ssize_t len; 
 
 		/* queries runner about soonest alarm  */
-		load_runner_func(L, "get_alarm"); // TODO CamelCase
+		load_runner_func(L, "getAlarm"); 
 		if (lua_pcall(L, 0, 1, -2)) {
 			exit(-1); // ERRNO
 		}
@@ -1119,7 +1119,7 @@ masterloop(lua_State *L)
 			if (pid <= 0) {
 				break;
 			}
-			load_runner_func(L, "collect_process"); // TODO CamelCase
+			load_runner_func(L, "collectProcess"); 
 			lua_pushinteger(L, pid);
 			lua_pushinteger(L, WEXITSTATUS(status));
 			if (lua_pcall(L, 2, 0, -4)) {
@@ -1130,7 +1130,7 @@ masterloop(lua_State *L)
 
 		/* lets the runner do stuff every cycle, 
 		 * like starting new processes, writing the statusfile etc. */
-		load_runner_func(L, "cycle"); // TODO CamelCase
+		load_runner_func(L, "cycle");
 		lua_pushinteger(L, times(NULL));
 		if (lua_pcall(L, 1, 0, -3)) {
 			exit(-1); // ERRNO
