@@ -840,7 +840,38 @@ static const luaL_reg lsyncdlib[] = {
  * Lsyncd Core 
 ****************************************************************************/
 
+/**
+ * Dummy variable whos address is used as the cores index in the lua registry
+ * to the lua runners function table in the lua registry.
+ */
+static int runner;
 
+/**
+ * Dummy variable whos address is used as the cores index n the lua registry
+ * to the lua runners error handler.
+ */
+static int callError;
+
+/**
+ * Pushes a function from the runner on the stack.
+ * Prior it pushed the callError handler.
+ */
+static void
+load_runner_func(lua_State *L, const char *name)
+{
+	printlogf(L, "Call", "%s()", name);
+    
+	/* pushes the error handler */
+	lua_pushlightuserdata(L, (void *) &callError);
+	lua_gettable(L, LUA_REGISTRYINDEX);
+	
+	/* pushes the function */
+	lua_pushlightuserdata(L, (void *) &runner);
+	lua_gettable(L, LUA_REGISTRYINDEX);
+	lua_pushstring(L, name);
+	lua_gettable(L, -2);
+	lua_remove(L, -2);
+}
 
 /**
  * Buffer for MOVE_FROM events.
@@ -861,7 +892,8 @@ bool move_event = false;
 /**
  * Handles an inotify event.
  */
-void handle_event(lua_State *L, struct inotify_event *event) {
+static void 
+handle_event(lua_State *L, struct inotify_event *event) {
 	/* TODO */
 	int event_type = NONE;
 
@@ -874,9 +906,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	}
 	if (event && (IN_Q_OVERFLOW & event->mask)) {
 		/* and overflow happened, lets runner/user decide what to do. */
-		printlogf(L, "Call", "overflow()");
-		lua_getglobal(L, "lsyncd_call_error");
-		lua_getglobal(L, "overflow");
+		load_runner_func(L, "overflow");
 		if (lua_pcall(L, 0, 0, -2)) {
 			exit(-1); // ERRNO
 		}
@@ -945,9 +975,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 	}
 
 	/* and hands over to runner */
-	printlogf(L, "Call", "lysncd_inotify_event()");
-	lua_getglobal(L, "lsyncd_call_error");
-	lua_getglobal(L, "lsyncd_inotify_event");
+	load_runner_func(L, "inotify_event"); // TODO CamelCase
 	switch(event_type) {
 	case ATTRIB : lua_pushstring(L, "Attrib"); break;
 	case MODIFY : lua_pushstring(L, "Modify"); break;
@@ -982,7 +1010,7 @@ void handle_event(lua_State *L, struct inotify_event *event) {
 /**
  * Normal operation happens in here.
  */
-void
+static void
 masterloop(lua_State *L)
 {
 	size_t readbuf_size = 2048;
@@ -995,9 +1023,7 @@ masterloop(lua_State *L)
 		ssize_t len; 
 
 		/* queries runner about soonest alarm  */
-		printlogf(L, "Call", "lsycnd_get_alarm()");
-		lua_getglobal(L, "lsyncd_call_error");
-		lua_getglobal(L, "lsyncd_get_alarm");
+		load_runner_func(L, "get_alarm"); // TODO CamelCase
 		if (lua_pcall(L, 0, 1, -2)) {
 			exit(-1); // ERRNO
 		}
@@ -1093,9 +1119,7 @@ masterloop(lua_State *L)
 			if (pid <= 0) {
 				break;
 			}
-			printlogf(L, "Call", "lsyncd_collect_process()");
-			lua_getglobal(L, "lsyncd_call_error");
-			lua_getglobal(L, "lsyncd_collect_process");
+			load_runner_func(L, "collect_process"); // TODO CamelCase
 			lua_pushinteger(L, pid);
 			lua_pushinteger(L, WEXITSTATUS(status));
 			if (lua_pcall(L, 2, 0, -4)) {
@@ -1106,9 +1130,7 @@ masterloop(lua_State *L)
 
 		/* lets the runner do stuff every cycle, 
 		 * like starting new processes, writing the statusfile etc. */
-		printlogf(L, "Call", "lsyncd_cycle()");
-		lua_getglobal(L, "lsyncd_call_error");
-		lua_getglobal(L, "lsyncd_cycle");
+		load_runner_func(L, "cycle"); // TODO CamelCase
 		lua_pushinteger(L, times(NULL));
 		if (lua_pcall(L, 1, 0, -3)) {
 			exit(-1); // ERRNO
@@ -1227,13 +1249,32 @@ main(int argc, char *argv[])
 #endif
 	}
 
-	/* executes the runner defining all its functions */
-	if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-		printlogf(L, "Error", 
-			"error preparing '%s': %s", 
-			lsyncd_runner_file ? lsyncd_runner_file : "internal runner", 
-			lua_tostring(L, -1));
-		return -1; // ERRNO
+	{
+		/* place to store the lua runners functions */
+		/* executes the runner defining all its functions */
+		if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
+			printlogf(L, "Error", 
+				"error preparing '%s': %s", 
+				lsyncd_runner_file ? lsyncd_runner_file : "internal runner", 
+				lua_tostring(L, -1));
+			return -1; // ERRNO
+		}
+		lua_pushlightuserdata(L, (void *)&runner);
+		/* switches the value (result of preparing) and the key &runner */
+		lua_insert(L, 1);
+		/* saves the table of the runners functions in the lua registry */
+		lua_settable(L, LUA_REGISTRYINDEX);
+
+		/* saves the error function extra */
+		/* &callError is the key */
+		lua_pushlightuserdata(L, (void *) &callError);
+		/* &runner[callError] the value */
+		lua_pushlightuserdata(L, (void *) &runner);
+		lua_gettable(L, LUA_REGISTRYINDEX);
+		lua_pushstring(L, "callError");
+		lua_gettable(L, -2);
+		lua_remove(L, -2);
+		lua_settable(L, LUA_REGISTRYINDEX);
 	}
 
 	{
@@ -1256,9 +1297,7 @@ main(int argc, char *argv[])
 		int i;
 		for(i = argp; i < argc; i++) {
 			if (!strcmp(argv[i],"-help") || !strcmp(argv[i],"--help")) {
-				logstring("Call", "lsyncd_help()");
-				lua_getglobal(L, "lsyncd_call_error");
-				lua_getglobal(L, "lsyncd_help");
+				load_runner_func(L, "help");
 				if (lua_pcall(L, 0, 0, -2)) {
 					exit(-1); // ERRNO
 				}
@@ -1273,9 +1312,7 @@ main(int argc, char *argv[])
 		int idx = 1;
 		const char *s;
 		/* creates a table with all remaining argv option arguments */
-		logstring("Call", "lsyncd_configure()");
-		lua_getglobal(L, "lsyncd_call_error");
-		lua_getglobal(L, "lsyncd_configure");
+		load_runner_func(L, "configure");
 		lua_newtable(L);
 		while(argp < argc) {
 			lua_pushnumber(L, idx++);
@@ -1340,9 +1377,7 @@ main(int argc, char *argv[])
 	{
 		/* runs initialitions from runner 
 		 * lua code will set configuration and add watches */
-		logstring("Call", "lsyncd_initalize()");
-		lua_getglobal(L, "lsyncd_call_error");
-		lua_getglobal(L, "lsyncd_initialize");
+		load_runner_func(L, "initialize");
 		if (lua_pcall(L, 0, 0, -2)) {
 			exit(-1); // ERRNO
 		}

@@ -959,45 +959,6 @@ local Inotifies = (function()
 	}
 end)()
 
---============================================================================
--- lsyncd runner plugs. These functions will be called from core. 
---============================================================================
-
------
--- true after lsyncd_initalized()
---
-local running = false
-
------
--- Called from core whenever a lua failed.
---
-function lsyncd_call_error(message)
-	log("Error", "IN LUA: ", message)
-	-- prints backtrace
-	local level = 2
-	while true do
-		local info = debug.getinfo(level, "Sl")
-		if not info then
-			terminate(-1) -- ERRNO
-		end
-		log("Error", "Backtrace ", level - 1, " :", 
-			info.short_src, ":", info.currentline)
-		level = level + 1
-	end
-end
-
------
--- Called from code whenever a child process finished and 
--- zombie process was collected by core.
---
-function lsyncd_collect_process(pid, exitcode) 
-	for _, s in Syncs.iwalk() do
-		if s:collect(pid, exitcode) then
-			return
-		end
-	end
-end
-
 
 ----
 -- Writes a status report file at most every [statusintervall] seconds.
@@ -1062,6 +1023,51 @@ local StatusFile = (function()
 	return {write = write, getAlarm = getAlarm}
 end)()
 
+--============================================================================
+-- lsyncd runner plugs. These functions will be called from core. 
+--============================================================================
+
+-----
+-- true after lsyncd_initalized()
+-- TODO change to string
+--
+local running = false
+
+----
+-- the cores interface to the runner
+local runner = {}
+
+-----
+-- Called from core whenever lua code failed.
+-- Logs a backtrace
+--
+function runner.callError(message)
+	log("Error", "IN LUA: ", message)
+	-- prints backtrace
+	local level = 2
+	while true do
+		local info = debug.getinfo(level, "Sl")
+		if not info then
+			terminate(-1) -- ERRNO
+		end
+		log("Error", "Backtrace ", level - 1, " :", 
+			info.short_src, ":", info.currentline)
+		level = level + 1
+	end
+end
+
+-----
+-- Called from code whenever a child process finished and 
+-- zombie process was collected by core.
+--
+function runner.collect_process(pid, exitcode) 
+	for _, s in Syncs.iwalk() do
+		if s:collect(pid, exitcode) then
+			return
+		end
+	end
+end
+
 ----
 -- Called from core everytime a masterloop cycle runs through.
 -- This happens in case of 
@@ -1072,7 +1078,7 @@ end)()
 --
 -- @param now   the current kernel time (in jiffies)
 --
-function lsyncd_cycle(now)
+function runner.cycle(now)
 	-- goes through all syncs and spawns more actions
 	-- if possible
 	for _, s in Syncs.iwalk() do
@@ -1090,7 +1096,7 @@ end
 -- Called by core before anything is "-help" or "--help" is in
 -- the arguments.
 --
-function lsyncd_help()
+function runner.help()
 	io.stdout:write(
 [[
 USAGE: 
@@ -1124,7 +1130,7 @@ end
 --          or simply 'true' if running with rsync bevaiour
 -- terminates on invalid arguments
 --
-function lsyncd_configure(args)
+function runner.configure(args)
 	-- a list of all valid --options
 	local options = {
 		-- log is handled by core already.
@@ -1167,7 +1173,7 @@ end
 ----
 -- Called from core on init or restart after user configuration.
 -- 
-function lsyncd_initialize()
+function runner.initialize()
 	-- creates settings if user didnt
 	settings = settings or {}
 
@@ -1209,7 +1215,7 @@ end
 --         true  ... immediate action
 --         times ... the alarm time (only read if number is 1)
 --
-function lsyncd_get_alarm()
+function runner.get_alarm()
 	local alarm = false
 
 	----
@@ -1238,7 +1244,11 @@ function lsyncd_get_alarm()
 	return alarm
 end
 
-lsyncd_inotify_event = Inotifies.event
+
+-----
+-- Called when an inotify event arrived.
+-- Simply forwards it directly to the object.
+runner.inotify_event = Inotifies.event
 
 -----
 -- Collector for every child process that finished in startup phase
@@ -1249,7 +1259,7 @@ lsyncd_inotify_event = Inotifies.event
 -- has been spawned as replacement (e.g. retry) or 0 if
 -- finished/ok.
 --
-function startup_collector(pid, exitcode)
+function runner.collector(pid, exitcode)
 	if exitcode ~= 0 then
 		log("Error", "Startup process", pid, " failed")
 		terminate(-1) -- ERRNO
@@ -1257,6 +1267,13 @@ function startup_collector(pid, exitcode)
 	return 0
 end
 
+----
+-- Called by core when an overflow happened.
+--
+function runner.overflow()
+	log("Error", "--- OVERFLOW on inotify event queue ---")
+	terminate(-1) -- TODO reset instead.
+end
 
 --============================================================================
 -- lsyncd user interface
@@ -1272,14 +1289,6 @@ function sync(opts)
 	Syncs.add(opts)
 end
 
-----
--- Called by core when an overflow happened.
---
-function default_overflow()
-	log("Error", "--- OVERFLOW on inotify event queue ---")
-	terminate(-1) -- TODO reset instead.
-end
-overflow = default_overflow
 
 -----
 -- Spawn a new child process
@@ -1429,3 +1438,4 @@ default = {
 	statusIntervall = 10,
 }
 
+return runner
