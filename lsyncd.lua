@@ -206,8 +206,13 @@ local Inlet, InletControl = (function()
 	-- lua runner controlled variables
 	local sync 
 
-	-- key variable for delays hidden from user
+	-- key variables for delays hidden from user
 	local delayKey = {}
+
+	-- nil for non move events
+	-- 0 for move source events
+	-- 1 for move desination events
+	local moveDestKey = {}
 
 	-----
 	-- removes the trailing slash from a path
@@ -216,6 +221,14 @@ local Inlet, InletControl = (function()
 			return string.sub(path, 1, -2)
 		else
 			return path
+		end
+	end
+
+	local function getPath(event)
+		if not event[moveDestKey] then
+			return event[delayKey].path
+		else
+			return event[delayKey].path2
 		end
 	end
 
@@ -241,35 +254,35 @@ local Inlet, InletControl = (function()
 		-----
 		-- Returns true if event relates to a directory.
 		isdir = function(event) 
-			return string.byte(event[delayKey].path, -1) == 47
+			return string.byte(getPath(event), -1) == 47
 		end,
 
 		-----
 		-- Returns the name of the file/dir.
 		-- Includes a trailing slash for dirs.
-		name = function()
-			return string.match(event[delayKey].path, "[^/]+/?$")
+		name = function(event)
+			return string.match(getPath(event), "[^/]+/?$")
 		end,
 		
 		-----
 		-- Returns the name of the file/dir.
 		-- Excludes a trailing slash for dirs.
-		basename = function()
-			return string.match(event[delayKey].path, "([^/]+)/?$")
+		basename = function(event)
+			return string.match(getPath(event), "([^/]+)/?$")
 		end,
 
 		-----
 		-- Returns the file/dir relative to watch root
 		-- Includes a trailing slash for dirs.
 		path = function(event)
-			return event[delayKey].path
+			return getPath(event)
 		end,
 		
 		-----
 		-- Returns the file/dir relativ to watch root
 		-- Excludes a trailing slash for dirs.
 		pathname = function(event)
-			return cutSlash(event[delayKey].path)
+			return cutSlash(getPath(event))
 		end,
 		
 		------
@@ -283,14 +296,14 @@ local Inlet, InletControl = (function()
 		-- Returns the absolute path of the file/dir.
 		-- Includes a trailing slash for dirs.
 		sourcePath = function(event)
-			return sync.source .. event[delayKey].path
+			return sync.source ..getPath(event)
 		end,
 		
 		------
 		-- Returns the absolute path of the file/dir.
 		-- Excludes a trailing slash for dirs.
 		sourcePathname = function(event)
-			return sync.source .. cutSlash(event[delayKey].path)
+			return sync.source .. cutSlash(getPath(event))
 		end,
 		
 		------
@@ -307,14 +320,14 @@ local Inlet, InletControl = (function()
 		-- Returns the relative dir/file appended to the target.
 		-- Includes a trailing slash for dirs.
 		targetPath = function(event)
-			return sync.config.target .. event[delayKey].path
+			return sync.config.target .. getPath(event)
 		end,
 		
 		------
 		-- Returns the relative dir/file appended to the target.
 		-- Excludes a trailing slash for dirs.
 		targetPathname = function(event)
-			return sync.config.target .. cutSlash(event[delayKey].path)
+			return sync.config.target .. cutSlash(getPath(event))
 		end,
 	}
 
@@ -324,6 +337,10 @@ local Inlet, InletControl = (function()
 		__index = function(t, k)
 			local f = eventFields[k]
 			if not f then
+				if k == moveDestKey then
+					-- possibly undefined
+					return nil
+				end
 				error("event does not have field '"..k.."'", 2)
 			end
 			return f(t)
@@ -338,11 +355,19 @@ local Inlet, InletControl = (function()
 	--
 	local function toEvent(delay)
 		if not delay.event then
-			delay.event = {}
-			setmetatable(delay.event, eventMeta)
-			delay.event[delayKey] = delay
+			if delay.etype ~= "Move" then
+				delay.event = {}
+				setmetatable(delay.event, eventMeta)
+				delay.event[delayKey] = delay
+			end
+				delay.event = {}
+				delay.event2 = {}
+				setmetatable(delay.event, eventMeta)
+				setmetatable(delay.event2, eventMeta)
+				delay.event[delayKey] = delay
+				delay.event2[delayKey] = delay
 		end
-		return delay.event
+		return delay.event, delay.event2
 	end
 
 	
@@ -432,8 +457,8 @@ local Sync = (function()
 		if not found then
 			error("Did not find a delay!")
 		end
-		log("Debug", "collected ",pid, ": ",delay.etype," of ",
-			self.source, delay.path," = ",exitcode)
+		log("Normal","Return of ",delay.etype," on ",
+			self.source,delay.path," = ",exitcode)
 		self.processes[pid] = nil
 	end
 
@@ -463,7 +488,6 @@ local Sync = (function()
 		end
 		-- new delay
 		local nd = Delay.new(etype, alarm, path, path2)
-
 		if nd.etype == "Move" then
 			log("Normal", "Stacking a move event ",path," -> ",path2)
 			table.insert(self.delays, nd)
@@ -473,38 +497,54 @@ local Sync = (function()
 		-- detects blocks and collapses by working from back til 
 		-- front through the fifo
 		InletControl.setSync(self)
+		local ne = InletControl.toEvent(nd)
 		local il = #self.delays -- last delay
+
+		-----
+		-- TODO
+		--
+		local function doCollapse(oe, ne)
+		end
+
 		while il > 0 do
 			local od = self.delays[il]
-			if od.etype ~= "Move" then
-				if nd.path == od.path then
-					-- tries to collapse identical paths
-					local oe = InletControl.toEvent(od)
-					local ne = InletControl.toEvent(nd)
-					local c = self.config.collapse( 
-						InletControl.toEvent(od), InletControl.toEvent(nd), 
-						self.config)
-					if c==0 then
-						-- events nullificate each ether
-						od.etype = "None"  -- TODO better remove?
-						return
-					elseif c == 1 then
-						log("Normal", nd.etype, " is absored by event ",
-							od.etype, " on ", path)
-						return
-					elseif c == 2 then
-						log("Normal", nd.etype, " replaces event ",
-							od.etype, " on ", path)
-						self.delays[il] = nd
-						return
-					elseif c == 3 then
-						log("Normal", "Stacking ", nd.etype, " upon ",
-							o.etype, " on ", path)
-						break
-					end
+			-- tries to collapse identical paths
+			local oe, oe2 = InletControl.toEvent(od) 
+			local ne = InletControl.toEvent(nd) -- TODO more logic on moves
+
+			local oel = oe
+			-- this mini loop repeats the collapse a second time for move 
+			-- events
+			while oel do
+				local c = self.config.collapse(oel, ne, self.config)
+				if c == 0 then
+					-- events nullificate each ether
+					od.etype = "None"  -- TODO better remove?
+					return "return"
+				elseif c == 1 then
+					log("Normal", nd.etype, " is absored by event ",
+						od.etype, " on ", path)
+					return "return"
+				elseif c == 2 then
+					log("Normal", nd.etype, " replaces event ",
+						od.etype, " on ", path)
+					self.delays[il] = nd
+					return "return"
+				elseif c == 3 then
+					log("Normal", "Stacking ", nd.etype, " upon ",
+						od.etype, " on ", path)
+					return "break"
+				end	
+				if oel == oe2 then
+					oel = false
+				else
+					oel = oe2
 				end
 			end
 			il = il - 1
+		end
+		if il <= 0 then
+				log("Normal", "Stacking ", nd.etype, " upon on ", path)
 		end
 		-- there was no hit on collapse or it decided to stack.
 		table.insert(self.delays, nd)
@@ -691,21 +731,13 @@ local Syncs = (function()
 		end
 
 		-- loads a default value for an option if not existent
-		local function optional(name)
-			if config[name] ~= nil then
-				return
+		for dn, dv in pairs(default) do
+			if config[dn] == nil then
+				config[dn] = settings[dn] or dv
 			end
-			config[name] = settings[name] or default[name]
 		end
 
-		-----
-		-- TODO simplify simply go through all keys of defaults table.
-		optional("action")
-		optional("collapse")
-		optional("collapseTable")
-		optional("init")
-		optional("maxProcesses")
-		optional("statusIntervall")
+		--- creates the new sync
 		local s = Sync.new(config)
 		table.insert(list, s)
 	end
@@ -870,11 +902,14 @@ local Inotifies = (function()
 			end
 			inotify.sync:delay(etype, time, path, path2)
 			-- adds subdirs for new directories
-			if isdir then
-				if inotify.recurse and etype == "Create" then
+			if isdir and inotify.recurse then
+				if etype == "Create" then
 					add(inotify.root, path, true, inotify.sync)
 				elseif etype == "Delete" then
 					removeSync(inotify.sync, path)
+				elseif etype == "Move" then
+					removeSync(inotify.sync. path)
+					add(inotify.root, path2, true, inotify.sync)
 				end
 			end
 		end
@@ -1261,6 +1296,24 @@ function spawnShell(agent, collector, command, ...)
 	return spawn(agent, collector, "/bin/sh", "-c", command, "/bin/sh", ...)
 end
 
+
+-----
+-- Comfort routine also for user.
+-- Returns true if 'String' starts with 'Start'
+--
+function string.starts(String,Start)
+	return string.sub(String,1,string.len(Start))==Start
+end
+
+-----
+-- Comfort routine also for user.
+-- Returns true if 'String' ends with 'End'
+--
+function string.ends(String,End)
+	return End=='' or string.sub(String,-string.len(End))==End
+end
+
+
 --============================================================================
 -- lsyncd default settings
 --============================================================================
@@ -1293,28 +1346,47 @@ default = {
 	-- TODO desc
 	--
 	action = function(inlet)
-		local event = inlet.getEvent()
+		-- in case of moves getEvent returns the origin and dest of the move
+		local event, event2 = inlet.getEvent()
 		local config = inlet.getConfig()
 		local func = config["on".. event.etype]
 		if func then
-			-- TODO Moves?
-			func(event)
+			func(event, event2)
 		end
 	end,
 
 	-----
-	-- Called if two events relate to the same file or directory.
+	-- Called if to see if two events can be collapsed 
 	-- @param event1    first event
 	-- @param event2    second event
-	-- @return 0  ... drop both events.
-	--         1  ... keep first event only
-	--         2  ... keep second event only
-	--         3  ... keep both events.
+	-- @return -1  ... no interconnection
+	--          0  ... drop both events.
+	--          1  ... keep first event only
+	--          2  ... keep second event only
+	--          3  ... events block.
+	--
 	collapse = function(event1, event2, config)
-		if event1.etype == "Move" or event2.etype == "Move" then
+		if event1.path == event2.path then
+			if event1.etype == "Move" or event2.etype == "Move" then
+				-- currently moves are always blocks
+				return 3
+			else
+				-- asks the collapseTable what to do
+				return config.collapseTable[event1.etype][event2.etype]
+			end
+		end
+	
+		-----
+		-- Block events if one is a parent directory of another
+		--
+		if event1.isdir and string.start(event2.path, event1.path) then
 			return 3
 		end
-		return(config.collapseTable[event1.etype][event2.etype])
+		if event2.isdir and string.start(event1.path, event2.path) then
+			return 3
+		end
+
+		return -1
 	end,
 	
 	-----
