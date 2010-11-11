@@ -495,17 +495,10 @@ local Sync = (function()
 		if delay.status ~= "active" then
 			error("internal fail, collecting a non-active process")
 		end
-		if delay.collector then
-			local cr
-			if type(delay.collector) == "function" then
-				InletControl.setSync(self)
-				cr = delay.collector(InletControl.toEvent(delay), exitcode)
-			else
-				cr = delay.collector
-			end
-		end
-		-- TODO honor return codes of the collector
+		InletControl.setSync(self)
 
+		local rc = self.config.collector(InletControl.toEvent(delay), exitcode)
+		-- TODO honor return codes of the collector
 		-- Remove the delay.
 		local found
 		for i, d in ipairs(self.delays) do
@@ -1363,12 +1356,11 @@ end
 -- @param binary  binary to call
 -- @param ...     arguments
 --
-function spawn(agent, collector, binary, ...)
+function spawn(agent, binary, ...)
 	local pid = lsyncd.exec(binary, ...)
 	if pid and pid > 0 then
 		local sync, delay = InletControl.getInterior(agent)
 		delay.status = "active"
-		delay.collector = collector
 		sync.processes[pid] = delay
 	end
 end
@@ -1376,8 +1368,8 @@ end
 -----
 -- Spawns a child process using bash.
 --
-function spawnShell(agent, collector, command, ...)
-	return spawn(agent, collector, "/bin/sh", "-c", command, "/bin/sh", ...)
+function spawnShell(agent, command, ...)
+	return spawn(agent, "/bin/sh", "-c", command, "/bin/sh", ...)
 end
 
 
@@ -1482,6 +1474,36 @@ default = {
 		Create = { Attrib = 1, Modify = 1, Create = 1, Delete = 0 },
 		Delete = { Attrib = 1, Modify = 1, Create = 3, Delete = 1 },
 	},
+
+	-----
+	-- Called when collecting a finished child process
+	--
+	collect = function(event, exitcode)
+		if event.etype == "Blanket" then
+			if exitcode == 0 then
+				log("Normal", "Startup of '",c.source,"' finished.")
+			else
+				log("Error", "Failure on startup of '",c.source,"'.")
+				terminate(-1) -- ERRNO
+			end
+			return
+		end
+		log("Normal", "Finished ",event.atype,
+			" on ",event.sourcename," = ",exitcode)
+	end,
+
+	-----
+	-- called on (re)initalizing of lsyncd.
+	--
+	init = function(inlet)
+		local config = inlet.getConfig()
+		
+		-- creates a prior startup if configured
+		if type(config.onStartup) == "function" then
+			local event = inlet.createBlanketEvent()
+			config.onStartup(event)
+		end
+	end,
 
 	-----
 	-- TODO

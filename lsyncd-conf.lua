@@ -17,23 +17,12 @@ prefix = "sleep 1 && "
 slowbash = {
 	delay = 5,
 
-	init = function(inlet)
-		local c = inlet.getConfig()
-		log("Normal", "cp -r from ", c.source, " -> ", c.target)
-
-		-- collect gets called when spawned process finished
-		local function collect(event, exitcode)
-			if exitcode == 0 then
-				log("Normal", "Startup of '",c.source,"' finished.")
-			else
-				log("Error", "Failure on startup of '",c.source,"'.")
-				terminate(-1) -- ERRNO
-			end
-		end
-
-		spawnShell(inlet.createBlanketEvent(), collect,
+	onStartup = function(event)
+		local config = event.config
+		log("Normal", "cp -r from ", config.source, " -> ", config.target)
+		spawnShell(event,
 			[[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], 
-			c.source, c.target)
+			config.source, config.target)
 	end,
 
 	onCreate = function(event)
@@ -56,9 +45,9 @@ slowbash = {
 		spawnShell(event, "ok", prefix..[[rm -rf "$1"]], t)
 	end,
 
-	onMove = function(event, eventd)
-		local t = event.targetPathname
-		local d = eventd.targetPathname
+	onMove = function(originEvent, destinationEvent)
+		local t = originEvent.targetPathname
+		local d = destinationEvent.targetPathname
 		log("Normal", "Spawning Move from ",t," to ",d)
 		spawnShell(event, "ok", prefix..[[mv "$1" "$2"]], t, d)
 	end,
