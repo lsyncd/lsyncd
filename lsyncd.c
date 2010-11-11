@@ -859,7 +859,8 @@ static int callError;
  * Prior it pushed the callError handler.
  */
 static void
-load_runner_func(lua_State *L, const char *name)
+load_runner_func(lua_State *L, 
+                 const char *name)
 {
 	printlogf(L, "Call", "%s()", name);
     
@@ -1084,8 +1085,9 @@ masterloop(lua_State *L)
 					/* kernel > 2.6.21 indicates that way that way that
 					 * the buffer was too small to fit a filename.
 					 * double its size and try again. When using a lower
-					 * kernel and a filename > 2KB       appears lsyncd
-					 * will fail. (but does a 2KB filename really happen?)*/
+					 * kernel and a filename > 2KB appears lsyncd
+					 * will fail. (but does a 2KB filename really happen?)
+					 */
 					readbuf_size *= 2;
 					readbuf = s_realloc(readbuf, readbuf_size);
 					continue;
@@ -1374,13 +1376,14 @@ main(int argc, char *argv[])
 	}
 
 	/* opens inotify */
-	inotify_fd = inotify_init();
+	inotify_fd = inotify_init1(IN_CLOEXEC);
 	if (inotify_fd == -1) {
 		printlogf(L, "Error", 
 			"Cannot create inotify instance! (%d:%s)", 
 			errno, strerror(errno));
 		return -1; // ERRNO
 	}
+
 
 	{
 		/* adds signal handlers *
