@@ -176,7 +176,8 @@ local Delay = (function()
 	-----
 	-- Creates a new delay.
 	-- 
-	-- @param TODO
+	-- @params see below
+	--
 	local function new(etype, alarm, path, path2)
 		local o = {
 			-----
@@ -445,7 +446,7 @@ local Inlet, InletControl = (function()
 	--
 	local function cancelEvent(event)
 		local delay = event[delayKey] 
-		if delay.status ~= "waiting" then
+		if delay.status ~= "wait" then
 			log("Error", "Ignored try to cancel a non-waiting event of type ",
 				event.etype)
 			return
@@ -655,9 +656,15 @@ local Sync = (function()
 			return nil
 		end
 
-		if self.delays[1] then 
-			return self.delays[1].alarm
+		-- finds the nearest delay waiting to be spawned
+		for _, d in ipairs(self.delays) do
+			if d.status == "wait" then
+				return d.alarm
+			end
 		end
+
+		-- nothing to spawn.
+		return nil
 	end
 		
 	-----
@@ -1119,10 +1126,13 @@ end)()
 --============================================================================
 
 -----
--- true after runner.initalized()
--- TODO change to string X2
+-- Current status of lsyncd.
 --
-local running = false
+-- "init"  ... on (re)init
+-- "run"   ... normal operation
+-- "fade"  ... waits for remaining processes
+--
+local lsyncdStatus = "init"
 
 ----
 -- the cores interface to the runner
@@ -1284,7 +1294,7 @@ function runner.initialize()
 	end
 
 	-- from now on use logging as configured instead of stdout/err.
-	running = true;
+	lsyncdStatus = "run";
 	lsyncd.configure("running");
 
 	-- runs through the syncs table filled by user calling directory()
@@ -1372,8 +1382,8 @@ end
 -- Main utility to create new observations.
 --
 function sync(opts)
-	if running then
-		error("Cannot add new syncs while running!")
+	if lsyncdStatus ~= "init" then
+		error("Sync can only be created on initialization.", 2)
 	end
 	Syncs.add(opts)
 end
@@ -1456,9 +1466,9 @@ local defaultRsync = {
 --   TODO make readonly
 -- 
 default = {
+
 	-----
-	-- Default action
-	-- TODO desc
+	-- Default action calls user scripts on**** functions.
 	--
 	action = function(inlet)
 		-- in case of moves getEvent returns the origin and dest of the move
@@ -1471,7 +1481,10 @@ default = {
 	end,
 
 	-----
-	-- Called if to see if two events can be collapsed 
+	-- Called to see if two events can be collapsed.
+	--
+	-- Default function uses the collapseTable.
+	--
 	-- @param event1    first event
 	-- @param event2    second event
 	-- @return -1  ... no interconnection
@@ -1541,7 +1554,7 @@ default = {
 		if type(config.onStartup) == "function" then
 			local event = inlet.createBlanketEvent()
 			local startup = config.onStartup(event)
-			if event.status == "waiting" then
+			if event.status == "wait" then
 				-- user script did not spawn anything
 				-- thus the blanket event is deleted again.
 				inlet.cancelEvent(event)

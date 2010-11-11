@@ -546,9 +546,10 @@ l_now(lua_State *L)
 /**
  * Returns (on Lua stack) the addition of a clock timer by seconds. 
  *
- * @param1 the clock timer
- * @param2 seconds to change clock.
- * TODO
+ * @param1 (Lua stack) the clock timer
+ * @param2 (Lua stack) seconds to change clock.
+ *
+ * @return (Lua stack) clock timer + seconds.
  */
 static int
 l_addtoclock(lua_State *L) 
@@ -565,6 +566,7 @@ l_addtoclock(lua_State *L)
  * 
  * @param  (Lua stack) Path to binary to call
  * @params (Lua stack) list of string as arguments
+ *
  * @return (Lua stack) the pid on success, 0 on failure.
  */
 static int
@@ -893,9 +895,10 @@ bool move_event = false;
  * Handles an inotify event.
  */
 static void 
-handle_event(lua_State *L, struct inotify_event *event) {
-	/* TODO */
-	int event_type = NONE;
+handle_event(lua_State *L, 
+             struct inotify_event *event) 
+{
+	int event_type;
 
 	/* used to execute two events in case of unmatched MOVE_FROM buffer */
 	struct inotify_event *after_buf = NULL;
@@ -1159,10 +1162,27 @@ main(int argc, char *argv[])
 
 	/* load Lua */
 	L = lua_open();
+	luaL_openlibs(L);
+	{
+		/* checks the lua version */
+		const char *version;
+		int major, minor;
+		lua_getglobal(L, "_VERSION");
+		version = luaL_checkstring(L, -1);
+		if (sscanf(version, "Lua %d.%d", &major, &minor) != 2) {
+			fprintf(stderr, "cannot parse lua library version!\n");
+			return -1; // ERRNO
+		}
+		if ((major < 5) || (major == 5 && minor < 1)) {
+			fprintf(stderr, "lua library is too old. Need 5.1 at least");
+			return -1; // ERRNO
+		}
+		lua_pop(L, 1);
+	}
 
 	{
+		/* prepares logging early */
 		int i = 1;
-		/* Prepares logging early */
 		add_logcat("Normal", LOG_NOTICE);
 		add_logcat("Error",  LOG_ERR);
 		while (i < argc) {
@@ -1180,8 +1200,7 @@ main(int argc, char *argv[])
 		}
 	}
 
-	/* TODO check lua version */
-	luaL_openlibs(L);
+	/* registers lsycnd core */
 	luaL_register(L, "lsyncd", lsyncdlib);
 	lua_setglobal(L, "lysncd");
 
@@ -1278,7 +1297,7 @@ main(int argc, char *argv[])
 	}
 
 	{
-		/* checks version match between runner/core */
+		/* asserts version match between runner and core */
 		const char *lversion;
 		lua_getglobal(L, "lsyncd_version");
 		lversion = luaL_checkstring(L, -1);
@@ -1308,7 +1327,7 @@ main(int argc, char *argv[])
 	}
 
 	{
-		/* start the option parser in lua script */
+		/* starts the option parser in lua script */
 		int idx = 1;
 		const char *s;
 		/* creates a table with all remaining argv option arguments */
@@ -1326,7 +1345,7 @@ main(int argc, char *argv[])
 		if (s) {
 			lsyncd_config_file = s_strdup(s);
 		}
-		lua_pop(L, 2); // TODO
+		lua_pop(L, 2); 
 	}
 
 	if (lsyncd_config_file) {
