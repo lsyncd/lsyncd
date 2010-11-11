@@ -28,27 +28,27 @@ slowbash = {
 		local s = event.sourcePathname
 		local t = event.targetPathname
 		log("Normal", "Spawning Create ", s," -> ",t)
-		spawnShell(event, "ok", prefix..[[cp -r "$1" "$2"]], s, t)
+		spawnShell(event, prefix..[[cp -r "$1" "$2"]], s, t)
 	end,
 
 	onModify = function(event)
 		local s = event.sourcePathname
 		local t = event.targetPathname
 		log("Normal", "Spawning Modify ",s," -> ",t)
-		spawnShell(event, "ok", prefix..[[cp -r "$1" "$2"]], s, t)
+		spawnShell(event, prefix..[[cp -r "$1" "$2"]], s, t)
 	end,
 
 	onDelete = function(event)
 		local t = event.targetPathname
 		log("Normal", "Spawning Delete of ",t)
-		spawnShell(event, "ok", prefix..[[rm -rf "$1"]], t)
+		spawnShell(event, prefix..[[rm -rf "$1"]], t)
 	end,
 
 	onMove = function(originEvent, destinationEvent)
 		local t = originEvent.targetPathname
 		local d = destinationEvent.targetPathname
 		log("Normal", "Spawning Move from ",t," to ",d)
-		spawnShell(event, "ok", prefix..[[mv "$1" "$2"]], t, d)
+		spawnShell(originEvent, prefix..[[mv "$1" "$2"]], t, d)
 	end,
 }
 

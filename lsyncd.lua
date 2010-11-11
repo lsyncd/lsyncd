@@ -863,6 +863,7 @@ local Syncs = (function()
 	return {add = add, iwalk = iwalk, size = size}
 end)()
 
+
 -----
 -- Interface to inotify, watches recursively subdirs and 
 -- sends events.
@@ -930,7 +931,7 @@ local Inotifies = (function()
 	-----
 	-- Removes one event receiver from a directory.
 	--
-	function removeSync(sync, path)
+	local function removeSync(sync, path)
 	    local sp = syncpaths[sync]
 		if not sp then
 			error("internal fail, removeSync, nonexisting sync: ")
@@ -972,7 +973,7 @@ local Inotifies = (function()
 	-- @param filename  string filename without path
 	-- @param filename2 
 	--
-	function event(etype, wd, isdir, time, filename, filename2)
+	local function event(etype, wd, isdir, time, filename, filename2)
 		local ftype;
 		if isdir then
 			ftype = "directory"
@@ -1180,7 +1181,6 @@ function runner.cycle(now)
 	end
 end
 
-
 -----
 -- Called by core before anything is "-help" or "--help" is in
 -- the arguments.
@@ -1268,7 +1268,6 @@ function runner.initialize()
 
 	-- From this point on, no globals may be created anymore
 	lockGlobals()
-print(_G.event)
 
 	-----
 	-- transfers some defaults to settings 
@@ -1397,9 +1396,6 @@ function spawn(agent, binary, ...)
 	if agent == nil then
 		error("spawning with a nil agent", 2)
 	end
-print(agent)
-print(event)
-print(_G.event)
 	local pid = lsyncd.exec(binary, ...)
 	if pid and pid > 0 then
 		local sync, delay = InletControl.getInterior(agent)
@@ -1532,7 +1528,7 @@ default = {
 			return
 		end
 		log("Normal", "Finished ",event.etype,
-			" on ",event.sourcename," = ",exitcode)
+			" on ",event.sourcePath," = ",exitcode)
 	end,
 
 	-----
@@ -1574,5 +1570,4 @@ default = {
 -----
 -- Returns the core the runners function interface.
 --
-print("EVENT ", _G.event)
 return runner
