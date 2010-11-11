@@ -18,11 +18,10 @@ slowbash = {
 	delay = 5,
 
 	onStartup = function(event)
-		local config = event.config
-		log("Normal", "cp -r from ", config.source, " -> ", config.target)
+		log("Normal", "cp -r from ", event.source, " -> ", event.target)
 		spawnShell(event,
 			[[if [ "$(ls -A $1)" ]; then cp -r "$1"* "$2"; fi]], 
-			config.source, config.target)
+			event.source, event.target)
 	end,
 
 	onCreate = function(event)

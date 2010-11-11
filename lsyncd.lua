@@ -204,8 +204,14 @@ local Delay = (function()
 			path2  = path2,
 		
 			------
-			-- Status of the event
-			-- valid stati are: 'wait' and 'active'
+			-- Status of the event. Valid stati are: 
+			-- 'wait'    ... the event is ready to be handled.
+			-- 'active'  ... there is process running catering for this event.
+			-- 'blocked' ... this event waits for another to be handled first.
+			-- 'done'    ... event has been collected. This should never be 
+			--               visible as all references should be droped on
+			--               collection, nevertheless seperat status for 
+			--               insurrance.
 			--
 			status = "wait",
 		}
@@ -277,7 +283,13 @@ local Inlet, InletControl = (function()
 		etype = function(event)
 			return event[delayKey].etype
 		end,
-		
+	
+		-----
+		-- Status
+		status = function(event)
+			return event[delayKey].status
+		end,
+
 		-----
 		-- Returns true if event relates to a directory.
 		--
@@ -429,6 +441,19 @@ local Inlet, InletControl = (function()
 	end
 
 	-----
+	-- Cancels a waiting event.
+	--
+	local function cancelEvent(event)
+		local delay = event[delayKey] 
+		if delay.status ~= "waiting" then
+			log("Error", "Ignored try to cancel a non-waiting event of type ",
+				event.etype)
+			return
+		end
+		delay.sync:removeDelay(delay)
+	end
+
+	-----
 	-- Gets the next not blocked event from queue.
 	--
 	local function getEvent()
@@ -484,6 +509,23 @@ local Sync = (function()
 	local nextDefaultName = 1
 	
 	-----
+	-- Removes a delay.
+	local function removeDelay(self, delay) 
+		local found
+		for i, d in ipairs(self.delays) do
+			if d == delay then
+				found = true
+				table.remove(self.delays, i)
+				break
+			end
+		end
+		if not found then
+			error("Did not find a delay to be removed!")
+		end
+	end
+
+	
+	-----
 	-- Collects a child process 
 	--
 	local function collect(self, pid, exitcode)
@@ -497,20 +539,9 @@ local Sync = (function()
 		end
 		InletControl.setSync(self)
 
-		local rc = self.config.collector(InletControl.toEvent(delay), exitcode)
-		-- TODO honor return codes of the collector
-		-- Remove the delay.
-		local found
-		for i, d in ipairs(self.delays) do
-			if d == delay then
-				found = true
-				table.remove(self.delays, i)
-				break
-			end
-		end
-		if not found then
-			error("Did not find a delay!")
-		end
+		local rc = self.config.collect(InletControl.toEvent(delay), exitcode)
+		-- TODO honor return codes of the collect
+		removeDelay(self, delay)
 		log("Delay","Finish of ",delay.etype," on ",
 			self.source,delay.path," = ",exitcode)
 		self.processes[pid] = nil
@@ -628,7 +659,7 @@ local Sync = (function()
 			return self.delays[1].alarm
 		end
 	end
-
+		
 	-----
 	-- Gets the next event to be processed.
 	--
@@ -700,6 +731,7 @@ local Sync = (function()
 			getAlarm        = getAlarm,
 			getNextDelay    = getNextDelay,
 			invokeActions   = invokeActions,
+			removeDelay     = removeDelay,
 		}
 		-- provides a default name if needed
 		if not config.name then
@@ -763,19 +795,21 @@ local Syncs = (function()
 		local uconfig = config
 		config = {}
 		inherit(config, uconfig)
+		
+		-- at very first let the userscript 'prepare' function 
+		-- fill out more values.
+		if type(config.prepare) == "function" then
+			-- give explicitly a writeable copy of config.
+			config.prepare(config)
+		end 
 
-		-----
-		-- raises an error if @param name isnt in opts
-		local function requireOpt(name)
-			if not config[name] then
-				local info = debug.getinfo(3, "Sl")
-				log("Error", info.short_src, ":", info.currentline,
-					": ", name, " missing from sync.")
-				terminate(-1) -- ERRNO
-			end
+		if not config["source"] then
+			local info = debug.getinfo(3, "Sl")
+			log("Error", info.short_src, ":", info.currentline,
+				": source missing from sync.")
+			terminate(-1) -- ERRNO
 		end
-		requireOpt("source")
-
+		
 		-- absolute path of source
 		local realsrc = lsyncd.realdir(config.source)
 		if not realsrc then
@@ -797,7 +831,9 @@ local Syncs = (function()
 
 		-- loads a default value for an option if not existent
 		local defaultValues = 
-			{'action', 'collapse', 'collapseTable', 'maxProcesses'}
+			{'action',  'collapse',     'collapseTable', 
+			 'collect', 'maxProcesses', 'init' 
+			}
 		for _, dn in pairs(defaultValues) do
 			if config[dn] == nil then
 				config[dn] = settings[dn] or default[dn]
@@ -897,15 +933,15 @@ local Inotifies = (function()
 	function removeSync(sync, path)
 	    local sp = syncpaths[sync]
 		if not sp then
-			error("internal fail, removeSync, nonexisting syncpath-sync.")
+			error("internal fail, removeSync, nonexisting sync: ")
 		end
 		local wd = sp[path]
 		if not wd then
-			error("internal fail, removeSync, nonexisting syncpath-wd.")
+			error("internal fail, removeSync, nonexisting wd.")
 		end
 		local ilist = wdlist[wd]
 		if not ilist then
-			error("internal fail, removeSync, nonexisting syncpath-ilist.")
+			error("internal fail, removeSync, nonexisting ilist.")
 		end
 		-- TODO optimize for 1 entry only case
 		local i, found
@@ -916,7 +952,7 @@ local Inotifies = (function()
 			end
 		end
 		if not found then
-			error("internal fail, removeSync, nonexisiting syncpath-i.")
+			error("internal fail, removeSync, nonexisiting i.")
 		end
 		table.remove(ilist, i)
 		if #ilist == 0 then
@@ -975,7 +1011,7 @@ local Inotifies = (function()
 				elseif etype == "Delete" then
 					removeSync(inotify.sync, path)
 				elseif etype == "Move" then
-					removeSync(inotify.sync. path)
+					removeSync(inotify.sync, path)
 					add(inotify.root, path2, true, inotify.sync)
 				end
 			end
@@ -1232,6 +1268,7 @@ function runner.initialize()
 
 	-- From this point on, no globals may be created anymore
 	lockGlobals()
+print(_G.event)
 
 	-----
 	-- transfers some defaults to settings 
@@ -1357,6 +1394,12 @@ end
 -- @param ...     arguments
 --
 function spawn(agent, binary, ...)
+	if agent == nil then
+		error("spawning with a nil agent", 2)
+	end
+print(agent)
+print(event)
+print(_G.event)
 	local pid = lsyncd.exec(binary, ...)
 	if pid and pid > 0 then
 		local sync, delay = InletControl.getInterior(agent)
@@ -1481,14 +1524,14 @@ default = {
 	collect = function(event, exitcode)
 		if event.etype == "Blanket" then
 			if exitcode == 0 then
-				log("Normal", "Startup of '",c.source,"' finished.")
+				log("Normal", "Startup of '",event.source,"' finished.")
 			else
-				log("Error", "Failure on startup of '",c.source,"'.")
+				log("Error", "Failure on startup of '",event.source,"'.")
 				terminate(-1) -- ERRNO
 			end
 			return
 		end
-		log("Normal", "Finished ",event.atype,
+		log("Normal", "Finished ",event.etype,
 			" on ",event.sourcename," = ",exitcode)
 	end,
 
@@ -1501,17 +1544,25 @@ default = {
 		-- creates a prior startup if configured
 		if type(config.onStartup) == "function" then
 			local event = inlet.createBlanketEvent()
-			config.onStartup(event)
+			local startup = config.onStartup(event)
+			if event.status == "waiting" then
+				-- user script did not spawn anything
+				-- thus the blanket event is deleted again.
+				inlet.cancelEvent(event)
+			end
+			-- TODO honor some return codes of startup like "warmstart".
 		end
 	end,
 
 	-----
-	-- TODO
+	-- The maximum number of processes lsyncd will spawn simultanously for
+	-- one sync.
 	--
 	maxProcesses = 1,
 
 	-----
 	-- a default rsync configuration for easy usage.
+	--
 	rsync = defaultRsync,
 
 	-----
@@ -1520,4 +1571,8 @@ default = {
 	statusIntervall = 10,
 }
 
+-----
+-- Returns the core the runners function interface.
+--
+print("EVENT ", _G.event)
 return runner
