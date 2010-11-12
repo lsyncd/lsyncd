@@ -554,6 +554,16 @@ local Sync = (function()
 
 		local rc = self.config.collect(InletControl.d2e(delay), exitcode)
 		-- TODO honor return codes of the collect
+
+		-- set all delays blocked by this on wait.
+		if delay.blocks then
+			for i, vd in pairs(delay.blocks) do
+				if vd.status ~= "block" then
+					error("unblocking an non-blocked event!")
+				end
+				vd.status = "wait"
+			end
+		end
 		removeDelay(self, delay)
 		log("Delay","Finish of ",delay.etype," on ",
 			self.source,delay.path," = ",exitcode)
@@ -752,6 +762,25 @@ local Sync = (function()
 		table.insert(self.delays, newd)
 		return newd 
 	end
+	
+	-----
+	-- Writes a status report about delays in this sync.
+	--
+	local function statusReport(self, f)
+		local spaces = "                    "
+		f:write(self.config.name," source=",self.source,"\n")
+		f:write("There are ",#self.delays, " delays\n")
+		for i, vd in ipairs(self.delays) do
+			local s = vd.status
+			f:write(string.sub(spaces, 1, 5 - #vd.status))
+			f:write(" ",vd.etype)
+			-- TODO spaces
+			f:write(vd.path)
+			if (vd.path2) then
+				f:write(" -> ",vd.path2)
+			end
+		end
+	end
 
 	-----
 	-- Creates a new Sync
@@ -772,6 +801,7 @@ local Sync = (function()
 			getNextDelay    = getNextDelay,
 			invokeActions   = invokeActions,
 			removeDelay     = removeDelay,
+			statusReport    = statusReport,
 		}
 		-- provides a default name if needed
 		if not config.name then
@@ -1146,6 +1176,11 @@ local StatusFile = (function()
 			return
 		end
 		f:write("Lsyncd status report at ", os.date(), "\n\n")
+		for i, s in Syncs.iwalk() do
+			s:statusReport(f)
+			f:write("\n")
+		end
+		
 		Inotifies.statusReport(f)
 		f:close()
 	end

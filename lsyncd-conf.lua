@@ -7,7 +7,7 @@ settings = {
 --	logfile = "/tmp/lsyncd",
 --	nodaemon = true,
 	statusfile = "/tmp/lsyncd.stat",
-	statusintervall = 1,
+	statusintervall = 0,
 }
 
 ----
