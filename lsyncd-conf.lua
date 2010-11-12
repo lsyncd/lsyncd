@@ -6,18 +6,18 @@
 settings = {
 --	logfile = "/tmp/lsyncd",
 --	nodaemon = true,
-	statusfile = "/tmp/lsyncd.stat",
-	statusintervall = 0,
+	statusFile = "/tmp/lsyncd.stat",
+	statusIntervall = 1,
 }
 
 ----
 -- for testing purposes. uses bash command to hold local dirs in sync.
 --
-prefix = "sleep 1 && "
+prefix = "sleep 5 && "
 slowbash = {
 	delay = 5,
 
-	maxProcesses = 5,
+	maxProcesses = 3,
 
 	onStartup = function(event)
 		log("Normal", "cp -r from ", event.source, " -> ", event.target)

@@ -532,12 +532,22 @@ local Sync = (function()
 				break
 			end
 		end
+		
 		if not found then
 			error("Did not find a delay to be removed!")
 		end
+
+		-- free all delays blocked by this one. 
+		if delay.blocks then
+			for i, vd in pairs(delay.blocks) do
+				if vd.status ~= "block" then
+					error("unblocking an non-blocked event!")
+				end
+				vd.status = "wait"
+			end
+		end
 	end
 
-	
 	-----
 	-- Collects a child process 
 	--
@@ -555,15 +565,6 @@ local Sync = (function()
 		local rc = self.config.collect(InletControl.d2e(delay), exitcode)
 		-- TODO honor return codes of the collect
 
-		-- set all delays blocked by this on wait.
-		if delay.blocks then
-			for i, vd in pairs(delay.blocks) do
-				if vd.status ~= "block" then
-					error("unblocking an non-blocked event!")
-				end
-				vd.status = "wait"
-			end
-		end
 		removeDelay(self, delay)
 		log("Delay","Finish of ",delay.etype," on ",
 			self.source,delay.path," = ",exitcode)
@@ -667,7 +668,8 @@ local Sync = (function()
 					log("Delay", "Stacking ",nd.etype," upon ",
 						od.etype," on ",path)
 					stack(od, nd)
-					break
+					table.insert(self.delays, nd)
+					return
 				end
 				
 				-- loops over all oe, oe2, ne, ne2 combos.
@@ -679,13 +681,13 @@ local Sync = (function()
 					-- start with first oe
 					nel = ne2
 					oel = oe
+				else 
+					oel = false
 				end
 			end
 			il = il - 1
 		end
-		if il <= 0 then
-			log("Delay", "Registering ",nd.etype," on ",path)
-		end
+		log("Delay", "Registering ",nd.etype," on ",path)
 		-- there was no hit on collapse or it decided to stack.
 		table.insert(self.delays, nd)
 	end
@@ -771,14 +773,15 @@ local Sync = (function()
 		f:write(self.config.name," source=",self.source,"\n")
 		f:write("There are ",#self.delays, " delays\n")
 		for i, vd in ipairs(self.delays) do
-			local s = vd.status
-			f:write(string.sub(spaces, 1, 5 - #vd.status))
-			f:write(" ",vd.etype)
+			local st = vd.status
+			f:write(st, string.sub(spaces, 1, 7 - #st))
+			f:write(vd.etype," ")
 			-- TODO spaces
 			f:write(vd.path)
 			if (vd.path2) then
 				f:write(" -> ",vd.path2)
 			end
+			f:write("\n")
 		end
 	end
 
@@ -1131,11 +1134,11 @@ local StatusFile = (function()
 	local lastWritten = false
 
 	-----
-	-- Timestamp when a statusfile should be written
+	-- Timestamp when a status file should be written
 	local alarm = false
 
 	-----
-	-- Returns when the statusfile should be written
+	-- Returns when the status file should be written
 	--
 	local function getAlarm()
 		return alarm
@@ -1169,9 +1172,9 @@ local StatusFile = (function()
 		end
 
 		log("Statusfile", "writing now")
-		local f, err = io.open(settings.statusfile, "w")
+		local f, err = io.open(settings.statusFile, "w")
 		if not f then
-			log("Error", "Cannot open statusfile '"..settings.statusfile..
+			log("Error", "Cannot open status file '"..settings.statusFile..
 				"' :"..err)
 			return
 		end
@@ -1254,7 +1257,7 @@ function runner.cycle(now)
 		s:invokeActions(now)
 	end
 
-	if settings.statusfile then
+	if settings.statusFile then
 		StatusFile.write(now)
 	end
 end
@@ -1545,6 +1548,11 @@ default = {
 		local func = config["on".. event.etype]
 		if func then
 			func(event, event2)
+		end
+		-- if function didnt change the wait status its not interested
+		-- in this event -> drop it.
+		if event.status == "wait" then
+			inlet.cancelEvent(event)
 		end
 	end,
 
