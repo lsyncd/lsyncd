@@ -739,7 +739,7 @@ l_exec(lua_State *L)
 		/* start filling the pipe */
 		len = write(pipefd[1], pipe_text, tlen);
 		if (len < 0) {
-			logstring("Normal", "broken pipe.");
+			logstring("Normal", "immediatly broken pipe.");
 			close(pipefd[0]);
 		}
 		if (len == tlen) {
@@ -747,8 +747,8 @@ l_exec(lua_State *L)
 			close(pipefd[1]);
 			logstring("Exec", "one-sweeped pipe");
 		} else {
-			logstring("Exec", "adding delayed pipe");
 			int p = pipes_len;
+			logstring("Exec", "adding delayed pipe");
 			pipes_len++;
 			if (pipes_len > pipes_size) {
 				pipes_size = pipes_len;
@@ -756,6 +756,7 @@ l_exec(lua_State *L)
 			}
 			pipes[p].fd = pipefd[1];
 			pipes[p].tlen = tlen;
+			pipes[p].pos = len;
 			pipes[p].text = s_strdup(pipe_text);
 		}
 		close(pipefd[0]);
@@ -1223,7 +1224,7 @@ masterloop(lua_State *L)
 				}
 
 				/* reuse pi for result */
-				pi = pselect(nfds + 1, &rfds, NULL, NULL, 
+				pi = pselect(nfds + 1, &rfds, &wfds, NULL, 
 					have_alarm ? &tv : NULL, &sigset);
 				if (pi >= 0) {
 					do_read = FD_ISSET(inotify_fd, &rfds);

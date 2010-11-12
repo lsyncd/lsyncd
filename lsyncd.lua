@@ -425,9 +425,9 @@ local Inlet, InletControl = (function()
 	--
 	local eventListFuncs = {
 		-----
-		-- Returns the pathnames of all events.
+		-- Returns the paths of all events.
 		--
-		getPathnames = function(elist, delimiter)
+		getPaths = function(elist, delimiter)
 			local dlist = el2dl[elist]
 			if not dlist then
 				error("cannot find delay list from event list.")
@@ -443,6 +443,32 @@ local Inlet, InletControl = (function()
 					i = i + 1
 					if d.path2 then
 						pl[i] = d.path2
+						i = i + 1
+					end
+				end
+			end
+			return table.concat(pl, delimiter) .. delimiter
+		end,
+		
+		-----
+		-- Returns the absolute local paths of all events.
+		--
+		getSourcePaths = function(elist, delimiter)
+			local dlist = el2dl[elist]
+			if not dlist then
+				error("cannot find delay list from event list.")
+			end
+			if not delimiter then
+				delimiter = '\n'
+			end
+			local pl = {}
+			local i = 1
+			for k, d in pairs(dlist) do
+				if type(k) == "number" then
+					pl[i] = sync.source .. d.path
+					i = i + 1
+					if d.path2 then
+						pl[i] = sync.source .. d.path2
 						i = i + 1
 					end
 				end
@@ -620,9 +646,10 @@ local Sync = (function()
 	-- get an incremental default name 'Sync[X]'
 	--
 	local nextDefaultName = 1
-	
+
 	-----
 	-- Removes a delay.
+	--
 	local function removeDelay(self, delay) 
 		local found
 		for i, d in ipairs(self.delays) do
@@ -640,9 +667,6 @@ local Sync = (function()
 		-- free all delays blocked by this one. 
 		if delay.blocks then
 			for i, vd in pairs(delay.blocks) do
-				if vd.status ~= "block" then
-					error("unblocking an non-blocked event!")
-				end
 				vd.status = "wait"
 			end
 		end
@@ -733,6 +757,7 @@ local Sync = (function()
 			if #self.delays > 0 then
 				stack(self.delays[#self.delays], nd)
 			end
+			addDelayPath("", nd)
 			table.insert(self.delays, nd)
 			return
 		end
@@ -1676,17 +1701,48 @@ end
 --
 local defaultRsync = {
 	-----
-	-- Called for every sync/target pair on startup
+	-- Spawns rsync for a list of events
 	--
 	action = function(inlet) 
 		local elist = inlet.getEvents()
-		local pathnames = elist.getPathnames()
-		log("Normal", "rsyncing list\n", pathnames)
-		return spawn(elist, "/tmp/input", "<", pathnames)
+		local config = inlet.getConfig()
+		local spaths = elist.getSourcePaths()
+		log("Normal", "rsyncing list\n", spaths)
+		spawn(elist, "/usr/bin/rsync", 
+			"<", spaths, 
+			"--delete",
+			config.rsyncOps.."d",
+			"--include-from=-",
+			"--exclude=\"*\"",
+			config.source, config.target)
 	end,
+
+	-----
+	-- Spawns the recursive startup sync
+	-- 
+	init = function(inlet)
+		local config = inlet.getConfig()
+		local event = inlet.createBlanketEvent()
+		if string.sub(config.target, -1) ~= "/" then
+			config.target = config.target .. "/"
+		end
+		log("Normal", "recursive startup rsync: ", config.source,
+			" -> ", config.target)
+		spawn(event, "/usr/bin/rsync", 
+			"--delete",
+			config.rsyncOps.."r", 
+			config.source, 
+			config.target)
+	end,
+
+	-----
+	-- Calls rsync with this options
+	--
+	rsyncOps = "-lts",
 	
 	-----
 	-- Default delay 3 seconds
+	--
 	delay = 3,
 }
 
