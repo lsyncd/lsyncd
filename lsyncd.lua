@@ -232,13 +232,12 @@ local Inlet, InletControl = (function()
 	-- lua runner controlled variables
 	local sync 
 
-	-- key variables for delays hidden from user
-	local delayKey = {}
 
-	-- nil for non move events
-	-- 0 for move source events
-	-- 1 for move desination events
-	local moveDestKey = {}
+	-----
+	-- table to receive the delay of a event.
+	local e2d = {}
+	-- doesnt stop the garbage collect to remove either.
+	setmetatable(e2d, { __mode = 'kv' })
 
 	-----
 	-- removes the trailing slash from a path
@@ -251,10 +250,10 @@ local Inlet, InletControl = (function()
 	end
 
 	local function getPath(event)
-		if not event[moveDestKey] then
-			return event[delayKey].path
+		if not event.move then
+			return e2d[event].path
 		else
-			return event[delayKey].path2
+			return e2d[event].path2
 		end
 	end
 
@@ -269,7 +268,7 @@ local Inlet, InletControl = (function()
 		-- TODO give user a readonly version.
 		--
 		config = function(event)
-			return event[delayKey].sync.config
+			return e2d[event].sync.config
 		end,
 
 		-----
@@ -282,13 +281,13 @@ local Inlet, InletControl = (function()
 		--    "Move"
 		--
 		etype = function(event)
-			return event[delayKey].etype
+			return e2d[event].etype
 		end,
 	
 		-----
 		-- Status
 		status = function(event)
-			return event[delayKey].status
+			return e2d[event].status
 		end,
 
 		-----
@@ -389,7 +388,7 @@ local Inlet, InletControl = (function()
 		__index = function(t, k)
 			local f = eventFields[k]
 			if not f then
-				if k == moveDestKey then
+				if k == 'move' then
 					-- possibly undefined
 					return nil
 				end
@@ -400,33 +399,35 @@ local Inlet, InletControl = (function()
 	}
 	
 	-----
-	-- Encapsulates a delay to an event for the user
-	--
-	-- TODO this hidden key technique can be circumvented with 
-	-- pairs(), use a weak table as referencer instead.
+	-- Encapsulates a delay into an event for the user
 	--
 	local function toEvent(delay)
 		if delay.etype ~= "Move" then
 			if not delay.event then
-				delay.event = {}
-				setmetatable(delay.event, eventMeta)
-				delay.event[delayKey] = delay
+				local event = {}
+				delay.event = event
+				setmetatable(event, eventMeta)
+				e2d[event] = delay
 			end
 			return delay.event
 		else
 			-- moves have 2 events - origin and destination
 			if not delay.event then
-				delay.event = {}
-				delay.event2 = {}
+				local event  = {}
+				local event2 = {}
+				delay.event  = event
+				delay.event2 = event2
 
-				setmetatable(delay.event, eventMeta)
-				setmetatable(delay.event2, eventMeta)
-
-				delay.event[delayKey] = delay
-				delay.event2[delayKey] = delay
-
-				delay.event[moveDestKey] = false
-				delay.event2[moveDestKey] = true
+				setmetatable(event, eventMeta)
+				setmetatable(event2, eventMeta)
+				e2d[delay.event] = delay
+				e2d[delay.event2] = delay
+				
+				-- move events have a field 'event'
+				-- false for move source events
+				-- true  for move desination events
+				event.move  = false
+				event2.move = true
 			end
 			return delay.event, delay.event2
 		end
@@ -445,7 +446,7 @@ local Inlet, InletControl = (function()
 	-- Cancels a waiting event.
 	--
 	local function cancelEvent(event)
-		local delay = event[delayKey] 
+		local delay = e2d[event]
 		if delay.status ~= "wait" then
 			log("Error", "Ignored try to cancel a non-waiting event of type ",
 				event.etype)
@@ -481,7 +482,7 @@ local Inlet, InletControl = (function()
 	-- Return the inner config
 	--    not to be called from user
 	local function getInterior(event)
-		return sync, event[delayKey]
+		return sync, e2d[event]
 	end
 
 	-----
