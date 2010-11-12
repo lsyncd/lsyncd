@@ -232,12 +232,16 @@ local Inlet, InletControl = (function()
 	-- lua runner controlled variables
 	local sync 
 
-
 	-----
-	-- table to receive the delay of a event.
+	-- table to receive the delay of an event.
 	local e2d = {}
-	-- doesnt stop the garbage collect to remove either.
+	-- doesnt stop the garbage collect to remove entries.
 	setmetatable(e2d, { __mode = 'kv' })
+	
+	-- table to receive the delay list of an event list.
+	local el2dl = {}
+	-- doesnt stop the garbage collect to remove entries.
+	setmetatable(el2dl, { __mode = 'kv' })
 
 	-----
 	-- removes the trailing slash from a path
@@ -258,7 +262,7 @@ local Inlet, InletControl = (function()
 	end
 
 	-----
-	-- Interface for userscripts to get event fields..
+	-- Interface for user scripts to get event fields.
 	--
 	local eventFields = {
 		-----
@@ -278,11 +282,17 @@ local Inlet, InletControl = (function()
 		--    "Create",
 		--    "Delete",
 		--    "Modify",
-		--    "MoveFr",
-		--    "MoveTo"
+		--    "Move",
 		--
 		etype = function(event)
 			return e2d[event].etype
+		end,
+
+		-----
+		-- Tells script this isnt a list.
+		--
+		isList = function()
+			return false
 		end,
 
 		-----
@@ -354,7 +364,7 @@ local Inlet, InletControl = (function()
 		-- Includes a trailing slash for dirs.
 		--
 		sourcePath = function(event)
-			return sync.source ..getPath(event)
+			return sync.source .. getPath(event)
 		end,
 		
 		------
@@ -392,9 +402,9 @@ local Inlet, InletControl = (function()
 			return sync.config.target .. cutSlash(getPath(event))
 		end,
 	}
-
+	
 	-----
-	-- Retrievs event fields for the user.
+	-- Retrievs event fields for the user script.
 	--
 	local eventMeta = {
 		__index = function(t, k)
@@ -411,8 +421,59 @@ local Inlet, InletControl = (function()
 	}
 	
 	-----
-	-- Turns a delay to a event.
-	-- Encapsulates a delay into an event for the user
+	-- Interface for user scripts to get event fields.
+	--
+	local eventListFuncs = {
+		-----
+		-- Returns the pathnames of all events.
+		--
+		getPathnames = function(elist, delimiter)
+			local dlist = el2dl[elist]
+			if not dlist then
+				error("cannot find delay list from event list.")
+			end
+			if not delimiter then
+				delimiter = '\n'
+			end
+			local pl = {}
+			local i = 1
+			for k, d in pairs(dlist) do
+				if type(k) == "number" then
+					pl[i] = d.path
+					i = i + 1
+					if d.path2 then
+						pl[i] = d.path2
+						i = i + 1
+					end
+				end
+			end
+			return table.concat(pl, delimiter) .. delimiter
+		end,
+	}
+
+
+	-----
+	-- Retrievs event list fields for the user script.
+	--
+	local eventListMeta = {
+		__index = function(t, k)
+			if k == "isList" then
+				return true
+			end
+
+			local f = eventListFuncs[k]
+			if not f then
+				error("event list does not have function '"..k.."'", 2)
+			end
+			
+			return function()
+				return f(t)
+			end
+		end
+	}
+	
+	-----
+	-- Encapsulates a delay into an event for the user script.
 	--
 	local function d2e(delay)
 		if delay.etype ~= "Move" then
@@ -443,6 +504,19 @@ local Inlet, InletControl = (function()
 			return delay.event, delay.event2
 		end
 	end
+	
+	-----
+	-- Encapsulates a delay list into an event list for the user script.
+	--
+	local function dl2el(dlist)
+		if not dlist.elist then
+			local elist = {}
+			dlist.elist = elist
+			setmetatable(elist, eventListMeta)
+			el2dl[elist] = dlist
+		end
+		return dlist.elist
+	end
 
 	
 	-----
@@ -472,6 +546,14 @@ local Inlet, InletControl = (function()
 	local function getEvent()
 		return d2e(sync:getNextDelay(lysncd.now()))
 	end
+	
+	-----
+	-- Gets all events that are not blocked by active events.
+	--
+	local function getEvents()
+		local dlist = sync:getDelays()
+		return dl2el(dlist)
+	end
 
 	-----
 	-- Returns the configuration table specified by sync{}
@@ -490,23 +572,41 @@ local Inlet, InletControl = (function()
 	end
 
 	-----
-	-- Return the inner config
-	--    not to be called from user
-	local function getInterior(event)
-		return sync, e2d[event]
+	-- Returns the delay from a event.
+	--    not to be called from user script.
+	local function getDelay(event)
+		return e2d[event]
+	end
+	
+	-----
+	-- Returns the delay list from a event list.
+	--    not to be called from user script.
+	local function getDelayList(elist)
+		return el2dl[elist]
+	end
+	
+	-----
+	-- Return the currentsync 
+	--    not to be called from user script.
+	local function getSync()
+		return sync
 	end
 
 	-----
 	-- public interface.
 	-- this one is split, one for user one for runner.
 	return {
-			getEvent = getEvent, 
+			getEvent  = getEvent, 
+			getEvents = getEvents, 
 			getConfig = getConfig, 
 			createBlanketEvent = createBlanketEvent,
 		}, {
 			setSync = setSync, 
-			getInterior = getInterior, -- TODO <- remove
+			getSync = getSync,
+			getDelay = getDelay,
+			getDelayList = getDelayList, 
 			d2e = d2e,
+			dl2el = dl2el,
 		}
 end)()
 
@@ -557,17 +657,31 @@ local Sync = (function()
 			-- not a child of this sync.
 			return
 		end
-		if delay.status ~= "active" then
-			error("internal fail, collecting a non-active process")
+
+		if delay.status then
+			-- collected an event
+			if delay.status ~= "active" then
+				error("internal fail, collecting a non-active process")
+			end
+			InletControl.setSync(self)
+			local rc = self.config.collect(InletControl.d2e(delay), exitcode)
+			-- TODO honor return codes of the collect?
+
+			removeDelay(self, delay)
+			log("Delay","Finish of ",delay.etype," on ",
+				self.source,delay.path," = ",exitcode)
+		else
+			log("Delay", "collected a list")
+			InletControl.setSync(self)
+			local rc = self.config.collect(InletControl.dl2el(delay), exitcode)
+			-- TODO honor return codes of collect?
+			for k, d in pairs(delay) do
+				if type(k) == "number" then
+					removeDelay(self, d)
+				end
+			end
+			log("Delay","Finished list = ",exitcode)
 		end
-		InletControl.setSync(self)
-
-		local rc = self.config.collect(InletControl.d2e(delay), exitcode)
-		-- TODO honor return codes of the collect
-
-		removeDelay(self, delay)
-		log("Delay","Finish of ",delay.etype," on ",
-			self.source,delay.path," = ",exitcode)
 		self.processes[pid] = nil
 	end
 
@@ -712,20 +826,32 @@ local Sync = (function()
 		return nil
 	end
 		
+	
 	-----
-	-- Gets the next event to be processed.
+	-- Gets all delays that are not blocked by active delays.
 	--
-	local function getNextDelay(self, now)
-		for i, d in ipairs(self.delays) do
-			if d.alarm ~= true and lsyncd.clockbefore(now, d.alarm) then
-				-- reached point in stack where delays are in future
-				return nil
-			end
-			if d.status == "wait" then
-				-- found a waiting delay
-				return d
+	local function getDelays(self)
+		local dlist = {}
+		local blocks = {}
+
+		----
+		-- inheritly transfers all blocks from delay
+		--
+		local function getBlocks(delay) 
+			blocks[delay] = true
+			for i, d in ipairs(delay.blocks) do
+				getBlocks(d)
 			end
 		end
+
+		for i, d in ipairs(self.delays) do
+			if d.status == "active" then
+				getBlocks(d)
+			elseif not blocks[d] then
+				dlist[i] = d
+			end
+		end
+		return dlist
 	end
 
 	-----
@@ -750,6 +876,22 @@ local Sync = (function()
 					-- no further processes
 					return
 				end
+			end
+		end
+	end
+	
+	-----
+	-- Gets the next event to be processed.
+	--
+	local function getNextDelay(self, now)
+		for i, d in ipairs(self.delays) do
+			if d.alarm ~= true and lsyncd.clockbefore(now, d.alarm) then
+				-- reached point in stack where delays are in future
+				return nil
+			end
+			if d.status == "wait" then
+				-- found a waiting delay
+				return d
 			end
 		end
 	end
@@ -801,6 +943,7 @@ local Sync = (function()
 			delay           = delay,
 			addBlanketDelay = addBlanketDelay,
 			getAlarm        = getAlarm,
+			getDelays       = getDelays,
 			getNextDelay    = getNextDelay,
 			invokeActions   = invokeActions,
 			removeDelay     = removeDelay,
@@ -1479,9 +1622,23 @@ function spawn(agent, binary, ...)
 	end
 	local pid = lsyncd.exec(binary, ...)
 	if pid and pid > 0 then
-		local sync, delay = InletControl.getInterior(agent)
-		delay.status = "active"
-		sync.processes[pid] = delay
+		local sync = InletControl.getSync()
+		local delay = InletControl.getDelay(agent)
+		if delay then
+			delay.status = "active"
+			sync.processes[pid] = delay
+		else 
+			local dlist = InletControl.getDelayList(agent)
+			if not dlist then
+				error("spawning with an unknown agent", 2)
+			end
+			for k, d in pairs(dlist) do
+				if type(k) == "number" then
+					d.status = "active"
+				end
+			end
+			sync.processes[pid] = dlist
+		end
 	end
 end
 
@@ -1520,16 +1677,17 @@ end
 local defaultRsync = {
 	-----
 	-- Called for every sync/target pair on startup
-	startup = function(source, config) 
-		log("Normal", "startup recursive rsync: ", source, " -> ", target)
-		return exec("/usr/bin/rsync", "-ltrs", source, target)
+	--
+	action = function(inlet) 
+		local elist = inlet.getEvents()
+		local pathnames = elist.getPathnames()
+		log("Normal", "rsyncing list\n", pathnames)
+		return spawn(elist, "/tmp/input", "<", pathnames)
 	end,
-
-	default = function(inlet)
-		-- TODO
-		--return exec("/usr/bin/rsync", "--delete", "-ltds",
-		--	source.."/"..path, target.."/"..path)
-	end
+	
+	-----
+	-- Default delay 3 seconds
+	delay = 3,
 }
 
 -----
@@ -1613,18 +1771,22 @@ default = {
 	-----
 	-- Called when collecting a finished child process
 	--
-	collect = function(event, exitcode)
-		if event.etype == "Blanket" then
-			if exitcode == 0 then
-				log("Normal", "Startup of '",event.source,"' finished.")
-			else
-				log("Error", "Failure on startup of '",event.source,"'.")
-				terminate(-1) -- ERRNO
+	collect = function(agent, exitcode)
+		if agent.isList then
+			log("Normal", "Finished a list = ",exitcode)
+		else
+			if agent.etype == "Blanket" then
+				if exitcode == 0 then
+					log("Normal", "Startup of '",agent.source,"' finished.")
+				else
+					log("Error", "Failure on startup of '",agent.source,"'.")
+					terminate(-1) -- ERRNO
+				end
+				return
 			end
-			return
+			log("Normal", "Finished ",agent.etype,
+				" on ",agent.sourcePath," = ",exitcode)
 		end
-		log("Normal", "Finished ",event.etype,
-			" on ",event.sourcePath," = ",exitcode)
 	end,
 
 	-----
@@ -1632,7 +1794,6 @@ default = {
 	--
 	init = function(inlet)
 		local config = inlet.getConfig()
-		
 		-- creates a prior startup if configured
 		if type(config.onStartup) == "function" then
 			local event = inlet.createBlanketEvent()

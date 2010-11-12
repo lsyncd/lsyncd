@@ -58,5 +58,5 @@ slowbash = {
 	end,
 }
 
-sync{slowbash, source="s", target="d/"}
+sync{default.rsync, source="s", target="d/"}
 
