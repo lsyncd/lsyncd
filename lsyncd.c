@@ -566,19 +566,33 @@ l_addtoclock(lua_State *L)
  * 
  * @param  (Lua stack) Path to binary to call
  * @params (Lua stack) list of string as arguments
+ *    or "<" in which case the next argument is a string that will be piped 
+ *    on stdin. the arguments will follow that one.
  *
  * @return (Lua stack) the pid on success, 0 on failure.
  */
 static int
 l_exec(lua_State *L)
 {
+	/* the binary to call */
 	const char *binary = luaL_checkstring(L, 1);
+	/* number of arguments */
 	int argc = lua_gettop(L) - 1;
+	/* the pid spawned */
 	pid_t pid;
-	int i;
-	char const **argv = s_calloc(argc + 2, sizeof(char *));
-	
+	/* the arguments position in the lua arguments */
+	int li = 1;
+
+	/* the pipe to text */
+	char const *pipe_text = NULL;
+	/* the arguments */
+	char const **argv;
+	/* pipe file descriptors */
+	int pipefd[2];
+
+	/* writes a log message, prepares the message only if actually needed. */
 	if (check_logcat("Exec") >= settings.log_level) {
+		int i;
 		lua_pushvalue(L, 1);
 		for(i = 1; i <= argc; i++) {
 			lua_pushstring(L, " [");
@@ -590,16 +604,46 @@ l_exec(lua_State *L)
 		lua_pop(L, 1);
 	}
 
+	if (argc >= 2 && !strcmp(luaL_checkstring(L, 2), "<")) {
+		/* pipes something into stdin */
+    	int flags;
+		pipe_text = luaL_checkstring(L, 3);
+printf("pipe_text = %s\n", pipe_text);
+		/* creates the pipe */
+		if (pipe(pipefd) == -1) {
+			logstring("Error", "cannot create a pipe!");
+			terminate(-1); // ERRNO
+		}
 
+		/* sets the write end of the pipe to close on exec */ 
+	    if (flags = fcntl(fd, F_GETFD) == -1) {
+			logstring("Error", "cannot get pipe flage!");
+			terminate(-1); // ERRNO
+		}
+		flags |= FD_CLOEXEC;
+		if (fcntl(fd, F_SETFD, flags) == -1) {
+			logstring("Error", "cannot set pipe flage!");
+			terminate(-1); // ERRNO
+		}
+
+		argc -= 2;
+		li += 2;
+	}
+
+	argv = s_calloc(argc + 2, sizeof(char *));
 	argv[0] = binary;
 	for(i = 1; i <= argc; i++) {
-		argv[i] = luaL_checkstring(L, i + 1);
+		argv[i] = luaL_checkstring(L, i + li);
 	}
 	argv[i] = NULL;
 	
 	pid = fork();
 
 	if (pid == 0) {
+		/* replaces stdin for pipes */
+		if (pipe_text) {
+			dup2(pipefd[0], STDIN_FILENO);
+		}
 		/* if lsyncd runs as a daemon and has a logfile it will redirect
 		   stdout/stderr of child processes to the logfile. */
 		if (is_daemon && settings.log_file) {
@@ -620,6 +664,11 @@ l_exec(lua_State *L)
 		exit(-1); // ERRNO
 	}
 
+	if (pipe_text) {
+		/* first closes read-end of pipe, this is for child process only */
+		close(pipefd[0]);
+
+	}
 	free(argv);
 	lua_pushnumber(L, pid);
 	return 1;
