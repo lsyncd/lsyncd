@@ -554,9 +554,9 @@ local Inlet, InletControl = (function()
 	end
 
 	-----
-	-- Cancels a waiting event.
+	-- Discards a waiting event.
 	--
-	local function cancelEvent(event)
+	local function discardEvent(event)
 		local delay = e2d[event]
 		if delay.status ~= "wait" then
 			log("Error", "Ignored try to cancel a non-waiting event of type ",
@@ -889,9 +889,13 @@ local Sync = (function()
 			return
 		end
 		for _, d in ipairs(self.delays) do
-			if d.alarm ~= true and lsyncd.clockbefore(now, d.alarm) then
-				-- reached point in stack where delays are in future
-				return
+			if #self.delays < self.config.maxDelays then
+				-- time constrains only are only a concern if not maxed 
+				-- the delay FIFO already.
+				if d.alarm ~= true and lsyncd.clockbefore(now, d.alarm) then
+					-- reached point in stack where delays are in future
+					return
+				end
 			end
 			if d.status == "wait" then
 				-- found a waiting delay
@@ -910,9 +914,13 @@ local Sync = (function()
 	--
 	local function getNextDelay(self, now)
 		for i, d in ipairs(self.delays) do
-			if d.alarm ~= true and lsyncd.clockbefore(now, d.alarm) then
-				-- reached point in stack where delays are in future
-				return nil
+			if #self.delays < self.config.maxDelays then
+				-- time constrains only are only a concern if not maxed 
+				-- the delay FIFO already.
+				if d.alarm ~= true and lsyncd.clockbefore(now, d.alarm) then
+					-- reached point in stack where delays are in future
+					return nil
+				end
 			end
 			if d.status == "wait" then
 				-- found a waiting delay
@@ -1071,10 +1079,15 @@ local Syncs = (function()
 		end
 
 		-- loads a default value for an option if not existent
-		local defaultValues = 
-			{'action',  'collapse',     'collapseTable', 
-			 'collect', 'maxProcesses', 'init' 
-			}
+		local defaultValues = {
+			'action',  
+			'collapse', 
+			'collapseTable', 
+			'collect', 
+			'init',     
+			'maxDelays', 
+			'maxProcesses', 
+		}
 		for _, dn in pairs(defaultValues) do
 			if config[dn] == nil then
 				config[dn] = settings[dn] or default[dn]
@@ -1766,7 +1779,7 @@ default = {
 		-- if function didnt change the wait status its not interested
 		-- in this event -> drop it.
 		if event.status == "wait" then
-			inlet.cancelEvent(event)
+			inlet.discardEvent(event)
 		end
 	end,
 
@@ -1857,7 +1870,7 @@ default = {
 			if event.status == "wait" then
 				-- user script did not spawn anything
 				-- thus the blanket event is deleted again.
-				inlet.cancelEvent(event)
+				inlet.discardEvent(event)
 			end
 			-- TODO honor some return codes of startup like "warmstart".
 		end
@@ -1868,6 +1881,13 @@ default = {
 	-- one sync.
 	--
 	maxProcesses = 1,
+
+	-----
+	-- Try not to have more than these delays.
+	-- not too large, since total calculation for stacking 
+	-- events is n*log(n) or so..
+	--
+	maxDelays = 1000,
 
 	-----
 	-- a default rsync configuration for easy usage.

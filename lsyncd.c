@@ -1254,23 +1254,19 @@ masterloop(lua_State *L)
 					continue;
 				}
 			} while(0);
+			if (len == 0) {
+				/* nothing more inotify */
+				break;
+			}
 			while (i < len && !reset) {
 				struct inotify_event *event = 
 					(struct inotify_event *) &readbuf[i];
 				handle_event(L, event);
 				i += sizeof(struct inotify_event) + event->len;
 			}
-			/* check if there is more data */
-			{
-				struct timespec tv = {.tv_sec = 0, .tv_nsec = 0};
-				fd_set readfds;
-				FD_ZERO(&readfds);
-				FD_SET(inotify_fd, &readfds);
-				do_read = pselect(inotify_fd + 1, &readfds, 
-					NULL, NULL, &tv, NULL) > 0;
-				if (do_read) {
-					logstring("Masterloop", "there is more data on inotify.");
-				}
+			if (!move_event) {
+				/* give it a pause if not endangering splitting a move */
+				break;
 			}
 		} 
 		/* checks if there is an unary MOVE_FROM left in the buffer */
@@ -1573,6 +1569,7 @@ main(int argc, char *argv[])
 		return -1; // ERRNO
 	}
 	close_exec_fd(inotify_fd);
+	non_block_fd(inotify_fd);
 
 	{
 		/* adds signal handlers *
