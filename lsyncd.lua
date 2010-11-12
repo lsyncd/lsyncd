@@ -1474,8 +1474,8 @@ end
 -- @param ...     arguments
 --
 function spawn(agent, binary, ...)
-	if agent == nil then
-		error("spawning with a nil agent", 2)
+	if agent == nil or type(agent) ~= "table" then
+		error("spawning with an invalid agent", 2)
 	end
 	local pid = lsyncd.exec(binary, ...)
 	if pid and pid > 0 then

@@ -26,6 +26,10 @@ slowbash = {
 			event.source, event.target)
 	end,
 
+    onModify = function(event)
+        spawn(event, "/home/axel/lsyncd2/in", "<", "tuhutu\n", "2")
+	end,
+
 	onCreate = function(event)
 		local s = event.sourcePathname
 		local t = event.targetPathname
@@ -33,12 +37,12 @@ slowbash = {
 		spawnShell(event, prefix..[[cp -r "$1" "$2"]], s, t)
 	end,
 
-	onModify = function(event)
-		local s = event.sourcePathname
-		local t = event.targetPathname
-		log("Normal", "Spawning Modify ",s," -> ",t)
-		spawnShell(event, prefix..[[cp -r "$1" "$2"]], s, t)
-	end,
+--	onModify = function(event)
+--		local s = event.sourcePathname
+--		local t = event.targetPathname
+--		log("Normal", "Spawning Modify ",s," -> ",t)
+--		spawnShell(event, prefix..[[cp -r "$1" "$2"]], s, t)
+--	end,
 
 	onDelete = function(event)
 		local t = event.targetPathname
