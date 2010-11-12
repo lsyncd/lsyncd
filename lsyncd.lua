@@ -25,7 +25,7 @@ lsyncd_version = "2.0beta1"
 -----
 -- Hides the core interface from user scripts
 --
-_l = lsyncd
+local _l = lsyncd
 lsyncd = nil
 local lsyncd = _l
 _l = nil
@@ -250,7 +250,7 @@ local Inlet, InletControl = (function()
 	end
 
 	local function getPath(event)
-		if not event.move then
+		if event.move ~= "To" then
 			return e2d[event].path
 		else
 			return e2d[event].path2
@@ -278,10 +278,22 @@ local Inlet, InletControl = (function()
 		--    "Create",
 		--    "Delete",
 		--    "Modify",
-		--    "Move"
+		--    "MoveFr",
+		--    "MoveTo"
 		--
 		etype = function(event)
 			return e2d[event].etype
+		end,
+
+		-----
+		-- Returns 'Fr'/'To' for events of moves.
+		move = function(event)
+			local d = e2d[event]
+			if d.move then
+				return d.move
+			else 
+				return ""
+			end
 		end,
 	
 		-----
@@ -399,9 +411,10 @@ local Inlet, InletControl = (function()
 	}
 	
 	-----
+	-- Turns a delay to a event.
 	-- Encapsulates a delay into an event for the user
 	--
-	local function toEvent(delay)
+	local function d2e(delay)
 		if delay.etype ~= "Move" then
 			if not delay.event then
 				local event = {}
@@ -424,10 +437,8 @@ local Inlet, InletControl = (function()
 				e2d[delay.event2] = delay
 				
 				-- move events have a field 'event'
-				-- false for move source events
-				-- true  for move desination events
-				event.move  = false
-				event2.move = true
+				event.move  = "Fr"
+				event2.move = "To"
 			end
 			return delay.event, delay.event2
 		end
@@ -439,7 +450,7 @@ local Inlet, InletControl = (function()
 	-- and is blocked by everything.
 	--
 	local function createBlanketEvent()
-		return toEvent(sync:addBlanketDelay())
+		return d2e(sync:addBlanketDelay())
 	end
 
 	-----
@@ -459,7 +470,7 @@ local Inlet, InletControl = (function()
 	-- Gets the next not blocked event from queue.
 	--
 	local function getEvent()
-		return toEvent(sync:getNextDelay(lysncd.now()))
+		return d2e(sync:getNextDelay(lysncd.now()))
 	end
 
 	-----
@@ -495,7 +506,7 @@ local Inlet, InletControl = (function()
 		}, {
 			setSync = setSync, 
 			getInterior = getInterior, -- TODO <- remove
-			toEvent = toEvent,
+			d2e = d2e,
 		}
 end)()
 
@@ -541,7 +552,7 @@ local Sync = (function()
 		end
 		InletControl.setSync(self)
 
-		local rc = self.config.collect(InletControl.toEvent(delay), exitcode)
+		local rc = self.config.collect(InletControl.d2e(delay), exitcode)
 		-- TODO honor return codes of the collect
 		removeDelay(self, delay)
 		log("Delay","Finish of ",delay.etype," on ",
@@ -550,16 +561,32 @@ local Sync = (function()
 	end
 
 	-----
+	-- Stacks a newDelay on the oldDelay, 
+	-- the oldDelay blocks the new Delay.
+	--
+	-- A delay can block 'n' other delays, 
+	-- but is blocked at most by one, the latest delay.
+	-- 
+	local function stack(oldDelay, newDelay)
+		newDelay.status = "block"
+		if not oldDelay.blocks then
+			oldDelay.blocks = {}
+		end
+		table.insert(oldDelay.blocks, newDelay)
+	end
+
+	-----
 	-- Puts an action on the delay stack.
 	--
 	local function delay(self, etype, time, path, path2)
 		log("Function", "delay(", self.config.name,", ",etype,", ",path,")")
 		if path2 then
-			log("Function", "...delay(+",path2,")")
+			log("Function", "+ ",path2)
 		end
 
 		if etype == "Move" and not self.config.onMove then
-			-- if there is no move action defined, split a move as delete/create
+			-- if there is no move action defined, 
+			-- split a move as delete/create
 			log("Delay", "splitting Move into Delete & Create")
 			delay(self, "Delete", time, path,  nil)
 			delay(self, "Create", time, path2, nil)
@@ -576,34 +603,31 @@ local Sync = (function()
 		-- new delay
 		local nd = Delay.new(etype, alarm, path, path2)
 		if nd.etype == "Blanket" then
-			-- always stack blanket events.
+			-- always stack blanket events on the last event
 			log("Delay", "Stacking blanket event.")
-			table.insert(self.delays, nd)
-			return
-		end
-
-		if nd.etype == "Move" then
-			log("Delay", "Stacking a move event ",path," -> ",path2)
+			if #self.delays > 0 then
+				stack(self.delays[#self.delays], nd)
+			end
 			table.insert(self.delays, nd)
 			return
 		end
 
 		-----
-		-- detects blocks and collapses by working from back til 
+		-- detects blocks and collapses by working from back until 
 		-- front through the fifo
 		InletControl.setSync(self)
-		local ne = InletControl.toEvent(nd)
+		local ne, ne2 = InletControl.d2e(nd)
 		local il = #self.delays -- last delay
-
 		while il > 0 do
+			-- get 'old' delay
 			local od = self.delays[il]
 			-- tries to collapse identical paths
-			local oe, oe2 = InletControl.toEvent(od) 
-			local ne = InletControl.toEvent(nd) -- TODO more logic on moves
+			local oe, oe2 = InletControl.d2e(od)
 
 			if oe.etype == "Blanket" then
 				-- everything is blocked by a blanket event.
 				log("Delay", "Stacking ",nd.etype," upon blanket event.")
+				stack(od, nd)
 				table.insert(self.delays, nd)
 				return
 			end
@@ -611,8 +635,10 @@ local Sync = (function()
 			-- this mini loop repeats the collapse a second 
 			-- time for move events
 			local oel = oe
-			while oel do
-				local c = self.config.collapse(oel, ne, self.config)
+			local nel = ne
+
+			while oel and nel do
+				local c = self.config.collapse(oel, nel, self.config)
 				if c == 0 then
 					-- events nullificate each ether
 					od.etype = "None"  -- TODO better remove?
@@ -625,24 +651,30 @@ local Sync = (function()
 					log("Delay",nd.etype," replaces event ",
 						od.etype," on ",path)
 					self.delays[il] = nd
+					-- TODO turn moveFroms into deletes.
 					return
 				elseif c == 3 then
 					log("Delay", "Stacking ",nd.etype," upon ",
 						od.etype," on ",path)
+					stack(od, nd)
 					break
 				end
-				-- after first iteration check move destination
-				-- after second stop eitherway
-				if oel == oe2 then
-					oel = false
-				else
+				
+				-- loops over all oe, oe2, ne, ne2 combos.
+				if oel == oe and oe2 then
+					-- do another time for oe2 if present
 					oel = oe2
+				elseif nel == ne then
+					-- do another time for ne2 if present
+					-- start with first oe
+					nel = ne2
+					oel = oe
 				end
 			end
 			il = il - 1
 		end
 		if il <= 0 then
-			log("Delay", "Stacking ",nd.etype," on ",path)
+			log("Delay", "Registering ",nd.etype," on ",path)
 		end
 		-- there was no hit on collapse or it decided to stack.
 		table.insert(self.delays, nd)
@@ -1496,13 +1528,9 @@ default = {
 	--
 	collapse = function(event1, event2, config)
 		if event1.path == event2.path then
-			if event1.etype == "Move" or event2.etype == "Move" then
-				-- currently moves are always blocks
-				return 3
-			else
-				-- asks the collapseTable what to do
-				return config.collapseTable[event1.etype][event2.etype]
-			end
+			local e1 = event1.etype .. event1.move
+			local e2 = event2.etype .. event2.move
+			return config.collapseTable[e1][e2]
 		end
 	
 		-----
@@ -1519,13 +1547,24 @@ default = {
 	end,
 	
 	-----
-	-- used by default collapse function
+	-- Used by default collapse function.
+	-- Specifies how two event should be collapsed when here 
+	-- horizontal event meets upon a vertical event.
+	-- values:
+	-- 0 ... nullification of both events.
+	-- 1 ... absorbtion of horizontal event.
+	-- 2 ... replace of vertical event.
+	-- 3 ... stack both events, vertical blocking horizonal.
+	-- 9 ... combines two move events.
 	--
 	collapseTable = {
-		Attrib = { Attrib = 1, Modify = 2, Create = 2, Delete = 2 },
-		Modify = { Attrib = 1, Modify = 1, Create = 2, Delete = 2 },
-		Create = { Attrib = 1, Modify = 1, Create = 1, Delete = 0 },
-		Delete = { Attrib = 1, Modify = 1, Create = 3, Delete = 1 },
+		Attrib = {Attrib=1, Modify=2, Create=2, Delete=2, MoveFr=3, MoveTo= 2},
+		Modify = {Attrib=1, Modify=1, Create=2, Delete=2, MoveFr=3, MoveTo= 2},
+		Create = {Attrib=1, Modify=1, Create=1, Delete=0, MoveFr=3, MoveTo= 2},
+		Delete = {Attrib=1, Modify=1, Create=3, Delete=1, MoveFr=3, MoveTo= 2},
+		MoveFr = {Attrib=3, Modify=3, Create=3, Delete=3, MoveFr=3, MoveTo= 3},
+--		MoveTo = {Attrib=3, Modify=3, Create=2, Delete=2, MoveFr=9, MoveTo= 2}, TODO 9
+		MoveTo = {Attrib=3, Modify=3, Create=2, Delete=2, MoveFr=3, MoveTo= 2},
 	},
 
 	-----

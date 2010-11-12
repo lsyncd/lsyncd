@@ -17,6 +17,8 @@ prefix = "sleep 1 && "
 slowbash = {
 	delay = 5,
 
+	maxProcesses = 5,
+
 	onStartup = function(event)
 		log("Normal", "cp -r from ", event.source, " -> ", event.target)
 		spawnShell(event,

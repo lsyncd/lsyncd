@@ -903,8 +903,6 @@ handle_event(lua_State *L,
 
 	/* used to execute two events in case of unmatched MOVE_FROM buffer */
 	struct inotify_event *after_buf = NULL;
-	logstring("Inotify", "got an event");
-
 	if (reset) {
 		return;
 	}
@@ -919,6 +917,11 @@ handle_event(lua_State *L,
 	}
 	/* cancel on ignored or resetting */
 	if (event && (IN_IGNORED & event->mask)) {
+		return;
+	}
+	if (event && event->len == 0) {
+		/* sometimes inotify sends such strange events, 
+		 * (e.g. when touching a dir */
 		return;
 	}
 
@@ -1004,9 +1007,9 @@ handle_event(lua_State *L,
 		exit(-1); // ERRNO
 	}
 	lua_pop(L, 1);
-
 	/* if there is a buffered event executes it */
 	if (after_buf) {
+		logstring("Inotify", "handling buffered event.");
 		handle_event(L, after_buf);
 	}
 }
@@ -1114,6 +1117,7 @@ masterloop(lua_State *L)
 		} 
 		/* checks if there is an unary MOVE_FROM left in the buffer */
 		if (move_event) {
+			logstring("Inotify", "handling unary move from.");
 			handle_event(L, NULL);	
 		}
 
