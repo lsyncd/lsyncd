@@ -1315,6 +1315,198 @@ local Inotifies = (function()
 end)()
 
 
+------
+-- Writes functions for the user for layer 3 configuration.
+--
+local functionWriter = (function()
+
+	-- all variables for layer 3
+	transVars = {
+		{ "%^pathname",          "event.pathname"        , 1, },
+		{ "%^path",              "event.path"            , 1, },
+		{ "%^sourcePathname",    "event.sourcePathname"  , 1, },
+		{ "%^sourcePath",        "event.sourcePath"      , 1, },
+		{ "%^source",            "event.source"          , 1, },
+		{ "%^targetPathname",    "event.targetPathname"  , 1, },
+		{ "%^targetPath",        "event.targetPath"      , 1, },
+		{ "%^target",            "event.target"          , 1, },
+		{ "%^o%.pathname",       "event.pathname"        , 1, },
+		{ "%^o%.path",           "event.path"            , 1, },
+		{ "%^o%.sourcePathname", "event.sourcePathname"  , 1, },
+		{ "%^o%.sourcePath",     "event.sourcePath"      , 1, },
+		{ "%^o%.targetPathname", "event.targetPathname"  , 1, },
+		{ "%^o%.targetPath",     "event.targetPath"      , 1, },
+		{ "%^d%.pathname",       "event2.pathname"       , 2, },
+		{ "%^d%.path",           "event2.path"           , 2, },
+		{ "%^d%.sourcePathname", "event2.sourcePathname" , 2, },
+		{ "%^d%.sourcePath",     "event2.sourcePath"     , 2, },
+		{ "%^d%.targetPathname", "event2.targetPathname" , 2, },
+		{ "%^d%.targetPath",     "event2.targetPath"     , 2, },
+	}
+
+	-----
+	-- Splits a user string into its arguments
+	-- 
+	-- @param a string where parameters are seperated by spaces.
+	--
+	-- @return a table of arguments
+	--
+	local function splitStr(str)
+		local args = {}
+		while str ~= "" do
+			-- break where argument stops
+			local bp = #str
+			-- in a quote
+			local inQuote = false
+			-- tests characters to be space and not within quotes
+			for i=1,#str do
+				local c = string.sub(str, i, i)
+				if c == '"' then
+					inQuote = not inQuote
+				elseif c == ' ' and not inQuote then
+					bp = i - 1
+					break
+				end
+			end
+			local arg = string.sub(str, 1, bp)
+			arg = string.gsub(arg, '"', '\\"')
+			table.insert(args, arg)
+			str = string.sub(str, bp + 1, -1)
+			str = string.match(str, "^%s*(.-)%s*$")
+		end
+		return args
+	end
+
+	-----
+	-- Translates a call to a binary to a lua function.
+	--
+	-- TODO this has a little too much coding blocks.
+	--
+	function translateBinary(str)
+		-- splits the string
+		local args = splitStr(str)
+	
+		-- true if there is a second event
+		local haveEvent2 = false
+	
+		for ia, iv in ipairs(args) do
+			-- a list of arguments this arg is split to
+			local a = {{true, iv}}
+			-- goes through all translates
+			for _, v in ipairs(transVars) do
+				ai = 1 
+				while ai <= #a do
+					if a[ai][1] then
+						local pre, post = 
+							string.match(a[ai][2], "(.*)"..v[1].."(.*)")
+						if pre then
+							if pre ~= "" then
+								table.insert(a, ai, {true, pre})
+								ai = ai + 1
+							end
+							a[ai] = {false, v[2]}
+							if post ~= "" then
+								table.insert(a, ai + 1, {true, post})
+							end
+						end
+					end
+					ai = ai + 1
+				end
+			end
+
+			local as = ""
+			local first = true
+			for _, v in ipairs(a) do
+				if not first then
+					as = as .. " .. "
+				end
+				if v[1] then
+					as = as .. '"' .. v[2] .. '"'
+				else 
+					as = as .. v[2]
+				end
+				first = false
+			end
+			args[ia] = as
+		end
+
+		local ft
+		if not haveEvent2 then
+			ft = "function(event)\n"
+		else
+			ft = "function(event, event2)\n"
+		end
+		ft = ft .. '    log("Normal", "Event " .. event.etype ..\n'
+		ft = ft .. "        [[ spawns action '" .. str .. '\']])\n'
+		ft = ft .. "    spawn(event"
+		for _, v in ipairs(args) do
+			ft = ft .. ",\n         " .. v 
+		end
+		ft = ft .. ")\nend"	
+		return ft
+	end
+
+	-----
+	-- Translates a call using a shell to a lua function
+	--
+	function translateShell(str)
+		local argn = 1
+		local args = {}
+		local cmd = str
+		-- true if there is a second event
+		local haveEvent2 = false
+
+		for _, v in ipairs(transVars) do
+			local occur = false
+			cmd = string.gsub(cmd, v[1], 
+				function() occur = true; return '$'..argn end)
+			if occur then
+				argn = argn + 1
+				table.insert(args, v[2])
+				if v[3] > 1 then
+					haveEvent2 = true
+				end
+			end
+		end
+		local ft
+		if not haveEvent2 then
+			ft = "function(event)\n"
+		else
+			ft = "function(event, event2)\n"
+		end
+		ft = ft .. '    log("Normal", "Event " .. event.etype ..\n'
+		ft = ft .. "        [[ spawns action '" .. str .. '\']])\n'
+		ft = ft .. "    spawnShell(event, [[" .. cmd .. "]]"
+		for _, v in ipairs(args) do
+			ft = ft .. ",\n         " .. v 
+		end
+		ft = ft .. ")\nend"
+		return ft
+	end
+
+	-----
+	-- writes a lua function for a layer 3 user script.
+	function translate(str)
+		-- trim spaces 
+		str = string.match(str, "^%s*(.-)%s*$")
+
+		local ft
+		if string.byte(str, 1, 1) == 47 then
+			 ft = translateBinary(str)
+		else
+			 ft = translateShell(str)
+		end
+		log("FWrite","translated ",str," to ",ft)
+		return ft
+	end
+
+	-----
+	-- public interface
+	--
+	return {translate = translate}
+end()
+
+
 ----
 -- Writes a status report file at most every [statusintervall] seconds.
 --
@@ -1515,7 +1707,7 @@ function runner.configure(args)
 				-- TODO --
 				i = i + o[1]
 			else
-				log("Error","unknown option command line option ", a)
+				log("Error","unknown option command line option ", args[i])
 				os.exit(-1) -- ERRNO
 			end
 		end
@@ -1875,7 +2067,23 @@ default = {
 	--
 	init = function(inlet)
 		local config = inlet.getConfig()
-		-- creates a prior startup if configured
+		-- user functions
+		local ufuncs = {
+			"onAttrib", "onCreate", "onDelete",
+			"onModify", "onMove"}
+		-- checks if any user functions is a layer 3 string.
+		for _, fn in ipairs(funcs) do
+			if type(config[fn]) == 'string' then
+				local ft = functionWriter.translate(config[fn])
+				config[fn] = loadstring("return" .. ft)
+			end
+		end
+
+		if not config.action   and not config.onAttrib and
+		   not config.onCreate and not config.onModify and
+		   not config.onDelete and not config.onMove
+
+		-- calls a startup if given by user script.
 		if type(config.onStartup) == "function" then
 			local event = inlet.createBlanketEvent()
 			local startup = config.onStartup(event)
