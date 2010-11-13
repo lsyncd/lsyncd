@@ -15,10 +15,11 @@ PKG_CHECK_MODULES(LIBLUA, lua5.1)
 AC_CHECK_HEADERS([sys/inotify.h])
 
 AC_ARG_WITH([runner],
-[  --with-runner=<file>    Specify place where lsyncds part written in Lua will be placed.
+[  --with-runner=<dir>    Specify directory where lsyncds part written in Lua will be placed.
                           If missing it will be compiled into the binary)])
 if test "x${with_runner}" != x; then
-AC_DEFINE_UNQUOTED(LSYNCD_DEFAULT_RUNNER_FILE, "${with_runner}", "descr")
+AC_DEFINE_UNQUOTED(LSYNCD_DEFAULT_RUNNER_FILE, "${with_runner}/lsyncd.lua", "descr")
+AC_SUBST(RUNNER_DIR, "${with_runner}")
 fi
 AM_CONDITIONAL([RUNNER], [test x${with_runner} != x])
 

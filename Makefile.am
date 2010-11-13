@@ -5,7 +5,14 @@ lsyncd_SOURCES = lsyncd.c
 lsyncd_LDADD = $(LIBLUA_LIBS)
 
 if RUNNER
+
+# installs the runner
+runnerdir = $(RUNNER_DIR)
+runner_DATA = lsyncd.lua
+
 else
+
+# or compiles it into the binary
 lsyncd: luac.o $(lsyncd_LDADD) 
 
 architecture: | lsyncd.o
@@ -16,5 +23,6 @@ luac.o: luac.out architecture
 
 luac.out: lsyncd.lua
 	luac $<
+
 endif
 
