@@ -228,6 +228,7 @@ end)()
 -- InletControl is the runners part to control the interface
 -- hidden from the user.
 --
+local getInlet
 local Inlet, InletControl = (function()
 	-- lua runner controlled variables
 	local sync 
@@ -273,6 +274,10 @@ local Inlet, InletControl = (function()
 		--
 		config = function(event)
 			return e2d[event].sync.config
+		end,
+
+		inlet = function(event)
+			return getInlet()
 		end,
 
 		-----
@@ -419,7 +424,21 @@ local Inlet, InletControl = (function()
 			return f(t)
 		end
 	}
+
+	-----
+	-- adds an exclude.
+	--
+	local function addExclude(pattern)
+		sync:addExclude(pattern)
+	end
 	
+	-----
+	-- removes an exclude.
+	--
+	local function rmExclude(pattern)
+		sync:rmExclude(pattern)
+	end
+
 	-----
 	-- Interface for user scripts to get event fields.
 	--
@@ -624,11 +643,13 @@ local Inlet, InletControl = (function()
 	-- public interface.
 	-- this one is split, one for user one for runner.
 	return {
+			addExclude         = addExclude,
 			createBlanketEvent = createBlanketEvent,
-			discardEvent = discardEvent,
-			getEvent  = getEvent, 
-			getEvents = getEvents, 
-			getConfig = getConfig, 
+			discardEvent       = discardEvent,
+			getEvent           = getEvent, 
+			getEvents          = getEvents, 
+			getConfig          = getConfig, 
+			rmExclude          = rmExclude,
 		}, {
 			d2e = d2e,
 			dl2el = dl2el,
@@ -638,6 +659,12 @@ local Inlet, InletControl = (function()
 			setSync = setSync, 
 		}
 end)()
+
+-----
+-- Little dirty workaround to retrieve the Inlet from events in Inlet
+getInlet = function()
+	return Inlet
+end
 
 
 -----
@@ -682,6 +709,19 @@ local Excludes = (function()
 		local lp = toLuaPattern(pattern)
 		self.list[pattern] = lp
 	end
+	
+	-----
+	-- Removes a pattern to exclude.
+	--
+	local function remove(self, pattern)
+		if not self.list[pattern] then
+			-- already in the list
+			log("Normal", "Removing not excluded exclude '"..pattern.."'")
+			return
+		end
+		self.list[pattern] = nil
+	end
+
 
 	-----
 	-- Adds a list of patterns to exclude.
@@ -733,10 +773,11 @@ local Excludes = (function()
 			list = {},
 
 			-- functions
-			add = add,
-			adList = addList,
+			add      = add,
+			adList   = addList,
 			loadFile = loadFile,
-			test = test,
+			remove   = remove,
+			test     = test,
 		}
 	end
 
@@ -755,6 +796,20 @@ local Sync = (function()
 	-- get an incremental default name 'Sync[X]'
 	--
 	local nextDefaultName = 1
+
+	-----
+	-- Adds an exclude.
+	--
+	local function addExclude(self, pattern)
+		return self.excludes:add(pattern)
+	end
+
+	-----
+	-- Removes an exclude.
+	--
+	local function rmExclude(self, pattern)
+		return self.excludes:remove(pattern)
+	end
 
 	-----
 	-- Removes a delay.
@@ -1135,14 +1190,17 @@ local Sync = (function()
 			excludes = Excludes.new(),
 
 			-- functions
+
+			addBlanketDelay = addBlanketDelay,
+			addExclude      = addExclude,
 			collect         = collect,
 			delay           = delay,
-			addBlanketDelay = addBlanketDelay,
 			getAlarm        = getAlarm,
 			getDelays       = getDelays,
 			getNextDelay    = getNextDelay,
 			invokeActions   = invokeActions,
 			removeDelay     = removeDelay,
+			rmExclude       = rmExclude,
 			statusReport    = statusReport,
 		}
 		-- provides a default name if needed
@@ -1251,6 +1309,9 @@ local Syncs = (function()
 		end
 
 		-- loads a default value for an option if not existent
+		if not settings then
+			settings = {}
+		end
 		local defaultValues = {
 			'action',  
 			'collapse', 
