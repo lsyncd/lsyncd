@@ -576,8 +576,10 @@ local Inlet, InletControl = (function()
 	-----
 	-- Gets all events that are not blocked by active events.
 	--
-	local function getEvents()
-		local dlist = sync:getDelays()
+	-- @param if not nil a function to test each delay
+	--
+	local function getEvents(test)
+		local dlist = sync:getDelays(test)
 		return dl2el(dlist)
 	end
 
@@ -923,7 +925,8 @@ local Sync = (function()
 				local c = self.config.collapse(oel, nel, self.config)
 				if c == 0 then
 					-- events nullificate each ether
-					od.etype = "None"  -- TODO better remove?
+					od.etype = "None" 
+					table.remove(self.delays, il)
 					return
 				elseif c == 1 then
 					log("Delay",nd.etype," is absored by event ",
@@ -997,7 +1000,9 @@ local Sync = (function()
 	-----
 	-- Gets all delays that are not blocked by active delays.
 	--
-	local function getDelays(self)
+	-- @param test   function to test each delay
+	--
+	local function getDelays(self, test)
 		local dlist = {}
 		local blocks = {}
 
@@ -1006,13 +1011,17 @@ local Sync = (function()
 		--
 		local function getBlocks(delay) 
 			blocks[delay] = true
-			for i, d in ipairs(delay.blocks) do
-				getBlocks(d)
+			if delay.blocks then
+				for i, d in ipairs(delay.blocks) do
+					getBlocks(d)
+				end
 			end
 		end
 
 		for i, d in ipairs(self.delays) do
-			if d.status == "active" then
+			if d.status == "active" or
+				(test and not test(InletControl.d2e(d))) 
+			then
 				getBlocks(d)
 			elseif not blocks[d] then
 				dlist[i] = d
@@ -2091,21 +2100,21 @@ end
 -----
 -- lsyncd classic - sync with rsync
 --
-local defaultRsync = {
+local default_rsync = {
 	-----
 	-- Spawns rsync for a list of events
 	--
 	action = function(inlet) 
 		local elist = inlet.getEvents()
 		local config = inlet.getConfig()
-		local spaths = elist.getSourcePaths()
-		log("Normal", "rsyncing list\n", spaths)
+		local paths = elist.getPaths()
+		log("Normal", "rsyncing list\n", paths)
 		spawn(elist, "/usr/bin/rsync", 
-			"<", spaths, 
+			"<", paths, 
 			"--delete",
-			config.rsyncOps.."d",
+			config.rsyncOps .. "d",
 			"--include-from=-",
-			"--exclude=\"*\"",
+			"--exclude=*",
 			config.source, config.target)
 	end,
 
@@ -2122,7 +2131,7 @@ local defaultRsync = {
 			" -> ", config.target)
 		spawn(event, "/usr/bin/rsync", 
 			"--delete",
-			config.rsyncOps.."r", 
+			config.rsyncOps .. "r", 
 			config.source, 
 			config.target)
 	end,
@@ -2135,7 +2144,77 @@ local defaultRsync = {
 	-----
 	-- Default delay 3 seconds
 	--
-	delay = 3,
+	delay = 20,
+}
+
+
+-----
+-- lsyncd classic - sync with rsync
+--
+local default_rssh = {
+	-----
+	-- Spawns rsync for a list of events
+	--
+	action = function(inlet) 
+		local event = inlet.getEvent()
+		local config = inlet.getConfig()
+		if event.etype == 'Move' then
+			-- makes move local on host
+			spawn(event, "/usr/bin/ssh", 
+				config.host, "mv",
+				config.targetdir .. event.path, 
+				config.targetdir .. event.path2)
+			return
+		end
+		-- for everything else spawn a rsync
+		-- gets all events that are not Move
+		local elist = inlet.getEvents(function(e) 
+				return e.etype ~= "Move" 
+			end)
+		local spaths = elist.getPaths()
+		log("Normal", "rsyncing list\n", spaths)
+		spawn(elist, "/usr/bin/rsync", 
+			"<", spaths, 
+			config.rsyncOps .. "d",
+			"--delete",
+			"--include-from=-",
+			"--exclude=*",
+			config.source, 
+			config.host .. ":" .. config.targetdir)
+	end,
+
+	-----
+	-- Spawns the recursive startup sync
+	-- 
+	init = function(inlet)
+		local config = inlet.getConfig()
+		local event = inlet.createBlanketEvent()
+		if string.sub(config.targetdir, -1) ~= "/" then
+			config.targetdir = config.targetdir .. "/"
+		end
+		log("Normal", "recursive startup rsync: ", config.source,
+			" -> ", config.host .. ":" .. config.targetdir)
+		spawn(event, "/usr/bin/rsync", 
+			"--delete",
+			config.rsyncOps .. "r", 
+			config.source, 
+			config.host .. ":" .. config.targetdir)
+	end,
+
+	-----
+	-- Calls rsync with this options
+	--
+	rsyncOps = "-lts",
+
+	-----
+	-- allow several processes
+	--
+	maxProcesses = 10,
+
+	-----
+	-- Default delay 3 seconds
+	--
+	delay = 10,
 }
 
 -----
@@ -2176,6 +2255,10 @@ default = {
 	--          3  ... events block.
 	--
 	collapse = function(event1, event2, config)
+print(event1.path, event2.path)
+print(event1.etype, event1.move)
+print(event2.etype, event2.move)
+
 		if event1.path == event2.path then
 			local e1 = event1.etype .. event1.move
 			local e2 = event2.etype .. event2.move
@@ -2273,7 +2356,12 @@ default = {
 	-----
 	-- a default rsync configuration for easy usage.
 	--
-	rsync = defaultRsync,
+	rsync = default_rsync,
+	
+	-----
+	-- a default rsync configuration with ssh'd move and rm actions
+	--
+	rssh = default_rssh,
 
 	-----
 	-- Minimum seconds between two writes of a status file.
