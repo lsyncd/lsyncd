@@ -10,10 +10,13 @@ settings = {
 }
 
 ----
+-- for testing purposes. prefix can be used to slow commands down.
+-- prefix = "sleep 5 && "
+prefix = ""
+----
 -- for testing purposes. uses bash command to hold local dirs in sync.
 --
-prefix = "sleep 5 && "
-slowbash = {
+bash = {
 	delay = 5,
 
 	maxProcesses = 3,
@@ -53,5 +56,5 @@ slowbash = {
 	end,
 }
 
-sync{default.rsync, source="src", target="dst/"}
+sync{bash, source="src", target="dst/"}
 

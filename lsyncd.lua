@@ -806,8 +806,8 @@ local Sync = (function()
 							error("Cannot replace events with different paths")
 						end
 					else
-						log("Delay",nd.etype," turns a move into delete ",
-							od.etype," on ", path)
+						log("Delay",nd.etype," turns a Move into delete of ",
+							od.path)
 						od.etype = "Delete"
 						od.path2 = nil
 						table.insert(self.delays, nd)
