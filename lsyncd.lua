@@ -1496,7 +1496,6 @@ function runner.configure(args)
 	local options = {
 		-- log is handled by core already.
 		log = {1},
-
 	}
 	-- filled with all args that were non --options
 	local nonopts = {}
@@ -1515,6 +1514,9 @@ function runner.configure(args)
 			if o then
 				-- TODO --
 				i = i + o[1]
+			else
+				log("Error","unknown option command line option ", a)
+				os.exit(-1) -- ERRNO
 			end
 		end
 		i = i + 1
@@ -1525,8 +1527,8 @@ function runner.configure(args)
 	elseif #nonopts == 1 then
 		return nonopts[1]
 	else 
-		-- TODO
-		return true
+		log("Error", "There can only be one config file in command line.")
+		os.exit(-1) -- ERRNO
 	end
 end
 
