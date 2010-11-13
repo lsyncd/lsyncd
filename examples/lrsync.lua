@@ -8,5 +8,5 @@ settings = {
 	statusIntervall = 1,
 }
 
-sync{default.rsync, source="src", target="dst/"}
+sync{default.rsync, source="src", target="dst/", excludeFrom="exclude"}
 

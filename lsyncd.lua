@@ -637,6 +637,112 @@ local Inlet, InletControl = (function()
 		}
 end)()
 
+
+-----
+-- A set of exclude patterns
+--
+local Excludes = (function()
+	
+	-----
+	-- Turns a rsync like file pattern to a lua pattern.
+	-- 
+	-- 
+	local function toLuaPattern(p)
+		local o = p
+		p = string.gsub(p, "%%", "%%")
+		p = string.gsub(p, "%^", "%^")
+		p = string.gsub(p, "%$", "%$")
+		p = string.gsub(p, "%(", "%(")
+		p = string.gsub(p, "%)", "%)")
+		p = string.gsub(p, "%.", "%.")
+		p = string.gsub(p, "%[", "%[")
+		p = string.gsub(p, "%]", "%]")
+		p = string.gsub(p, "%+", "%+")
+		p = string.gsub(p, "%-", "%-")
+		p = string.gsub(p, "%?", "[^/]")
+		p = string.gsub(p, "%*", "[^/]*")
+		-- this was a ** before v
+		p = string.gsub(p, "%[%^/%]%*%[%^/%]%*", ".*") 
+		p = string.gsub(p, "^/", "^") 
+		p = string.gsub(p, "/$", "/$") 
+		log("Exclude", "toLuaPattern '",o,"' = '",p,'"')
+		return p
+	end
+
+	-----
+	-- Adds a pattern to exclude.
+	--
+	local function add(self, pattern)
+		if self.list[pattern] then
+			-- already in the list
+			return
+		end
+		local lp = toLuaPattern(pattern)
+		self.list[pattern] = lp
+	end
+
+	-----
+	-- Adds a list of patterns to exclude.
+	--
+	local function addList(self, plist)
+		for _, v in plist do
+			add(self, v)
+		end
+	end
+
+	-----
+	-- loads excludes from a file
+	--
+	local function loadFile(self, file)
+		f, err = io.open(file)
+		if not f then
+			log("Error", "Cannot open exclude file '",file,"': ", err)
+			terminate(-1) -- ERRNO
+		end
+	    for line in f:lines() do 
+			-- lsyncd 2.0 does not support includes
+			if not string.match(line, "%s*+") then
+				local p = string.match(line, "%s*-?%s*(.*)")
+				if p then
+					add(self, p)
+				end
+			end
+		end
+		f:close()
+	end
+
+	-----
+	-- Tests if 'file' is excluded.
+	--
+	local function test(self, file)
+		for _, p in pairs(self.list) do
+			if (string.match(file, p)) then
+				return true
+			end
+		end
+		return false
+	end
+
+	-----
+	-- Cretes a new exclude set
+	--
+	local function new() 
+		return { 
+			list = {},
+
+			-- functions
+			add = add,
+			adList = addList,
+			loadFile = loadFile,
+			test = test,
+		}
+	end
+
+	-----
+	-- Public interface
+	return { new = new }
+end)()
+
 -----
 -- Holds information about one observed directory inclusively subdirs.
 --
@@ -730,8 +836,33 @@ local Sync = (function()
 	--
 	local function delay(self, etype, time, path, path2)
 		log("Function", "delay(", self.config.name,", ",etype,", ",path,")")
-		if path2 then
+		if not path2 then
+			-- test for exclusion
+			if self.excludes:test(path) then
+				log("Exclude", "excluded ",etype," on '",path,"'")
+				return
+			end
+		else
 			log("Function", "+ ",path2)
+			local ex1 = self.excludes:test(path)
+			local ex2 = self.excludes:test(path2)
+			if ex1 and ex2 then
+				log("Exclude", "excluded '",etype," on '",path,
+					"' -> '",path2,"'")
+				return
+			elseif not ex1 and ex2 then
+				-- splits the move if only partly excluded
+				log("Exclude", "excluded destination transformed ",etype,
+					" to Delete ",path)
+				delay(self, "Delete", time, path, nil)
+				return
+			elseif ex1 and not ex2 then
+				-- splits the move if only partly excluded
+				log("Exclude", "excluded origin transformed ",etype,
+					" to Create.",path2)
+				delay(self, "Create", time, path2, nil)
+				return
+			end
 		end
 
 		if etype == "Move" and not self.config.onMove then
@@ -969,6 +1100,17 @@ local Sync = (function()
 			end
 			f:write("\n")
 		end
+		f:write("Excluding:\n")
+		local nothing = true
+		for t, p in pairs(self.excludes.list) do
+			nothing = false
+			f:write(t,"\n")
+		end
+		if nothing then
+			f:write("  nothing.\n")
+		end
+
+		f:write("\n\n")
 	end
 
 	-----
@@ -981,6 +1123,7 @@ local Sync = (function()
 			delays = CountArray.new(),
 			source = config.source,
 			processes = CountArray.new(),
+			excludes = Excludes.new(),
 
 			-- functions
 			collect         = collect,
@@ -1000,6 +1143,15 @@ local Sync = (function()
 		-- increments default nevertheless to cause less confusion
 		-- so name will be the n-th call to sync{}
 		nextDefaultName = nextDefaultName + 1
+
+		-- loads exclusions
+		if config.exclude then
+			s.excludes:addList(config.exclude)
+		end
+		if config.excludeFrom then
+			s.excludes:loadFile(config.excludeFrom)
+		end
+
 		return s
 	end
 
