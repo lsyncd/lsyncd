@@ -505,6 +505,10 @@ local Inlet, InletControl = (function()
 			if k == "isList" then
 				return true
 			end
+			
+			if k == "config" then
+				return sync.config
+			end
 
 			local f = eventListFuncs[k]
 			if not f then
@@ -853,19 +857,34 @@ local Sync = (function()
 			end
 			InletControl.setSync(self)
 			local rc = self.config.collect(InletControl.d2e(delay), exitcode)
-			-- TODO honor return codes of the collect?
-
-			removeDelay(self, delay)
-			log("Delay","Finish of ",delay.etype," on ",
-				self.source,delay.path," = ",exitcode)
+			if rc == "die" then
+				log("Error", "Critical exitcode.");
+				terminate(-1) --ERRNO
+			end
+			if rc ~= "again" then
+				-- if its active again the collecter restarted the event
+				removeDelay(self, delay)
+				log("Delay", "Finish of ",delay.etype," on ",
+					self.source,delay.path," = ",exitcode)
+			else 
+				-- sets the delay on wait again
+				delay.status = "wait"
+			end
 		else
 			log("Delay", "collected a list")
 			InletControl.setSync(self)
 			local rc = self.config.collect(InletControl.dl2el(delay), exitcode)
-			-- TODO honor return codes of collect?
+			if rc == "die" then
+				log("Error", "Critical exitcode.");
+				terminate(-1) --ERRNO
+			end
 			for k, d in pairs(delay) do
 				if type(k) == "number" then
-					removeDelay(self, d)
+					if rc ~= "again" then
+						removeDelay(self, d)
+					else
+						d.status = "wait"
+					end
 				end
 			end
 			log("Delay","Finished list = ",exitcode)
@@ -2158,6 +2177,37 @@ end
 -- lsyncd default settings
 --============================================================================
 
+
+-----
+-- Exitcodes to retry on network failures of rsync.
+--
+local rsync_exitcodes = {
+	[  1] = "die",
+	[  2] = "die",
+	[  3] = "again",
+	[  4] = "die",
+	[  5] = "again",
+	[  6] = "again",
+	[ 10] = "again", 
+	[ 11] = "again",
+	[ 12] = "again",
+	[ 14] = "again",
+	[ 20] = "again",
+	[ 21] = "again",
+	[ 22] = "again",
+	[ 25] = "die",
+	[ 30] = "again",
+	[ 35] = "again",
+	[255] = "again",
+}
+
+-----
+-- Exitcodes to retry on network failures of rsync.
+--
+local rsync_ssh = {
+	[255] = "again",
+}
+
 -----
 -- lsyncd classic - sync with rsync
 --
@@ -2198,9 +2248,14 @@ local default_rsync = {
 	end,
 
 	-----
-	-- Calls rsync with this options
+	-- Calls rsync with this options.
 	--
 	rsyncOps = "-lts",
+
+	-----
+	-- exit codes for rsync.
+	--
+	exitcodes = rsync_exitcodes,
 	
 	-----
 	-- Default delay 3 seconds
@@ -2243,6 +2298,49 @@ local default_rssh = {
 			config.source, 
 			config.host .. ":" .. config.targetdir)
 	end,
+	
+	-----
+	-- Called when collecting a finished child process
+	--
+	collect = function(agent, exitcode)
+		if agent.etype == "Blanket" then
+			if exitcode == 0 then
+				log("Normal", "Startup of '",agent.source,"' finished.")
+			elseif rsync_exitcodes[exitcode] == "again" then
+				log("Normal", 
+					"Retring startup of '",agent.source,"' finished.")
+				return "again"
+			else
+				log("Error", "Failure on startup of '",agent.source,"'.")
+				terminate(-1) -- ERRNO
+			end
+		end
+
+		if agent.isList then
+			local rc = rsync_exitcodes[exitcode] 
+			if rc == "die" then
+				return rc
+			end
+			if rc == "again" then
+				log("Normal", "Retrying a list on exitcode = ",exitcode)
+			else
+				log("Normal", "Finished a list = ",exitcode)
+			end
+			return rc
+		else
+			local rc = ssh_exitcodes[exitcode] 
+			if rc == "die" then
+				return rc
+			end
+			if rc == "again" then
+				log("Normal", "Retrying ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+			else
+				log("Normal", "Finished ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+			end
+		end
+	end,
 
 	-----
 	-- Spawns the recursive startup sync
@@ -2279,7 +2377,9 @@ local default_rssh = {
 }
 
 -----
--- The default table for the user to access 
+-- The default table for the user to accesss.
+-- Provides all the default layer 1 functions.
+-- 
 --   TODO make readonly
 -- 
 default = {
@@ -2316,10 +2416,6 @@ default = {
 	--          3  ... events block.
 	--
 	collapse = function(event1, event2, config)
-print(event1.path, event2.path)
-print(event1.etype, event1.move)
-print(event2.etype, event2.move)
-
 		if event1.path == event2.path then
 			local e1 = event1.etype .. event1.move
 			local e2 = event2.etype .. event2.move
@@ -2356,7 +2452,7 @@ print(event2.etype, event2.move)
 		Create = {Attrib=1, Modify=1, Create=1, Delete=0, MoveFr=3, MoveTo= 2},
 		Delete = {Attrib=1, Modify=1, Create=3, Delete=1, MoveFr=3, MoveTo= 2},
 		MoveFr = {Attrib=3, Modify=3, Create=3, Delete=3, MoveFr=3, MoveTo= 3},
---		MoveTo = {Attrib=3, Modify=3, Create=2, Delete=2, MoveFr=9, MoveTo= 2}, TODO 9
+		--                                           TODO MoveFr=9
 		MoveTo = {Attrib=3, Modify=3, Create=2, Delete=2, MoveFr=3, MoveTo= 2},
 	},
 
@@ -2364,21 +2460,45 @@ print(event2.etype, event2.move)
 	-- Called when collecting a finished child process
 	--
 	collect = function(agent, exitcode)
-		if agent.isList then
-			log("Normal", "Finished a list = ",exitcode)
-		else
-			if agent.etype == "Blanket" then
-				if exitcode == 0 then
-					log("Normal", "Startup of '",agent.source,"' finished.")
-				else
-					log("Error", "Failure on startup of '",agent.source,"'.")
-					terminate(-1) -- ERRNO
-				end
-				return
+		local config = agent.config
+
+		if agent.etype == "Blanket" then
+			if exitcode == 0 then
+				log("Normal", "Startup of '",agent.source,"' finished.")
+			elseif config.exitcodes and 
+			       config.exitcodes[exitcode] == "again" 
+			then
+				log("Normal", 
+					"Retring startup of '",agent.source,"' finished.")
+				return "again"
+			else
+				log("Error", "Failure on startup of '",agent.source,"'.")
+				terminate(-1) -- ERRNO
 			end
-			log("Normal", "Finished ",agent.etype,
-				" on ",agent.sourcePath," = ",exitcode)
+			return
 		end
+
+		local rc = config.exitcodes and config.exitcodes[exitcode] 
+		if rc == "die" then
+			return rc
+		end
+
+		if agent.isList then
+			if rc == "again" then
+				log("Normal", "Retrying a list on exitcode = ",exitcode)
+			else
+				log("Normal", "Finished a list = ",exitcode)
+			end
+		else
+			if rc == "again" then
+				log("Normal", "Retrying ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+			else
+				log("Normal", "Finished ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+			end
+		end
+		return rc
 	end,
 
 	-----
