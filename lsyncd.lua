@@ -273,7 +273,7 @@ local Inlet, InletControl = (function()
 		-- TODO give user a readonly version.
 		--
 		config = function(event)
-			return e2d[event].sync.config
+			return sync.config
 		end,
 
 		inlet = function(event)
@@ -869,6 +869,12 @@ local Sync = (function()
 			else 
 				-- sets the delay on wait again
 				delay.status = "wait"
+				local alarm = self.config.delay 
+				-- delays at least 1 second
+				if alarm < 1 then
+					alarm = 1 
+				end
+				delay.alarm = lsyncd.addtoclock(lsyncd.now(), alarm)
 			end
 		else
 			log("Delay", "collected a list")
@@ -877,6 +883,23 @@ local Sync = (function()
 			if rc == "die" then
 				log("Error", "Critical exitcode.");
 				terminate(-1) --ERRNO
+			end
+			if rc == "again" then
+				-- sets the delay on wait again
+				delay.status = "wait"
+				local alarm = self.config.delay 
+				-- delays at least 1 second
+				if alarm < 1 then
+					alarm = 1 
+				end
+				alarm = lsyncd.addtoclock(lsyncd.now(), alarm)
+				for k, d in pairs(delay) do
+					if type(k) == "number" then
+						d.alarm = alarm
+						d.status = "wait"
+					end
+				end
+
 			end
 			for k, d in pairs(delay) do
 				if type(k) == "number" then
@@ -2303,12 +2326,12 @@ local default_rssh = {
 	-- Called when collecting a finished child process
 	--
 	collect = function(agent, exitcode)
-		if agent.etype == "Blanket" then
+		if not agent.isList and agent.etype == "Blanket" then
 			if exitcode == 0 then
 				log("Normal", "Startup of '",agent.source,"' finished.")
 			elseif rsync_exitcodes[exitcode] == "again" then
 				log("Normal", 
-					"Retring startup of '",agent.source,"' finished.")
+					"Retrying startup of '",agent.source,"'.")
 				return "again"
 			else
 				log("Error", "Failure on startup of '",agent.source,"'.")
@@ -2462,14 +2485,14 @@ default = {
 	collect = function(agent, exitcode)
 		local config = agent.config
 
-		if agent.etype == "Blanket" then
+		if not agent.isList and agent.etype == "Blanket" then
 			if exitcode == 0 then
 				log("Normal", "Startup of '",agent.source,"' finished.")
 			elseif config.exitcodes and 
 			       config.exitcodes[exitcode] == "again" 
 			then
 				log("Normal", 
-					"Retring startup of '",agent.source,"' finished.")
+					"Retrying startup of '",agent.source,"'.")
 				return "again"
 			else
 				log("Error", "Failure on startup of '",agent.source,"'.")
