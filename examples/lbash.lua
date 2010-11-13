@@ -1,11 +1,10 @@
 ----
 -- User configuration file for lsyncd.
---
--- TODO documentation-
+-- 
+-- This example uses local bash commands to keep two local 
+-- directory trees in sync.
 --
 settings = {
---	logfile = "/tmp/lsyncd",
---	nodaemon = true,
 	statusFile = "/tmp/lsyncd.stat",
 	statusIntervall = 1,
 }
@@ -26,10 +25,6 @@ slowbash = {
 			event.source, event.target)
 	end,
 
-    onModify = function(event)
-        spawn(event, "/home/axel/lsyncd2/in", "<", "tuhutu\n", "2")
-	end,
-
 	onCreate = function(event)
 		local s = event.sourcePathname
 		local t = event.targetPathname
@@ -37,12 +32,12 @@ slowbash = {
 		spawnShell(event, prefix..[[cp -r "$1" "$2"]], s, t)
 	end,
 
---	onModify = function(event)
---		local s = event.sourcePathname
---		local t = event.targetPathname
---		log("Normal", "Spawning Modify ",s," -> ",t)
---		spawnShell(event, prefix..[[cp -r "$1" "$2"]], s, t)
---	end,
+	onModify = function(event)
+		local s = event.sourcePathname
+		local t = event.targetPathname
+		log("Normal", "Spawning Modify ",s," -> ",t)
+		spawnShell(event, prefix..[[cp -r "$1" "$2"]], s, t)
+	end,
 
 	onDelete = function(event)
 		local t = event.targetPathname
@@ -58,5 +53,5 @@ slowbash = {
 	end,
 }
 
-sync{default.rsync, source="s", target="d/"}
+sync{default.rsync, source="src", target="dst/"}
 

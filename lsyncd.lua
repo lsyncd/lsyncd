@@ -798,10 +798,20 @@ local Sync = (function()
 						od.etype," on ",path)
 					return
 				elseif c == 2 then
-					log("Delay",nd.etype," replaces event ",
-						od.etype," on ",path)
-					self.delays[il] = nd
-					-- TODO turn moveFroms into deletes.
+					if od.etype ~= "Move" then
+						log("Delay",nd.etype," replaces event ",
+							od.etype," on ",path)
+						od.etype = nd.etype
+						if od.path ~= nd.path then
+							error("Cannot replace events with different paths")
+						end
+					else
+						log("Delay",nd.etype," turns a move into delete ",
+							od.etype," on ", path)
+						od.etype = "Delete"
+						od.path2 = nil
+						table.insert(self.delays, nd)
+					end
 					return
 				elseif c == 3 then
 					log("Delay", "Stacking ",nd.etype," upon ",
