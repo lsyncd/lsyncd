@@ -1948,6 +1948,11 @@ end
 
 
 -----
+-- settings specified by command line.
+--
+local clSettings = {}
+
+-----
 -- Called from core to parse the command line arguments
 -- @returns a string as user script to load.
 --          or simply 'true' if running with rsync bevaiour
@@ -1957,7 +1962,22 @@ function runner.configure(args)
 	-- a list of all valid --options
 	local options = {
 		-- log is handled by core already.
-		log = {1},
+		log      = 
+			{1, nil},
+		nodaemon = 
+			{0, function() 
+				clSettings.nodaemon=true 
+			end},
+		rsync    = 
+			{2, function(src, trg) 
+				clSettings.syncs = clSettings.syncs or {}
+				table.insert(clSettings.syncs, {"rsync", src, trg})
+			end},
+		rssh     = 
+			{2, function(src, trg) 
+				clSettings.syncs = clSettings.syncs or {}
+				table.insert(clSettings.syncs, {"rssh", src, trg})
+			end},
 	}
 	-- filled with all args that were non --options
 	local nonopts = {}
@@ -1974,7 +1994,15 @@ function runner.configure(args)
 			end
 			local o = options[a]
 			if o then
-				-- TODO --
+				if o[2] then
+					if o[1] == 0 then
+						o[2]()
+					elseif o[1] == 1 then
+						o[2](args[i + 1])
+					elseif o[1] == 2 then
+						o[2](args[i + 1], args[i + 2])
+					end
+				end
 				i = i + o[1]
 			else
 				log("Error","unknown option command line option ", args[i])
@@ -1984,13 +2012,21 @@ function runner.configure(args)
 		i = i + 1
 	end
 
-	if #nonopts == 0 then
-		runner.help(args[0])
-	elseif #nonopts == 1 then
-		return nonopts[1]
-	else 
-		log("Error", "There can only be one config file in command line.")
-		os.exit(-1) -- ERRNO
+	if clSettings.syncs then
+		if #nonopts ~= 0 then
+			log("Error", 
+			"There cannot be command line default syncs with a config file.")
+			os.exit(-1) -- ERRNO
+		end
+	else
+		if #nonopts == 0 then
+			runner.help(args[0])
+		elseif #nonopts == 1 then
+			return nonopts[1]
+		else 
+			log("Error", "There can only be one config file in command line.")
+			os.exit(-1) -- ERRNO
+		end
 	end
 end
 
@@ -2001,6 +2037,8 @@ end
 function runner.initialize()
 	-- creates settings if user didnt
 	settings = settings or {}
+
+	-- TODO X2
 
 	-- From this point on, no globals may be created anymore
 	lockGlobals()
