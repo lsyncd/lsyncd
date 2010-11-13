@@ -1922,19 +1922,26 @@ end
 function runner.help()
 	io.stdout:write(
 [[
+
 USAGE: 
-  run a config file:
+  runs a config file:
     lsyncd [OPTIONS] [CONFIG-FILE]
 
   default rsync behaviour:
-    lsyncd [OPTIONS] -rsync [SOURCE] [TARGET1]  [TARGET2] ...
+    lsyncd [OPTIONS] -rsync [SOURCE] [TARGET]  
+  
+  default rssh behaviour:
+    lsyncd [OPTIONS] -rssh [SOURCE] [HOST] [TARGETDIR]
 
 OPTIONS:
   -help               Shows this
-  -log    all         Logs everything
+  -log    all         Logs everything (debug)
   -log    scarce      Logs errors only
   -log    [Category]  Turns on logging for a debug category
+  -logfile FILE       Writes log to FILE (DEFAULT: uses syslog)
+  -nodaemon           Does not detach and logs to stdout/stderr
   -runner FILE        Loads lsyncds lua part from FILE 
+  -version            Prints versions and exits
 
 LICENSE:
   GPLv2 or any later version.
@@ -1964,6 +1971,10 @@ function runner.configure(args)
 		-- log is handled by core already.
 		log      = 
 			{1, nil},
+		logfile   = 
+			{1, function(file)
+				clSettings.logfile=file
+			end},
 		nodaemon = 
 			{0, function() 
 				clSettings.nodaemon=true 
@@ -1974,10 +1985,15 @@ function runner.configure(args)
 				table.insert(clSettings.syncs, {"rsync", src, trg})
 			end},
 		rssh     = 
-			{2, function(src, trg) 
+			{3, function(src, host, tdir) 
 				clSettings.syncs = clSettings.syncs or {}
-				table.insert(clSettings.syncs, {"rssh", src, trg})
+				table.insert(clSettings.syncs, {"rssh", src, host, tdir})
 			end},
+		version  =
+			{0, function()
+				io.stdout:write("Version: ", lsyncd_version,"\n")
+				os.exit(0)
+			end}
 	}
 	-- filled with all args that were non --options
 	local nonopts = {}
@@ -1994,6 +2010,10 @@ function runner.configure(args)
 			end
 			local o = options[a]
 			if o then
+				if i + o[1] > #args then
+					log("Error",a," needs ",o[1]," arguments")
+					os.exit(-1) -- ERRNO
+				end
 				if o[2] then
 					if o[1] == 0 then
 						o[2]()
@@ -2001,6 +2021,8 @@ function runner.configure(args)
 						o[2](args[i + 1])
 					elseif o[1] == 2 then
 						o[2](args[i + 1], args[i + 2])
+					elseif o[1] == 3 then
+						o[2](args[i + 1], args[i + 2], args[i + 3])
 					end
 				end
 				i = i + o[1]
@@ -2038,14 +2060,44 @@ function runner.initialize()
 	-- creates settings if user didnt
 	settings = settings or {}
 
-	-- TODO X2
-
 	-- From this point on, no globals may be created anymore
 	lockGlobals()
 
+	-- Copies simple settings to "key=true" settings.
+	for k, v in ipairs(settings) do
+		if settings[v] then
+			log("Error", "Double setting '"..v.."'")
+			os.exit(-1) -- ERRNO
+		end
+		settings[v]=true
+	end
+	
+	-- All command line settings overwrite settings
+	for k, v in pairs(clSettings) do
+		if k ~= "syncs" then
+			settings[k]=v 
+		end
+	end
+
+	-- adds syncs specified by command line.
+	if clSettings.syncs then
+		for _, s in ipairs(clSettings.syncs) do
+			if s[1] == "rsync" then
+				sync{default.rsync, source=s[2], target=s[3]}
+			elseif s[1] == "rssh" then
+				sync{default.rssh, source=s[2], host=s[3], targetdir=s[4]}
+			end
+		end
+	end
+
+	if settings.nodaemon then
+		lsyncd.configure("nodaemon")
+	end
+	if settings.logfile then
+		lsyncd.configure("logfile", settings.logfile)
+	end
 	-----
 	-- transfers some defaults to settings 
-	-- TODO: loop
 	if settings.statusIntervall == nil then
 		settings.statusIntervall = default.statusIntervall
 	end
@@ -2054,7 +2106,7 @@ function runner.initialize()
 	if Syncs.size() == 0 then
 		log("Error", "Nothing to watch!")
 		log("Error", "Use sync(SOURCE, TARGET, BEHAVIOR) in your config file.");
-		terminate(-1) -- ERRNO
+		os.exit(-1) -- ERRNO
 	end
 
 	-- from now on use logging as configured instead of stdout/err.

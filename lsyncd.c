@@ -97,10 +97,17 @@ static struct settings {
 	 * LOG_ERROR errors only
 	 */
 	int log_level;
+
+	/**
+	 * True if lsyncd shall not daemonize.
+	 */
+	bool nodaemon;	
+
 } settings = {
 	.log_file = NULL,
 	.log_syslog = false,
 	.log_level = 0,
+	.nodaemon = false,
 };
 
 /**
@@ -950,6 +957,24 @@ l_configure(lua_State *L)
 		 * from this on log to configurated log end instead of 
 		 * stdout/stderr */
 		running = true;
+		if (!settings.nodaemon) {
+			if (!settings.log_file) {
+				settings.log_syslog = true;
+			}
+			if (daemon(0, 0)) {
+				logstring("Error", "Failed to daemonize");
+				exit(-1); //ERRNO
+			}
+			is_daemon = true;
+		}
+	} else if (!strcmp(command, "nodaemon")) {
+		settings.nodaemon = true;
+	} else if (!strcmp(command, "logfile")) {
+		const char * file = luaL_checkstring(L, 2);
+		if (settings.log_file) {
+			free(settings.log_file);
+		}
+		settings.log_file = s_strdup(file);
 	} else {
 		printlogf(L, "Error", 
 			"Internal error, unknown parameter in l_configure(%s)", 
