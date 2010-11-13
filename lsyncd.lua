@@ -563,7 +563,7 @@ local Inlet, InletControl = (function()
 				event.etype)
 			return
 		end
-		delay.sync:removeDelay(delay)
+		sync:removeDelay(delay)
 	end
 
 	-----
@@ -622,17 +622,18 @@ local Inlet, InletControl = (function()
 	-- public interface.
 	-- this one is split, one for user one for runner.
 	return {
+			createBlanketEvent = createBlanketEvent,
+			discardEvent = discardEvent,
 			getEvent  = getEvent, 
 			getEvents = getEvents, 
 			getConfig = getConfig, 
-			createBlanketEvent = createBlanketEvent,
 		}, {
-			setSync = setSync, 
-			getSync = getSync,
-			getDelay = getDelay,
-			getDelayList = getDelayList, 
 			d2e = d2e,
 			dl2el = dl2el,
+			getDelay = getDelay,
+			getDelayList = getDelayList, 
+			getSync = getSync,
+			setSync = setSync, 
 		}
 end)()
 
@@ -1314,12 +1315,12 @@ local Inotifies = (function()
 	}
 end)()
 
-
 ------
 -- Writes functions for the user for layer 3 configuration.
 --
 local functionWriter = (function()
 
+	-----
 	-- all variables for layer 3
 	transVars = {
 		{ "%^pathname",          "event.pathname"        , 1, },
@@ -1382,7 +1383,7 @@ local functionWriter = (function()
 	--
 	-- TODO this has a little too much coding blocks.
 	--
-	function translateBinary(str)
+	local function translateBinary(str)
 		-- splits the string
 		local args = splitStr(str)
 	
@@ -1449,17 +1450,22 @@ local functionWriter = (function()
 	-----
 	-- Translates a call using a shell to a lua function
 	--
-	function translateShell(str)
+	local function translateShell(str)
 		local argn = 1
 		local args = {}
 		local cmd = str
+		local lc = str
 		-- true if there is a second event
 		local haveEvent2 = false
 
 		for _, v in ipairs(transVars) do
 			local occur = false
 			cmd = string.gsub(cmd, v[1], 
-				function() occur = true; return '$'..argn end)
+				function() 
+					occur = true
+					return '"$'..argn..'"' 
+				end)
+			lc = string.gsub(lc, v[1], ']]..'..v[2]..'..[[')
 			if occur then
 				argn = argn + 1
 				table.insert(args, v[2])
@@ -1475,7 +1481,7 @@ local functionWriter = (function()
 			ft = "function(event, event2)\n"
 		end
 		ft = ft .. '    log("Normal", "Event " .. event.etype ..\n'
-		ft = ft .. "        [[ spawns action '" .. str .. '\']])\n'
+		ft = ft .. "        [[ spawns shell '" .. lc .. '\']])\n'
 		ft = ft .. "    spawnShell(event, [[" .. cmd .. "]]"
 		for _, v in ipairs(args) do
 			ft = ft .. ",\n         " .. v 
@@ -1486,7 +1492,7 @@ local functionWriter = (function()
 
 	-----
 	-- writes a lua function for a layer 3 user script.
-	function translate(str)
+	local function translate(str)
 		-- trim spaces 
 		str = string.match(str, "^%s*(.-)%s*$")
 
@@ -1496,7 +1502,7 @@ local functionWriter = (function()
 		else
 			 ft = translateShell(str)
 		end
-		log("FWrite","translated ",str," to ",ft)
+		log("FWrite","translated [[",str,"]] to \n",ft)
 		return ft
 	end
 
@@ -1504,7 +1510,7 @@ local functionWriter = (function()
 	-- public interface
 	--
 	return {translate = translate}
-end()
+end)()
 
 
 ----
@@ -1752,6 +1758,23 @@ function runner.initialize()
 	-- from now on use logging as configured instead of stdout/err.
 	lsyncdStatus = "run";
 	lsyncd.configure("running");
+	
+	local ufuncs = {
+		"onAttrib", "onCreate", "onDelete",
+		"onModify", "onMove",   "onStartup"
+	}
+		
+	-- translates layer 3 scripts
+	for _, s in Syncs.iwalk() do
+		-- checks if any user functions is a layer 3 string.
+		local config = s.config
+		for _, fn in ipairs(ufuncs) do
+			if type(config[fn]) == 'string' then
+				local ft = functionWriter.translate(config[fn])
+				config[fn] = assert(loadstring("return " .. ft))()
+			end
+		end
+	end
 
 	-- runs through the syncs table filled by user calling directory()
 	for _, s in Syncs.iwalk() do
@@ -2068,20 +2091,6 @@ default = {
 	init = function(inlet)
 		local config = inlet.getConfig()
 		-- user functions
-		local ufuncs = {
-			"onAttrib", "onCreate", "onDelete",
-			"onModify", "onMove"}
-		-- checks if any user functions is a layer 3 string.
-		for _, fn in ipairs(funcs) do
-			if type(config[fn]) == 'string' then
-				local ft = functionWriter.translate(config[fn])
-				config[fn] = loadstring("return" .. ft)
-			end
-		end
-
-		if not config.action   and not config.onAttrib and
-		   not config.onCreate and not config.onModify and
-		   not config.onDelete and not config.onMove
 
 		-- calls a startup if given by user script.
 		if type(config.onStartup) == "function" then
