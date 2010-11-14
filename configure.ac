@@ -2,9 +2,9 @@
 # Process this file with autoconf to produce a configure script.
 #AC_PREREQ(2.60)
 AC_INIT(lsyncd, 2.0beta1, axkibe@gmail.com)
-AC_CONFIG_SRCDIR([lsyncd.c])
+AC_CONFIG_SRCDIR([lsyncd.c],[lsyncd.lua])
 AC_CONFIG_HEADER([config.h])
-AM_INIT_AUTOMAKE(lsyncd, main)
+AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL

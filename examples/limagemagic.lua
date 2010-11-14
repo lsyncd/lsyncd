@@ -63,9 +63,6 @@ convert = {
 		end
 		
 		-- deletes all formats if you delete one
-		local p    = event.pathname
-		local ext  = string.match(p, ".*%.([^.]+)$")
-		local base = string.match(p, "(.*)%.[^.]+$")
 		if event.etype == "Delete" then
 			-- builds one bash command
 			local cmd = ""

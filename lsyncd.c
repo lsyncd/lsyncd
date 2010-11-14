@@ -928,25 +928,6 @@ l_subdirs (lua_State *L)
 }
 
 /**
- * Writes a string to a file descriptor
- * 
- * @param (Lua Stack) file descriptor
- * @param (Lua Stack) string.
- */
-int 
-l_writefd(lua_State *L) 
-{
-	int fd = luaL_checkinteger(L, 1);
-	/* concates if there is more than one string parameter */
-	lua_concat(L, lua_gettop(L) - 1);
-	{
-		const char *s = luaL_checkstring(L, 2);
-		write(fd, s, strlen(s));
-	}
-	return 0;
-}
-
-/**
  * Terminates lsyncd daemon.
  * 
  * @param (Lua stack) exitcode for lsyncd.
@@ -1019,7 +1000,6 @@ static const luaL_reg lsyncdlib[] = {
 		{"stackdump",    l_stackdump    },
 		{"subdirs",      l_subdirs      },
 		{"terminate",    l_terminate    },
-		{"writefd",      l_writefd      },
 		{NULL, NULL}
 };
 

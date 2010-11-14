@@ -1,10 +1,10 @@
 AUTOMAKE_OPTIONS = foreign
 CFLAGS = -Wall $(LIBLUA_CFLAGS) 
 bin_PROGRAMS = lsyncd
-lsyncd_SOURCES = lsyncd.c 
+lsyncd_SOURCES = lsyncd.c lsyncd.lua 
 lsyncd_LDADD = $(LIBLUA_LIBS)
 exampledir = $(datarootdir)/doc/@PACKAGE@
-example_DATA = \
+dist_example_DATA = \
 	examples/lbash.lua \
 	examples/limagemagic.lua \
 	examples/lrsync.lua \
