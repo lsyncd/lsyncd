@@ -3,6 +3,12 @@ CFLAGS = -Wall $(LIBLUA_CFLAGS)
 bin_PROGRAMS = lsyncd
 lsyncd_SOURCES = lsyncd.c 
 lsyncd_LDADD = $(LIBLUA_LIBS)
+exampledir = $(datarootdir)/doc/@PACKAGE@
+example_DATA = \
+	examples/lbash.lua \
+	examples/limagemagic.lua \
+	examples/lrsync.lua \
+	examples/lrsyncssh.lua
 
 if RUNNER
 
