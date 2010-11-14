@@ -1,14 +1,15 @@
 ----
--- Auto "magic" image converter directory.
+-- Lsyncd user-script that creates a "magic" image converter directory.
 -- 
--- This lsycnd script will automatically convert all images that are placed
+-- This configuration will automatically convert all images that are placed
 -- in the directory 'magicdir' all resulting images are placed in the same
 -- directory!
 --
 -- Be sure to mkdir 'magicdir' first.
---
--- Fileformats:   .jpg  .gif  .png
 
+-----
+-- Fileformats:   .jpg  .gif  .png
+--
 local formats = { jpg=true, gif=true, png=true,  }
 
 convert = {

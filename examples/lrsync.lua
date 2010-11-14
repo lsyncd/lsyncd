@@ -8,5 +8,9 @@ settings = {
 	statusIntervall = 1,
 }
 
-sync{default.rsync, source="src", target="mooooooooooooooooooooo.com:dst/", excludeFrom="exclude"}
+sync{
+	default.rsync, 
+	source="src", 
+	target="/home/user/dst/", 
+}
 
