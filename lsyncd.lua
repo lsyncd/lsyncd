@@ -1359,7 +1359,7 @@ local Syncs = (function()
 			'collapse', 
 			'collapseTable', 
 			'collect', 
-			'init',     
+			'init', 
 			'maxDelays', 
 			'maxProcesses', 
 		}
@@ -2521,7 +2521,7 @@ local default_rsyncssh = {
 	maxProcesses = 10,
 
 	-----
-	-- Default delay 3 seconds
+	-- Default delay. 
 	--
 	delay = 10,
 }

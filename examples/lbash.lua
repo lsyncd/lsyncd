@@ -21,12 +21,11 @@ prefix = ""
 -- for testing purposes. uses bash command to hold local dirs in sync.
 --
 bash = {
-	delay = 5,
 
 	maxProcesses = 3,
 
 	onStartup = 
-		[[if [ "$(ls -A $1)" ]; then cp -r ^source* ^target; fi]],
+		[[if [ "$(ls -A ^source)" ]; then cp -r ^source* ^target; fi]],
 
 	onCreate = prefix..[[cp -r ^sourcePathname ^targetPathname]],
 	
@@ -37,5 +36,5 @@ bash = {
 	onMove   = prefix..[[mv ^o.targetPathname ^d.targetPathname]],
 }
 
-sync{bash, source="src", target="dst/"}
+sync{bash, source="src", target="trg/"}
 
