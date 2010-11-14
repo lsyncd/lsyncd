@@ -1948,8 +1948,8 @@ USAGE:
   default rsync behaviour:
     lsyncd [OPTIONS] -rsync [SOURCE] [TARGET]  
   
-  default rssh behaviour:
-    lsyncd [OPTIONS] -rssh [SOURCE] [HOST] [TARGETDIR]
+  default rsync with mv's through ssh:
+    lsyncd [OPTIONS] -rsyncssh [SOURCE] [HOST] [TARGETDIR]
 
 OPTIONS:
   -help               Shows this
@@ -2002,10 +2002,10 @@ function runner.configure(args)
 				clSettings.syncs = clSettings.syncs or {}
 				table.insert(clSettings.syncs, {"rsync", src, trg})
 			end},
-		rssh     = 
+		rsyncssh = 
 			{3, function(src, host, tdir) 
 				clSettings.syncs = clSettings.syncs or {}
-				table.insert(clSettings.syncs, {"rssh", src, host, tdir})
+				table.insert(clSettings.syncs, {"rsyncssh", src, host, tdir})
 			end},
 		version  =
 			{0, function()
@@ -2102,8 +2102,8 @@ function runner.initialize()
 		for _, s in ipairs(clSettings.syncs) do
 			if s[1] == "rsync" then
 				sync{default.rsync, source=s[2], target=s[3]}
-			elseif s[1] == "rssh" then
-				sync{default.rssh, source=s[2], host=s[3], targetdir=s[4]}
+			elseif s[1] == "rsyncssh" then
+				sync{default.rsyncssh, source=s[2], host=s[3], targetdir=s[4]}
 			end
 		end
 	end
@@ -2417,7 +2417,7 @@ local default_rsync = {
 -----
 -- lsyncd classic - sync with rsync
 --
-local default_rssh = {
+local default_rsyncssh = {
 	-----
 	-- Spawns rsync for a list of events
 	--
@@ -2692,7 +2692,7 @@ default = {
 	-----
 	-- a default rsync configuration with ssh'd move and rm actions
 	--
-	rssh = default_rssh,
+	rsyncssh = default_rsyncssh,
 
 	-----
 	-- Minimum seconds between two writes of a status file.
