@@ -1906,6 +1906,22 @@ end
 function runner.cycle(now)
 	-- goes through all syncs and spawns more actions
 	-- if possible
+	if lsyncdStatus == "fade" then
+		local np = 0
+		for _, s in Syncs.iwalk() do
+			np = np + s.processes:size()
+		end
+		if np > 0 then
+			log("Normal", "waiting for ",np," more child processes.")
+			return true
+		else
+			return false
+		end
+	end
+	if lsyncdStatus ~= "run" then
+		error("cycle called in not run?!")
+	end
+
 	for _, s in Syncs.iwalk() do
 		s:invokeActions(now)
 	end
@@ -1913,6 +1929,8 @@ function runner.cycle(now)
 	if settings.statusFile then
 		StatusFile.write(now)
 	end
+
+	return true
 end
 
 -----
@@ -2064,7 +2082,7 @@ function runner.initialize()
 	lockGlobals()
 
 	-- Copies simple settings to "key=true" settings.
-	for k, v in ipairs(settings) do
+	for k, v in pairs(settings) do
 		if settings[v] then
 			log("Error", "Double setting '"..v.."'")
 			os.exit(-1) -- ERRNO
@@ -2203,8 +2221,24 @@ end
 -- Called by core when an overflow happened.
 --
 function runner.overflow()
-	log("Error", "--- OVERFLOW on inotify event queue ---")
-	terminate(-1) -- TODO reset instead.
+	log("Normal", "--- OVERFLOW on inotify event queue ---")
+	lsyncdStatus = "fade"
+end
+
+----
+-- Called by core on a hup signal.
+--
+function runner.hup()
+	log("Normal", "--- HUP signal, resetting ---")
+	lsyncdStatus = "fade"
+end
+
+----
+-- Called by core on a term signal.
+--
+function runner.term()
+	log("Normal", "--- TERM signal, fading ---")
+	lsyncdStatus = "fade"
 end
 
 --============================================================================
@@ -2238,6 +2272,9 @@ end
 function spawn(agent, binary, ...)
 	if agent == nil or type(agent) ~= "table" then
 		error("spawning with an invalid agent", 2)
+	end
+	if lsyncdStatus == "fade" then
+		log("Normal", "ignored spawn processs since status fading")
 	end
 	local pid = lsyncd.exec(binary, ...)
 	if pid and pid > 0 then

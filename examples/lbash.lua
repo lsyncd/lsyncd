@@ -1,19 +1,23 @@
-----
+-----
 -- User configuration file for lsyncd.
 -- 
 -- This example uses local bash commands to keep two local 
 -- directory trees in sync.
 --
 settings = {
-	statusFile = "/tmp/lsyncd.stat",
+	logfile         = "/tmp/lsyncd.log",
+	statusFile      = "/tmp/lsyncd.stat",
 	statusIntervall = 1,
+	nodaemon        = true,
 }
 
-----
+-----
 -- for testing purposes. prefix can be used to slow commands down.
 -- prefix = "sleep 5 && "
+--
 prefix = ""
-----
+
+-----
 -- for testing purposes. uses bash command to hold local dirs in sync.
 --
 bash = {

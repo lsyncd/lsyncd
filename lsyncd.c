@@ -126,7 +126,8 @@ static bool running = false;
 /**
  * Set to TERM or HUP in signal handler, when lsyncd should end or reset ASAP.
  */
-static volatile sig_atomic_t reset = 0;
+static volatile sig_atomic_t hup  = 0;
+static volatile sig_atomic_t term = 0;
 
 /**
  * The kernels clock ticks per second.
@@ -141,6 +142,24 @@ sig_child(int sig)
 {
 	/* nothing */
 }
+
+/**
+ * signal handler
+ */
+void
+sig_handler(int sig)
+{
+	switch (sig) {
+	case SIGTERM:
+		term = 1;
+		return;
+	case SIGHUP:
+		hup = 1;
+		return;
+	}
+}
+
+
 /**
  * predeclerations -- see below
  */
@@ -297,7 +316,7 @@ logstring0(int priority, const char *cat, const char *message)
 				settings.log_file);
 			exit(-1);  // ERRNO
 		}
-		fprintf(flog, "%s %s: %s", ct, cat, message);
+		fprintf(flog, "%s %s: %s\n", ct, cat, message);
 		fclose(flog);
 	}
 
@@ -873,7 +892,7 @@ l_subdirs (lua_State *L)
 	}
 	
 	lua_newtable(L);
-	while (!reset) {
+	while (!hup && !term) {
 		struct dirent *de = readdir(d);
 		bool isdir;
 		if (de == NULL) {
@@ -957,7 +976,7 @@ l_configure(lua_State *L)
 		 * from this on log to configurated log end instead of 
 		 * stdout/stderr */
 		running = true;
-		if (!settings.nodaemon) {
+		if (!settings.nodaemon && !is_daemon) {
 			if (!settings.log_file) {
 				settings.log_syslog = true;
 			}
@@ -1069,16 +1088,17 @@ handle_event(lua_State *L,
 
 	/* used to execute two events in case of unmatched MOVE_FROM buffer */
 	struct inotify_event *after_buf = NULL;
-	if (reset) {
+	if (hup || term) {
 		return;
 	}
 	if (event && (IN_Q_OVERFLOW & event->mask)) {
-		/* and overflow happened, lets runner/user decide what to do. */
+		/* and overflow happened, tells the runner */
 		load_runner_func(L, "overflow");
 		if (lua_pcall(L, 0, 0, -2)) {
 			exit(-1); // ERRNO
 		}
 		lua_pop(L, 1);
+		hup = 1;
 		return;
 	}
 	/* cancel on ignored or resetting */
@@ -1188,7 +1208,7 @@ masterloop(lua_State *L)
 {
 	size_t readbuf_size = 2048;
 	char *readbuf = s_malloc(readbuf_size);
-	while(!reset) {
+	while(true) {
 		bool have_alarm;
 		clock_t now = times(NULL);
 		clock_t alarm_time;
@@ -1283,7 +1303,7 @@ masterloop(lua_State *L)
 				/* nothing more inotify */
 				break;
 			}
-			while (i < len && !reset) {
+			while (i < len && !hup && !term) {
 				struct inotify_event *event = 
 					(struct inotify_event *) &readbuf[i];
 				handle_event(L, event);
@@ -1343,14 +1363,38 @@ masterloop(lua_State *L)
 			lua_pop(L, 1);
 		} 
 
+		if (hup) {
+			load_runner_func(L, "hup");
+			if (lua_pcall(L, 0, 0, -2)) {
+				exit(-1); // ERRNO
+			}
+			lua_pop(L, 1);
+			hup = 0;
+		}
+
+		if (term == 1) {
+			load_runner_func(L, "term");
+			if (lua_pcall(L, 0, 0, -2)) {
+				exit(-1); // ERRNO
+			}
+			lua_pop(L, 1);
+			term = 2;
+		}
+
 		/* lets the runner do stuff every cycle, 
 		 * like starting new processes, writing the statusfile etc. */
 		load_runner_func(L, "cycle");
 		lua_pushinteger(L, times(NULL));
-		if (lua_pcall(L, 1, 0, -3)) {
+		if (lua_pcall(L, 1, 1, -3)) {
 			exit(-1); // ERRNO
 		}
-		lua_pop(L, 1);
+		if (!lua_toboolean(L, -1)) {
+			/* cycle told core to break mainloop */
+			free(readbuf);
+			lua_pop(L, 2);
+			return;
+		}
+		lua_pop(L, 2);
 	}
 }
 
@@ -1358,7 +1402,7 @@ masterloop(lua_State *L)
  * Main
  */
 int
-main(int argc, char *argv[])
+main1(int argc, char *argv[])
 {
 	/* the Lua interpreter */
 	lua_State* L;
@@ -1368,9 +1412,6 @@ main(int argc, char *argv[])
 	char * lsyncd_config_file = NULL;
 
 	int argp = 1;
-
-	/* kernel parameters */
-	clocks_per_sec = sysconf(_SC_CLK_TCK);
 
 	/* load Lua */
 	L = lua_open();
@@ -1383,11 +1424,11 @@ main(int argc, char *argv[])
 		version = luaL_checkstring(L, -1);
 		if (sscanf(version, "Lua %d.%d", &major, &minor) != 2) {
 			fprintf(stderr, "cannot parse lua library version!\n");
-			return -1; // ERRNO
+			exit(-1); // ERRNO
 		}
 		if ((major < 5) || (major == 5 && minor < 1)) {
 			fprintf(stderr, "lua library is too old. Need 5.1 at least");
-			return -1; // ERRNO
+			exit(-1); // ERRNO
 		}
 		lua_pop(L, 1);
 	}
@@ -1407,7 +1448,7 @@ main(int argc, char *argv[])
 			if (!add_logcat(argv[i], LOG_NOTICE)) {
 				printlogf(L, "Error", "'%s' is not a valid logging category", 
 					argv[i]);
-				return -1; // ERRNO
+				exit(-1); // ERRNO
 			}
 		}
 	}
@@ -1452,14 +1493,14 @@ main(int argc, char *argv[])
 			printlogf(L, "Error", "Maybe specify another place?");
 			printlogf(L, "Error", 
 				"%s --runner RUNNER_FILE CONFIG_FILE", argv[0]);
-			return -1; // ERRNO
+			exit(-1); // ERRNO
 		}
 		/* loads the runner file */
 		if (luaL_loadfile(L, lsyncd_runner_file)) {
 			printlogf(L, "Error", 
 				"error loading '%s': %s", 
 				lsyncd_runner_file, lua_tostring(L, -1));
-			return -1; // ERRNO
+			exit(-1); // ERRNO
 		}
 	} else {
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
@@ -1470,13 +1511,13 @@ main(int argc, char *argv[])
 			printlogf(L, "Error", 
 				"error loading precompiled lsyncd.lua runner: %s", 
 				lua_tostring(L, -1));
-			return -1; // ERRNO
+			exit(-1); // ERRNO
 		}
 #else
 		/* this should never be possible, security code nevertheless */
 		logstring("Error", 
 			"Internal fail: lsyncd_runner is NULL with non-static runner");
-		return -1; // ERRNO
+		exit(-1); // ERRNO
 #endif
 	}
 
@@ -1488,7 +1529,7 @@ main(int argc, char *argv[])
 				"error preparing '%s': %s", 
 				lsyncd_runner_file ? lsyncd_runner_file : "internal runner", 
 				lua_tostring(L, -1));
-			return -1; // ERRNO
+			exit(-1); // ERRNO
 		}
 		lua_pushlightuserdata(L, (void *)&runner);
 		/* switches the value (result of preparing) and the key &runner */
@@ -1518,7 +1559,7 @@ main(int argc, char *argv[])
 				"Version mismatch '%s' is '%s', but core is '%s'",
  				lsyncd_runner_file ? lsyncd_runner_file : "internal runner",
 				lversion, PACKAGE_VERSION);
-			return -1; // ERRNO
+			exit(-1); // ERRNO
 		}
 		lua_pop(L, 1);
 	}
@@ -1533,7 +1574,7 @@ main(int argc, char *argv[])
 					exit(-1); // ERRNO
 				}
 				lua_pop(L, 1);
-				return -1; // ERRNO	
+				exit(-1); // ERRNO
 			}
 		}
 	}
@@ -1567,7 +1608,7 @@ main(int argc, char *argv[])
 			printlogf(L, "Error",
 				"Cannot find config file at '%s'.",
 				lsyncd_config_file);
-			return -1; // ERRNO
+			exit(-1); // ERRNO
 		}
 
 		/* loads and executes the config file */
@@ -1575,13 +1616,13 @@ main(int argc, char *argv[])
 			printlogf(L, "Error",
 				"error loading %s: %s",
 				lsyncd_config_file, lua_tostring(L, -1));
-			return -1; // ERRNO
+			exit(-1); // ERRNO
 		}
 		if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
 			printlogf(L, "Error",
 				"error preparing %s: %s",
 				lsyncd_config_file, lua_tostring(L, -1));
-			return -1; // ERRNO
+			exit(-1); // ERRNO
 		}
 	}
 
@@ -1591,7 +1632,7 @@ main(int argc, char *argv[])
 		printlogf(L, "Error", 
 			"Cannot create inotify instance! (%d:%s)", 
 			errno, strerror(errno));
-		return -1; // ERRNO
+		exit(-1); // ERRNO
 	}
 	close_exec_fd(inotify_fd);
 	non_block_fd(inotify_fd);
@@ -1605,6 +1646,9 @@ main(int argc, char *argv[])
 		sigaddset(&set, SIGCHLD);
 		signal(SIGCHLD, sig_child);
 		sigprocmask(SIG_BLOCK, &set, NULL);
+		
+		signal(SIGHUP,  sig_handler);
+		signal(SIGTERM, sig_handler);
 	}
 
 	{
@@ -1620,7 +1664,53 @@ main(int argc, char *argv[])
 	masterloop(L);
 
 	/* cleanup */
+	{
+		/* frees logging categories */
+		int ci;
+		struct logcat *lc;
+		for(ci = 'A'; ci <= 'Z'; ci++) {
+			for(lc = logcats[ci]; lc && lc->name; lc++) {
+				free(lc->name);
+				lc->name = NULL;
+			}
+			if (logcats[ci]) {
+				free(logcats[ci]);
+			}
+		}
+	}
+	if (lsyncd_config_file) {
+		free(lsyncd_config_file);
+		lsyncd_config_file = NULL;
+	}
+
+	/* resets settings to default. */
+	if (settings.log_file) {
+		free(settings.log_file);
+		settings.log_file = NULL;
+	}
+	settings.log_syslog = false,
+	settings.log_level = 0,
+	settings.nodaemon = false,
+
+	/* closes inotify */
 	close(inotify_fd);
 	lua_close(L);
 	return 0;
 }
+
+
+/**
+ * Main
+ */
+int
+main(int argc, char *argv[])
+{
+	/* kernel parameters */
+	clocks_per_sec = sysconf(_SC_CLK_TCK);
+
+	while(!term) {
+		main1(argc, argv);
+	}
+	return 0;
+}
+
