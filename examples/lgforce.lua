@@ -1,7 +1,7 @@
 -----
 -- User configuration file for lsyncd.
 -- 
--- This example uses refers to a problem in unix. 
+-- This example refers to a common problem in unix. 
 -- 
 -- You have a shared directory for a set of users and you want
 -- to ensure all users have read and write permissions on all
