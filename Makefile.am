@@ -1,44 +1,34 @@
-## Makefile.am -- Process this file with automake to produce Makefile.in
+AUTOMAKE_OPTIONS = foreign
+CFLAGS = -Wall $(LIBLUA_CFLAGS) 
 bin_PROGRAMS = lsyncd
-lsyncd_SOURCES = lsyncd.c 
-TESTS = tests/help.sh \
-	tests/directorycpr.sh \
-	tests/directorycpr0.sh \
-	tests/directorymv.sh \
-	tests/pidfile.sh \
-	tests/version.sh \
-	tests/wrong-logfile.sh \
-	tests/wrong-rsync.sh
+lsyncd_SOURCES = lsyncd.c lsyncd.lua 
+lsyncd_LDADD = $(LIBLUA_LIBS)
+exampledir = $(datarootdir)/doc/@PACKAGE@
+dist_example_DATA = \
+	examples/lbash.lua \
+	examples/limagemagic.lua \
+	examples/lrsync.lua \
+	examples/lrsyncssh.lua
 
-datarootdir = @datarootdir@
+if RUNNER
 
-EXTRA_DIST = config.h.in inotify-nosys.h lsyncd.conf.xml \
-	doc/manpage.lsyncd.xml doc/manpage.lsyncd.conf.xml \
-	doc/lsyncd.1 doc/lsyncd.conf.xml.5
+# installs the runner
+runnerdir = $(RUNNER_DIR)
+runner_DATA = lsyncd.lua
 
-nodist_man1_MANS = doc/lsyncd.1
-nodist_man5_MANS = doc/lsyncd.conf.xml.5
+else
 
-check-syntax:
-	$(CC) -c -O2 -Wall $(CHK_SOURCES)  -o/dev/null 
+# or compiles it into the binary
+lsyncd: luac.o $(lsyncd_LDADD) 
 
-DB2MAN = /usr/share/sgml/docbook/stylesheet/xsl/nwalsh/manpages/docbook.xsl
-XP     = xsltproc -''-nonet \
-          -''-param man.charmap.use.subset "0" \
-          -''-param make.year.ranges "1" \
-          -''-param make.single.year.ranges "1"
+architecture: | lsyncd.o
+	objdump -f $< | grep architecture | sed -e "s/,.*$$//" -e "s/[^ ]* \(.*\)/\1/" > $@ || rm architecture
 
-doc/lsyncd.1: doc/manpage.lsyncd.xml
-	$(XP) -o $@ $(DB2MAN) $<
+luac.o: luac.out architecture
+	objcopy --input-target=binary --output-target=`gcc -dumpmachine` --binary-architecture=`cat architecture` $< $@
 
-doc/lsyncd.conf.xml.5: doc/manpage.lsyncd.conf.xml
-	$(XP) -o $@ $(DB2MAN) $< 
+luac.out: lsyncd.lua
+	luac $<
 
-AM_CFLAGS=-Wall 
-AM_LDFLAGS=
-if XML_CONFIG
-DEFS+=-DXML_CONFIG
-AM_CFLAGS += `xml2-config --cflags`
-AM_LDFLAGS += `xml2-config --libs`
 endif
 

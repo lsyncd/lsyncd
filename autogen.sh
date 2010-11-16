@@ -1,11 +1,9 @@
-#!/bin/bash
-# simplistic script to run after checkout
+#!/bin/sh
 
-# In case of explicit having a 1.7 version use that (for systems having multiple automake versions installed)
-ACLOCAL=`which aclocal-1.7 || echo aclocal`
-AUTOMAKE=`which automake-1.7 || echo automake`
+echo "Generating configure files... may take a while."
 
-$ACLOCAL && \
-autoheader && \
-autoconf && \
-$AUTOMAKE -a -c
+autoreconf --install --force && \
+  echo "Preparing was successful if there was no error messages above." && \
+  echo "Now type:" && \
+  echo "  ./configure && make"  && \
+  echo "Run './configure --help' for more information"

@@ -1,26 +1,25 @@
 #!/bin/bash
 set -e
-CON="\E[47;34m"
-COFF="\033[0m"
+C1="\E[47;34m"
+C0="\033[0m"
 
-echo -e "$CON***************************************************************$COFF"
-echo -e "$CON** Testing the case of directory being cp -r'ed and touched. **$COFF" 
-echo -e "$CON** With default delay                                        **$COFF"
-echo -e "$CON***************************************************************$COFF"
-
-WORKSOURCE=$(mktemp -d)
-WORKTARGET=$(mktemp -d)
-PIDFILE=$(mktemp)
-LOGFILE=$(mktemp)
-
-echo -e "$CON* populating the filesystem$COFF"
-mkdir -p "${WORKSOURCE}"/a/a
-echo 'test' > "${WORKSOURCE}"/a/a/file
-
-echo -e "$CON* starting lsyncd$COFF"
+echo -e "$C1****************************************************************$C0"
+echo -e "$C1 Testing layer 4 default rsync with simulated data activity     $C0"
+echo -e "$C1****************************************************************$C0"
+echo
+#root tmp dir
+R=$(mktemp -d)
+#source dir
+S=$R/source
+#target dir
+T=$R/target
+echo -e "$C1* using root dir for test $R$C0"
+echo -e "$C1* populating the source$C0"
+mkdir -p "$S"/d1/d11
+echo 'test' > "$S"/d1/d11/f1
+echo -e "$C1* starting lsyncd$C0"
 ./lsyncd --logfile "${LOGFILE}" --pidfile "${PIDFILE}" --verbose --no-daemon "${WORKSOURCE}" "${WORKTARGET}"&
-
-echo -e "$CON* waiting for lsyncd to start$COFF"
+echo -e "$C1* waiting for lsyncd to start$C0"
 sleep 4s
 
 # cp -r the directory
