@@ -1659,7 +1659,7 @@ local functionWriter = (function()
 			local a = {{true, iv}}
 			-- goes through all translates
 			for _, v in ipairs(transVars) do
-				ai = 1 
+				local ai = 1 
 				while ai <= #a do
 					if a[ai][1] then
 						local pre, post = 
