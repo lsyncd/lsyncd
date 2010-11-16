@@ -15,13 +15,18 @@
 -- One second after a file is created/modified it checks for its permissions 
 -- and forces group permissions on it.
 --
--- This is example regards more the handcraft of bash scripting than lsyncd.
+-- This example regards more the handcraft of bash scripting than lsyncd.
 -- An alternative to this would be to load a Lua-Posix library and do the 
 -- permission changes right within the onAction handlers.
 
--- forces this group
-fgroup = "axel"
+----
+-- forces this group.
+--
+fgroup = "staff"
 
+-----
+-- script for all changes.
+--
 command = 
 -- checks if the group is the one enforced and sets them if not 
 [[
@@ -48,12 +53,12 @@ fi
 ]]
 
 -- on startup recursevily sets all group ownerships
--- all group permission to rw for all
--- and to executable for directories
+-- all group permissions are set to rw
+-- and to executable flag for directories
 --
 -- the hash in the first line is important, otherwise due to the starting
--- slash, syncd will think its a call to the binary /bin/chgrp only
--- instead of a bash script.
+-- slash, Lsyncd would think it is a call to the binary /bin/chgrp only
+-- and would optimize the bash away.
 -- 
 startup = 
 [[#
@@ -62,19 +67,15 @@ startup =
 /usr/bin/find ^source -type d | xargs chmod g+x 
 ]]
 
-
------
--- for testing purposes. uses bash command to hold local dirs in sync.
---
 gforce = {
 	maxProcesses = 99,
-	delay = 1,
-	onStartup = startup,
-	onAttrib = command,
-	onCreate = command,
-	onModify = command,
-	-- does nothing on moves, they won change permissions.
-	onMove   = true,
+	delay        = 1,
+	onStartup    = startup,
+	onAttrib     = command,
+	onCreate     = command,
+	onModify     = command,
+	-- does nothing on moves, they won't change permissions
+	onMove       = true,
 }
 
 sync{gforce, source="/path/to/share"}
