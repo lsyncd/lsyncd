@@ -9,6 +9,8 @@ dist_example_DATA = \
 	examples/limagemagic.lua \
 	examples/lrsync.lua \
 	examples/lrsyncssh.lua
+TESTS = tests/l4-rsync-data.sh
+
 
 if RUNNER
 
@@ -21,11 +23,18 @@ else
 # or compiles it into the binary
 lsyncd: luac.o $(lsyncd_LDADD) 
 
-architecture: | lsyncd.o
-	objdump -f lsyncd.o | grep architecture | sed -e "s/,.*$$//" -e "s/[^ ]* \(.*\)/\1/" > $@ || rm architecture
+objarch: | lsyncd.o
+	objdump -f lsyncd.o | grep architecture | \
+		sed -e "s/,.*$$//" -e "s/[^ ]* \(.*\)/\1/" > $@ || rm $@
 
-luac.o: luac.out architecture
-	objcopy --input-target=binary --output-target=`gcc -dumpmachine` --binary-architecture=`cat architecture` $< $@
+objtarget: | lsyncd.o
+	objdump -f lsyncd.o | grep "file format" | \
+		sed -e "s/.* \(.*\)/\1/" > $@ || rm $@
+
+luac.o: luac.out objarch objtarget
+	objcopy --input-target=binary \
+		--output-target=`cat objtarget` \
+		--binary-architecture=`cat objarch` $< $@
 
 luac.out: lsyncd.lua
 	luac $<

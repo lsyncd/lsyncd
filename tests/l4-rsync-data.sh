@@ -1,4 +1,8 @@
 #!/bin/bash
+
+RANGE=1
+LOG="-log all"
+
 set -e
 C1="\E[47;34m"
 C0="\033[0m"
@@ -25,28 +29,29 @@ mkdir -p "$S"/d/e
 echo 'test' > "$S"/d/e/f1
 echo -e "$C1* starting lsyncd$C0"
 # lets bash detatch Lsyncd instead of itself; lets it log stdout as well.
-./lsyncd -logfile "$L" -pidfile "$P" -rsync -nodaemon "$S" "$T" &
+echo ./lsyncd $LOG -logfile "$L" -pidfile "$P" -nodaemon -rsync "$S" "$T"
+./lsyncd $LOG -logfile "$L" -pidfile "$P" -nodaemon -rsync "$S" "$T" &
 echo -e "$C1* waiting for lsyncd to start$C0"
 sleep 4s
 
 # cp -r the directory
 echo -e "$C1* making some data$CO"
-for i in 1 2 3 4 5 6 7 8 9 10; do
+for i in $RANGE; do
     cp -r "$S"/d "$S"/d${i}
     echo 'test2' > "$S"/d${i}/e/f2
 done
 
-mkdir -p "$S"/m/n
-echo 'test3' > "$S"/m/n/file
-for i in 1 2 3 4 5 6 7 8 9 10; do
-    cp -r "$S"/m "$S"/m$i
-    echo 'test4' > "$S"/m${i}/n/another
-done
+#mkdir -p "$S"/m/n
+#echo 'test3' > "$S"/m/n/file
+#for i in $RANGE; do
+#    cp -r "$S"/m "$S"/m$i
+#    echo 'test4' > "$S"/m${i}/n/another
+#done
 
-echo -e "$C1* waiting for lsyncd to do its job.$C0"
-sleep 10s
+echo -e "$C1* waiting for Lsyncd to do its job.$C0"
+sleep 30s
 
-echo -e "$CON* killing lsyncd$COFF"
+echo -e "$C1* killing Lsyncd$C0"
 PID=$(cat "$P")
 if ! kill "$PID"; then
     cat "$L"
@@ -56,15 +61,8 @@ if ! kill "$PID"; then
 fi
 sleep 1s
 
-#echo "log file contents"
-#cat "${LOGFILE}"
-##this should be grep.
+echo -e "$C1* differences$C0"
+diff -urN "$S" "$T"
 
-echo -e "$CON* differences$COFF"
-diff -urN "${WORKSOURCE}" "${WORKTARGET}"
-
-rm "${PIDFILE}"
-rm "${LOGFILE}"
-rm -rf "${WORKTARGET}"
-rm -rf "${WORKSOURCE}"
+#rm -rf "$R"
 
