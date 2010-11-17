@@ -83,25 +83,30 @@ static const uint32_t standard_event_mask =
  */
 static struct settings {
 	/** 
-	 * If not null lsyncd logs in this file.
+	 * If not NULL Lsyncd logs into this file.
 	 */
 	char * log_file;
 
 	/**
-	 * If true lsyncd sends log messages to syslog
+	 * If true Lsyncd sends log messages to syslog
 	 */
 	bool log_syslog;
 
 	/**
 	 * -1 logs everything, 0 normal mode,
-	 * LOG_ERROR errors only
+	 * LOG_ERROR logs errors only.
 	 */
 	int log_level;
 
 	/**
-	 * True if lsyncd shall not daemonize.
+	 * True if Lsyncd shall not daemonize.
 	 */
 	bool nodaemon;	
+	
+	/** 
+	 * If not NULL Lsyncd writes its pid into this file.
+	 */
+	char * pidfile;
 
 } settings = {
 	.log_file = NULL,
@@ -419,6 +424,48 @@ s_strdup(const char *src)
 	return s;
 }
 
+/*****************************************************************************
+ * Pipes management
+ ****************************************************************************/
+
+/**
+ * A child process gets text piped longer than on
+ * write() can manage.
+ */
+struct pipemsg {
+	/* pipe file descriptor */
+	int fd;
+
+	/* message to send */
+	char *text;
+
+	/* length of text */
+	int tlen;
+
+	/* position in message */
+	int pos;
+};
+
+/**
+ * All pipes currently active.
+ */
+static struct pipemsg *pipes = NULL;
+
+/**
+ * amount of pipes allocated.
+ */
+size_t pipes_size = 0; 
+
+/**
+ * number of pipes used.
+ */
+size_t pipes_len = 0;
+
+
+/*****************************************************************************
+ * helper routines.
+ ****************************************************************************/
+
 /**
  * Sets the close-on-exit flag for an fd
  */
@@ -457,39 +504,19 @@ non_block_fd(int fd)
 	}
 }
 
-
 /**
- * A child process gets text piped longer than on
- * write() can manage.
+ * Writes a pid file.
  */
-struct pipemsg {
-	/* pipe file descriptor */
-	int fd;
-
-	/* message to send */
-	char *text;
-
-	/* length of text */
-	int tlen;
-
-	/* position in message */
-	int pos;
-};
-
-/**
- * All pipes currently active.
- */
-static struct pipemsg *pipes = NULL;
-
-/**
- * amount of pipes allocated.
- */
-size_t pipes_size = 0; 
-
-/**
- * number of pipes used.
- */
-size_t pipes_len = 0;
+void
+write_pidfile(lua_State *L, const char *pidfile) {
+	FILE* f = fopen(pidfile, "w");
+	if (!f) {
+		printlogf(L, "Error", "Cannot write pidfile; '%s'", pidfile);
+		exit(-1); // ERRNO
+	}
+	fprintf(f, "%i\n", getpid());
+	fclose(f); 
+}
 
 
 /*****************************************************************************
@@ -957,6 +984,9 @@ l_configure(lua_State *L)
 		 * from this on log to configurated log end instead of 
 		 * stdout/stderr */
 		running = true;
+		if (settings.pidfile) {
+			write_pidfile(L, settings.pidfile);
+		}
 		if (!settings.nodaemon && !is_daemon) {
 			if (!settings.log_file) {
 				settings.log_syslog = true;
@@ -975,6 +1005,12 @@ l_configure(lua_State *L)
 			free(settings.log_file);
 		}
 		settings.log_file = s_strdup(file);
+	} else if (!strcmp(command, "pidfile")) {
+		const char * file = luaL_checkstring(L, 2);
+		if (settings.pidfile) {
+			free(settings.pidfile);
+		}
+		settings.pidfile = s_strdup(file);
 	} else {
 		printlogf(L, "Error", 
 			"Internal error, unknown parameter in l_configure(%s)", 

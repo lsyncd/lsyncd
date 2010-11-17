@@ -5,8 +5,8 @@
 --
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
--- This is the "runner" part of lsyncd. It containts all its high-level logic.
--- It works closely together with the lsyncd core in lsyncd.c. This means it
+-- This is the "runner" part of Lsyncd. It containts all its high-level logic.
+-- It works closely together with the Lsyncd core in lsyncd.c. This means it
 -- cannot be runned directly from the standard lua interpreter.
 --============================================================================
 
@@ -1958,7 +1958,8 @@ OPTIONS:
   -log    [Category]  Turns on logging for a debug category
   -logfile FILE       Writes log to FILE (DEFAULT: uses syslog)
   -nodaemon           Does not detach and logs to stdout/stderr
-  -runner FILE        Loads lsyncds lua part from FILE 
+  -pidfile FILE       Writes Lsyncds PID into FILE
+  -runner FILE        Loads Lsyncds lua part from FILE 
   -version            Prints versions and exits
 
 LICENSE:
@@ -1997,6 +1998,10 @@ function runner.configure(args)
 			{0, function() 
 				clSettings.nodaemon=true 
 			end},
+		pidfile   = 
+			{1, function(file)
+				clSettings.pidfile=file
+			end},
 		rsync    = 
 			{2, function(src, trg) 
 				clSettings.syncs = clSettings.syncs or {}
@@ -2013,7 +2018,7 @@ function runner.configure(args)
 				os.exit(0)
 			end}
 	}
-	-- filled with all args that were non --options
+	-- nonopts is filled with all args that were no part dash options
 	local nonopts = {}
 	local i = 1
 	while i <= #args do
@@ -2081,7 +2086,7 @@ function runner.initialize()
 	-- From this point on, no globals may be created anymore
 	lockGlobals()
 
-	-- Copies simple settings to "key=true" settings.
+	-- copies simple settings with numeric keys to "key=true" settings.
 	for k, v in pairs(settings) do
 		if settings[v] then
 			log("Error", "Double setting '"..v.."'")
@@ -2090,7 +2095,7 @@ function runner.initialize()
 		settings[v]=true
 	end
 	
-	-- All command line settings overwrite settings
+	-- all command line settings overwrite config file settings
 	for k, v in pairs(clSettings) do
 		if k ~= "syncs" then
 			settings[k]=v 
@@ -2114,13 +2119,16 @@ function runner.initialize()
 	if settings.logfile then
 		lsyncd.configure("logfile", settings.logfile)
 	end
+	if settings.pidfile then
+		lsyncd.configure("pidfile", settings.pidfile)
+	end
 	-----
 	-- transfers some defaults to settings 
 	if settings.statusIntervall == nil then
 		settings.statusIntervall = default.statusIntervall
 	end
 
-	-- makes sure the user gave lsyncd anything to do 
+	-- makes sure the user gave Lsyncd anything to do 
 	if Syncs.size() == 0 then
 		log("Error", "Nothing to watch!")
 		log("Error", "Use sync(SOURCE, TARGET, BEHAVIOR) in your config file.");
@@ -2242,7 +2250,7 @@ function runner.term()
 end
 
 --============================================================================
--- lsyncd user interface
+-- Lsyncd user interface
 --============================================================================
 
 -----
@@ -2324,9 +2332,8 @@ end
 
 
 --============================================================================
--- lsyncd default settings
+-- Lsyncd default settings
 --============================================================================
-
 
 -----
 -- Exitcodes to retry on network failures of rsync.
@@ -2359,7 +2366,7 @@ local rsync_ssh = {
 }
 
 -----
--- lsyncd classic - sync with rsync
+-- Lsyncd classic - sync with rsync
 --
 local default_rsync = {
 	-----
@@ -2415,7 +2422,7 @@ local default_rsync = {
 
 
 -----
--- lsyncd classic - sync with rsync
+-- Lsyncd 2 improved rsync - sync with rsync but move over ssh.
 --
 local default_rsyncssh = {
 	-----
@@ -2652,7 +2659,7 @@ default = {
 	end,
 
 	-----
-	-- called on (re)initalizing of lsyncd.
+	-- called on (re)initalizing of Lsyncd.
 	--
 	init = function(inlet)
 		local config = inlet.getConfig()
@@ -2672,7 +2679,7 @@ default = {
 	end,
 
 	-----
-	-- The maximum number of processes lsyncd will spawn simultanously for
+	-- The maximum number of processes Lsyncd will spawn simultanously for
 	-- one sync.
 	--
 	maxProcesses = 1,
