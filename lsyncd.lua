@@ -705,7 +705,7 @@ local Excludes = (function()
 		-- this was a ** before v
 		p = string.gsub(p, "%[%^/%]%*%[%^/%]%*", ".*") 
 		p = string.gsub(p, "^/", "^") 
-		p = string.gsub(p, "/$", "/$") 
+		p = string.gsub(p, "/$", ".*/$") 
 		log("Exclude", "toLuaPattern '",o,"' = '",p,'"')
 		return p
 	end
