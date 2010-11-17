@@ -1686,7 +1686,7 @@ local functionWriter = (function()
 		local haveEvent2 = false
 	
 		for ia, iv in ipairs(args) do
-			-- a list of arguments this arg is split to
+			-- a list of arguments this arg is being split into
 			local a = {{true, iv}}
 			-- goes through all translates
 			for _, v in ipairs(transVars) do
@@ -1696,6 +1696,9 @@ local functionWriter = (function()
 						local pre, post = 
 							string.match(a[ai][2], "(.*)"..v[1].."(.*)")
 						if pre then
+							if v[3] > 1 then
+								haveEvent2 = true
+							end
 							if pre ~= "" then
 								table.insert(a, ai, {true, pre})
 								ai = ai + 1
@@ -1710,16 +1713,17 @@ local functionWriter = (function()
 				end
 			end
 
+			-- concats the argument pieces into a string.
 			local as = ""
 			local first = true
 			for _, v in ipairs(a) do
 				if not first then
-					as = as .. " .. "
+					as = as.." .. "
 				end
 				if v[1] then
-					as = as .. '"' .. v[2] .. '"'
+					as = as..'"'..v[2]..'"'
 				else 
-					as = as .. v[2]
+					as = as..v[2]
 				end
 				first = false
 			end
