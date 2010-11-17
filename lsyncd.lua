@@ -2380,7 +2380,7 @@ local default_rsync = {
 		spawn(elist, "/usr/bin/rsync", 
 			"<", paths, 
 			"--delete",
-			config.rsyncOps .. "d",
+			config.rsyncOps .. "r",
 			"--include-from=-",
 			"--exclude=*",
 			config.source, config.target)
@@ -2448,7 +2448,7 @@ local default_rsyncssh = {
 		log("Normal", "rsyncing list\n", spaths)
 		spawn(elist, "/usr/bin/rsync", 
 			"<", spaths, 
-			config.rsyncOps .. "d",
+			config.rsyncOps .. "r",
 			"--delete",
 			"--include-from=-",
 			"--exclude=*",
