@@ -6,6 +6,8 @@ lsyncd_LDADD = $(LIBLUA_LIBS)
 exampledir = $(datarootdir)/doc/@PACKAGE@
 dist_example_DATA = \
 	examples/lbash.lua \
+	examples/lecho.lua \
+	examples/lgforce.lua \
 	examples/limagemagic.lua \
 	examples/lrsync.lua \
 	examples/lrsyncssh.lua
