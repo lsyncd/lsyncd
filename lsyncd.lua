@@ -349,6 +349,14 @@ local Inlet, InletControl = (function()
 		end,
 		
 		-----
+		-- Returns the directory of the file/dir relative to watch root
+		-- Always includes a trailing slash.
+		--
+		pathdir = function(event)
+			return string.match(getPath(event), "^(.*/)[^/]*/?") or ""
+		end,
+
+		-----
 		-- Returns the file/dir relativ to watch root
 		-- Excludes a trailing slash for dirs.
 		--
@@ -1421,26 +1429,34 @@ local Inotifies = (function()
 	--                   the relative path to root for recursed inotifies
 	-- @param sync       link to the observer to be notified.
 	--                   Note: Inotifies should handle this opaquely
-	local function add(root, path, recurse, sync)
+	-- @param raise      if not nil creates Create events for all files/dirs 
+	--                   in this directory. Value is time for event.
+	local function addSync(root, path, recurse, sync, raise)
 		log("Function", 
-			"Inotifies.add(",root,", ",path,", ",recurse,", ",sync,")")
-		-- registers watch 
+			"Inotifies.addSync(",root,", ",path,", ",recurse,", ",sync,")")
+
+		-- lets the core registers watch with the kernel
 		local wd = lsyncd.inotifyadd(root .. path);
 		if wd < 0 then
 			log("Error","Failure adding watch ",dir," -> ignored ")
 			return
 		end
 
+		-- creates a sublist in wdlist
 		if not wdlist[wd] then
 			wdlist[wd] = Array.new()
 		end
+
+		-- and adds this sync to wdlist.
 		table.insert(wdlist[wd], {
 			root = root,
 			path = path,
 			recurse = recurse,
 			sync = sync
 		})
-		-- create an entry for receival of with sync/path keys
+
+		-- creates an entry in syncpaths to quickly retrieve
+		-- all entries of this sync for a path.
 		local sp = syncpaths[sync]
 		if not sp then
 			sp = {}
@@ -1449,10 +1465,23 @@ local Inotifies = (function()
 		sp[path] = wd
 
 		-- registers and adds watches for all subdirectories 
-		if recurse then
-			local subdirs = lsyncd.subdirs(root .. path)
-			for _, dirname in ipairs(subdirs) do
-				add(root, path..dirname.."/", true, sync)
+		-- and/or raises create events for all entries
+		if recurse or raise then 
+			local entries = lsyncd.readdir(root .. path)
+			for dirname, isdir in pairs(entries) do
+				local pd = path .. dirname
+				if isdir then
+					pd = pd .. "/"
+				end
+				
+				-- creates a Create event for entry.
+				if raise then
+					sync:delay("Create", raise, pd, nil)
+				end
+				-- adds syncs for subdirs
+				if isdir and recurse then
+					addSync(root, pd, true, sync, raise)
+				end
 			end
 		end
 	end
@@ -1534,15 +1563,16 @@ local Inotifies = (function()
 				path2 = inotify.path .. filename2
 			end
 			inotify.sync:delay(etype, time, path, path2)
+
 			-- adds subdirs for new directories
 			if isdir and inotify.recurse then
 				if etype == "Create" then
-					add(inotify.root, path, true, inotify.sync)
+					addSync(inotify.root, path, true, inotify.sync, time)
 				elseif etype == "Delete" then
 					removeSync(inotify.sync, path)
 				elseif etype == "Move" then
 					removeSync(inotify.sync, path)
-					add(inotify.root, path2, true, inotify.sync)
+					addSync(inotify.root, path2, true, inotify.sync, time)
 				end
 			end
 		end
@@ -1572,7 +1602,7 @@ local Inotifies = (function()
 
 	-- public interface
 	return { 
-		add = add, 
+		addSync = addSync, 
 		size = size, 
 		event = event, 
 		statusReport = statusReport 
@@ -1588,6 +1618,7 @@ local functionWriter = (function()
 	-- all variables for layer 3
 	transVars = {
 		{ "%^pathname",          "event.pathname"        , 1, },
+		{ "%^pathdir",           "event.pathdir"         , 1, },
 		{ "%^path",              "event.path"            , 1, },
 		{ "%^sourcePathname",    "event.sourcePathname"  , 1, },
 		{ "%^sourcePath",        "event.sourcePath"      , 1, },
@@ -2156,9 +2187,9 @@ function runner.initialize()
 		end
 	end
 
-	-- runs through the syncs table filled by user calling directory()
+	-- runs through the Syncs created by users
 	for _, s in Syncs.iwalk() do
-		Inotifies.add(s.source, "", true, s)
+		Inotifies.addSync(s.source, "", true, s, nil, nil)
 		if s.config.init then
 			InletControl.setSync(s)
 			s.config.init(Inlet)
@@ -2365,6 +2396,7 @@ local rsync_ssh = {
 	[255] = "again",
 }
 
+
 -----
 -- Lsyncd classic - sync with rsync
 --
@@ -2373,17 +2405,44 @@ local default_rsync = {
 	-- Spawns rsync for a list of events
 	--
 	action = function(inlet) 
-		local elist = inlet.getEvents()
-		local config = inlet.getConfig()
-		local paths = elist.getPaths()
-		log("Normal", "rsyncing list\n", paths)
-		spawn(elist, "/usr/bin/rsync", 
-			"<", paths, 
-			"--delete",
-			config.rsyncOps .. "r",
-			"--include-from=-",
-			"--exclude=*",
-			config.source, config.target)
+		local event = inlet.getEvent()
+		-- if the next element is a Delete does a delete operation
+		-- over its directory
+		if event.etype == "Delete" then
+			local evDir = event.pathdir
+			-- gets all deletes in the same directory
+			local elist = inlet.getEvents(function(e2)
+					return e2.etype == "Delete" and evDir == e2.pathdir
+				end)
+			local paths = elist.getPaths()
+			log("Normal", "rsyncing deletes in ",evDir,":\n",paths)
+			local config = inlet.getConfig()
+			spawn(elist, "/usr/bin/rsync", 
+				"<", paths, 
+				"--delete",
+				config.rsyncOps .. "d",
+				"--include-from=-",
+				"--exclude=*",
+				config.source .. evDir, config.target .. evDir)
+		else
+			-- if it isn't it does a normal transfer of everything
+			-- new or altered.
+
+			-- gets all non-deletes.
+			local elist = inlet.getEvents(function(e2)
+					return e2.etype ~= "Delete" 
+				end)
+			local paths = elist.getPaths()
+			log("Normal", "rsyncing a list of new/modified files/dirs\n", 
+				paths)
+			local config = inlet.getConfig()
+			spawn(elist, "/usr/bin/rsync", 
+				"<", paths, 
+				config.rsyncOps,
+				"--files-from=-",
+				config.source, config.target)
+		end
+
 	end,
 
 	-----
@@ -2415,9 +2474,9 @@ local default_rsync = {
 	exitcodes = rsync_exitcodes,
 	
 	-----
-	-- Default delay 3 seconds
+	-- Default delay
 	--
-	delay = 20,
+	delay = 10,
 }
 
 

@@ -36,5 +36,5 @@ bash = {
 	onMove   = prefix..[[mv ^o.targetPathname ^d.targetPathname]],
 }
 
-sync{bash, source="src", target="trg/"}
+sync{bash, source="src", target="/path/to/trg/"}
 

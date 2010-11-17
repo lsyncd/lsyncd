@@ -25,6 +25,7 @@ P=$R/pid
 
 echo -e "$C1* using root dir for test $R$C0"
 echo -e "$C1* populating the source$C0"
+echo -e "$C1* ceating d[x]/e/f1 $C0"
 mkdir -p "$S"/d/e
 echo 'test' > "$S"/d/e/f1
 echo -e "$C1* starting lsyncd$C0"
@@ -35,10 +36,11 @@ echo -e "$C1* waiting for lsyncd to start$C0"
 sleep 4s
 
 # cp -r the directory
-echo -e "$C1* making some data$CO"
+echo -e "$C1* making some data$C0"
+echo -e "$C1* ceating d[x]/e/f2 $C0"
 for i in $RANGE; do
     cp -r "$S"/d "$S"/d${i}
-    echo 'test2' > "$S"/d${i}/e/f2
+#    echo 'test2' > "$S"/d${i}/e/f2
 done
 
 #mkdir -p "$S"/m/n
@@ -49,7 +51,7 @@ done
 #done
 
 echo -e "$C1* waiting for Lsyncd to do its job.$C0"
-sleep 30s
+sleep 20s
 
 echo -e "$C1* killing Lsyncd$C0"
 PID=$(cat "$P")

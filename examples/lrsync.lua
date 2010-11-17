@@ -11,6 +11,6 @@ settings = {
 sync{
 	default.rsync, 
 	source="src", 
-	target="/home/user/dst/", 
+	target="trg", 
 }
 

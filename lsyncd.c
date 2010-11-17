@@ -900,17 +900,18 @@ l_stackdump(lua_State* L)
 }
 
 /**
- * Reads the directories sub directories.
- * 
+ * Reads the directories entries.
+ * XXX
  * @param  (Lua stack) absolute path to directory.
  * @return (Lua stack) a table of directory names.
+ *                     names are keys, values are boolean 
+ *                     true on dirs.
  */
 static int
-l_subdirs (lua_State *L)
+l_readdir (lua_State *L)
 {
 	const char * dirname = luaL_checkstring(L, 1);
 	DIR *d;
-	int idx = 1;
 
 	d = opendir(dirname);
 	if (d == NULL) {
@@ -926,29 +927,30 @@ l_subdirs (lua_State *L)
 			/* finished */
 			break;
 		}
+
+		if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) { 
+			/* ignores . and .. */
+			continue;
+		}
+
 		if (de->d_type == DT_UNKNOWN) {
 			/* must call stat on some systems :-/ */
-			char *subdir = s_malloc(strlen(dirname) + strlen(de->d_name) + 2);
+			char *entry = s_malloc(strlen(dirname) + strlen(de->d_name) + 2);
 			struct stat st;
-			strcpy(subdir, dirname);
-			strcat(subdir, "/");
-			strcat(subdir, de->d_name);
-			stat(subdir, &st);
+			strcpy(entry, dirname);
+			strcat(entry, "/");
+			strcat(entry, de->d_name);
+			stat(entry, &st);
 			isdir = S_ISDIR(st.st_mode);
-			free(subdir);
+			free(entry);
 		} else {
 			/* readdir can trusted */
 			isdir = de->d_type == DT_DIR;
 		}
-		if (!isdir || !strcmp(de->d_name, ".") || 
-			!strcmp(de->d_name, "..")) 
-		{ /* ignore non directories and . and .. */
-			continue;
-		}
 
-		/* add this to the Lua table */
-		lua_pushnumber(L, idx++);
+		/* adds this entry to the Lua table */
 		lua_pushstring(L, de->d_name);
+		lua_pushboolean(L, isdir);
 		lua_settable(L, -3);
 	}
 	return 1;
@@ -1032,9 +1034,9 @@ static const luaL_reg lsyncdlib[] = {
 		{"inotifyrm",    l_inotifyrm    },
 		{"log",          l_log          },
 		{"now",          l_now          },
+		{"readdir",      l_readdir      },
 		{"realdir",      l_realdir      },
 		{"stackdump",    l_stackdump    },
-		{"subdirs",      l_subdirs      },
 		{"terminate",    l_terminate    },
 		{NULL, NULL}
 };
