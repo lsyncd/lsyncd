@@ -16,34 +16,59 @@ local trgdir = tdir.."trg/"
 
 posix.mkdir(srcdir)
 posix.mkdir(trgdir)
-local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir)
+-- local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir)
 
 cwriteln("waiting for Lsyncd to startup")
 posix.sleep(1)
 
 -- all dirs created, indexed by integer and path
-adiri = {""}
-adirp = {[""]=true}
+root = {name=""}
+alldirs = {root}
+
+-----
+-- returns the name of a directory
+-- call it with name=nil
+local function dirname(dir, name)
+	name = name or ""
+	if not dir then
+		return name
+	end
+	return dirname(dir.parent, dir.name .. "/" .. name)
+end
+
 
 cwriteln("making random data")
-for ai=1,100 do
+for ai=1,10000 do
 	-- throw a die what to do
-	local acn = math.random(1)
+	local acn = math.random(2)
 
 	-- 1 .. creates a directory
-	if acn == 1 then
+	if acn == 1 then 
 		-- chooses a random directory to create it into
-		local ri = math.random(#adiri)
-		local rp = adiri[ri]
-		local np = rp..string.char(96 + math.random(26)).."/"
-		if not adirp[np] then
-			-- does not yet exist.
-			cwriteln("mkdir "..srcdir..np)
-			posix.mkdir(srcdir..np)
-			table.insert(adiri, np)
-			adirp[np]=true
+		local rd = alldirs[math.random(#alldirs)]
+		-- creates a new random one letter name
+		local nn = string.char(96 + math.random(26))
+		if not rd[nn] then
+			local ndir = {
+				name   = nn,
+				parent = rd 
+			}
+			local dn = dirname(ndir)
+			rd[nn] = dn
+			table.insert(alldirs, ndir)
+			cwriteln("mkdir "..srcdir..dn)
+			posix.mkdir(srcdir..dn)
 		end
+	-- 2 .. creates a file
+	elseif acn == 2 then
+		-- chooses a random directory to create it into
+		local rd = alldirs[math.random(#alldirs)]
+		-- creates a new random one letter name
+		local nn = 'f'..string.char(96 + math.random(26))
+		TODO	
+	
 	end
+
 end
 
 cwriteln("waiting for Lsyncd to finish its jobs.")
