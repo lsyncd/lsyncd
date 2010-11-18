@@ -37,8 +37,24 @@ if lpid == 0 then
 	os.exit(-1);
 end
 
-
+-- cleans the targets
+os.execute("rm -rf src/*")
+os.execute("rm -rf trg/*")
 posix.sleep(1)
+
+
+while true do
+	-- throw a die what to do
+	local acn = math.random(2)
+	if acn == 1 then
+		-- creates a directory
+		print(string.char(96))
+	end
+	if acn == 2 then
+		-- creates a files
+	end
+
+end
 
 -- kills the lsyncd daemon
 posix.kill(lpid)
