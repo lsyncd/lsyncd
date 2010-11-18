@@ -1,6 +1,6 @@
 -- common testing environment
-
 require("posix")
+
 
 -- escape codes to colorize output on terminal
 local c1="\027[47;34m"
@@ -28,6 +28,8 @@ end
 -----
 -- spawns a subprocess.
 --
+-- @returns the processes pid
+--
 function spawn(...)
 	local pid = posix.fork()
 	if pid < 0 then
@@ -42,6 +44,4 @@ function spawn(...)
 	end
 	return pid
 end
-
-print(mktempd())
 
