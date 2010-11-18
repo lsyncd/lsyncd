@@ -31,12 +31,14 @@ end
 -- @returns the processes pid
 --
 function spawn(...)
+	args = {...}
+	cwriteln("spawning: ", table.concat(args, " "))
 	local pid = posix.fork()
 	if pid < 0 then
 		cwriteln("Error, failed fork!")
 		os.exit(-1)
 	end
-	if lpid == 0 then
+	if pid == 0 then
 		posix.exec(...)
 		-- should not return
 		cwriteln("Error, failed to spawn: ", ...)
