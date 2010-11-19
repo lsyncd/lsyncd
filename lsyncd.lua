@@ -1438,7 +1438,7 @@ local Inotifies = (function()
 		-- lets the core registers watch with the kernel
 		local wd = lsyncd.inotifyadd(root .. path);
 		if wd < 0 then
-			log("Error","Failure adding watch ",dir," -> ignored ")
+			log("Error","Failure adding watch ",root,path," -> ignored ")
 			return
 		end
 

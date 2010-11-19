@@ -16,7 +16,7 @@ local trgdir = tdir.."trg/"
 
 posix.mkdir(srcdir)
 posix.mkdir(trgdir)
--- local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir)
+local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir)
 
 cwriteln("waiting for Lsyncd to startup")
 posix.sleep(1)
@@ -119,6 +119,7 @@ end
 -- just gives it a pause
 --
 local function sleep()
+	cwriteln("..zzz..")
 	posix.sleep(1)
 end
 
@@ -179,19 +180,29 @@ local function mvdir()
 		return
 	end
 	-- chooses a random directory to move 
-	local odir = pickDir()
+	local odir = pickDir(true)
 	-- chooses a random directory to move to
-	local tdir = pickDir(true)
-	if tdir[odir.name] == nil then
-		-- origin name not in target dir already
-		local on = dirname(odir)
-		local tn = dirname(tdir)
-		cwriteln("mvdir  ",srcdir,on," -> ",srcdir,tn,odir.name)
-		os.rename(srcdir..on, srcdir..tn..odir.name)
-		odir.parent[odir.name] = nil
-		odir.parent = tdir
-		tdir[odir.name] = odir
+	local tdir = pickDir()
+
+	-- makes sure tdir is not a subdir of odir
+	local dd = tdir
+	while dd do
+		if odir == dd then
+			return
+		end
+		dd = dd.parent
 	end
+	-- origin name in the target dir already
+	if tdir[odir.name] ~= nil then
+		return
+	end
+	local on = dirname(odir)
+	local tn = dirname(tdir)
+	cwriteln("mvdir  ",srcdir,on," -> ",srcdir,tn,odir.name)
+	os.rename(srcdir..on, srcdir..tn..odir.name)
+	odir.parent[odir.name] = nil
+	odir.parent = tdir
+	tdir[odir.name] = odir
 end
 
 ----
@@ -229,17 +240,16 @@ local function rmfile()
 		local dn = dirname(dir)
 		cwriteln("rmfile ",srcdir,dn,fn)
 		posix.unlink(srcdir..dn..fn)
-		rmFileReference(odir, mn, c)
+		rmFileReference(dir, fn, c)
 	end
 end
 
 local dice = {
-	{ 10,	sleep  },
-	{ 10,   mkfile },
-	{ 10, 	mkdir  },
-	{ 10,	rmdir  },
-	{ 10,   mvdir  },
-	{ 10,   rmfile },
+	{ 1,	sleep  },
+	{ 20,   mkfile },
+	{ 20, 	mkdir  },
+	{ 20,   mvdir  },
+	{ 20,   rmfile },
 }
 
 cwriteln("making random data")
@@ -249,12 +259,13 @@ for i, d in ipairs(dice) do
 	d[1] = ndice
 end
 
-for ai=1,15 do
+for ai=1,20 do
 	-- throw a die what to do
 	local acn = math.random(ndice)
 	for i, d in ipairs(dice) do
-		if d[1] <= acn then
+		if acn <= d[1] then
 			d[2]()
+			break
 		end
 	end
 end
@@ -262,10 +273,10 @@ end
 cwriteln("waiting for Lsyncd to finish its jobs.")
 posix.sleep(20)
 
-cwriteln("killing the Lsyncd daemon")
-posix.kill(pid)
-local _, exitmsg, exitcode = posix.wait(lpid)
-cwriteln("Exitcode of Lsyncd = ", exitmsg, " ", exitcode)
+-- cwriteln("killing the Lsyncd daemon")
+-- posix.kill(pid)
+-- local _, exitmsg, exitcode = posix.wait(lpid)
+-- cwriteln("Exitcode of Lsyncd = ", exitmsg, " ", exitcode)
 
 exitcode = os.execute("diff -r "..srcdir.." "..trgdir)
 cwriteln("Exitcode of diff = ", exitcode)
