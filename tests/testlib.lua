@@ -1,7 +1,6 @@
 -- common testing environment
 require("posix")
 
-
 -- escape codes to colorize output on terminal
 local c1="\027[47;34m"
 local c0="\027[0m"
@@ -17,7 +16,7 @@ end
 -----
 -- creates a tmp directory
 function mktempd()
-	local f = io.popen('mktemp -d', 'r')
+	local f = io.popen('mktemp -d --tmpdir ltest.XXX', 'r')
 	local s = f:read('*a')
 	f:close()
 	s = s:gsub('[\n\r]+', ' ')

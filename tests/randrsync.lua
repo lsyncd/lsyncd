@@ -6,7 +6,7 @@ require("posix")
 dofile("tests/testlib.lua")
 
 -- always makes the same "random", so failures can be debugged.
-math.randomseed(1) 
+math.randomseed(6) 
 
 local tdir = mktempd().."/"
 cwriteln("using ", tdir, " as test root")
@@ -38,37 +38,61 @@ end
 
 
 cwriteln("making random data")
-for ai=1,10000 do
+for ai=1,10 do
 	-- throw a die what to do
-	local acn = math.random(2)
+	local acn = math.random(3)
 
-	-- 1 .. creates a directory
-	if acn == 1 then 
+	if acn <= 1 then 
+	-- creates a directory
 		-- chooses a random directory to create it into
-		local rd = alldirs[math.random(#alldirs)]
+		local rdir = alldirs[math.random(#alldirs)]
 		-- creates a new random one letter name
 		local nn = string.char(96 + math.random(26))
-		if not rd[nn] then
+		if not rdir[nn] then
 			local ndir = {
 				name   = nn,
-				parent = rd 
+				parent = rdir, 
 			}
 			local dn = dirname(ndir)
-			rd[nn] = dn
+			rdir[nn] = dn
 			table.insert(alldirs, ndir)
-			cwriteln("mkdir "..srcdir..dn)
+			cwriteln("mkdir  "..srcdir..dn)
 			posix.mkdir(srcdir..dn)
 		end
-	-- 2 .. creates a file
-	elseif acn == 2 then
+	elseif acn <= 2 then
+	-- creates a file
 		-- chooses a random directory to create it into
-		local rd = alldirs[math.random(#alldirs)]
+		local rdir = alldirs[math.random(#alldirs)]
 		-- creates a new random one letter name
 		local nn = 'f'..string.char(96 + math.random(26))
-		TODO	
-	
+		local fn = dirname(rdir) .. nn
+		cwriteln("mkfile "..srcdir..fn)
+		local f = io.open(srcdir..fn, "w")
+		if f then
+			for i=1,10 do
+				f:write(string.char(96 + math.random(26)))
+			end
+			f:write('\n')
+			f:close()
+		end
+	elseif acn <= 3 then
+	-- moves a directory
+		if #alldirs > 2 then
+			-- chooses a random directory to move 
+			local odir = alldirs[math.random(2, #alldirs)]
+			-- chooses a random directory to move to
+			local tdir = alldirs[math.random(2, #alldirs)]
+			if tdir[odir.name] == nil then
+				-- origin name not in target dir already
+				local on = dirname(odir)
+				local tn = dirname(tdir)
+				cwriteln("mvdir  "..srcdir..on, " -> ", srcdir..tn)
+				os.rename(srcdir..on, srcdir..tn..odir.name)
+				odir.parent[odir.name] = nil
+				tdir[odir.name] = odir
+			end
+		end
 	end
-
 end
 
 cwriteln("waiting for Lsyncd to finish its jobs.")
