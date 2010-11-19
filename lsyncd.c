@@ -1197,17 +1197,23 @@ handle_event(lua_State *L,
 		logstring("Error", "Internal: unknown event in handle_event()"); 
 		exit(-1);	// ERRNO
 	}
-	lua_pushnumber(L, event->wd);
+	if (event_type != MOVE) {
+		lua_pushnumber(L, event->wd);
+	} else {
+		lua_pushnumber(L, move_event_buf->wd);
+	}
 	lua_pushboolean(L, (event->mask & IN_ISDIR) != 0);
 	lua_pushinteger(L, times(NULL));
 	if (event_type == MOVE) {
 		lua_pushstring(L, move_event_buf->name);
+		lua_pushnumber(L, event->wd);
 		lua_pushstring(L, event->name);
 	} else {
 		lua_pushstring(L, event->name);
 		lua_pushnil(L);
+		lua_pushnil(L);
 	}
-	if (lua_pcall(L, 6, 0, -8)) {
+	if (lua_pcall(L, 7, 0, -8)) {
 		exit(-1); // ERRNO
 	}
 	lua_pop(L, 1);

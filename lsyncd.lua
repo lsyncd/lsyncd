@@ -1531,7 +1531,7 @@ local Inotifies = (function()
 	-- @param filename  string filename without path
 	-- @param filename2 
 	--
-	local function event(etype, wd, isdir, time, filename, filename2)
+	local function event(etype, wd, isdir, time, filename, wd2, filename2)
 		local ftype;
 		if isdir then
 			ftype = "directory"
@@ -1547,35 +1547,53 @@ local Inotifies = (function()
 			log("Inotify", "got event ", etype, " ", filename) 
 		end
 
-		local ilist = wdlist[wd]
 		-- looks up the watch descriptor id
+		local ilist = wdlist[wd]
 		if not ilist then
 			-- this is normal in case of deleted subdirs
 			log("Inotify", "event belongs to unknown watch descriptor.")
 			return
 		end
+		local ilist2 = wd2 and wdlist[wd2]
 	
 		-- works through all observers interested in this directory
 		for _, inotify in ipairs(ilist) do
 			local path = inotify.path .. filename
 			local path2 
-			if filename2 then
-				path2 = inotify.path .. filename2
+			local etype2 = etype
+			if filename2 and ilist2 then
+				local inotify2
+				-- finds the target directory inotify/watch
+				for _2, i2 in ipairs(ilist2) do
+					if inotify.sync == i2.sync then
+						inotify2 = i2
+						break
+					end
+				end
+				if not inotify2 then
+					log("Normal", "Transformed move to Create for ",
+						inotify.sync.config.name)
+					etype2 = "Create"
+				else
+					path2 = inotify2.path .. filename2
+				end
 			end
-			inotify.sync:delay(etype, time, path, path2)
+			inotify.sync:delay(etype2, time, path, path2)
 
 			-- adds subdirs for new directories
 			if isdir and inotify.recurse then
-				if etype == "Create" then
+				if etype2 == "Create" then
 					addSync(inotify.root, path, true, inotify.sync, time)
-				elseif etype == "Delete" then
+				elseif etype2 == "Delete" then
 					removeSync(inotify.sync, path)
-				elseif etype == "Move" then
+				elseif etype2 == "Move" then
 					removeSync(inotify.sync, path)
 					addSync(inotify.root, path2, true, inotify.sync, time)
 				end
 			end
 		end
+
+		-- TODO handle cases where a sync watches target only. XXX
 	end
 
 	-----
