@@ -6,7 +6,7 @@ require("posix")
 dofile("tests/testlib.lua")
 
 -- always makes the same "random", so failures can be debugged.
-math.randomseed(6) 
+math.randomseed(2) 
 
 local tdir = mktempd().."/"
 cwriteln("using ", tdir, " as test root")
@@ -40,9 +40,9 @@ end
 
 
 cwriteln("making random data")
-for ai=1,10 do
+for ai=1,15 do
 	-- throw a die what to do
-	local acn = math.random(3)
+	local acn = math.random(4)
 
 	if acn <= 1 then 
 	-- creates a directory
@@ -96,6 +96,7 @@ for ai=1,10 do
 				cwriteln("mvdir  ",srcdir,on," -> ",srcdir,tn,odir.name)
 				os.rename(srcdir..on, srcdir..tn..odir.name)
 				odir.parent[odir.name] = nil
+				odir.parent = tdir
 				tdir[odir.name] = odir
 			end
 		end
@@ -106,27 +107,48 @@ for ai=1,10 do
 			local odir = dirsWithFileI[math.random(1, #dirsWithFileI)]
 			local nf = 0
 			-- counts the files in there
-			for name, _ in odir do
+			for name, _ in pairs(odir) do
 				if #name == 2 then
 					nf = nf + 1
 				end
 			end
 			-- picks one file at random
-			nf = math.random(1, nf)
+			local nfr = math.random(1, nf)
 			local mn 
-			for name, _ in odir do
-				if #name == then
-					nf = nf - 1
-				end
-				if nf == 0 then
-					mn = name
+			for name, _ in pairs(odir) do
+				if #name == 2 then
+					-- filenames are 2 chars wide.
+					nfr = nfr - 1
+					if nfr == 0 then
+						mn = name
+						break
+					end
 				end
 			end
+print("MN", mn)
 			-- picks a target directory at random
 			local tdir = alldirs[math.random(1, #alldirs)]
 			local on = dirname(odir)
 			local tn = dirname(tdir)
-			cwriteln("mvfile ",srcdir,on,mn," -> ",srcdir,tn,XXX  )
+			cwriteln("mvfile ",srcdir,on,mn," -> ",srcdir,tn,mn)
+			os.rename(srcdir..on..mn, srcdir..tn..mn)
+os.exit(1)
+			odir[mn] = nil
+			tdir[mn] = true
+			if nf == 1 then
+				-- if last file from origin dir, it has no file anymore
+				for i, v in ipairs(dirsWithFileI) do
+					if v == odir then 
+						table.remove(dirsWithFileI, i)
+						break
+					end
+				end
+				dirsWithFileD[odir] = nil
+			end
+			if not dirsWithFileD[tdir] then
+				dirsWithFileD[tdir] = true
+				table.insert(dirsWithFileI, tdir)
+			end
 		end
 	end
 end
