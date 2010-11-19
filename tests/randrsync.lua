@@ -46,7 +46,7 @@ local function pickDir(notRoot)
 		if #alldirs <= 2 then
 			return nil
 		end
-		return alldirs[2, math.random(#alldirs)]
+		return alldirs[math.random(2, #alldirs)]
 	end
 	return alldirs[math.random(#alldirs)]
 end
@@ -114,93 +114,147 @@ local function rmFileReference(dir, fn, c)
 	end
 end
 
+----
+-- possible randomized behaviour. 
+-- just gives it a pause
+--
+local function sleep()
+	posix.sleep(1)
+end
+
+----
+-- possible randomized behaviour. 
+-- creates a directory
+--
+local function mkdir()
+	-- chooses a random directory to create it into
+	local rdir = pickDir()
+	-- creates a new random one letter name
+	local nn = string.char(96 + math.random(26))
+	if not rdir[nn] then
+		local ndir = {
+			name   = nn,
+			parent = rdir, 
+		}
+		local dn = dirname(ndir)
+		rdir[nn] = dn
+		table.insert(alldirs, ndir)
+		cwriteln("mkdir  "..srcdir..dn)
+		posix.mkdir(srcdir..dn)
+	end
+end
+
+----
+-- possible randomized behaviour. 
+-- creates a directory
+--
+local function mkfile()
+	-- chooses a random directory to create it into
+	local rdir = pickDir()
+	-- creates a new random one letter name
+	local nn = 'f'..string.char(96 + math.random(26))
+	local fn = dirname(rdir) .. nn
+	cwriteln("mkfile "..srcdir..fn)
+	local f = io.open(srcdir..fn, "w")
+	if f then
+		for i=1,10 do
+			f:write(string.char(96 + math.random(26)))
+		end
+		f:write('\n')
+		f:close()
+		rdir[nn]=true
+		if not dirsWithFileD[rdir] then
+			table.insert(dirsWithFileI, rdir)
+			dirsWithFileD[rdir]=true
+		end
+	end
+end
+
+----
+-- possible randomized behaviour. 
+-- moves a directory
+--
+local function mvdir()
+	if #alldirs <= 2 then
+		return
+	end
+	-- chooses a random directory to move 
+	local odir = pickDir()
+	-- chooses a random directory to move to
+	local tdir = pickDir(true)
+	if tdir[odir.name] == nil then
+		-- origin name not in target dir already
+		local on = dirname(odir)
+		local tn = dirname(tdir)
+		cwriteln("mvdir  ",srcdir,on," -> ",srcdir,tn,odir.name)
+		os.rename(srcdir..on, srcdir..tn..odir.name)
+		odir.parent[odir.name] = nil
+		odir.parent = tdir
+		tdir[odir.name] = odir
+	end
+end
+
+----
+-- possible randomized behaviour. 
+-- moves a directory
+--
+local function mvfile()
+	local odir, fn, c = pickFile()
+	if not odir then
+		return
+	end
+	-- picks a directory with a file at random
+	-- picks a target directory at random
+	local tdir = pickDir()
+	local on = dirname(odir)
+	local tn = dirname(tdir)
+	cwriteln("mvfile ",srcdir,on,fn," -> ",srcdir,tn,fn)
+	os.rename(srcdir..on..fn, srcdir..tn..fn)
+	rmFileReference(odir, fn, c)
+	
+	tdir[fn] = true
+	if not dirsWithFileD[tdir] then
+		dirsWithFileD[tdir] = true
+		table.insert(dirsWithFileI, tdir)
+	end
+end
+
+----
+-- possible randomized behaviour. 
+-- moves a directory
+--
+local function rmfile()
+	local dir, fn, c = pickFile()
+	if dir then
+		local dn = dirname(dir)
+		cwriteln("rmfile ",srcdir,dn,fn)
+		posix.unlink(srcdir..dn..fn)
+		rmFileReference(odir, mn, c)
+	end
+end
+
+local dice = {
+	{ 10,	sleep  },
+	{ 10,   mkfile },
+	{ 10, 	mkdir  },
+	{ 10,	rmdir  },
+	{ 10,   mvdir  },
+	{ 10,   rmfile },
+}
+
 cwriteln("making random data")
+local ndice = 0
+for i, d in ipairs(dice) do
+	ndice = ndice + d[1]
+	d[1] = ndice
+end
+
 for ai=1,15 do
 	-- throw a die what to do
-	local acn = math.random(5)
-
-	if acn <= 1 then 
-	-- creates a directory
-		-- chooses a random directory to create it into
-		local rdir = pickDir()
-		-- creates a new random one letter name
-		local nn = string.char(96 + math.random(26))
-		if not rdir[nn] then
-			local ndir = {
-				name   = nn,
-				parent = rdir, 
-			}
-			local dn = dirname(ndir)
-			rdir[nn] = dn
-			table.insert(alldirs, ndir)
-			cwriteln("mkdir  "..srcdir..dn)
-			posix.mkdir(srcdir..dn)
-		end
-	elseif acn <= 2 then
-	-- creates a file
-		-- chooses a random directory to create it into
-		local rdir = pickDir()
-		-- creates a new random one letter name
-		local nn = 'f'..string.char(96 + math.random(26))
-		local fn = dirname(rdir) .. nn
-		cwriteln("mkfile "..srcdir..fn)
-		local f = io.open(srcdir..fn, "w")
-		if f then
-			for i=1,10 do
-				f:write(string.char(96 + math.random(26)))
-			end
-			f:write('\n')
-			f:close()
-			rdir[nn]=true
-			if not dirsWithFileD[rdir] then
-				table.insert(dirsWithFileI, rdir)
-				dirsWithFileD[rdir]=true
-			end
-		end
-	elseif acn <= 3 then
-	-- moves a directory
-		if #alldirs > 2 then
-			-- chooses a random directory to move 
-			local odir = pickDir()
-			-- chooses a random directory to move to
-			local tdir = pickDir(true)
-			if tdir[odir.name] == nil then
-				-- origin name not in target dir already
-				local on = dirname(odir)
-				local tn = dirname(tdir)
-				cwriteln("mvdir  ",srcdir,on," -> ",srcdir,tn,odir.name)
-				os.rename(srcdir..on, srcdir..tn..odir.name)
-				odir.parent[odir.name] = nil
-				odir.parent = tdir
-				tdir[odir.name] = odir
-			end
-		end
-	elseif acn <= 4 then
-	-- moves a file
-		local odir, fn, c = pickFile()
-		if odir then
-			-- picks a directory with a file at random
-			-- picks a target directory at random
-			local tdir = pickdir()
-			local on = dirname(odir)
-			local tn = dirname(tdir)
-			cwriteln("mvfile ",srcdir,on,mn," -> ",srcdir,tn,mn)
-			os.rename(srcdir..on..mn, srcdir..tn..mn)
-			rmFileReference(odir, mn, c)
-			tdir[mn] = true
-			if not dirsWithFileD[tdir] then
-				dirsWithFileD[tdir] = true
-				table.insert(dirsWithFileI, tdir)
-			end
-		end
-	elseif acn <= 5 then
-	-- removes a file
-		local dir, fn, c = pickFile()
-		if dir then
-			local dn = dirname(dir)
-			cwriteln("rmfile ",srcdir,dn,fn)
-			posix.unlink(srcdir..dn..fn)
-			rmFileReference(odir, mn, c)
+	local acn = math.random(ndice)
+	for i, d in ipairs(dice) do
+		if d[1] <= acn then
+			d[2]()
 		end
 	end
 end
