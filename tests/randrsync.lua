@@ -24,6 +24,8 @@ posix.sleep(1)
 -- all dirs created, indexed by integer and path
 root = {name=""}
 alldirs = {root}
+dirsWithFileI = {}
+dirsWithFileD = {}
 
 -----
 -- returns the name of a directory
@@ -74,6 +76,11 @@ for ai=1,10 do
 			end
 			f:write('\n')
 			f:close()
+			rdir[nn]=true
+			if not dirsWithFileD[rdir] then
+				table.insert(dirsWithFileI, rdir)
+				dirsWithFileD[rdir]=true
+			end
 		end
 	elseif acn <= 3 then
 	-- moves a directory
@@ -81,16 +88,45 @@ for ai=1,10 do
 			-- chooses a random directory to move 
 			local odir = alldirs[math.random(2, #alldirs)]
 			-- chooses a random directory to move to
-			local tdir = alldirs[math.random(2, #alldirs)]
+			local tdir = alldirs[math.random(1, #alldirs)]
 			if tdir[odir.name] == nil then
 				-- origin name not in target dir already
 				local on = dirname(odir)
 				local tn = dirname(tdir)
-				cwriteln("mvdir  "..srcdir..on, " -> ", srcdir..tn)
+				cwriteln("mvdir  ",srcdir,on," -> ",srcdir,tn,odir.name)
 				os.rename(srcdir..on, srcdir..tn..odir.name)
 				odir.parent[odir.name] = nil
 				tdir[odir.name] = odir
 			end
+		end
+	elseif acn <= 4 then
+	-- moves a file
+		if #dirsWithFileI > 1 then
+			-- picks a directory with a file at random
+			local odir = dirsWithFileI[math.random(1, #dirsWithFileI)]
+			local nf = 0
+			-- counts the files in there
+			for name, _ in odir do
+				if #name == 2 then
+					nf = nf + 1
+				end
+			end
+			-- picks one file at random
+			nf = math.random(1, nf)
+			local mn 
+			for name, _ in odir do
+				if #name == then
+					nf = nf - 1
+				end
+				if nf == 0 then
+					mn = name
+				end
+			end
+			-- picks a target directory at random
+			local tdir = alldirs[math.random(1, #alldirs)]
+			local on = dirname(odir)
+			local tn = dirname(tdir)
+			cwriteln("mvfile ",srcdir,on,mn," -> ",srcdir,tn,XXX  )
 		end
 	end
 end
