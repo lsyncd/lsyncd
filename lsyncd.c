@@ -600,6 +600,10 @@ l_log(lua_State *L)
 				}
 				lua_replace(L, i);
 				break;
+			case LUA_TNIL:
+				lua_pushstring(L, "(nil)");
+				lua_replace(L, i);
+				break;
 			}
 		}
 	}
@@ -993,6 +997,7 @@ l_configure(lua_State *L)
 			if (!settings.log_file) {
 				settings.log_syslog = true;
 			}
+			logstring("Debug", "daemonizing now.");
 			if (daemon(0, 0)) {
 				logstring("Error", "Failed to daemonize");
 				exit(-1); //ERRNO
@@ -1213,7 +1218,7 @@ handle_event(lua_State *L,
 		lua_pushnil(L);
 		lua_pushnil(L);
 	}
-	if (lua_pcall(L, 7, 0, -8)) {
+	if (lua_pcall(L, 7, 0, -9)) {
 		exit(-1); // ERRNO
 	}
 	lua_pop(L, 1);
@@ -1499,7 +1504,7 @@ main1(int argc, char *argv[])
 			logstring("Error", 
 				"Using a staticly included runner as default.");
 #endif
-			return -1; //ERRNO
+			exit(-1); //ERRNO
 		}
 		lsyncd_runner_file = argv[argp + 1];
 		argp += 2;

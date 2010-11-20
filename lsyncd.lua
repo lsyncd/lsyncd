@@ -1442,7 +1442,7 @@ local Inotifies = (function()
 	-- The same vice versa, all watch descriptors by its
 	-- absolute path.
 	--
-	local pathwds = CountArray.new()
+	local pathwds = {}
 
 	-----
 	-- A list indexed by sync's containing the root path this
@@ -1461,7 +1461,8 @@ local Inotifies = (function()
 	--
 	local function addWatch(path, recurse, raiseSync, raiseTime)
 		log("Function", 
-			"Inotifies.addWatch(",path,", ",recurse,", ",sync,", ",raise")")
+			"Inotifies.addWatch(",path,", ",recurse,", ",
+			raiseSync,", ",raiseTime,")")
 
 		local wd = pathwds[path]
 		if not wd then
@@ -1553,7 +1554,7 @@ local Inotifies = (function()
 		end
 
 		-- looks up the watch descriptor id
-		local path = wdlist[wd]
+		local path = wdpaths[wd]
 		if not path then
 			-- this is normal in case of deleted subdirs
 			log("Inotify", "event belongs to unknown watch descriptor.")
