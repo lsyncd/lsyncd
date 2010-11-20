@@ -16,9 +16,7 @@ local trgdir = tdir.."trg/"
 
 posix.mkdir(srcdir)
 posix.mkdir(trgdir)
---local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir,"-log", "all")
-local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir,
-	"-log", "Exec")
+local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir)
 
 cwriteln("waiting for Lsyncd to startup")
 posix.sleep(1)
@@ -261,13 +259,12 @@ for i, d in ipairs(dice) do
 	d[1] = ndice
 end
 
-for ai=1,20 do
+for ai=1,5000 do
 	-- throw a die what to do
 	local acn = math.random(ndice)
 	for i, d in ipairs(dice) do
 		if acn <= d[1] then
 			d[2]()
-			posix.sleep(2)
 			break
 		end
 	end
@@ -276,12 +273,16 @@ end
 cwriteln("waiting for Lsyncd to finish its jobs.")
 posix.sleep(20)
 
--- cwriteln("killing the Lsyncd daemon")
--- posix.kill(pid)
--- local _, exitmsg, exitcode = posix.wait(lpid)
--- cwriteln("Exitcode of Lsyncd = ", exitmsg, " ", exitcode)
+cwriteln("killing the Lsyncd daemon")
+posix.kill(pid)
+local _, exitmsg, lexitcode = posix.wait(lpid)
+cwriteln("Exitcode of Lsyncd = ", exitmsg, " ", lexitcode)
 
 exitcode = os.execute("diff -r "..srcdir.." "..trgdir)
 cwriteln("Exitcode of diff = ", exitcode)
-os.exit(exitcode)
+if lexitcode ~= 0 then
+	os.exit(lexitcode)
+else
+	os.exit(exitcode)
+end
 

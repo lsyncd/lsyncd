@@ -1251,12 +1251,14 @@ local Sync = (function()
 		f:write("\n")
 	end
 
+	--[[--
 	-- DEBUG delays
 	local _delay = delay
 	delay = function(self, ...) 
 		_delay(self, ...)
 		statusReport(self, io.stdout)
 	end
+	--]]
 
 	-----
 	-- Creates a new Sync
