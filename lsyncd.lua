@@ -1491,7 +1491,8 @@ local Inotifies = (function()
 			
 			-- creates a Create event for entry.
 			if raiseSync then
-				raiseSync:delay("Create", raiseTime, pd, nil)
+				local relative  = splitPath(pd, syncRoots[raiseSync])
+				raiseSync:delay("Create", raiseTime, relative)
 			end
 			-- adds syncs for subdirs
 			if isdir and recurse then

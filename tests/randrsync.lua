@@ -17,7 +17,7 @@ local trgdir = tdir.."trg/"
 posix.mkdir(srcdir)
 posix.mkdir(trgdir)
 --local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir,"-log", "all")
-local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir,"-log","all")
+local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir)
 
 cwriteln("waiting for Lsyncd to startup")
 posix.sleep(1)
