@@ -17,7 +17,8 @@ local trgdir = tdir.."trg/"
 posix.mkdir(srcdir)
 posix.mkdir(trgdir)
 --local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir,"-log", "all")
-local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir)
+local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir,
+	"-log", "Exec")
 
 cwriteln("waiting for Lsyncd to startup")
 posix.sleep(1)
@@ -266,6 +267,7 @@ for ai=1,20 do
 	for i, d in ipairs(dice) do
 		if acn <= d[1] then
 			d[2]()
+			posix.sleep(2)
 			break
 		end
 	end

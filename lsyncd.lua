@@ -353,7 +353,7 @@ local Inlet, InletControl = (function()
 		-- Always includes a trailing slash.
 		--
 		pathdir = function(event)
-			return string.match(getPath(event), "^(.*/)[^/]*/?") or ""
+			return string.match(getPath(event), "^(.*/)[^/]+/?") or ""
 		end,
 
 		-----
@@ -452,15 +452,35 @@ local Inlet, InletControl = (function()
 	--
 	local eventListFuncs = {
 		-----
-		-- Returns the paths of all events.
+		-- Returns a list of file/dirnames of all events in list.
 		--
-		getPaths = function(elist, delimiter)
+		getNames = function(elist)
 			local dlist = el2dl[elist]
 			if not dlist then
 				error("cannot find delay list from event list.")
 			end
-			if not delimiter then
-				delimiter = '\n'
+			local pl = {}
+			local i = 1
+			for k, d in pairs(dlist) do
+				if type(k) == "number" then
+					pl[i] = string.match(d.path, "[^/]+/?$") 
+					i = i + 1
+					if d.path2 then
+						pl[i] = string.match(d.path2, "[^/]+/?$") 
+						i = i + 1
+					end
+				end
+			end
+			return pl
+		end,
+
+		-----
+		-- Returns a list of paths of all events in list.
+		--
+		getPaths = function(elist)
+			local dlist = el2dl[elist]
+			if not dlist then
+				error("cannot find delay list from event list.")
 			end
 			local pl = {}
 			local i = 1
@@ -474,19 +494,16 @@ local Inlet, InletControl = (function()
 					end
 				end
 			end
-			return table.concat(pl, delimiter) .. delimiter
+			return pl
 		end,
 		
 		-----
-		-- Returns the absolute local paths of all events.
+		-- Returns a list of absolutes local paths in list.
 		--
-		getSourcePaths = function(elist, delimiter)
+		getSourcePaths = function(elist)
 			local dlist = el2dl[elist]
 			if not dlist then
 				error("cannot find delay list from event list.")
-			end
-			if not delimiter then
-				delimiter = '\n'
 			end
 			local pl = {}
 			local i = 1
@@ -500,7 +517,7 @@ local Inlet, InletControl = (function()
 					end
 				end
 			end
-			return table.concat(pl, delimiter) .. delimiter
+			return pl
 		end,
 	}
 
@@ -942,14 +959,18 @@ local Sync = (function()
 	-- Puts an action on the delay stack.
 	--
 	local function delay(self, etype, time, path, path2)
-		log("Function", "delay(", self.config.name,", ",etype,", ",path,")")
+		log("Function", "delay(",self.config.name,", ",
+			etype,", ",path,", ",path2,")")
+
+		-- exclusion tests
 		if not path2 then
-			-- test for exclusion
+			-- simple test for 1 path events
 			if self.excludes:test(path) then
 				log("Exclude", "excluded ",etype," on '",path,"'")
 				return
 			end
 		else
+			-- for 2 paths (move) it might result into a split
 			log("Function", "+ ",path2)
 			local ex1 = self.excludes:test(path)
 			local ex2 = self.excludes:test(path2)
@@ -975,6 +996,8 @@ local Sync = (function()
 		if etype == "Move" and not self.config.onMove then
 			-- if there is no move action defined, 
 			-- split a move as delete/create
+			-- layer 1 scripts which want moves events have to
+			-- set onMove simply to "true"
 			log("Delay", "splitting Move into Delete & Create")
 			delay(self, "Delete", time, path,  nil)
 			delay(self, "Create", time, path2, nil)
@@ -1001,16 +1024,15 @@ local Sync = (function()
 			return
 		end
 
-		-----
 		-- detects blocks and collapses by working from back until 
 		-- front through the fifo
+
 		InletControl.setSync(self)
 		local ne, ne2 = InletControl.d2e(nd)
 		local il = #self.delays -- last delay
 		while il > 0 do
 			-- get 'old' delay
 			local od = self.delays[il]
-			-- tries to collapse identical paths
 			local oe, oe2 = InletControl.d2e(od)
 
 			if oe.etype == "Blanket" then
@@ -1030,7 +1052,9 @@ local Sync = (function()
 				local c = self.config.collapse(oel, nel, self.config)
 				if c == 0 then
 					-- events nullificate each ether
-					od.etype = "None" 
+					log("Delay",nd.etype," and ",od.etype," on ",path,
+						" nullified each other.")
+					od.etype = "None"
 					table.remove(self.delays, il)
 					return
 				elseif c == 1 then
@@ -1080,7 +1104,8 @@ local Sync = (function()
 		-- there was no hit on collapse or it decided to stack.
 		table.insert(self.delays, nd)
 	end
-		
+	
+
 	-----
 	-- Returns the nearest alarm for this Sync.
 	--
@@ -1223,8 +1248,14 @@ local Sync = (function()
 		if nothing then
 			f:write("  nothing.\n")
 		end
+		f:write("\n")
+	end
 
-		f:write("\n\n")
+	-- DEBUG delays
+	local _delay = delay
+	delay = function(self, ...) 
+		_delay(self, ...)
+		statusReport(self, io.stdout)
 	end
 
 	-----
@@ -1426,9 +1457,6 @@ end
 --
 local Inotifies = (function()
 
-	---- XXX wdlist, syncpaths
-	
-
 	-----
 	-- A list indexed by inotifies watch descriptor yielding the 
 	-- directories absolute paths.
@@ -1492,7 +1520,9 @@ local Inotifies = (function()
 			-- creates a Create event for entry.
 			if raiseSync then
 				local relative  = splitPath(pd, syncRoots[raiseSync])
-				raiseSync:delay("Create", raiseTime, relative)
+				if relative then
+					raiseSync:delay("Create", raiseTime, relative)
+				end
 			end
 			-- adds syncs for subdirs
 			if isdir and recurse then
@@ -2440,13 +2470,20 @@ local default_rsync = {
 			local elist = inlet.getEvents(function(e2)
 					return e2.etype == "Delete" and evDir == e2.pathdir
 				end)
-			local paths = elist.getPaths()
+			local names = elist.getNames()
+			-- recursively include all subdirs/files of directories
+			for i, name in ipairs(names) do
+				if string.byte(path, -1) == 47 then
+					names[i] = names[i] .. "**"
+				end
+			end
 			log("Normal", "rsyncing deletes in ",evDir,":\n",paths)
 			local config = inlet.getConfig()
 			spawn(elist, "/usr/bin/rsync", 
 				"<", paths, 
+				"-vv",
 				"--delete",
-				config.rsyncOps .. "d",
+				config.rsyncOps, "-r",
 				"--include-from=-",
 				"--exclude=*",
 				config.source .. evDir, config.target .. evDir)
@@ -2458,7 +2495,7 @@ local default_rsync = {
 			local elist = inlet.getEvents(function(e2)
 					return e2.etype ~= "Delete" 
 				end)
-			local paths = elist.getPaths()
+			local paths = table.concat(elist.getPaths(), "\n")
 			log("Normal", "rsyncing a list of new/modified files/dirs\n", 
 				paths)
 			local config = inlet.getConfig()
@@ -2468,7 +2505,6 @@ local default_rsync = {
 				"--files-from=-",
 				config.source, config.target)
 		end
-
 	end,
 
 	-----
@@ -2484,9 +2520,8 @@ local default_rsync = {
 			" -> ", config.target)
 		spawn(event, "/usr/bin/rsync", 
 			"--delete",
-			config.rsyncOps .. "r", 
-			config.source, 
-			config.target)
+			config.rsyncOps, "-r", 
+			config.source, config.target)
 	end,
 
 	-----
@@ -2529,11 +2564,11 @@ local default_rsyncssh = {
 		local elist = inlet.getEvents(function(e) 
 				return e.etype ~= "Move" 
 			end)
-		local spaths = elist.getPaths()
+		local paths = table.concat(elist.getPaths(), "\n")
 		log("Normal", "rsyncing list\n", spaths)
 		spawn(elist, "/usr/bin/rsync", 
 			"<", spaths, 
-			config.rsyncOps .. "r",
+			config.rsyncOps, "r",
 			"--delete",
 			"--include-from=-",
 			"--exclude=*",
@@ -2659,6 +2694,9 @@ default = {
 	--
 	collapse = function(event1, event2, config)
 		if event1.path == event2.path then
+			if event1.status == "active" then
+				return 3
+			end
 			local e1 = event1.etype .. event1.move
 			local e2 = event2.etype .. event2.move
 			return config.collapseTable[e1][e2]
