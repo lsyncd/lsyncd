@@ -905,7 +905,7 @@ l_stackdump(lua_State* L)
 
 /**
  * Reads the directories entries.
- * XXX
+ *
  * @param  (Lua stack) absolute path to directory.
  * @return (Lua stack) a table of directory names.
  *                     names are keys, values are boolean 
@@ -1331,6 +1331,15 @@ masterloop(lua_State *L)
 			if (len == 0) {
 				/* nothing more inotify */
 				break;
+			}
+			if (len < 0) {
+				if (errno == EAGAIN) {
+					/* nothing more inotify */
+					break;
+				} else {
+					printlogf(L, "Error", "Read fail on inotify");
+					exit(-1); // ERRNO
+				}
 			}
 			while (i < len && !hup && !term) {
 				struct inotify_event *event = 

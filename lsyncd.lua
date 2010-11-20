@@ -1475,22 +1475,27 @@ local Inotifies = (function()
 
 		-- registers and adds watches for all subdirectories 
 		-- and/or raises create events for all entries
-		if recurse or raise then 
-			local entries = lsyncd.readdir(path)
-			for dirname, isdir in pairs(entries) do
-				local pd = path .. dirname
-				if isdir then
-					pd = pd .. "/"
-				end
+		if not recurse and not raise then 
+			return
+		end
+
+		local entries = lsyncd.readdir(path)
+		if not entries then
+			return
+		end
+		for dirname, isdir in pairs(entries) do
+			local pd = path .. dirname
+			if isdir then
+				pd = pd .. "/"
+			end
 			
-				-- creates a Create event for entry.
-				if raiseSync then
-					raiseSync:delay("Create", raiseTime, pd, nil)
-				end
-				-- adds syncs for subdirs
-				if isdir and recurse then
-					addWatch(pd, true, raiseSync, raiseTime)
-				end
+			-- creates a Create event for entry.
+			if raiseSync then
+				raiseSync:delay("Create", raiseTime, pd, nil)
+			end
+			-- adds syncs for subdirs
+			if isdir and recurse then
+				addWatch(pd, true, raiseSync, raiseTime)
 			end
 		end
 	end
@@ -1505,7 +1510,7 @@ local Inotifies = (function()
 		end
 		lsyncd.inotifyrm(wd)
 		wdpaths[wd] = nil
-		pathwids[path] = nil
+		pathwds[path] = nil
 	end
 	
 	-----
