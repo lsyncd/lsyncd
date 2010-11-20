@@ -115,5 +115,5 @@ convert = {
 	end,
 }
 
-sync{convert, source="magicdir", recursive=false}
+sync{convert, source="magicdir", subdirs=false}
 

@@ -1402,6 +1402,24 @@ end)()
 
 
 -----
+-- Utility function, returns the relative part of absolute path if it 
+-- begins with root
+--
+local function splitPath(path, root)
+	local rl = #root
+	local sp = string.sub(path, 1, rl)
+
+print("split", path, root, sp)
+
+	if sp == root then
+print("splited", path, root, string.sub(path, rl, -1))
+		return string.sub(path, rl, -1)
+	else
+		return nil
+	end
+end
+
+-----
 -- Interface to inotify, watches recursively subdirs and 
 -- sends events.
 --
@@ -1410,115 +1428,100 @@ end)()
 -- by changing this.
 --
 local Inotifies = (function()
-	-----
-	-- A list indexed by inotifies watch descriptor.
-	-- Contains a list of all syncs observing this directory
-	-- (directly or by recurse)
-	local wdlist = CountArray.new()
+
+	---- XXX wdlist, syncpaths
+	
 
 	-----
-	-- A list indexed by sync's containing a list of all paths
-	-- watches by this sync pointing to the watch descriptor.
-	local syncpaths = {}
-
-	-----
-	-- Adds watches for a directory including all subdirectories.
+	-- A list indexed by inotifies watch descriptor yielding the 
+	-- directories absolute paths.
 	--
-	-- @param root+path  directory to observe
-	-- @param recurse    true if recursing into subdirs or 
-	--                   the relative path to root for recursed inotifies
-	-- @param sync       link to the observer to be notified.
-	--                   Note: Inotifies should handle this opaquely
-	-- @param raise      if not nil creates Create events for all files/dirs 
-	--                   in this directory. Value is time for event.
-	local function addSync(root, path, recurse, sync, raise)
+	local wdpaths = CountArray.new()
+
+	-----
+	-- The same vice versa, all watch descriptors by its
+	-- absolute path.
+	--
+	local pathwds = CountArray.new()
+
+	-----
+	-- A list indexed by sync's containing the root path this
+	-- sync is interested in.
+	--
+	local syncRoots = {}
+
+	-----
+	-- Adds watches for a directory (optionally) including all subdirectories.
+	--
+	-- @param path       absolute path of directory to observe
+	-- @param recurse    true if recursing into subdirs 
+	-- @param raiseSync  --X --
+	--        raiseTime  if not nil sends create Events for all files/dirs
+	--                   to this sync.
+	--
+	local function addWatch(path, recurse, raiseSync, raiseTime)
 		log("Function", 
-			"Inotifies.addSync(",root,", ",path,", ",recurse,", ",sync,")")
+			"Inotifies.addWatch(",path,", ",recurse,", ",sync,", ",raise")")
 
-		-- lets the core registers watch with the kernel
-		local wd = lsyncd.inotifyadd(root .. path);
-		if wd < 0 then
-			log("Error","Failure adding watch ",root,path," -> ignored ")
-			return
+		local wd = pathwds[path]
+		if not wd then
+			-- lets the core registers watch with the kernel
+			local wd = lsyncd.inotifyadd(path);
+			if wd < 0 then
+				log("Error","Failure adding watch ",path," -> ignored ")
+				return
+			end
+			pathwds[path] = wd
+			wdpaths[wd] = path
 		end
-
-		-- creates a sublist in wdlist
-		if not wdlist[wd] then
-			wdlist[wd] = Array.new()
-		end
-
-		-- and adds this sync to wdlist.
-		table.insert(wdlist[wd], {
-			root = root,
-			path = path,
-			recurse = recurse,
-			sync = sync
-		})
-
-		-- creates an entry in syncpaths to quickly retrieve
-		-- all entries of this sync for a path.
-		local sp = syncpaths[sync]
-		if not sp then
-			sp = {}
-			syncpaths[sync] = sp
-		end
-		sp[path] = wd
 
 		-- registers and adds watches for all subdirectories 
 		-- and/or raises create events for all entries
 		if recurse or raise then 
-			local entries = lsyncd.readdir(root .. path)
+			local entries = lsyncd.readdir(path)
 			for dirname, isdir in pairs(entries) do
 				local pd = path .. dirname
 				if isdir then
 					pd = pd .. "/"
 				end
-				
+			
 				-- creates a Create event for entry.
-				if raise then
-					sync:delay("Create", raise, pd, nil)
+				if raiseSync then
+					raiseSync:delay("Create", raiseTime, pd, nil)
 				end
 				-- adds syncs for subdirs
 				if isdir and recurse then
-					addSync(root, pd, true, sync, raise)
+					addWatch(pd, true, raiseSync, raiseTime)
 				end
 			end
 		end
 	end
 
 	-----
-	-- Removes one event receiver from a directory.
+	-- Stops watching a directory
 	--
-	local function removeSync(sync, path)
-	    local sp = syncpaths[sync]
-		if not sp then
-			error("internal fail, removeSync, nonexisting sync: ")
-		end
-		local wd = sp[path]
+	local function removeWatch(path)
+		local wd = pathwds[path]
 		if not wd then
-			error("internal fail, removeSync, nonexisting wd.")
+			return 
 		end
-		local ilist = wdlist[wd]
-		if not ilist then
-			error("internal fail, removeSync, nonexisting ilist.")
-		end
-		-- TODO optimize for 1 entry only case
-		local i, found
-		for i, v in ipairs(ilist) do
-			if v.sync == sync then
-				found = true
-				break
-			end
-		end
-		if not found then
-			error("internal fail, removeSync, nonexisiting i.")
-		end
-		table.remove(ilist, i)
-		if #ilist == 0 then
-			wdlist[wd] = nil
-			lsyncd.inotifyrm(wd)
-		end
-		sp[path] = nil
+		lsyncd.inotifyrm(wd)
+		wdpaths[wd] = nil
+		pathwids[path] = nil
+	end
+	
+	-----
+	-- adds a Sync to receive events
+	--
+	-- @param root   root dir to watch
+	-- @param sync   Object to receive events
+	--
+	local function addSync(root, sync)
+		if syncRoots[sync] then
+			error("internal fail, duplicate sync in Inotifies()")
+		end	
+		syncRoots[sync] = root
+		addWatch(root, true)
 	end
 
 	-----
@@ -1533,6 +1536,7 @@ local Inotifies = (function()
 	--
 	local function event(etype, wd, isdir, time, filename, wd2, filename2)
 		local ftype;
+
 		if isdir then
 			ftype = "directory"
 			filename = filename .. "/"
@@ -1540,6 +1544,7 @@ local Inotifies = (function()
 				filename2 = filename2 .. "/"
 			end
 		end
+
 		if filename2 then
 			log("Inotify", "got event ", etype, " ", filename, 
 				" to ", filename2) 
@@ -1548,80 +1553,80 @@ local Inotifies = (function()
 		end
 
 		-- looks up the watch descriptor id
-		local ilist = wdlist[wd]
-		if not ilist then
+		local path = wdlist[wd]
+		if not path then
 			-- this is normal in case of deleted subdirs
 			log("Inotify", "event belongs to unknown watch descriptor.")
 			return
 		end
-		local ilist2 = wd2 and wdlist[wd2]
 	
-		-- works through all observers interested in this directory
-		for _, inotify in ipairs(ilist) do
-			local path = inotify.path .. filename
-			local path2 
-			local etype2 = etype
-			if filename2 and ilist2 then
-				local inotify2
-				-- finds the target directory inotify/watch
-				for _2, i2 in ipairs(ilist2) do
-					if inotify.sync == i2.sync then
-						inotify2 = i2
-						break
-					end
-				end
-				if not inotify2 then
-					log("Normal", "Transformed move to Create for ",
-						inotify.sync.config.name)
-					etype2 = "Create"
-				else
-					path2 = inotify2.path .. filename2
+		local path2 = wd2 and wdpaths[wd2]
+		-- set to true if at least one sync wants recursive data
+		local recurse = false
+
+		for sync, root in pairs(syncRoots) do repeat
+			local relative  = splitPath(path, root)
+			local relative2 
+			if path2 then
+				relative2 = splitPath(path2, root)
+			end
+			if not relative and not relative2 then
+				-- sync is not interested in this dir
+				break -- continue
+			end
+		
+			--- checks if this sync is interested in subdirs
+			if isdir then
+				recurse = recurse or 
+					sync.config.subdirs or 
+					sync.config.subdirs == nil
+			end
+
+			-- makes a copy of etype to possibly change it
+			local etyped = etype 
+			if etyped == 'Move' then
+				if not relative2 then
+					log("Normal", "Transformed Move to Create for ",
+						sync.config.name)
+					etyped = 'Create'
+				elseif not relative then
+					relative = relative2
+					relative2 = nil
+					log("Normal", "Transformed Move to Delete for ",
+						sync.config.name)
+					etyped = 'Delete'
 				end
 			end
-			inotify.sync:delay(etype2, time, path, path2)
-
-			-- adds subdirs for new directories
-			if isdir and inotify.recurse then
-				if etype2 == "Create" then
-					addSync(inotify.root, path, true, inotify.sync, time)
-				elseif etype2 == "Delete" then
-					removeSync(inotify.sync, path)
-				elseif etype2 == "Move" then
-					removeSync(inotify.sync, path)
-					addSync(inotify.root, path2, true, inotify.sync, time)
+			sync:delay(etyped, time, relative, relative2)
+			
+			if isdir and 
+				(sync.config.subdirs or sync.config.subdirs == nil) 
+			then
+				if etyped == "Create" then
+					addWatch(path, true, sync, time)
+				elseif etyped == "Delete" then
+					removeWatch(path)
+				elseif etyped == "Move" then
+					removeWatch(path)
+					addWatch(path2, true, sync, time)
 				end
 			end
-		end
-
-		-- TODO handle cases where a sync watches target only. XXX
+		until true end
 	end
 
 	-----
 	-- Writes a status report about inotifies to a filedescriptor
 	--
 	local function statusReport(f)
-		f:write("Watching ",wdlist:size()," directories\n")
-		for wd, v in wdlist:walk() do
-			f:write("  ",wd,": ")
-			local sep = ""
-			for _, v in ipairs(v) do
-				f:write(v.root,"/",v.path or "",sep)
-				sep = ", "
-			end
-			f:write("\n")
+		f:write("Watching ",wdpaths:size()," directories\n")
+		for wd, path in wdpaths:walk() do
+			f:write("  ",wd,": ",path,"\n")
 		end
-	end
-
-	-----
-	-- Returns the number of directories watched in total.
-	local function size()
-		return wdlist:size()
 	end
 
 	-- public interface
 	return { 
 		addSync = addSync, 
-		size = size, 
 		event = event, 
 		statusReport = statusReport 
 	}
