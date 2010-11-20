@@ -1409,10 +1409,7 @@ local function splitPath(path, root)
 	local rl = #root
 	local sp = string.sub(path, 1, rl)
 
-print("split", path, root, sp)
-
 	if sp == root then
-print("splited", path, root, string.sub(path, rl, -1))
 		return string.sub(path, rl, -1)
 	else
 		return nil
@@ -1517,7 +1514,7 @@ local Inotifies = (function()
 	-- @param root   root dir to watch
 	-- @param sync   Object to receive events
 	--
-	local function addSync(root, sync)
+	local function addSync(sync, root)
 		if syncRoots[sync] then
 			error("internal fail, duplicate sync in Inotifies()")
 		end	
@@ -1560,10 +1557,12 @@ local Inotifies = (function()
 			log("Inotify", "event belongs to unknown watch descriptor.")
 			return
 		end
+		path = path..filename
 	
 		local path2 = wd2 and wdpaths[wd2]
-		-- set to true if at least one sync wants recursive data
-		local recurse = false
+		if path2 and filename2 then
+			path2 = path2..filename2
+		end
 
 		for sync, root in pairs(syncRoots) do repeat
 			local relative  = splitPath(path, root)
@@ -1576,13 +1575,6 @@ local Inotifies = (function()
 				break -- continue
 			end
 		
-			--- checks if this sync is interested in subdirs
-			if isdir then
-				recurse = recurse or 
-					sync.config.subdirs or 
-					sync.config.subdirs == nil
-			end
-
 			-- makes a copy of etype to possibly change it
 			local etyped = etype 
 			if etyped == 'Move' then
@@ -2217,7 +2209,7 @@ function runner.initialize()
 
 	-- runs through the Syncs created by users
 	for _, s in Syncs.iwalk() do
-		Inotifies.addSync(s.source, "", true, s, nil, nil)
+		Inotifies.addSync(s, s.source)
 		if s.config.init then
 			InletControl.setSync(s)
 			s.config.init(Inlet)
