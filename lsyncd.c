@@ -957,6 +957,7 @@ l_readdir (lua_State *L)
 		lua_pushboolean(L, isdir);
 		lua_settable(L, -3);
 	}
+	closedir(d);
 	return 1;
 }
 
