@@ -2473,14 +2473,15 @@ local default_rsync = {
 			local names = elist.getNames()
 			-- recursively include all subdirs/files of directories
 			for i, name in ipairs(names) do
-				if string.byte(path, -1) == 47 then
-					names[i] = names[i] .. "**"
+				if string.byte(name, -1) == 47 then
+					names[i] = names[i] .. "***"
 				end
 			end
-			log("Normal", "rsyncing deletes in ",evDir,":\n",paths)
+			names = table.concat(names, "\n")
+			log("Normal", "rsyncing deletes in ",evDir,":\n",names)
 			local config = inlet.getConfig()
 			spawn(elist, "/usr/bin/rsync", 
-				"<", paths, 
+				"<", names,
 				"-vv",
 				"--delete",
 				config.rsyncOps, "-r",
