@@ -6,7 +6,7 @@ require("posix")
 dofile("tests/testlib.lua")
 
 -- always makes the same "random", so failures can be debugged.
-math.randomseed(2) 
+math.randomseed(os.getenv("SEED")) 
 
 local tdir = mktempd().."/"
 cwriteln("using ", tdir, " as test root")
@@ -245,7 +245,7 @@ local function rmfile()
 end
 
 local dice = {
-	{ 1,	sleep  },
+	{ 10,	sleep  },
 	{ 20,   mkfile },
 	{ 20, 	mkdir  },
 	{ 20,   mvdir  },
@@ -259,7 +259,7 @@ for i, d in ipairs(dice) do
 	d[1] = ndice
 end
 
-for ai=1,5000 do
+for ai=1,20 do
 	-- throw a die what to do
 	local acn = math.random(ndice)
 	for i, d in ipairs(dice) do
@@ -271,7 +271,7 @@ for ai=1,5000 do
 end
 
 cwriteln("waiting for Lsyncd to finish its jobs.")
-posix.sleep(20)
+posix.sleep(10)
 
 cwriteln("killing the Lsyncd daemon")
 posix.kill(pid)

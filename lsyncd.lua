@@ -2540,7 +2540,7 @@ local default_rsync = {
 	-----
 	-- Default delay
 	--
-	delay = 10,
+	delay = 5,
 }
 
 
@@ -2653,7 +2653,7 @@ local default_rsyncssh = {
 	-----
 	-- Default delay. 
 	--
-	delay = 10,
+	delay = 5,
 }
 
 -----
