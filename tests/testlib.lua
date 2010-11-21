@@ -16,7 +16,7 @@ end
 -----
 -- creates a tmp directory
 function mktempd()
-	local f = io.popen('mktemp -d --tmpdir ltest.XXX', 'r')
+	local f = io.popen('mktemp -td ltest.XXX', 'r')
 	local s = f:read('*a')
 	f:close()
 	s = s:gsub('[\n\r]+', ' ')
