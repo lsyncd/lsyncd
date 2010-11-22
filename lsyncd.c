@@ -11,12 +11,6 @@
  */
 #include "lsyncd.h"
 
-#ifdef HAVE_SYS_INOTIFY_H
-#  include <sys/inotify.h>
-#else
-#  error Missing <sys/inotify.h>; supply kernel-headers and rerun configure.
-#endif
-
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
@@ -48,49 +42,9 @@ extern char _binary_luac_out_end;
 #endif
 
 /**
- * The inotify file descriptor.
- */
-static int inotify_fd;
-
-/**
- * TODO allow configure.
- */
-static const uint32_t standard_event_mask = 
-		IN_ATTRIB   | IN_CLOSE_WRITE | IN_CREATE     |
-		IN_DELETE   | IN_DELETE_SELF | IN_MOVED_FROM |
-		IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR;
-
-/**
  * configuration parameters
  */
-static struct settings {
-	/** 
-	 * If not NULL Lsyncd logs into this file.
-	 */
-	char * log_file;
-
-	/**
-	 * If true Lsyncd sends log messages to syslog
-	 */
-	bool log_syslog;
-
-	/**
-	 * -1 logs everything, 0 normal mode,
-	 * LOG_ERROR logs errors only.
-	 */
-	int log_level;
-
-	/**
-	 * True if Lsyncd shall not daemonize.
-	 */
-	bool nodaemon;	
-	
-	/** 
-	 * If not NULL Lsyncd writes its pid into this file.
-	 */
-	char * pidfile;
-
-} settings = {
+struct settings settings = {
 	.log_file = NULL,
 	.log_syslog = false,
 	.log_level = 0,
@@ -113,8 +67,8 @@ static bool running = false;
 /**
  * Set to TERM or HUP in signal handler, when lsyncd should end or reset ASAP.
  */
-static volatile sig_atomic_t hup  = 0;
-static volatile sig_atomic_t term = 0;
+volatile sig_atomic_t hup  = 0;
+volatile sig_atomic_t term = 0;
 
 /**
  * The kernels clock ticks per second.
@@ -168,7 +122,7 @@ static struct logcat *logcats[26] = {0,};
  * Returns the positive priority if category is configured to be logged.
  * or -1 
  */
-static int
+extern int
 check_logcat(const char *name)
 {
 	struct logcat *lc;
@@ -323,7 +277,6 @@ printlogf0(lua_State *L,
 
 /*****************************************************************************
  * Simple memory management
- *
  * TODO: call the garbace collector in case of out of memory.
  ****************************************************************************/
 
@@ -393,9 +346,6 @@ s_strdup(const char *src)
  * write() can manage.
  */
 struct pipemsg {
-	/* pipe file descriptor */
-	int fd;
-
 	/* message to send */
 	char *text;
 
@@ -407,19 +357,29 @@ struct pipemsg {
 };
 
 /**
- * All pipes currently active.
+ * Called by the core whenever a pipe becomes 
+ * writeable again 
  */
-static struct pipemsg *pipes = NULL;
-
-/**
- * amount of pipes allocated.
- */
-size_t pipes_size = 0; 
-
-/**
- * number of pipes used.
- */
-size_t pipes_len = 0;
+static void 
+pipe_writey(lua_State *L, int fd, void *extra) {
+	struct pipemsg *pm = (struct pipemsg *) extra;
+	int len = write(fd, pm->text + pm->pos, pm->tlen - pm->pos);
+	bool do_close = false;
+	pm->pos += len;
+	if (len < 0) {
+		logstring("Normal", "broken pipe.");
+		do_close = true;
+	} else if (pm->pos >= pm->tlen) {
+		logstring("Debug", "finished pipe.");
+		do_close = true;
+	}
+	if (do_close) {
+		close(fd);
+		free(pm->text);
+		free(extra);
+		unobserve_fd(fd);
+	}
+}
 
 
 /*****************************************************************************
@@ -488,35 +448,6 @@ write_pidfile(lua_State *L, const char *pidfile) {
  ****************************************************************************/
 
 static int l_stackdump(lua_State* L);
-
-/**
- * Adds an inotify watch
- * 
- * @param dir (Lua stack) path to directory
- * @return    (Lua stack) numeric watch descriptor
- */
-static int
-l_inotifyadd(lua_State *L)
-{
-	const char *path = luaL_checkstring(L, 1);
-	lua_Integer wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
-	lua_pushinteger(L, wd);
-	return 1;
-}
-
-/**
- * Removes an inotify watch
- * 
- * @param dir (Lua stack) numeric watch descriptor
- * @return    nil
- */
-static int
-l_inotifyrm(lua_State *L)
-{
-	lua_Integer wd = luaL_checkinteger(L, 1);
-	inotify_rm_watch(inotify_fd, wd);
-	return 0;
-}
 
 /**
  * Logs a message.
@@ -764,17 +695,13 @@ l_exec(lua_State *L)
 			close(pipefd[1]);
 			logstring("Exec", "one-sweeped pipe");
 		} else {
-			int p = pipes_len;
-			logstring("Exec", "adding delayed pipe");
-			pipes_len++;
-			if (pipes_len > pipes_size) {
-				pipes_size = pipes_len;
-				pipes = s_realloc(pipes, pipes_size*sizeof(struct pipemsg));
-			}
-			pipes[p].fd = pipefd[1];
-			pipes[p].tlen = tlen;
-			pipes[p].pos = len;
-			pipes[p].text = s_strdup(pipe_text);
+			struct pipemsg *pm;
+			logstring("Exec", "adding pipe observer");
+			pm = s_calloc(1, sizeof(struct pipemsg));
+			pm->text = s_strdup(pipe_text);
+			pm->tlen = tlen;
+			pm->pos  = len;
+			observe_fd(pipefd[1], NULL, pipe_writey, pm);
 		}
 		close(pipefd[0]);
 	}
@@ -782,7 +709,6 @@ l_exec(lua_State *L)
 	lua_pushnumber(L, pid);
 	return 1;
 }
-
 
 /**
  * Converts a relative directory path to an absolute.
@@ -996,8 +922,6 @@ static const luaL_reg lsyncdlib[] = {
 		{"configure",    l_configure    },
 		{"earlier",      l_earlier      },
 		{"exec",         l_exec         },
-		{"inotifyadd",   l_inotifyadd   },
-		{"inotifyrm",    l_inotifyrm    },
 		{"log",          l_log          },
 		{"now",          l_now          },
 		{"readdir",      l_readdir      },
@@ -1027,7 +951,7 @@ static int callError;
  * Pushes a function from the runner on the stack.
  * Prior it pushed the callError handler.
  */
-static void
+extern void
 load_runner_func(lua_State *L, 
                  const char *name)
 {
@@ -1045,149 +969,138 @@ load_runner_func(lua_State *L,
 	lua_remove(L, -2);
 }
 
-/**
- * Buffer for MOVE_FROM events.
- * Lsyncd buffers MOVE_FROM events to check if 
- */
-struct inotify_event * move_event_buf = NULL;
 
 /**
- * Memory allocated for move_event_buf
+ * An observer to be called when a file descritor becomes
+ * read-ready or write-ready.
  */
-size_t move_event_buf_size = 0;
+struct observer {
+	/**
+	 * The file descriptor to observe.
+	 */
+	int fd;
+
+	/**
+	 * Function to call when read becomes ready.
+	 */
+	void (*ready)(lua_State *L, int fd, void *extra);
+	
+	/**
+	 * Function to call when write becomes ready.
+	 */
+	void (*writey)(lua_State *L, int fd, void *extra);
+
+	/**
+	 * Extra tokens to pass to the functions-
+	 */
+	void *extra;
+};
 
 /**
- * true if the buffer is used.
+ * List of file descriptor watches.
  */
-bool move_event = false;
+static struct observer * observers = NULL;
+static int observers_len = 0;
+static int observers_size = 0;
 
 /**
- * Handles an inotify event.
+ * List of file descriptors to unobserve.
+ * While working for the oberver lists, it may
+ * not be altered, thus unobserve stores here the
+ * actions that will be delayed.
  */
-static void 
-handle_event(lua_State *L, 
-             struct inotify_event *event) 
+static int *unobservers = NULL;
+static int unobservers_len = 0;
+static int unobservers_size = 0;
+
+/**
+ * true while the observers list is being handled.
+ */
+static bool observer_action = false;
+
+/**
+ * Core watches a filedescriptor to become ready,
+ * one of read_ready or write_ready may be zero
+ */
+extern void
+observe_fd(int fd, 
+           void (*ready)(lua_State *L, int fd, void *extra), 
+           void (*writey)(lua_State *L, int fd, void *extra),
+		   void *extra)
 {
-	int event_type;
-
-	/* used to execute two events in case of unmatched MOVE_FROM buffer */
-	struct inotify_event *after_buf = NULL;
-	if (hup || term) {
-		return;
-	}
-	if (event && (IN_Q_OVERFLOW & event->mask)) {
-		/* and overflow happened, tells the runner */
-		load_runner_func(L, "overflow");
-		if (lua_pcall(L, 0, 0, -2)) {
-			exit(-1); // ERRNO
-		}
-		lua_pop(L, 1);
-		hup = 1;
-		return;
-	}
-	/* cancel on ignored or resetting */
-	if (event && (IN_IGNORED & event->mask)) {
-		return;
-	}
-	if (event && event->len == 0) {
-		/* sometimes inotify sends such strange events, 
-		 * (e.g. when touching a dir */
-		return;
-	}
-
-	if (event == NULL) {
-		/* a buffered MOVE_FROM is not followed by anything, 
-		   thus it is unary */
-		event = move_event_buf;
-		event_type = DELETE;
-		move_event = false;
-	} else if (move_event && 
-	            ( !(IN_MOVED_TO & event->mask) || 
-			      event->cookie != move_event_buf->cookie) ) {
-		/* there is a MOVE_FROM event in the buffer and this is not the match
-		 * continue in this function iteration to handler the buffer instead */
-		after_buf = event;
-		event = move_event_buf;
-		event_type = DELETE;
-		move_event = false;
-	} else if ( move_event && 
-	            (IN_MOVED_TO & event->mask) && 
-			    event->cookie == move_event_buf->cookie ) {
-		/* this is indeed a matched move */
-		event_type = MOVE;
-		move_event = false;
-	} else if (IN_MOVED_FROM & event->mask) {
-		/* just the MOVE_FROM, buffers this event, and wait if next event is 
-		 * a matching MOVED_TO of this was an unary move out of the watched 
-		 * tree. */
-		size_t el = sizeof(struct inotify_event) + event->len;
-		if (move_event_buf_size < el) {
-			move_event_buf_size = el;
-			move_event_buf = s_realloc(move_event_buf, el);
-		}
-		memcpy(move_event_buf, event, el);
-		move_event = true;
-		return;
-	} else if (IN_MOVED_TO & event->mask) {
-		/* must be an unary move-to */
-		event_type = CREATE;
-	} else if (IN_MOVED_FROM & event->mask) {
-		/* must be an unary move-from */
-		event_type = DELETE;
-	} else if (IN_ATTRIB & event->mask) {
-		/* just attrib change */
-		event_type = ATTRIB;
-	} else if (IN_CLOSE_WRITE & event->mask) {
-		/* closed after written something */
-		event_type = MODIFY;
-	} else if (IN_CREATE & event->mask) {
-		/* a new file */
-		event_type = CREATE;
-	} else if (IN_DELETE & event->mask) {
-		/* rm'ed */
-		event_type = DELETE;
-	} else {
-		logstring("Inotify", "skipped some inotify event.");
-		return;
-	}
-
-	/* and hands over to runner */
-	load_runner_func(L, "inotifyEvent"); 
-	switch(event_type) {
-	case ATTRIB : lua_pushstring(L, "Attrib"); break;
-	case MODIFY : lua_pushstring(L, "Modify"); break;
-	case CREATE : lua_pushstring(L, "Create"); break;
-	case DELETE : lua_pushstring(L, "Delete"); break;
-	case MOVE   : lua_pushstring(L, "Move");   break;
-	default : 
-		logstring("Error", "Internal: unknown event in handle_event()"); 
-		exit(-1);	// ERRNO
-	}
-	if (event_type != MOVE) {
-		lua_pushnumber(L, event->wd);
-	} else {
-		lua_pushnumber(L, move_event_buf->wd);
-	}
-	lua_pushboolean(L, (event->mask & IN_ISDIR) != 0);
-	lua_pushinteger(L, times(NULL));
-	if (event_type == MOVE) {
-		lua_pushstring(L, move_event_buf->name);
-		lua_pushnumber(L, event->wd);
-		lua_pushstring(L, event->name);
-	} else {
-		lua_pushstring(L, event->name);
-		lua_pushnil(L);
-		lua_pushnil(L);
-	}
-	if (lua_pcall(L, 7, 0, -9)) {
+	int pos;
+	if (observer_action) {
+		// TODO
+		logstring("Error", 
+			"Adding observers in ready/writey handlers not yet supported");
 		exit(-1); // ERRNO
 	}
-	lua_pop(L, 1);
-	/* if there is a buffered event executes it */
-	if (after_buf) {
-		logstring("Inotify", "handling buffered event.");
-		handle_event(L, after_buf);
+
+	if (observers_len + 1 > observers_size) {
+		observers_size = observers_len + 1;
+		observers = s_realloc(observers, 
+			observers_size * sizeof(struct observer));
 	}
+	for(pos = 0; pos < observers_len; pos++) {
+		if (observers[pos].fd <= fd) {
+			break;
+		}
+	}
+	if (observers[pos].fd == fd) {
+		logstring("Error", 
+			"Observing already an observed file descriptor.");
+		exit(-1); // ERRNO
+	}
+	memmove(observers + pos + 1, observers + pos, 
+	        (observers_len - pos) * (sizeof(struct observer)));
+
+	observers_len++;
+	observers[pos].fd = fd;
+	observers[pos].ready  = ready;
+	observers[pos].writey = writey;
+	observers[pos].extra = extra;
+}
+
+/**
+ * Makes core no longer watch fd.
+ */
+extern void
+unobserve_fd(int fd)
+{
+	int pos;
+
+	if (observer_action) {
+		/* this function is called through a ready/writey handler 
+		 * while the core works through the observer list, thus
+		 * it does not alter the list, but stores this actions
+		 * on a stack 
+		 */
+		unobservers_len++;
+		if (unobservers_len > unobservers_size) {
+			unobservers_size = unobservers_len;
+			unobservers = s_realloc(unobservers, 
+				unobservers_size * sizeof(int));
+		}
+		unobservers[unobservers_len - 1] = fd;
+		return;
+	}
+
+	/* looks for the fd */
+	for(pos = 0; pos < observers_len; pos++) {
+		if (observers[pos].fd == fd) {
+			break;
+		}
+	}
+	if (pos >= observers_len) {
+		logstring("Error", 
+			"internal fail, not observer file descriptor in unobserve");
+		exit(-1); //ERRNO
+	}
+
+	/* and moves the list down */
+	memmove(observers + pos, observers + pos + 1, 
+	        (observers_len - pos) * (sizeof(struct observer)));
+	observers_len--;
 }
 
 /**
@@ -1196,14 +1109,10 @@ handle_event(lua_State *L,
 static void
 masterloop(lua_State *L)
 {
-	size_t readbuf_size = 2048;
-	char *readbuf = s_malloc(readbuf_size);
 	while(true) {
 		bool have_alarm;
 		clock_t now = times(NULL);
 		clock_t alarm_time;
-		bool do_read = false;
-		ssize_t len; 
 
 		/* queries runner about soonest alarm  */
 		load_runner_func(L, "getAlarm"); 
@@ -1239,113 +1148,69 @@ masterloop(lua_State *L)
 			} else {
 				logstring("Masterloop", "going into select (no timeout).");
 			}
-			/* if select returns a positive number there is data on inotify
-			 * on zero the timemout occured. */
+			/* time for Lsyncd to try to put itself to rest into a select(), 
+			 * configures timeouts, filedescriptors and signals 
+			 * that will wake it */
 			{
 				fd_set rfds;
 				fd_set wfds;
 				sigset_t sigset;
-				sigemptyset(&sigset);
-				int nfds = inotify_fd;
-				int pi;
+				int pi, pr;
 
+				sigemptyset(&sigset);
 				FD_ZERO(&rfds);
 				FD_ZERO(&wfds);
-				FD_SET(inotify_fd, &rfds);
-				for(pi = 0; pi < pipes_len; pi++) {
-					int pfd = pipes[pi].fd;
-					nfds = pfd > nfds ? pfd : nfds;
-					FD_SET(pfd, &wfds);
+
+				for(pi = 0; pi < observers_len; pi++) {
+					int fd = observers[pi].fd;
+					if (observers[pi].ready) {
+						FD_SET(fd, &rfds);
+					}
+					if (observers[pi].writey) {
+						FD_SET(fd, &wfds);
+					}
 				}
 
-				/* reuse pi for result */
-				pi = pselect(nfds + 1, &rfds, &wfds, NULL, 
+				/* the great select */
+				pr = pselect(
+					observers[observers_len - 1].fd + 1,
+					&rfds, &wfds, NULL, 
 					have_alarm ? &tv : NULL, &sigset);
-				if (pi >= 0) {
-					do_read = FD_ISSET(inotify_fd, &rfds);
-				}
-				if (do_read) {
-					logstring("Masterloop", do_read > 0 ? 
-						"theres data on inotify." :
-						"core: select() timeout or signal.");
+
+				if (pr >= 0) {
+					/* walks through the observers calling ready/writey fds */
+					observer_action = true;
+					for(pi = 0; pi < observers_len; pi++) {
+						int fd = observers[pi].fd;
+						void *extra = observers[pi].extra;
+						if (hup || term) {
+							break;
+						}
+						if (observers[pi].ready && FD_ISSET(fd, &rfds)) {
+							observers[pi].ready(L, fd, extra);
+						}
+						if (hup || term) {
+							break;
+						}
+						if (unobservers_len > 0 && 
+							unobservers[unobservers_len - 1] == fd) {
+							/* ready() unobserved itself */
+							continue;
+						}
+						if (observers[pi].writey && FD_ISSET(fd, &wfds)) {
+							observers[pi].writey(L, fd, extra);
+						}
+					}
+					observer_action = false;
+					/* work through delayed unobserve_fd() calls */
+					for (pi = 0; pi < unobservers_len; pi++) {
+						unobserve_fd(unobservers[pi]);
+					}
+					unobservers_len = 0;
 				}
 			}
 		} 
-		
-		/* reads possible events from inotify stream */
-		while(do_read) {
-			int i = 0;
-			do {
-				len = read (inotify_fd, readbuf, readbuf_size);
-				if (len < 0 && errno == EINVAL) {
-					/* kernel > 2.6.21 indicates that way that way that
-					 * the buffer was too small to fit a filename.
-					 * double its size and try again. When using a lower
-					 * kernel and a filename > 2KB appears lsyncd
-					 * will fail. (but does a 2KB filename really happen?)
-					 */
-					readbuf_size *= 2;
-					readbuf = s_realloc(readbuf, readbuf_size);
-					continue;
-				}
-			} while(0);
-			if (len == 0) {
-				/* nothing more inotify */
-				break;
-			}
-			if (len < 0) {
-				if (errno == EAGAIN) {
-					/* nothing more inotify */
-					break;
-				} else {
-					printlogf(L, "Error", "Read fail on inotify");
-					exit(-1); // ERRNO
-				}
-			}
-			while (i < len && !hup && !term) {
-				struct inotify_event *event = 
-					(struct inotify_event *) &readbuf[i];
-				handle_event(L, event);
-				i += sizeof(struct inotify_event) + event->len;
-			}
-			if (!move_event) {
-				/* give it a pause if not endangering splitting a move */
-				break;
-			}
-		} 
-		/* checks if there is an unary MOVE_FROM left in the buffer */
-		if (move_event) {
-			logstring("Inotify", "handling unary move from.");
-			handle_event(L, NULL);	
-		}
-
-		{
-			/* writes into pipes if any */
-			int pi;
-			for(pi = 0; pi < pipes_len; pi++) {
-				struct pipemsg *pm = pipes + pi;
-				int len = write(pm->fd, pm->text + pm->pos, pm->tlen - pm->pos);
-				bool do_close = false;
-				pm->pos += len;
-				if (len < 0) {
-					logstring("Normal", "broken pipe.");
-					do_close = true;
-				} else if (pm->pos >= pm->tlen) {
-					logstring("Debug", "finished pipe.");
-					do_close = true;
-				}
-				if (do_close) {
-					close(pm->fd);
-					free(pm->text);
-					pipes_len--;
-					memmove(pipes + pi, pipes + pi + 1, 
-						(pipes_len - pi) * sizeof(struct pipemsg));
-					pi--;
-					continue;
-				}
-			}
-		}
-
+	
 		/* collects zombified child processes */
 		while(1) {
 			int status;
@@ -1362,6 +1227,7 @@ masterloop(lua_State *L)
 			lua_pop(L, 1);
 		} 
 
+		/* reacts on signals */
 		if (hup) {
 			load_runner_func(L, "hup");
 			if (lua_pcall(L, 0, 0, -2)) {
@@ -1371,6 +1237,7 @@ masterloop(lua_State *L)
 			hup = 0;
 		}
 
+		/* reacts on signals */
 		if (term == 1) {
 			load_runner_func(L, "term");
 			if (lua_pcall(L, 0, 0, -2)) {
@@ -1389,7 +1256,6 @@ masterloop(lua_State *L)
 		}
 		if (!lua_toboolean(L, -1)) {
 			/* cycle told core to break mainloop */
-			free(readbuf);
 			lua_pop(L, 2);
 			return;
 		}
@@ -1455,6 +1321,12 @@ main1(int argc, char *argv[])
 	/* registers lsycnd core */
 	luaL_register(L, "lsyncd", lsyncdlib);
 	lua_setglobal(L, "lysncd");
+	
+	lua_getglobal(L, "lysncd");
+	register_inotify(L);
+	lua_settable(L, -3);
+	lua_pop(L, 1);
+	l_stackdump(L);
 
 	if (check_logcat("Debug") >= settings.log_level) {
 		/* printlogf doesnt support %ld :-( */
@@ -1601,7 +1473,7 @@ main1(int argc, char *argv[])
 	}
 
 	if (lsyncd_config_file) {
-		/* checks for the configuration and existence of the config file */
+		/* checks existence of the config file */
 		struct stat st;
 		if (stat(lsyncd_config_file, &st)) {
 			printlogf(L, "Error",
@@ -1625,16 +1497,8 @@ main1(int argc, char *argv[])
 		}
 	}
 
-	/* opens inotify */
-	inotify_fd = inotify_init();
-	if (inotify_fd == -1) {
-		printlogf(L, "Error", 
-			"Cannot create inotify instance! (%d:%s)", 
-			errno, strerror(errno));
-		exit(-1); // ERRNO
-	}
-	close_exec_fd(inotify_fd);
-	non_block_fd(inotify_fd);
+	open_inotify(L);
+	l_stackdump(L);
 
 	{
 		/* adds signal handlers *
@@ -1691,8 +1555,7 @@ main1(int argc, char *argv[])
 	settings.log_level = 0,
 	settings.nodaemon = false,
 
-	/* closes inotify */
-	close(inotify_fd);
+	close_inotify();
 	lua_close(L);
 	return 0;
 }

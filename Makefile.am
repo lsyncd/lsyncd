@@ -1,7 +1,7 @@
 AUTOMAKE_OPTIONS = foreign
 CFLAGS = -Wall $(LIBLUA_CFLAGS) 
 bin_PROGRAMS = lsyncd
-lsyncd_SOURCES = lsyncd.c lsyncd.lua 
+lsyncd_SOURCES = lsyncd.c lsyncd.lua inotify.c
 lsyncd_LDADD = $(LIBLUA_LIBS)
 exampledir = $(datarootdir)/doc/@PACKAGE@
 dist_example_DATA = \
@@ -23,7 +23,8 @@ runner_DATA = lsyncd.lua
 else
 
 # or compiles it into the binary
-lsyncd: luac.o $(lsyncd_LDADD) 
+
+lsyncd_LDADD += luac.o
 
 objarch: | lsyncd.o
 	objdump -f lsyncd.o | grep architecture | \

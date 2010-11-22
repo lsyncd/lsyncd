@@ -1493,7 +1493,7 @@ local Inotifies = (function()
 		local wd = pathwds[path]
 		if not wd then
 			-- lets the core registers watch with the kernel
-			local wd = lsyncd.inotifyadd(path);
+			local wd = lsyncd.inotify.addwatch(path);
 			if wd < 0 then
 				log("Error","Failure adding watch ",path," -> ignored ")
 				return
@@ -1540,7 +1540,7 @@ local Inotifies = (function()
 		if not wd then
 			return 
 		end
-		lsyncd.inotifyrm(wd)
+		lsyncd.inotify.rmwatch(wd)
 		wdpaths[wd] = nil
 		pathwds[path] = nil
 	end
