@@ -14,19 +14,45 @@
 /* includes needed for headerfile */
 #include "config.h"
 
+#include <signal.h>
+#include <stdbool.h>
 #include <stdlib.h>
 
 #define LUA_USE_APICHECK 1
 #include <lua.h>
 
-/* time comparisons - wrap around safe */
+/*-----------------------------------------------------------------------------
+ * Lsyncd runtime configuration
+ */
+extern struct settings {
+	/* If not NULL Lsyncd logs into this file. */
+	char * log_file;
+
+	/* If true Lsyncd sends log messages to syslog */
+	bool log_syslog;
+
+	/* -1 logs everything, 0 normal mode, LOG_ERROR errors only.*/
+	int log_level;
+
+	/* True if Lsyncd shall not daemonize. */
+	bool nodaemon;	
+	
+	/* If not NULL Lsyncd writes its pid into this file. */
+	char * pidfile;
+
+} settings;
+
+/*-----------------------------------------------------------------------------
+ * time comparisons - wrap around safe 
+ */
 #define time_after(a,b)         ((long)(b) - (long)(a) < 0)
 #define time_before(a,b)        time_after(b,a)
 #define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
 #define time_before_eq(a,b)     time_after_eq(b,a)
 
-/**
+/*-----------------------------------------------------------------------------
  * Event types.
+ * TODO, needed here?
  */
 enum event_type {
 	NONE     = 0,
@@ -37,13 +63,29 @@ enum event_type {
 	MOVE     = 5,
 };
 
-/**
+/* pushes a runner function and the runner error handler onto Lua stack */
+extern void load_runner_func(lua_State *L, const char *name);
+
+/* set to 1 on hup signal or term signal */
+extern volatile sig_atomic_t hup;
+extern volatile sig_atomic_t term;
+
+/*-----------------------------------------------------------------------------
  * wrappers for heap management, they exit if out-of-memory. 
  */
+
 extern void * s_calloc(size_t nmemb, size_t size);
 extern void * s_malloc(size_t size);
 extern void * s_realloc(void *ptr, size_t size);
 extern char * s_strdup(const char *src);
+
+
+/*-----------------------------------------------------------------------------
+ * Logging
+ */
+
+/* Returns the positive priority if name is configured to be logged, or -1 */
+extern int check_logcat(const char *name);
 
 /* logs a string */
 #define logstring(cat, message) \
@@ -63,10 +105,33 @@ printlogf0(lua_State *L,
 		  ...)
 	__attribute__((format(printf, 4, 5)));
 
+/*-----------------------------------------------------------------------------
+ * File-descriptor helpers
+ */
+  
 /* Sets the non-blocking flag for a file descriptor. */
 extern void non_block_fd(int fd);
 
 /* Sets the close-on-exit flag for a file descriptor. */
 extern void close_exec_fd(int fd);
+
+/* makes the core to observe a file descriptor */
+extern void observe_fd(
+	int fd, 
+	void (*ready)(lua_State *L, int fd, void *extra), 
+	void (*writey)(lua_State *L, int fd, void *extra), 
+	void *extra);
+
+/* stops the core to observe a file descriptor */
+extern void unobserve_fd(int fd);
+
+/*-----------------------------------------------------------------------------
+ * inotify
+ */
+extern void register_inotify(lua_State *L);
+extern void open_inotify(lua_State *L);
+extern void close_inotify();
+
+
 
 #endif
