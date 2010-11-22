@@ -1,12 +1,15 @@
 /** 
- * lsyncd.c   Live (Mirror) Syncing Demon
+ * inotify.c from Lsyncd - Live (Mirror) Syncing Demon
  *
  * License: GPLv2 (see COPYING) or any later version
  *
  * Authors: Axel Kittenberger <axkibe@gmail.com>
  *
+ * -----------------------------------------------------------------------
+ *
  * Event interface for Lsyncd to Linux´ inotify.
  */
+
 #include "lsyncd.h"
 
 #ifndef HAVE_SYS_INOTIFY_H
@@ -39,7 +42,7 @@
 /**
  * The inotify file descriptor.
  */
-static int inotify_fd;
+static int inotify_fd = -1;
 
 /**
  * TODO allow configure.
@@ -86,7 +89,10 @@ static const luaL_reg linotfylib[] = {
 
 /**
  * Buffer for MOVE_FROM events.
- * Lsyncd buffers MOVE_FROM events to check if 
+ * Lsyncd buffers MOVE_FROM events to check if
+ * they are followed by MOVE_TO events with identical cookie
+ * then they are condensed into one move event to be sent to the
+ * runner
  */
 static struct inotify_event * move_event_buf = NULL;
 
@@ -226,19 +232,22 @@ handle_event(lua_State *L,
 	}
 }
 
-size_t readbuf_size = 2048;
-char *readbuf = NULL;
+/** 
+ * buffer to read inotify events into
+ */
+static size_t readbuf_size = 2048;
+static char * readbuf = NULL;
 
 /**
- * inotify file descriptor became ready.
+ * Called by function pointer from when the inotify file descriptor 
+ * became ready. Reads it contents and forward all received events
+ * to the runner.
  */
 static void
 inotify_ready(lua_State *L, int fd, void *extra)
 {
-	size_t len; 
-
 	while(true) {
-		int i = 0;
+		size_t len; 
 		do {
 			len = read (inotify_fd, readbuf, readbuf_size);
 			if (len < 0 && errno == EINVAL) {
@@ -266,17 +275,21 @@ inotify_ready(lua_State *L, int fd, void *extra)
 				exit(-1); // ERRNO
 			}
 		}
-		while (i < len && !hup && !term) {
-			struct inotify_event *event = 
-				(struct inotify_event *) &readbuf[i];
-			handle_event(L, event);
-			i += sizeof(struct inotify_event) + event->len;
+		{
+			int i = 0;
+			while (i < len && !hup && !term) {
+				struct inotify_event *event = 
+					(struct inotify_event *) &readbuf[i];
+				handle_event(L, event);
+				i += sizeof(struct inotify_event) + event->len;
+			}
 		}
 		if (!move_event) {
 			/* give it a pause if not endangering splitting a move */
 			break;
 		}
-	} 
+	}
+
 	/* checks if there is an unary MOVE_FROM left in the buffer */
 	if (move_event) {
 		logstring("Inotify", "handling unary move from.");
@@ -298,6 +311,11 @@ register_inotify(lua_State *L) {
  */
 extern void
 open_inotify(lua_State *L) {
+	if (readbuf) {
+		logstring("Error", 
+			"internal fail, inotify readbuf!=NULL in open_inotify()") 
+		exit(-1); // ERRNO
+	}
 	readbuf = s_malloc(readbuf_size);
 
 	inotify_fd = inotify_init();
@@ -320,5 +338,6 @@ extern void
 close_inotify() {
 	close(inotify_fd);
 	free(readbuf);
+	readbuf = NULL;
 }
 
