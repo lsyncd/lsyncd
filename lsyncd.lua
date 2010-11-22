@@ -1590,16 +1590,27 @@ local Inotifies = (function()
 
 		-- looks up the watch descriptor id
 		local path = wdpaths[wd]
+		if path then
+			path = path..filename
+		end
+		
+		local path2 = wd2 and wdpaths[wd2]
+		if path2 and filename2 then
+			path2 = path2..filename2
+		end
+		
+		if not path and path2 and etype =="Move" then
+			log("Inotify", "Move from deleted directory ",path2,
+				" becomes Create.")
+			path = path2
+			path2 = nil
+			etype = "Create"
+		end
+
 		if not path then
 			-- this is normal in case of deleted subdirs
 			log("Inotify", "event belongs to unknown watch descriptor.")
 			return
-		end
-		path = path..filename
-	
-		local path2 = wd2 and wdpaths[wd2]
-		if path2 and filename2 then
-			path2 = path2..filename2
 		end
 
 		for sync, root in pairs(syncRoots) do repeat
