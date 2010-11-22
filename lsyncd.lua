@@ -971,7 +971,6 @@ local Sync = (function()
 			end
 		else
 			-- for 2 paths (move) it might result into a split
-			log("Function", "+ ",path2)
 			local ex1 = self.excludes:test(path)
 			local ex2 = self.excludes:test(path2)
 			if ex1 and ex2 then

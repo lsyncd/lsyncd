@@ -259,7 +259,7 @@ for i, d in ipairs(dice) do
 	d[1] = ndice
 end
 
-for ai=1,20 do
+for ai=1,100 do
 	-- throw a die what to do
 	local acn = math.random(ndice)
 	for i, d in ipairs(dice) do
@@ -279,10 +279,11 @@ local _, exitmsg, lexitcode = posix.wait(lpid)
 cwriteln("Exitcode of Lsyncd = ", exitmsg, " ", lexitcode)
 
 exitcode = os.execute("diff -r "..srcdir.." "..trgdir)
-cwriteln("Exitcode of diff = ", exitcode)
-if lexitcode ~= 0 then
-	os.exit(lexitcode)
+cwriteln("Exitcode of diff = '", exitcode, "'")
+if exitcode ~= 0 then
+	os.exit(1)
 else
-	os.exit(exitcode)
+	os.exit(0)
 end
+
 

@@ -9,8 +9,7 @@
  * to the operating system needed for lsyncd operation. All high-level
  * logic is coded (when feasable) into lsyncd.lua
  */
-#include "config.h"
-#define LUA_USE_APICHECK 1
+#include "lsyncd.h"
 
 #ifdef HAVE_SYS_INOTIFY_H
 #  include <sys/inotify.h>
@@ -39,23 +38,6 @@
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-
-#define time_after(a,b)         ((long)(b) - (long)(a) < 0)
-#define time_before(a,b)        time_after(b,a)
-#define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
-#define time_before_eq(a,b)     time_after_eq(b,a)
-
-/**
- * Event types core sends to runner.
- */
-enum event_type {
-	NONE     = 0,
-	ATTRIB   = 1,
-	MODIFY   = 2,
-	CREATE   = 3,
-	DELETE   = 4,
-	MOVE     = 5,
-};
 
 /**
  * The Lua part of lsyncd if compiled into the binary.
@@ -164,15 +146,6 @@ sig_handler(int sig)
 	}
 }
 
-
-/**
- * predeclerations -- see below
- */
-static void * s_calloc(size_t nmemb, size_t size);
-static void * s_malloc(size_t size);
-static void * s_realloc(void *ptr, size_t size);
-static char * s_strdup(const char *src);
-
 /*****************************************************************************
  * Logging
  ****************************************************************************/
@@ -265,18 +238,15 @@ add_logcat(const char *name, int priority)
 }
 
 /**
- * Logs a string.
+ * Logs a string. 
+ *
+ * Do not call directly, but the macro logstring() in lsyncd.h
  *
  * @param priorty  the priority of the log message
  * @param cat      the category
  * @param message  the log message
  */
-
-#define logstring(cat, message) \
-	{int p; if ((p = check_logcat(cat)) >= settings.log_level) \
-	{logstring0(p, cat, message);}}
-
-static void 
+extern void 
 logstring0(int priority, const char *cat, const char *message)
 {
 	/* in case of logall and not found category priority will be -1 */
@@ -333,22 +303,10 @@ logstring0(int priority, const char *cat, const char *message)
 }
 
 /**
- * Let the core print logmessage comfortably.
+ * Lets the core print logmessages comfortably as formated string.
  * This uses the lua_State for it easy string buffers only.
  */
-#define printlogf(L, cat, ...) \
-	{int p; if ((p = check_logcat(cat)) >= settings.log_level)  \
-	{printlogf0(L, p, cat, __VA_ARGS__);}}
-
-static void
-printlogf0(lua_State *L, 
-          int priority, 
-		  const char *cat,
-		  const char *fmt, 
-		  ...)
-	__attribute__((format(printf, 4, 5)));
-
-static void
+extern void
 printlogf0(lua_State *L, 
 	int priority,
 	const char *cat,
@@ -365,12 +323,14 @@ printlogf0(lua_State *L,
 
 /*****************************************************************************
  * Simple memory management
+ *
+ * TODO: call the garbace collector in case of out of memory.
  ****************************************************************************/
 
 /**
  * "secured" calloc.
  */
-void *
+extern void *
 s_calloc(size_t nmemb, size_t size)
 {
 	void *r = calloc(nmemb, size);
@@ -385,7 +345,7 @@ s_calloc(size_t nmemb, size_t size)
  * "secured" malloc. the deamon shall kill itself
  * in case of out of memory.
  */
-static void *
+extern void *
 s_malloc(size_t size)
 {
 	void *r = malloc(size);
@@ -399,7 +359,7 @@ s_malloc(size_t size)
 /**
  * "secured" realloc.
  */
-static void *
+extern void *
 s_realloc(void *ptr, size_t size)
 {
 	void *r = realloc(ptr, size);
@@ -413,7 +373,7 @@ s_realloc(void *ptr, size_t size)
 /**
  * "secured" strdup.
  */
-static char *
+extern char *
 s_strdup(const char *src)
 {
 	char *s = strdup(src);
@@ -469,7 +429,7 @@ size_t pipes_len = 0;
 /**
  * Sets the close-on-exit flag for an fd
  */
-static void
+extern void
 close_exec_fd(int fd)
 {
 	int flags;
@@ -488,7 +448,7 @@ close_exec_fd(int fd)
 /**
  * Sets the non-blocking flag for an fd
  */
-static void
+extern void
 non_block_fd(int fd)
 {
 	int flags;
@@ -507,7 +467,7 @@ non_block_fd(int fd)
 /**
  * Writes a pid file.
  */
-void
+static void
 write_pidfile(lua_State *L, const char *pidfile) {
 	FILE* f = fopen(pidfile, "w");
 	if (!f) {
