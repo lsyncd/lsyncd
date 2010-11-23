@@ -147,7 +147,7 @@ handle_event(lua_State *L,
 	            ( !(IN_MOVED_TO & event->mask) || 
 			      event->cookie != move_event_buf->cookie) ) {
 		/* there is a MOVE_FROM event in the buffer and this is not the match
-		 * continue in this function iteration to handler the buffer instead */
+		 * continue in this function iteration to handle the buffer instead */
 		after_buf = event;
 		event = move_event_buf;
 		event_type = DELETE;
@@ -225,6 +225,7 @@ handle_event(lua_State *L,
 		exit(-1); // ERRNO
 	}
 	lua_pop(L, 1);
+
 	/* if there is a buffered event executes it */
 	if (after_buf) {
 		logstring("Inotify", "handling buffered event.");
@@ -247,10 +248,12 @@ static void
 inotify_ready(lua_State *L, int fd, void *extra)
 {
 	while(true) {
-		size_t len; 
+		ptrdiff_t len; 
+		int err;
 		do {
 			len = read (inotify_fd, readbuf, readbuf_size);
-			if (len < 0 && errno == EINVAL) {
+			err = errno;
+			if (len < 0 && err == EINVAL) {
 				/* kernel > 2.6.21 indicates that way that way that
 				 * the buffer was too small to fit a filename.
 				 * double its size and try again. When using a lower
@@ -267,7 +270,7 @@ inotify_ready(lua_State *L, int fd, void *extra)
 			break;
 		}
 		if (len < 0) {
-			if (errno == EAGAIN) {
+			if (err == EAGAIN) {
 				/* nothing more inotify */
 				break;
 			} else {
