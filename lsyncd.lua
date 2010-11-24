@@ -454,25 +454,25 @@ local Inlet, InletControl = (function()
 		-----
 		-- Returns a list of file/dirnames of all events in list.
 		--
-		getNames = function(elist)
-			local dlist = el2dl[elist]
-			if not dlist then
-				error("cannot find delay list from event list.")
-			end
-			local pl = {}
-			local i = 1
-			for k, d in pairs(dlist) do
-				if type(k) == "number" then
-					pl[i] = string.match(d.path, "[^/]+/?$") 
-					i = i + 1
-					if d.path2 then
-						pl[i] = string.match(d.path2, "[^/]+/?$") 
-						i = i + 1
-					end
-				end
-			end
-			return pl
-		end,
+		--getNames = function(elist)
+		--	local dlist = el2dl[elist]
+		--	if not dlist then
+		--		error("cannot find delay list from event list.")
+		--	end
+		--	local pl = {}
+		--	local i = 1
+		--	for k, d in pairs(dlist) do
+		--		if type(k) == "number" then
+		--			pl[i] = string.match(d.path, "[^/]+/?$") 
+		--			i = i + 1
+		--			if d.path2 then
+		--				pl[i] = string.match(d.path2, "[^/]+/?$") 
+		--				i = i + 1
+		--			end
+		--		end
+		--	end
+		--	return pl
+		--end,
 
 		-----
 		-- Returns a list of paths of all events in list.
@@ -507,25 +507,25 @@ local Inlet, InletControl = (function()
 		-----
 		-- Returns a list of absolutes local paths in list.
 		--
-		getSourcePaths = function(elist)
-			local dlist = el2dl[elist]
-			if not dlist then
-				error("cannot find delay list from event list.")
-			end
-			local pl = {}
-			local i = 1
-			for k, d in pairs(dlist) do
-				if type(k) == "number" then
-					pl[i] = sync.source .. d.path
-					i = i + 1
-					if d.path2 then
-						pl[i] = sync.source .. d.path2
-						i = i + 1
-					end
-				end
-			end
-			return pl
-		end,
+		--getSourcePaths = function(elist)
+		--	local dlist = el2dl[elist]
+		--	if not dlist then
+		--		error("cannot find delay list from event list.")
+		--	end
+		--	local pl = {}
+		--	local i = 1
+		--	for k, d in pairs(dlist) do
+		--		if type(k) == "number" then
+		--			pl[i] = sync.source .. d.path
+		--			i = i + 1
+		--			if d.path2 then
+		--				pl[i] = sync.source .. d.path2
+		--				i = i + 1
+		--			end
+		--		end
+		--	end
+		--	return pl
+		--end,
 	}
 
 
@@ -2484,7 +2484,7 @@ local rsync_exitcodes = {
 -----
 -- Exitcodes to retry on network failures of rsync.
 --
-local rsync_ssh = {
+local ssh_exitcodes = {
 	[255] = "again",
 }
 
@@ -2601,27 +2601,60 @@ local default_rsyncssh = {
 	action = function(inlet) 
 		local event = inlet.getEvent()
 		local config = inlet.getConfig()
+		
+		-- makes move local on host
 		if event.etype == 'Move' then
-			-- makes move local on host
+			log("Normal", "Moving ",event.path," -> ",event.path2)
 			spawn(event, "/usr/bin/ssh", 
 				config.host, "mv",
 				config.targetdir .. event.path, 
 				config.targetdir .. event.path2)
 			return
 		end
+		
+		-- uses ssh to delete files on remote host
+		-- instead of constructing rsync filters
+		if event.etype == 'Delete' then
+			local elist = inlet.getEvents(
+				function(e)
+					return e.etype == "Delete"
+				end)
+
+			local paths = elist.getPaths(
+				function(etype, path1, path2) 
+					if path2 then
+						return config.targetdir..path1, config.targetdir..path2
+					else
+						return config.targetdir..path1
+					end
+				end)
+
+			for _, v in pairs(paths) do
+				if string.match(v, "^%s*/+%s*$") then
+					log("Error", "refusing to `rm -rf /` the target!")
+					terminate(-1) -- ERRNO
+				end
+			end
+
+			local sPaths = table.concat(paths, "\n")
+			log("Normal", "Deleting list\n", sPaths)
+			spawn(event, "/usr/bin/ssh", 
+				"<", sPaths,
+				config.host, "xargs", "echo", "rm -rf")
+			return
+		end
+
 		-- for everything else spawn a rsync
-		-- gets all events that are not Move
-		local elist = inlet.getEvents(function(e) 
-				return e.etype ~= "Move" 
+		local elist = inlet.getEvents(
+			function(e) 
+				return e.etype ~= "Move" and e.etype ~= "Delete"
 			end)
 		local paths = table.concat(elist.getPaths(), "\n")
-		log("Normal", "rsyncing list\n", spaths)
+		log("Normal", "Rsyncing list\n", paths)
 		spawn(elist, "/usr/bin/rsync", 
-			"<", spaths, 
-			config.rsyncOps, "r",
-			"--delete",
-			"--include-from=-",
-			"--exclude=*",
+			"<", paths, 
+			config.rsyncOps,
+			"--files-from=-",
 			config.source, 
 			config.host .. ":" .. config.targetdir)
 	end,

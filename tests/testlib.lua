@@ -14,6 +14,16 @@ function cwriteln(...)
 end
 
 -----
+-- initializes the pseudo random generator
+-- if environemnt "SEED" is set, use that as seed.
+local seed = os.getenv("SEED") 
+if not seed then
+	seed = os.time()
+end
+math.randomseed(seed) 
+cwriteln("random seed: ", seed)
+
+-----
 -- creates a tmp directory
 -- 
 -- @returns the name of the directory

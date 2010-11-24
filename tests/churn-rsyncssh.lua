@@ -5,9 +5,6 @@
 require("posix")
 dofile("tests/testlib.lua")
 
--- always makes the same "random", so failures can be debugged.
-math.randomseed(os.getenv("SEED")) 
-
 local tdir = mktempd().."/"
 cwriteln("using ", tdir, " as test root")
 
@@ -19,7 +16,11 @@ posix.mkdir(trgdir)
 
 local logs = {}
 --logs =  {"-log", "Inotify", "-log", "Exec" }
-local pid = spawn("./lsyncd","-nodaemon","-rsync",srcdir,trgdir, unpack(logs))
+--logs =  {"-log", "all" }
+
+local pid = spawn("./lsyncd", "-nodaemon", 
+                  "-rsyncssh", srcdir, "localhost", trgdir,
+                  unpack(logs))
 
 cwriteln("waiting for Lsyncd to startup")
 posix.sleep(1)
