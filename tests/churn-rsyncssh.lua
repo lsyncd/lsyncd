@@ -14,9 +14,12 @@ local trgdir = tdir.."trg/"
 posix.mkdir(srcdir)
 posix.mkdir(trgdir)
 
+-- makes some startup data 
+churn(srcdir, 10)
+
 local logs = {}
 --logs =  {"-log", "Inotify", "-log", "Exec" }
---logs =  {"-log", "all" }
+--logs =  {"-log", "Delay"}
 
 local pid = spawn("./lsyncd", "-nodaemon", 
                   "-rsyncssh", srcdir, "localhost", trgdir,

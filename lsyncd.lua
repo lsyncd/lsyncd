@@ -2547,7 +2547,7 @@ local default_rsync = {
 		spawn(elist, "/usr/bin/rsync", 
 			"<", filterS, 
 			config.rsyncOps,
-			"-rv",
+			"-r",
 			"--delete",
 			"--force",
 			"--include-from=-",
@@ -2638,9 +2638,9 @@ local default_rsyncssh = {
 
 			local sPaths = table.concat(paths, "\n")
 			log("Normal", "Deleting list\n", sPaths)
-			spawn(event, "/usr/bin/ssh", 
+			spawn(elist, "/usr/bin/ssh", 
 				"<", sPaths,
-				config.host, "xargs", "echo", "rm -rf")
+				config.host, "xargs", "rm -rf")
 			return
 		end
 
@@ -2649,10 +2649,18 @@ local default_rsyncssh = {
 			function(e) 
 				return e.etype ~= "Move" and e.etype ~= "Delete"
 			end)
-		local paths = table.concat(elist.getPaths(), "\n")
-		log("Normal", "Rsyncing list\n", paths)
+		local paths = elist.getPaths()
+		
+		-- removes trailing slashes from dirs.
+		for k, v in ipairs(paths) do
+			if string.byte(v, -1) == 47 then
+				paths[k] = string.sub(v, 1, -2)
+			end
+		end
+		local sPaths = table.concat(paths, "\n") -- TODO 0 delimiter
+		log("Normal", "Rsyncing list\n", sPaths)
 		spawn(elist, "/usr/bin/rsync", 
-			"<", paths, 
+			"<", sPaths, 
 			config.rsyncOps,
 			"--files-from=-",
 			config.source, 
@@ -2728,7 +2736,7 @@ local default_rsyncssh = {
 	-----
 	-- allow several processes
 	--
-	maxProcesses = 10,
+	maxProcesses = 1,
 
 	-----
 	-- Default delay. 
