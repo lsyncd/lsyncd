@@ -1388,7 +1388,7 @@ action(const struct global_options *opts,
 					s_free(argv[i]);
 				}
 			}
-			return 0;
+			return true;
 		}
 	}
 
@@ -1679,6 +1679,9 @@ rsync_dir(const struct global_options *opts,
 			printlogf(log, ERROR, "Action %s --> %s has failed.", pathname, destname);
 			return false;
 		}
+		if (opts->flag_dryrun) {
+			return true;
+		}
 		return waitchildren(log, &child, 1);
 	} else {
 		bool status = true;
@@ -1697,6 +1700,9 @@ rsync_dir(const struct global_options *opts,
 				status = false;
 			}
 			ci++;
+		}
+		if (opts->flag_dryrun) {
+			return true;
 		}
 		if (!waitchildren(log, children, ntarget)) {
 			status = false;
@@ -3041,7 +3047,7 @@ one_main(int argc, char **argv)
 				pid_t child;
 				printlogf(log, NORMAL, "Initial recursive sync for %s -> %s", opts.dir_confs[i].source, *target);
 				child = action(&opts, &opts.dir_confs[i], opts.dir_confs[i].source, *target, NULL, true);
-				if (!child || !waitchildren(log, &child, 1)) {
+				if (!opts.flag_dryrun && (!child || !waitchildren(log, &child, 1))) {
 					printlogf(log, ERROR, "Initial rsync from %s -> %s failed%s", 
 					          opts.dir_confs[i].source, *target,
 					          opts.flag_stubborn ? ", but continuing because being stubborn." : ".");
