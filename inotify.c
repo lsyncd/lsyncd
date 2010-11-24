@@ -42,11 +42,11 @@
 /*-----------------------------------------------------------------------------
  * Event types.
  */
-const char * ATTRIB = "Attrib";
-const char * MODIFY = "Modify";
-const char * CREATE = "Create";
-const char * DELETE = "Delete";
-const char * MOVE   = "Move";
+static const char * ATTRIB = "Attrib";
+static const char * MODIFY = "Modify";
+static const char * CREATE = "Create";
+static const char * DELETE = "Delete";
+static const char * MOVE   = "Move";
 
 /**
  * The inotify file descriptor.
