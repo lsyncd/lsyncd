@@ -1486,6 +1486,25 @@ local Inotifies = (function()
 	-- sync is interested in.
 	--
 	local syncRoots = {}
+	
+	-----
+	-- Stops watching a directory
+	--
+	-- @param path    absolute path to unwatch
+	-- @param core    if false not actually send the unwatch to the kernel
+	--                (used in moves which reuse the watch)
+	--
+	local function removeWatch(path, core)
+		local wd = pathwds[path]
+		if not wd then
+			return 
+		end
+		if core then
+			lsyncd.inotify.rmwatch(wd)
+		end
+		wdpaths[wd] = nil
+		pathwds[path] = nil
+	end
 
 	-----
 	-- Adds watches for a directory (optionally) including all subdirectories.
@@ -1501,17 +1520,24 @@ local Inotifies = (function()
 			"Inotifies.addWatch(",path,", ",recurse,", ",
 			raiseSync,", ",raiseTime,")")
 
-		local wd = pathwds[path]
-		if not wd then
-			-- lets the core registers watch with the kernel
-			local wd = lsyncd.inotify.addwatch(path);
-			if wd < 0 then
-				log("Error","Failure adding watch ",path," -> ignored ")
-				return
-			end
-			pathwds[path] = wd
-			wdpaths[wd] = path
+		-- lets the core registers watch with the kernel
+		local wd = lsyncd.inotify.addwatch(path);
+		if wd < 0 then
+			log("Error","Failure adding watch ",path," -> ignored ")
+			return
 		end
+
+		do
+			-- If this wd is registered already the kernel
+			-- reused it for a new dir for a reason - old 
+			-- dir is gone.
+			local op = wdpaths[wd]
+			if op and op ~= path then
+				pathwds[op] = nil
+			end
+		end
+		pathwds[path] = wd
+		wdpaths[wd] = path
 
 		-- registers and adds watches for all subdirectories 
 		-- and/or raises create events for all entries
@@ -1543,19 +1569,6 @@ local Inotifies = (function()
 		end
 	end
 
-	-----
-	-- Stops watching a directory
-	--
-	local function removeWatch(path)
-		local wd = pathwds[path]
-		if not wd then
-			return 
-		end
-		lsyncd.inotify.rmwatch(wd)
-		wdpaths[wd] = nil
-		pathwds[path] = nil
-	end
-	
 	-----
 	-- adds a Sync to receive events
 	--
@@ -1657,9 +1670,9 @@ local Inotifies = (function()
 				if etyped == "Create" then
 					addWatch(path, true, sync, time)
 				elseif etyped == "Delete" then
-					removeWatch(path)
+					removeWatch(path, true)
 				elseif etyped == "Move" then
-					removeWatch(path)
+					removeWatch(path, false)
 					addWatch(path2, true, sync, time)
 				end
 			end
