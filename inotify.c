@@ -39,6 +39,15 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+/*-----------------------------------------------------------------------------
+ * Event types.
+ */
+const char * ATTRIB = "Attrib";
+const char * MODIFY = "Modify";
+const char * CREATE = "Create";
+const char * DELETE = "Delete";
+const char * MOVE   = "Move";
+
 /**
  * The inotify file descriptor.
  */
@@ -63,6 +72,7 @@ l_addwatch(lua_State *L)
 {
 	const char *path = luaL_checkstring(L, 1);
 	lua_Integer wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
+	printlogf(L, "Inotify", "addwatch(%s)->%d", path, wd);
 	lua_pushinteger(L, wd);
 	return 1;
 }
@@ -78,6 +88,7 @@ l_rmwatch(lua_State *L)
 {
 	lua_Integer wd = luaL_checkinteger(L, 1);
 	inotify_rm_watch(inotify_fd, wd);
+	printlogf(L, "Inotify", "rmwatch()<-%d", wd);
 	return 0;
 }
 
@@ -113,7 +124,7 @@ static void
 handle_event(lua_State *L, 
              struct inotify_event *event) 
 {
-	int event_type;
+	const char *event_type = NULL;
 
 	/* used to execute two events in case of unmatched MOVE_FROM buffer */
 	struct inotify_event *after_buf = NULL;
@@ -141,22 +152,23 @@ handle_event(lua_State *L,
 		/* a buffered MOVE_FROM is not followed by anything, 
 		   thus it is unary */
 		event = move_event_buf;
-		event_type = DELETE;
+		event_type = "Delete";
 		move_event = false;
 	} else if (move_event && 
 	            ( !(IN_MOVED_TO & event->mask) || 
 			      event->cookie != move_event_buf->cookie) ) {
 		/* there is a MOVE_FROM event in the buffer and this is not the match
 		 * continue in this function iteration to handle the buffer instead */
+		logstring("Inotify", "icore, changing unary MOVE_FROM into DELETE")
 		after_buf = event;
 		event = move_event_buf;
-		event_type = DELETE;
+		event_type = "Delete";
 		move_event = false;
 	} else if ( move_event && 
 	            (IN_MOVED_TO & event->mask) && 
 			    event->cookie == move_event_buf->cookie ) {
 		/* this is indeed a matched move */
-		event_type = MOVE;
+		event_type = "Move";
 		move_event = false;
 	} else if (IN_MOVED_FROM & event->mask) {
 		/* just the MOVE_FROM, buffers this event, and wait if next event is 
@@ -189,22 +201,17 @@ handle_event(lua_State *L,
 		/* rm'ed */
 		event_type = DELETE;
 	} else {
-		logstring("Inotify", "skipped some inotify event.");
+		logstring("Inotify", "icore, skipped some inotify event.");
 		return;
 	}
 
 	/* and hands over to runner */
 	load_runner_func(L, "inotifyEvent"); 
-	switch(event_type) {
-	case ATTRIB : lua_pushstring(L, "Attrib"); break;
-	case MODIFY : lua_pushstring(L, "Modify"); break;
-	case CREATE : lua_pushstring(L, "Create"); break;
-	case DELETE : lua_pushstring(L, "Delete"); break;
-	case MOVE   : lua_pushstring(L, "Move");   break;
-	default : 
+	if (!event_type) {
 		logstring("Error", "Internal: unknown event in handle_event()"); 
 		exit(-1);	// ERRNO
 	}
+	lua_pushstring(L, event_type); 
 	if (event_type != MOVE) {
 		lua_pushnumber(L, event->wd);
 	} else {
@@ -228,7 +235,7 @@ handle_event(lua_State *L,
 
 	/* if there is a buffered event executes it */
 	if (after_buf) {
-		logstring("Inotify", "handling buffered event.");
+		logstring("Inotify", "icore, handling buffered event.");
 		handle_event(L, after_buf);
 	}
 }
@@ -295,7 +302,7 @@ inotify_ready(lua_State *L, int fd, void *extra)
 
 	/* checks if there is an unary MOVE_FROM left in the buffer */
 	if (move_event) {
-		logstring("Inotify", "handling unary move from.");
+		logstring("Inotify", "icore, handling unary move from.");
 		handle_event(L, NULL);	
 	}
 }

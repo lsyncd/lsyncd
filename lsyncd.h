@@ -50,18 +50,6 @@ extern struct settings {
 #define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
 #define time_before_eq(a,b)     time_after_eq(b,a)
 
-/*-----------------------------------------------------------------------------
- * Event types.
- * TODO, needed here?
- */
-enum event_type {
-	NONE     = 0,
-	ATTRIB   = 1,
-	MODIFY   = 2,
-	CREATE   = 3,
-	DELETE   = 4,
-	MOVE     = 5,
-};
 
 /* pushes a runner function and the runner error handler onto Lua stack */
 extern void load_runner_func(lua_State *L, const char *name);

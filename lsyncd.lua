@@ -1592,10 +1592,10 @@ local Inotifies = (function()
 		end
 
 		if filename2 then
-			log("Inotify", "got event ", etype, " ", filename, 
-				" to ", filename2) 
+			log("Inotify", "got event ",etype," ",filename, 
+				"(",wd,") to ",filename2,"(",wd2,")") 
 		else 
-			log("Inotify", "got event ", etype, " ", filename) 
+			log("Inotify","got event ",etype," ",filename,"(",wd,")")
 		end
 
 		-- looks up the watch descriptor id
