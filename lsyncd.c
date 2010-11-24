@@ -1329,7 +1329,6 @@ main1(int argc, char *argv[])
 	register_inotify(L);
 	lua_settable(L, -3);
 	lua_pop(L, 1);
-	l_stackdump(L);
 
 	if (check_logcat("Debug") >= settings.log_level) {
 		/* printlogf doesnt support %ld :-( */
@@ -1501,7 +1500,6 @@ main1(int argc, char *argv[])
 	}
 
 	open_inotify(L);
-	l_stackdump(L);
 
 	{
 		/* adds signal handlers *
