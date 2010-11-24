@@ -2446,7 +2446,7 @@ local rsync_exitcodes = {
 	[  6] = "again",
 	[ 10] = "again", 
 	[ 11] = "again",
-	[ 12] = "again",
+--	[ 12] = "again", -- dont consistent failure, if e.g. target dir not there.
 	[ 14] = "again",
 	[ 20] = "again",
 	[ 21] = "again",
@@ -2494,7 +2494,7 @@ local default_rsync = {
 			local config = inlet.getConfig()
 			spawn(elist, "/usr/bin/rsync", 
 				"<", names,
-				"-vv",
+				"-v",
 				"--delete",
 				config.rsyncOps, "-r",
 				"--include-from=-",
