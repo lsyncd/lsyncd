@@ -476,25 +476,32 @@ local Inlet, InletControl = (function()
 
 		-----
 		-- Returns a list of paths of all events in list.
+		-- 
+		-- @param elist -- handle returned by getevents()
+		-- @param mutator -- if not nil called with (etype, path, path2)
+		--                   returns one or two strings to add.
 		--
-		getPaths = function(elist)
+		getPaths = function(elist, mutator)
 			local dlist = el2dl[elist]
 			if not dlist then
 				error("cannot find delay list from event list.")
 			end
-			local pl = {}
-			local i = 1
+			local result = {}
 			for k, d in pairs(dlist) do
 				if type(k) == "number" then
-					pl[i] = d.path
-					i = i + 1
-					if d.path2 then
-						pl[i] = d.path2
-						i = i + 1
+					local s1, s2
+					if mutator then
+						s1, s2 = mutator(d.etype, d.path, d.path2)
+					else
+						s1, s2 = d.path, d.path2
+					end
+					table.insert(result, s1)
+					if s2 then
+						table.insert(result, s2)
 					end
 				end
 			end
-			return pl
+			return result
 		end,
 		
 		-----
@@ -540,8 +547,8 @@ local Inlet, InletControl = (function()
 				error("event list does not have function '"..k.."'", 2)
 			end
 			
-			return function()
-				return f(t)
+			return function(...)
+				return f(t, ...)
 			end
 		end
 	}
@@ -1156,6 +1163,10 @@ local Sync = (function()
 				dlist[i] = d
 			end
 		end
+		
+		--- TODO: make incremental indexes in dlist,
+		--        and replace pairs with ipairs.
+
 		return dlist
 	end
 
@@ -2473,51 +2484,64 @@ local default_rsync = {
 	-- Spawns rsync for a list of events
 	--
 	action = function(inlet) 
-		local event = inlet.getEvent()
-		-- if the next element is a Delete does a delete operation
-		-- over its directory
-		if event.etype == "Delete" then
-			local evDir = event.pathdir
-			-- gets all deletes in the same directory
-			local elist = inlet.getEvents(function(e2)
-					return e2.etype == "Delete" and evDir == e2.pathdir
-				end)
-			local names = elist.getNames()
-			-- recursively include all subdirs/files of directories
-			for i, name in ipairs(names) do
-				if string.byte(name, -1) == 47 then
-					names[i] = names[i] .. "***"
+		-- gets all events ready for syncing
+		local elist = inlet.getEvents()
+		local paths = elist.getPaths(
+			function(etype, path1, path2) 
+				if etype == "Delete" and string.byte(path1, -1) == 47 then
+					return path1 .. "***", path2
+				else
+					return path1, path2
+				end
+			end)
+		-- stores all filters with integer index	
+		local filterI = {} 
+		-- stores all filters with path index	
+		local filterP = {}
+
+		-- adds one entry into the filter
+		-- @param path ... path to add
+		-- @param leaf ... true if this the orinal path
+		--                 false if its a parent
+		local function addToFilter(path) 
+			if filterP[path] then
+				return
+			end
+			filterP[path]=true
+			table.insert(filterI, path)
+		end
+
+		-- adds a path to the filter, for rsync this needs
+		-- to have entries for all steps in the path, so the file
+		-- d1/d2/d3/f1 needs filters 
+		-- "d1/", "d1/d2/", "d1/d2/d3/" and "d1/d2/d3/f1"
+		for _, path in ipairs(paths) do
+			if path and path ~="" then
+				addToFilter(path)
+				local pp = string.match(path, "^(.*/)[^/]+/?")
+				while pp do
+					addToFilter(pp)
+					pp = string.match(pp, "^(.*/)[^/]+/?")
 				end
 			end
-			names = table.concat(names, "\n")
-			log("Normal", "rsyncing deletes in ",evDir,":\n",names)
-			local config = inlet.getConfig()
-			spawn(elist, "/usr/bin/rsync", 
-				"<", names,
-				"-v",
-				"--delete",
-				config.rsyncOps, "-r",
-				"--include-from=-",
-				"--exclude=*",
-				config.source .. evDir, config.target .. evDir)
-		else
-			-- if it isn't it does a normal transfer of everything
-			-- new or altered.
-
-			-- gets all non-deletes.
-			local elist = inlet.getEvents(function(e2)
-					return e2.etype ~= "Delete" 
-				end)
-			local paths = table.concat(elist.getPaths(), "\n")
-			log("Normal", "rsyncing a list of new/modified files/dirs\n", 
-				paths)
-			local config = inlet.getConfig()
-			spawn(elist, "/usr/bin/rsync", 
-				"<", paths, 
-				config.rsyncOps,
-				"--files-from=-",
-				config.source, config.target)
 		end
+		
+		local filterS = table.concat(filterI, "\n")
+		log("Normal", 
+			"Calling rsync with filter-list of new/modified files/dirs\n", 
+			filterS)
+		local config = inlet.getConfig()
+		spawn(elist, "/usr/bin/rsync", 
+			"<", filterS, 
+			config.rsyncOps,
+			"-rv",
+			"--delete",
+			"--force",
+			"--include-from=-",
+			"--exclude=*",
+			config.source, 
+			config.target)
+		
 	end,
 
 	-----
