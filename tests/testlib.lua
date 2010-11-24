@@ -16,10 +16,7 @@ end
 -----
 -- initializes the pseudo random generator
 -- if environemnt "SEED" is set, use that as seed.
-local seed = os.getenv("SEED") 
-if not seed then
-	seed = os.time()
-end
+local seed = os.getenv("SEED") or os.time()
 math.randomseed(seed) 
 cwriteln("random seed: ", seed)
 
