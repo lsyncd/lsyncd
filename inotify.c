@@ -319,7 +319,13 @@ inotify_ready(lua_State *L, struct observance *observance)
 static void
 inotify_tidy(struct observance *observance)
 {
-	close(observance->fd);
+	if (observance->fd != inotify_fd) {
+		logstring("Error", 
+			"internal fail, inotify_ready on non-inotify file descriptor.");
+		exit(-1); // ERRNO
+	}
+	close(inotify_fd);
+	inotify_fd = -1;
 	free(readbuf);
 	readbuf = NULL;
 }
