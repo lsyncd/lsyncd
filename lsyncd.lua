@@ -1402,9 +1402,6 @@ local Syncs = (function()
 		end
 
 		-- loads a default value for an option if not existent
-		if not settings then
-			settings = {}
-		end
 		local defaultValues = {
 			'action',  
 			'collapse', 
@@ -2075,6 +2072,7 @@ USAGE:
     lsyncd [OPTIONS] -rsyncssh [SOURCE] [HOST] [TARGETDIR]
 
 OPTIONS:
+  -dryrun             Subprocesses are not actually invoked.
   -help               Shows this
   -log    all         Logs everything (debug)
   -log    scarce      Logs errors only
@@ -2111,6 +2109,10 @@ function runner.configure(args)
 	-- a list of all valid --options
 	local options = {
 		-- log is handled by core already.
+		dryrun   =
+			{0,	function()
+				clSettings.dryrun=true
+			end},
 		log      = 
 			{1, nil},
 		logfile   = 
@@ -2407,13 +2409,42 @@ function spawn(agent, binary, ...)
 	if lsyncdStatus == "fade" then
 		log("Normal", "ignored spawn processs since status fading")
 	end
-	local pid = lsyncd.exec(binary, ...)
-	if pid and pid > 0 then
+	if not settings.dryrun then
+		local pid = lsyncd.exec(binary, ...)
+		if pid and pid > 0 then
+			local sync = InletControl.getSync()
+			local delay = InletControl.getDelay(agent)
+			if delay then
+				delay.status = "active"
+				sync.processes[pid] = delay
+			else 
+				local dlist = InletControl.getDelayList(agent)
+				if not dlist then
+					error("spawning with an unknown agent", 2)
+				end
+				for k, d in pairs(dlist) do
+					if type(k) == "number" then
+						d.status = "active"
+					end
+				end
+				sync.processes[pid] = dlist
+			end
+		end
+	else
+		local a1, a2 = ...
+		if a1 ~= "<" then
+			log("Normal", "would call ", binary, " ", table.concat({...}, " "))
+		else
+			local aa = {...}
+			table.remove(aa, 1)
+			table.remove(aa, 1)
+			log("Normal", "would call ", binary, " ", table.concat(aa, " "), 
+			    "\ninput pipe <\n", a2)
+		end
 		local sync = InletControl.getSync()
 		local delay = InletControl.getDelay(agent)
 		if delay then
-			delay.status = "active"
-			sync.processes[pid] = delay
+			sync:removeDelay(delay)
 		else 
 			local dlist = InletControl.getDelayList(agent)
 			if not dlist then
@@ -2421,10 +2452,9 @@ function spawn(agent, binary, ...)
 			end
 			for k, d in pairs(dlist) do
 				if type(k) == "number" then
-					d.status = "active"
+					sync:removeDelay(d)
 				end
 			end
-			sync.processes[pid] = dlist
 		end
 	end
 end
@@ -2435,7 +2465,6 @@ end
 function spawnShell(agent, command, ...)
 	return spawn(agent, "/bin/sh", "-c", command, "/bin/sh", ...)
 end
-
 
 -----
 -- Comfort routine also for user.
@@ -2452,6 +2481,27 @@ end
 function string.ends(String,End)
 	return End=='' or string.sub(String,-string.len(End))==End
 end
+
+
+------
+-- Replaces default os.execute with a warning message,
+-- doing the execute nevertheless, if not in dryrun.
+--
+local os_execute = os.execute
+os.execute = function(...)
+	log("Warn", "using os.execute makes Lsyncd splutter, use spawn() instead.")
+	if not settings.dryrun then
+		os_execute(...)
+	else
+		log("Normal", "would os.execute ", table.concat({...}, " "))
+	end
+end
+
+-----
+-- An empty settings table optionally for the config to 
+-- expand instead of replace.
+--
+settings = {}
 
 
 --============================================================================

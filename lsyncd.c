@@ -158,7 +158,7 @@ add_logcat(const char *name, int priority)
 		return true;
 	}
 	if (!strcmp("scarce", name)) {
-		settings.log_level = LOG_ERR;
+		settings.log_level = LOG_WARNING;
 		return true;
 	}
 
@@ -364,24 +364,29 @@ struct pipemsg {
  * writeable again 
  */
 static void 
-pipe_writey(lua_State *L, int fd, void *extra) {
-	struct pipemsg *pm = (struct pipemsg *) extra;
-	int len = write(fd, pm->text + pm->pos, pm->tlen - pm->pos);
-	bool do_close = false;
+pipe_writey(lua_State *L, struct observance *observance) {
+	struct pipemsg *pm = (struct pipemsg *) observance->extra;
+	int len = write(observance->fd, pm->text + pm->pos, pm->tlen - pm->pos);
 	pm->pos += len;
 	if (len < 0) {
 		logstring("Normal", "broken pipe.");
-		do_close = true;
+		nonobserve_fd(observance->fd);
 	} else if (pm->pos >= pm->tlen) {
 		logstring("Debug", "finished pipe.");
-		do_close = true;
+		nonobserve_fd(observance->fd);
 	}
-	if (do_close) {
-		close(fd);
-		free(pm->text);
-		free(extra);
-		unobserve_fd(fd);
-	}
+}
+
+/**
+ * TODO
+ */
+static void
+pipe_tidy(struct observance *observance)
+{
+	struct pipemsg *pm = (struct pipemsg *) observance->extra;
+	close(observance->fd);
+	free(pm->text);
+	free(pm);
 }
 
 
@@ -691,7 +696,6 @@ l_exec(lua_State *L)
 		len = write(pipefd[1], pipe_text, tlen);
 		if (len < 0) {
 			logstring("Normal", "immediatly broken pipe.");
-			close(pipefd[0]);
 		}
 		if (len == tlen) {
 			/* usual and best case, the pipe accepted all input -> close */
@@ -699,14 +703,13 @@ l_exec(lua_State *L)
 			logstring("Exec", "one-sweeped pipe");
 		} else {
 			struct pipemsg *pm;
-			logstring("Exec", "adding pipe observer");
+			logstring("Exec", "adding pipe observance");
 			pm = s_calloc(1, sizeof(struct pipemsg));
 			pm->text = s_strdup(pipe_text);
 			pm->tlen = tlen;
 			pm->pos  = len;
-			observe_fd(pipefd[1], NULL, pipe_writey, pm);
+			observe_fd(pipefd[1], NULL, pipe_writey, pipe_tidy, pm);
 		}
-		close(pipefd[0]);
 	}
 	free(argv);
 	lua_pushnumber(L, pid);
@@ -887,6 +890,7 @@ l_configure(lua_State *L)
 			if (!settings.log_file) {
 				settings.log_syslog = true;
 			}
+			// XXX
 			logstring("Debug", "daemonizing now.");
 			if (daemon(0, 0)) {
 				logstring("Error", "Failed to daemonize");
@@ -974,37 +978,11 @@ load_runner_func(lua_State *L,
 
 
 /**
- * An observer to be called when a file descritor becomes
- * read-ready or write-ready.
- */
-struct observer {
-	/**
-	 * The file descriptor to observe.
-	 */
-	int fd;
-
-	/**
-	 * Function to call when read becomes ready.
-	 */
-	void (*ready)(lua_State *L, int fd, void *extra);
-	
-	/**
-	 * Function to call when write becomes ready.
-	 */
-	void (*writey)(lua_State *L, int fd, void *extra);
-
-	/**
-	 * Extra tokens to pass to the functions-
-	 */
-	void *extra;
-};
-
-/**
  * List of file descriptor watches.
  */
-static struct observer * observers = NULL;
-static int observers_len = 0;
-static int observers_size = 0;
+static struct observance * observances = NULL;
+static int observances_len  = 0;
+static int observances_size = 0;
 
 /**
  * List of file descriptors to unobserve.
@@ -1012,14 +990,14 @@ static int observers_size = 0;
  * not be altered, thus unobserve stores here the
  * actions that will be delayed.
  */
-static int *unobservers = NULL;
-static int unobservers_len = 0;
-static int unobservers_size = 0;
+static int *nonobservances      = NULL;
+static int  nonobservances_len  = 0;
+static int  nonobservances_size = 0;
 
 /**
- * true while the observers list is being handled.
+ * true while the observances list is being handled.
  */
-static bool observer_action = false;
+static bool observance_action = false;
 
 /**
  * Core watches a filedescriptor to become ready,
@@ -1027,83 +1005,88 @@ static bool observer_action = false;
  */
 extern void
 observe_fd(int fd, 
-           void (*ready)(lua_State *L, int fd, void *extra), 
-           void (*writey)(lua_State *L, int fd, void *extra),
-		   void *extra)
+           void (*ready) (lua_State *L, struct observance *observance), 
+           void (*writey)(lua_State *L, struct observance *observance),
+           void (*tidy)  (struct observance *observance),
+           void *extra)
 {
 	int pos;
-	if (observer_action) {
+	if (observance_action) {
 		// TODO
 		logstring("Error", 
-			"Adding observers in ready/writey handlers not yet supported");
+			"Adding observance in ready/writey handlers not yet supported");
 		exit(-1); // ERRNO
 	}
 
-	if (observers_len + 1 > observers_size) {
-		observers_size = observers_len + 1;
-		observers = s_realloc(observers, 
-			observers_size * sizeof(struct observer));
+	if (observances_len + 1 > observances_size) {
+		observances_size = observances_len + 1;
+		observances = s_realloc(observances, 
+			observances_size * sizeof(struct observance));
 	}
-	for(pos = 0; pos < observers_len; pos++) {
-		if (observers[pos].fd <= fd) {
+	for(pos = 0; pos < observances_len; pos++) {
+		if (observances[pos].fd <= fd) {
 			break;
 		}
 	}
-	if (observers[pos].fd == fd) {
+	if (observances[pos].fd == fd) {
 		logstring("Error", 
 			"Observing already an observed file descriptor.");
 		exit(-1); // ERRNO
 	}
-	memmove(observers + pos + 1, observers + pos, 
-	        (observers_len - pos) * (sizeof(struct observer)));
+	memmove(observances + pos + 1, observances + pos, 
+	        (observances_len - pos) * (sizeof(struct observance)));
 
-	observers_len++;
-	observers[pos].fd = fd;
-	observers[pos].ready  = ready;
-	observers[pos].writey = writey;
-	observers[pos].extra = extra;
+	observances_len++;
+	observances[pos].fd = fd;
+	observances[pos].ready  = ready;
+	observances[pos].writey = writey;
+	observances[pos].tidy   = tidy;
+	observances[pos].extra  = extra;
 }
 
 /**
  * Makes core no longer watch fd.
  */
 extern void
-unobserve_fd(int fd)
+nonobserve_fd(int fd)
 {
 	int pos;
 
-	if (observer_action) {
+	if (observance_action) {
 		/* this function is called through a ready/writey handler 
-		 * while the core works through the observer list, thus
+		 * while the core works through the observances list, thus
 		 * it does not alter the list, but stores this actions
 		 * on a stack 
 		 */
-		unobservers_len++;
-		if (unobservers_len > unobservers_size) {
-			unobservers_size = unobservers_len;
-			unobservers = s_realloc(unobservers, 
-				unobservers_size * sizeof(int));
+		nonobservances_len++;
+		if (nonobservances_len > nonobservances_size) {
+			nonobservances_size = nonobservances_len;
+			nonobservances = s_realloc(nonobservances, 
+				nonobservances_size * sizeof(int));
 		}
-		unobservers[unobservers_len - 1] = fd;
+		nonobservances[nonobservances_len - 1] = fd;
 		return;
 	}
 
 	/* looks for the fd */
-	for(pos = 0; pos < observers_len; pos++) {
-		if (observers[pos].fd == fd) {
+	for(pos = 0; pos < observances_len; pos++) {
+		if (observances[pos].fd == fd) {
 			break;
 		}
 	}
-	if (pos >= observers_len) {
+	if (pos >= observances_len) {
 		logstring("Error", 
-			"internal fail, not observer file descriptor in unobserve");
+			"internal fail, not observed file descriptor in nonobserve_fd()");
 		exit(-1); //ERRNO
 	}
 
+	if (observances[pos].tidy) {
+		observances[pos].tidy(observances + pos);
+	}
 	/* and moves the list down */
-	memmove(observers + pos, observers + pos + 1, 
-	        (observers_len - pos) * (sizeof(struct observer)));
-	observers_len--;
+	memmove(observances + pos, observances + pos + 1, 
+	        (observances_len - pos) * (sizeof(struct observance)));
+	observances_len--;
 }
 
 /**
@@ -1164,52 +1147,52 @@ masterloop(lua_State *L)
 				FD_ZERO(&rfds);
 				FD_ZERO(&wfds);
 
-				for(pi = 0; pi < observers_len; pi++) {
-					int fd = observers[pi].fd;
-					if (observers[pi].ready) {
+				for(pi = 0; pi < observances_len; pi++) {
+					int fd = observances[pi].fd;
+					if (observances[pi].ready) {
 						FD_SET(fd, &rfds);
 					}
-					if (observers[pi].writey) {
+					if (observances[pi].writey) {
 						FD_SET(fd, &wfds);
 					}
 				}
 
 				/* the great select */
 				pr = pselect(
-					observers[observers_len - 1].fd + 1,
+					observances[observances_len - 1].fd + 1,
 					&rfds, &wfds, NULL, 
 					have_alarm ? &tv : NULL, &sigset);
 
 				if (pr >= 0) {
-					/* walks through the observers calling ready/writey fds */
-					observer_action = true;
-					for(pi = 0; pi < observers_len; pi++) {
-						int fd = observers[pi].fd;
-						void *extra = observers[pi].extra;
+					/* walks through the observances calling ready/writey fds */
+					observance_action = true;
+					for(pi = 0; pi < observances_len; pi++) {
+						struct observance *obs = observances + pi;
+						int fd = obs->fd;
 						if (hup || term) {
 							break;
 						}
-						if (observers[pi].ready && FD_ISSET(fd, &rfds)) {
-							observers[pi].ready(L, fd, extra);
+						if (obs->ready && FD_ISSET(fd, &rfds)) {
+							obs->ready(L, obs);
 						}
 						if (hup || term) {
 							break;
 						}
-						if (unobservers_len > 0 && 
-							unobservers[unobservers_len - 1] == fd) {
-							/* ready() unobserved itself */
+						if (nonobservances_len > 0 && 
+							nonobservances[nonobservances_len - 1] == fd) {
+							/* ready() nonobserved itself */
 							continue;
 						}
-						if (observers[pi].writey && FD_ISSET(fd, &wfds)) {
-							observers[pi].writey(L, fd, extra);
+						if (obs->writey && FD_ISSET(fd, &wfds)) {
+							obs->writey(L, obs);
 						}
 					}
-					observer_action = false;
+					observance_action = false;
 					/* work through delayed unobserve_fd() calls */
-					for (pi = 0; pi < unobservers_len; pi++) {
-						unobserve_fd(unobservers[pi]);
+					for (pi = 0; pi < nonobservances_len; pi++) {
+						nonobserve_fd(nonobservances[pi]);
 					}
-					unobservers_len = 0;
+					nonobservances_len = 0;
 				}
 			}
 		} 
@@ -1305,6 +1288,7 @@ main1(int argc, char *argv[])
 		/* prepares logging early */
 		int i = 1;
 		add_logcat("Normal", LOG_NOTICE);
+		add_logcat("Warn",   LOG_WARNING);
 		add_logcat("Error",  LOG_ERR);
 		while (i < argc) {
 			if (strcmp(argv[i], "-log") && strcmp(argv[i], "--log")) {
@@ -1529,6 +1513,16 @@ main1(int argc, char *argv[])
 
 	/* cleanup */
 	{
+		/* close/frees observances */
+		int i;
+		for(i = 0; i < observances_len; i++) {
+			struct observance *obs = observances + i;
+			if (obs->tidy) {
+				obs->tidy(obs);
+			}
+		}
+	}
+	{
 		/* frees logging categories */
 		int ci;
 		struct logcat *lc;
@@ -1556,7 +1550,6 @@ main1(int argc, char *argv[])
 	settings.log_level = 0,
 	settings.nodaemon = false,
 
-	close_inotify();
 	lua_close(L);
 	return 0;
 }

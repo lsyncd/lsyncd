@@ -252,8 +252,13 @@ static char * readbuf = NULL;
  * to the runner.
  */
 static void
-inotify_ready(lua_State *L, int fd, void *extra)
+inotify_ready(lua_State *L, struct observance *observance)
 {
+	if (observance->fd != inotify_fd) {
+		logstring("Error", 
+			"internal fail, inotify_ready on non-inotify file descriptor.");
+		exit(-1); // ERRNO
+	}
 	while(true) {
 		ptrdiff_t len; 
 		int err;
@@ -307,6 +312,18 @@ inotify_ready(lua_State *L, int fd, void *extra)
 	}
 }
 
+/**
+ * Called by function pointer when the core doesnt want the
+ * inotify fd anymore (term, hup or overflow)
+ */
+static void
+inotify_tidy(struct observance *observance)
+{
+	close(observance->fd);
+	free(readbuf);
+	readbuf = NULL;
+}
+
 /** 
  * registers inotify functions.
  */
@@ -338,16 +355,6 @@ open_inotify(lua_State *L) {
 
 	close_exec_fd(inotify_fd);
 	non_block_fd(inotify_fd);
-	observe_fd(inotify_fd, inotify_ready, NULL, NULL);
-}
-
-/** 
- * closes inotify 
- */
-extern void
-close_inotify() {
-	close(inotify_fd);
-	free(readbuf);
-	readbuf = NULL;
+	observe_fd(inotify_fd, inotify_ready, NULL, inotify_tidy, NULL);
 }
 

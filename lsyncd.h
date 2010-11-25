@@ -103,23 +103,43 @@ extern void non_block_fd(int fd);
 /* Sets the close-on-exit flag for a file descriptor. */
 extern void close_exec_fd(int fd);
 
+
+/**
+ * An observance calls functions when a file descritor becomes
+ * read-ready or write-ready.
+ */
+struct observance {
+	/* The file descriptor observed.  */
+	int fd;
+
+	/* Function to call when read becomes ready. */
+	void (*ready)(lua_State *L, struct observance *observance);
+	
+	/* Function to call when write becomes ready.  */
+	void (*writey)(lua_State *L, struct observance *observance);
+
+	/* Function that tidies up, closes fd, frees extra data. etc. */
+	void (*tidy)(struct observance *observance);
+
+	/* Extra tokens to pass to the functions  */
+	void *extra;
+};
+
 /* makes the core to observe a file descriptor */
-extern void observe_fd(
-	int fd, 
-	void (*ready)(lua_State *L, int fd, void *extra), 
-	void (*writey)(lua_State *L, int fd, void *extra), 
-	void *extra);
+extern void
+observe_fd(int fd, 
+           void (*ready) (lua_State *L, struct observance *observance), 
+           void (*writey)(lua_State *L, struct observance *observance),
+           void (*tidy)  (struct observance *observance),
+           void *extra);
 
 /* stops the core to observe a file descriptor */
-extern void unobserve_fd(int fd);
+extern void nonobserve_fd(int fd);
 
 /*-----------------------------------------------------------------------------
  * inotify
  */
 extern void register_inotify(lua_State *L);
 extern void open_inotify(lua_State *L);
-extern void close_inotify();
-
-
 
 #endif
