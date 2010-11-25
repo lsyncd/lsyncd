@@ -20,7 +20,7 @@ if lsyncd_version then
 		"You cannot use the lsyncd runner as configuration file!")
 	lsyncd.terminate(-1) -- ERRNO
 end
-lsyncd_version = "2.0beta2"
+lsyncd_version = "2.0beta3"
 
 -----
 -- Hides the core interface from user scripts
@@ -2599,16 +2599,16 @@ local default_rsyncssh = {
 	-- Spawns rsync for a list of events
 	--
 	action = function(inlet) 
-		local event = inlet.getEvent()
+		local event, event2 = inlet.getEvent()
 		local config = inlet.getConfig()
 		
 		-- makes move local on host
 		if event.etype == 'Move' then
-			log("Normal", "Moving ",event.path," -> ",event.path2)
+			log("Normal", "Moving ",event.path," -> ",event2.path)
 			spawn(event, "/usr/bin/ssh", 
 				config.host, "mv",
 				config.targetdir .. event.path, 
-				config.targetdir .. event.path2)
+				config.targetdir .. event2.path)
 			return
 		end
 		
@@ -2736,8 +2736,13 @@ local default_rsyncssh = {
 	-----
 	-- allow several processes
 	--
-	maxProcesses = 1,
-
+	maxProcesses = 3,
+	
+	------
+	-- Let the core not split move event.
+	--
+	onMove = true,
+	
 	-----
 	-- Default delay. 
 	--

@@ -31,7 +31,7 @@ posix.sleep(1)
 churn(srcdir, 100)
 
 cwriteln("waiting for Lsyncd to finish its jobs.")
-posix.sleep(20)
+posix.sleep(30)
 
 cwriteln("killing the Lsyncd daemon")
 posix.kill(pid)
