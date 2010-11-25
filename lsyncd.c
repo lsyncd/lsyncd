@@ -921,7 +921,6 @@ l_configure(lua_State *L)
 	return 0;
 }
 
-
 static const luaL_reg lsyncdlib[] = {
 		{"addtoclock",   l_addtoclock   },
 		{"clockbefore",  l_clockbefore  },
@@ -946,13 +945,13 @@ static const luaL_reg lsyncdlib[] = {
  * Dummy variable whos address is used as the cores index in the lua registry
  * to the lua runners function table in the lua registry.
  */
-static int runner;
+static int runner = 0;
 
 /**
  * Dummy variable whos address is used as the cores index n the lua registry
  * to the lua runners error handler.
  */
-static int callError;
+static int callError = 0;
 
 /**
  * Pushes a function from the runner on the stack.
@@ -1521,6 +1520,9 @@ main1(int argc, char *argv[])
 				obs->tidy(obs);
 			}
 		}
+		observances_len    = 0;
+		nonobservances_len = 0;
+		observance_action  = false;
 	}
 	{
 		/* frees logging categories */
