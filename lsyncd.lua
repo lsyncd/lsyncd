@@ -2329,7 +2329,8 @@ end
 -----
 -- Called when an inotify event arrived.
 -- Simply forwards it directly to the object.
-runner.inotifyEvent = Inotifies.event
+--
+runner.inotifyEvent = Inotify.event
 
 -----
 -- Collector for every child process that finished in startup phase
