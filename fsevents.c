@@ -23,12 +23,21 @@
 
 #include "lsyncd.h"
 
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+
+static const luaL_reg lfseventslib[] = {
+		{NULL, NULL}
+};
+
 /** 
  * registers fsevents functions.
  */
 extern void
 register_fsevents(lua_State *L) {
-	// TODO
+	lua_pushstring(L, "fsevents");
+	luaL_register(L, "fsevents", lfseventslib);
 }
 
 /** 
