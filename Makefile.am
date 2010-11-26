@@ -1,7 +1,11 @@
 AUTOMAKE_OPTIONS = foreign
 CFLAGS = -Wall $(LIBLUA_CFLAGS) 
 bin_PROGRAMS = lsyncd
-lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua inotify.c
+lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua
+if INOTIFY
+lsyncd_SOURCES += inotify.c
+endif
+
 lsyncd_LDADD = $(LIBLUA_LIBS)
 exampledir = $(datarootdir)/doc/@PACKAGE@
 dist_example_DATA = \

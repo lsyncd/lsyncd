@@ -1402,8 +1402,11 @@ local Syncs = (function()
 		end
 
 		-- loads a default value for an option if not existent
+		if not settings then
+			settings = {}
+		end
 		local defaultValues = {
-			'action', 
+			'action',  
 			'collapse', 
 			'collapseTable', 
 			'collect', 
@@ -1464,7 +1467,7 @@ end
 -- So lsyncd can work with other notifications mechanisms just
 -- by changing this.
 --
-local Inotifies = (function()
+local Inotify = (function()
 
 	-----
 	-- A list indexed by inotifies watch descriptor yielding the 
@@ -1514,7 +1517,7 @@ local Inotifies = (function()
 	--
 	local function addWatch(path, recurse, raiseSync, raiseTime)
 		log("Function", 
-			"Inotifies.addWatch(",path,", ",recurse,", ",
+			"Inotify.addWatch(",path,", ",recurse,", ",
 			raiseSync,", ",raiseTime,")")
 
 		-- lets the core registers watch with the kernel
@@ -1574,8 +1577,8 @@ local Inotifies = (function()
 	--
 	local function addSync(sync, root)
 		if syncRoots[sync] then
-			error("internal fail, duplicate sync in Inotifies()")
-		end	
+			error("internal fail, duplicate sync in Inotify.addSync()")
+		end
 		syncRoots[sync] = root
 		addWatch(root, true)
 	end
@@ -1957,7 +1960,7 @@ local StatusFile = (function()
 			f:write("\n")
 		end
 		
-		Inotifies.statusReport(f)
+		Inotify.statusReport(f)
 		f:close()
 	end
 
@@ -2072,7 +2075,6 @@ USAGE:
     lsyncd [OPTIONS] -rsyncssh [SOURCE] [HOST] [TARGETDIR]
 
 OPTIONS:
-  -dryrun             Subprocesses are not actually invoked.
   -help               Shows this
   -log    all         Logs everything (debug)
   -log    scarce      Logs errors only
@@ -2109,10 +2111,6 @@ function runner.configure(args)
 	-- a list of all valid --options
 	local options = {
 		-- log is handled by core already.
-		dryrun   =
-			{0,	function()
-				clSettings.dryrun=true
-			end},
 		log      = 
 			{1, nil},
 		logfile   = 
@@ -2283,7 +2281,7 @@ function runner.initialize()
 
 	-- runs through the Syncs created by users
 	for _, s in Syncs.iwalk() do
-		Inotifies.addSync(s, s.source)
+		Inotify.addSync(s, s.source)
 		if s.config.init then
 			InletControl.setSync(s)
 			s.config.init(Inlet)
@@ -2409,42 +2407,13 @@ function spawn(agent, binary, ...)
 	if lsyncdStatus == "fade" then
 		log("Normal", "ignored spawn processs since status fading")
 	end
-	if not settings.dryrun then
-		local pid = lsyncd.exec(binary, ...)
-		if pid and pid > 0 then
-			local sync = InletControl.getSync()
-			local delay = InletControl.getDelay(agent)
-			if delay then
-				delay.status = "active"
-				sync.processes[pid] = delay
-			else 
-				local dlist = InletControl.getDelayList(agent)
-				if not dlist then
-					error("spawning with an unknown agent", 2)
-				end
-				for k, d in pairs(dlist) do
-					if type(k) == "number" then
-						d.status = "active"
-					end
-				end
-				sync.processes[pid] = dlist
-			end
-		end
-	else
-		local a1, a2 = ...
-		if a1 ~= "<" then
-			log("Normal", "would call ", binary, " ", table.concat({...}, " "))
-		else
-			local aa = {...}
-			table.remove(aa, 1)
-			table.remove(aa, 1)
-			log("Normal", "would call ", binary, " ", table.concat(aa, " "), 
-			    "\ninput pipe <\n", a2)
-		end
+	local pid = lsyncd.exec(binary, ...)
+	if pid and pid > 0 then
 		local sync = InletControl.getSync()
 		local delay = InletControl.getDelay(agent)
 		if delay then
-			sync:removeDelay(delay)
+			delay.status = "active"
+			sync.processes[pid] = delay
 		else 
 			local dlist = InletControl.getDelayList(agent)
 			if not dlist then
@@ -2452,9 +2421,10 @@ function spawn(agent, binary, ...)
 			end
 			for k, d in pairs(dlist) do
 				if type(k) == "number" then
-					sync:removeDelay(d)
+					d.status = "active"
 				end
 			end
+			sync.processes[pid] = dlist
 		end
 	end
 end
@@ -2465,6 +2435,7 @@ end
 function spawnShell(agent, command, ...)
 	return spawn(agent, "/bin/sh", "-c", command, "/bin/sh", ...)
 end
+
 
 -----
 -- Comfort routine also for user.
@@ -2481,27 +2452,6 @@ end
 function string.ends(String,End)
 	return End=='' or string.sub(String,-string.len(End))==End
 end
-
-
-------
--- Replaces default os.execute with a warning message,
--- doing the execute nevertheless, if not in dryrun.
---
-local os_execute = os.execute
-os.execute = function(...)
-	log("Warn", "using os.execute makes Lsyncd splutter, use spawn() instead.")
-	if not settings.dryrun then
-		os_execute(...)
-	else
-		log("Normal", "would os.execute ", table.concat({...}, " "))
-	end
-end
-
------
--- An empty settings table optionally for the config to 
--- expand instead of replace.
---
-settings = {}
 
 
 --============================================================================
@@ -2926,11 +2876,6 @@ default = {
 		end
 		return rc
 	end,
-
-	-----
-	-- default Delay
-	--
-	delay = 5,
 
 	-----
 	-- called on (re)initalizing of Lsyncd.

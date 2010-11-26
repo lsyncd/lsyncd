@@ -71,7 +71,7 @@ static int
 l_addwatch(lua_State *L)
 {
 	const char *path = luaL_checkstring(L, 1);
-	int wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
+	lua_Integer wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
 	printlogf(L, "Inotify", "addwatch(%s)->%d", path, wd);
 	lua_pushinteger(L, wd);
 	return 1;
@@ -86,7 +86,7 @@ l_addwatch(lua_State *L)
 static int
 l_rmwatch(lua_State *L)
 {
-	int wd = luaL_checkinteger(L, 1);
+	lua_Integer wd = luaL_checkinteger(L, 1);
 	inotify_rm_watch(inotify_fd, wd);
 	printlogf(L, "Inotify", "rmwatch()<-%d", wd);
 	return 0;
@@ -252,13 +252,8 @@ static char * readbuf = NULL;
  * to the runner.
  */
 static void
-inotify_ready(lua_State *L, struct observance *observance)
+inotify_ready(lua_State *L, int fd, void *extra)
 {
-	if (observance->fd != inotify_fd) {
-		logstring("Error", 
-			"internal fail, inotify_ready on non-inotify file descriptor.");
-		exit(-1); // ERRNO
-	}
 	while(true) {
 		ptrdiff_t len; 
 		int err;
@@ -312,24 +307,6 @@ inotify_ready(lua_State *L, struct observance *observance)
 	}
 }
 
-/**
- * Called by function pointer when the core doesnt want the
- * inotify fd anymore (term, hup or overflow)
- */
-static void
-inotify_tidy(struct observance *observance)
-{
-	if (observance->fd != inotify_fd) {
-		logstring("Error", 
-			"internal fail, inotify_ready on non-inotify file descriptor.");
-		exit(-1); // ERRNO
-	}
-	close(inotify_fd);
-	inotify_fd = -1;
-	free(readbuf);
-	readbuf = NULL;
-}
-
 /** 
  * registers inotify functions.
  */
@@ -361,6 +338,16 @@ open_inotify(lua_State *L) {
 
 	close_exec_fd(inotify_fd);
 	non_block_fd(inotify_fd);
-	observe_fd(inotify_fd, inotify_ready, NULL, inotify_tidy, NULL);
+	observe_fd(inotify_fd, inotify_ready, NULL, NULL);
+}
+
+/** 
+ * closes inotify 
+ */
+extern void
+close_inotify() {
+	close(inotify_fd);
+	free(readbuf);
+	readbuf = NULL;
 }
 
