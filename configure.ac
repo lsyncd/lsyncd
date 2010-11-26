@@ -18,7 +18,7 @@ AC_CHECK_HEADERS([sys/inotify.h])
 ###
 # --with-runner option
 AC_ARG_WITH([runner],
-[  --with-runner=<dir>    Specify directory where lsyncds part written in Lua will be placed.
+[  --with-runner=<dir>     Specify directory where lsyncds part written in Lua will be placed.
                           If missing it will be compiled into the binary])
 if test "x${with_runner}" != x; then
 	AC_DEFINE_UNQUOTED(LSYNCD_DEFAULT_RUNNER_FILE, "${with_runner}/lsyncd.lua", "descr")
@@ -29,7 +29,7 @@ AM_CONDITIONAL([RUNNER],  [test x${with_runner} != x])
 ###
 # --without-inotify option
 AC_ARG_WITH([inotify],
-[  --without-inotify      Do not compile Linux inotify event interface (on by default)])
+[  --without-inotify       Do not compile Linux inotify event interface. On by default.])
 if test "x${with_inotify}" == xno; then
 	echo "compiling without inotify"
 else
@@ -37,6 +37,22 @@ else
 	AC_DEFINE(LSYNCD_WITH_INOTIFY,,"descr")
 fi
 AM_CONDITIONAL([INOTIFY], [test x${with_inotify} != xno])
+
+###
+# --with-fsevents 
+AC_ARG_WITH([fsevents],
+[  --with-fsevents=DIR     Uses MacOS (10.5) /dev/fsevents, experimental! Off by default.
+                          As DIR specify dir where xnu headers can be found.])
+if test "x${with_fsevents}" == xno; then
+	with_fsevents=
+fi
+if test "x${with_fsevents}" != x; then
+	echo "compiling with fsevents. Warning experimental!"
+	AC_DEFINE(LSYNCD_WITH_FSEVENTS,,"descr")
+else
+	echo "compiling without fsevents"
+fi
+AM_CONDITIONAL([FSEVENTS], [test x${with_fsevents} != x])
 
 # Checks for typedefs, structures, and compiler characteristics.
 # Checks for library functions.

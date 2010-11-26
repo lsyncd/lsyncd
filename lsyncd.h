@@ -116,10 +116,20 @@ extern void unobserve_fd(int fd);
 /*-----------------------------------------------------------------------------
  * inotify
  */
+#ifdef LSYNCD_WITH_INOTIFY
 extern void register_inotify(lua_State *L);
 extern void open_inotify(lua_State *L);
 extern void close_inotify();
+#endif
 
+/*-----------------------------------------------------------------------------
+ * /dev/fsevents
+ */
+#ifdef LSYNCD_WITH_FSEVENTS
+extern void register_fsevents(lua_State *L);
+extern void open_fsevents(lua_State *L);
+extern void close_fsevents();
+#endif
 
 
 #endif

@@ -40,16 +40,18 @@
  * The Lua part of lsyncd if compiled into the binary.
  */
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
-extern char _binary_luac_out_start;
-extern char _binary_luac_out_end; 
+	extern char _binary_luac_out_start;
+	extern char _binary_luac_out_end; 
 #endif
 
 
 /**
  * The default notification system to use.
  */
-#ifdef LSYNCD_WITH_INOTIFY
-extern char *default_notify = "Inotify";
+#if   defined  LSYNCD_WITH_INOTIFY
+	static char *default_notify = "Inotify";
+#elif defined LSYNCD_WITH_FSEVENTS
+	static char *default_notify = "FsEvents";
 #else
 #	error "need at least one notifcation system. please rerun ./configure"
 #endif
@@ -73,7 +75,7 @@ static bool is_daemon = false;
  * True after first configuration phase. This is to write configuration error
  * messages to stdout/stderr after being first started. Then it uses whatever
  * it has been configured to. This survives a reset by HUP signal or 
- * inotify OVERFLOW!
+ * inotify OVERFLOW.
  */
 static bool running = false;
 
@@ -1142,12 +1144,15 @@ masterloop(lua_State *L)
 		lua_pop(L, 2);
 
 		if (have_alarm && time_before_eq(alarm_time, now)) {
-			/* there is a delay that wants to be handled already thus do not 
-			 * read from inotify_fd and jump directly to its handling */
+			/* there is a delay that wants to be handled already thus instead of  
+			 * reading/writing from observances it jumps directly to handling */
+
+			// TODO: Actually it might be smarter to handler observances eitherway.
+			//       since event queues might overflow.
 			logstring("Masterloop", "immediately handling delays.");
 		} else {
 			/* use select() to determine what happens next
-			 * + a new event on inotify
+			 * + a new event on an observance
 			 * + an alarm on timeout  
 			 * + the return of a child process */
 			struct timespec tv;
@@ -1336,8 +1341,14 @@ main1(int argc, char *argv[])
 	lua_setglobal(L, "lysncd");
 	
 	lua_getglobal(L, "lysncd");
+#ifdef LSYNCD_WITH_INOTIFY
 	register_inotify(L);
 	lua_settable(L, -3);
+#endif
+#ifdef LSYNCD_WITH_FSEVENTS
+	register_fsevents(L);
+	lua_settable(L, -3);
+#endif
 	lua_pop(L, 1);
 
 	if (check_logcat("Debug") >= settings.log_level) {
@@ -1509,7 +1520,12 @@ main1(int argc, char *argv[])
 		}
 	}
 
+#ifdef LSYNCD_WITH_INOTIFY
 	open_inotify(L);
+#endif
+#ifdef LSYNCD_WITH_FSEVENTS
+	open_fsevents(L);
+#endif
 
 	{
 		/* adds signal handlers *
@@ -1529,7 +1545,8 @@ main1(int argc, char *argv[])
 		/* runs initialitions from runner 
 		 * lua code will set configuration and add watches */
 		load_runner_func(L, "initialize");
-		if (lua_pcall(L, 0, 0, -2)) {
+		lua_pushstring(L, default_notify);
+		if (lua_pcall(L, 1, 0, -3)) {
 			exit(-1); // ERRNO
 		}
 		lua_pop(L, 1);
@@ -1566,7 +1583,12 @@ main1(int argc, char *argv[])
 	settings.log_level = 0,
 	settings.nodaemon = false,
 
+#ifdef LSYNCD_WITH_INOTIFY
 	close_inotify();
+#endif
+#ifdef LSYNCD_WITH_FSEVENTS
+	close_fsevents();
+#endif
 	lua_close(L);
 	return 0;
 }
