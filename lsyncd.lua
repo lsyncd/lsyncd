@@ -1403,7 +1403,7 @@ local Syncs = (function()
 
 		-- loads a default value for an option if not existent
 		local defaultValues = {
-			'action',  
+			'action', 
 			'collapse', 
 			'collapseTable', 
 			'collect', 
@@ -2926,6 +2926,11 @@ default = {
 		end
 		return rc
 	end,
+
+	-----
+	-- default Delay
+	--
+	delay = 5,
 
 	-----
 	-- called on (re)initalizing of Lsyncd.

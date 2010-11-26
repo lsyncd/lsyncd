@@ -21,19 +21,21 @@ prefix = ""
 -- for testing purposes. uses bash command to hold local dirs in sync.
 --
 bash = {
+	delay = 0,
 
-	maxProcesses = 3,
+	maxProcesses = 1,
 
+	-- calls `cp -r SOURCE/* TARGET` only when there is something in SOURCE
 	onStartup = 
 		[[if [ "$(ls -A ^source)" ]; then cp -r ^source* ^target; fi]],
 
-	onCreate = prefix..[[cp -r ^sourcePathname ^targetPathname]],
+	onCreate = prefix..[[cp -r ^sourcePath ^targetPath]],
 	
-	onModify = prefix..[[cp -r ^sourcePathname ^targetPathname]],
+	onModify = prefix..[[cp -r ^sourcePath ^targetPath]],
 	
-	onDelete = prefix..[[rm -rf ^targetPathname]],
+	onDelete = prefix..[[rm -rf ^targetPath]],
 
-	onMove   = prefix..[[mv ^o.targetPathname ^d.targetPathname]],
+	onMove   = prefix..[[mv ^o.targetPath ^d.targetPath]],
 }
 
 sync{bash, source="src", target="/path/to/trg/"}
