@@ -20,17 +20,20 @@ dist_example_DATA = \
 	examples/lrsyncssh.lua
 TESTS = tests/l4-rsync-data.sh
 
+man1_MANS = doc/lsyncd.1
+
+doc/lsyncd.1: doc/lsyncd.1.xml
+	xsltproc -o $@ -nonet /etc/asciidoc/docbook-xsl/manpage.xsl $<
+
+doc/lsyncd.1.xml: doc/lsyncd.1.txt
+	asciidoc -o $@ -b docbook -d manpage $<
 
 if RUNNER
-
-# installs the runner
+# installs the runner script
 runnerdir = $(RUNNER_DIR)
 runner_DATA = lsyncd.lua
-
 else
-
 # or compiles it into the binary
-
 lsyncd_LDADD += luac.o
 
 objarch: | lsyncd.o
@@ -48,6 +51,5 @@ luac.o: luac.out objarch objtarget
 
 luac.out: lsyncd.lua
 	luac $<
-
 endif
 
