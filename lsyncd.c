@@ -1486,7 +1486,15 @@ main1(int argc, char *argv[])
 			lua_pushstring(L, argv[argp++]);
 			lua_settable(L, -3);
 		}
-		if (lua_pcall(L, 1, 1, -3)) {
+		/* creates a table with the cores event monitor interfaces */
+		idx = 0;
+		lua_newtable(L);
+		while (monitors[idx]) {
+			lua_pushnumber(L, idx + 1);
+			lua_pushstring(L, monitors[idx++]);
+			lua_settable(L, -3);
+		}
+		if (lua_pcall(L, 2, 1, -3)) {
 			exit(-1); // ERRNO
 		}
 		s = lua_tostring(L, -1);
@@ -1543,17 +1551,11 @@ main1(int argc, char *argv[])
 	}
 
 	{
-		int idx = 1;
+		int idx = 0;
 		/* runs initialitions from runner 
 		 * lua code will set configuration and add watches */
 		load_runner_func(L, "initialize");
-		lua_newtable(L);
-		while (monitors[idx]) {
-			lua_pushnumber(L, idx);
-			lua_pushstring(L, monitors[idx++]);
-			lua_settable(L, -3);
-		}
-		if (lua_pcall(L, 1, 0, -3)) {
+		if (lua_pcall(L, 0, 0, -2)) {
 			exit(-1); // ERRNO
 		}
 		lua_pop(L, 1);

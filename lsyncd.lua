@@ -1697,6 +1697,30 @@ local Inotify = (function()
 	}
 end)()
 
+-----
+-- Holds information about the event monitor capabilities
+-- of the core.
+--
+local Monitors = (function()
+	-----
+	-- The cores monitor list
+	local list = {}
+
+	-----
+	-- initializes with info received from core
+	--
+	local function initialize(clist)
+		for k, v in ipairs(clist) do
+			list[k] = v
+		end
+	end
+
+	-- public interface
+	return { list = list,
+	         initialize = initialize 
+	}
+end)()
+
 ------
 -- Writes functions for the user for layer 3 configuration.
 --
@@ -2080,6 +2104,8 @@ OPTIONS:
   -log    scarce      Logs errors only
   -log    [Category]  Turns on logging for a debug category
   -logfile FILE       Writes log to FILE (DEFAULT: uses syslog)
+  -monitor NAME       Uses operating systems event montior NAME 
+                      (inotify/fanotify/fsevents)
   -nodaemon           Does not detach and logs to stdout/stderr
   -pidfile FILE       Writes Lsyncds PID into FILE
   -runner FILE        Loads Lsyncds lua part from FILE 
@@ -2107,8 +2133,14 @@ local clSettings = {}
 --          or simply 'true' if running with rsync bevaiour
 -- terminates on invalid arguments
 --
-function runner.configure(args)
+function runner.configure(args, monitors)
+	Monitors.initialize(monitors)
+
 	-- a list of all valid --options
+	-- first paramter is number of options
+	--       if < 0 the function checks existance
+	-- second paramter is function to call when in args 
+	--
 	local options = {
 		-- log is handled by core already.
 		log      = 
@@ -2116,6 +2148,19 @@ function runner.configure(args)
 		logfile   = 
 			{1, function(file)
 				clSettings.logfile=file
+			end},
+		monitor = 
+			{-1, function(monitor)
+				if not monitor then
+					io.stdout:write("This Lsyncd supports these monitors:\n")
+					for _, v in ipairs(Monitors.list) do
+						io.stdout:write("   ",v,"\n")
+					end
+					io.stdout:write("\n");
+					lsyncd.terminate(-1); -- ERRNO
+				else
+					clSettings.monitor=monitor
+				end
 			end},
 		nodaemon = 
 			{0, function() 
@@ -2156,9 +2201,11 @@ function runner.configure(args)
 			end
 			local o = options[a]
 			if o then
-				if i + o[1] > #args then
+				if o[1] >= 0 and i + o[1] > #args then
 					log("Error",a," needs ",o[1]," arguments")
 					os.exit(-1) -- ERRNO
+				else
+					o[1] = -o[1]
 				end
 				if o[2] then
 					if o[1] == 0 then
