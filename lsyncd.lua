@@ -267,7 +267,7 @@ local Combiner = (function()
 	local combineNoMove = {
 		Attrib = {Attrib=abso, Modify=repl, Create=repl, Delete=repl },
 		Modify = {Attrib=abso, Modify=abso, Create=repl, Delete=repl },
-		Create = {Attrib=abso, Modify=abso, Create=abso, Delete=null },
+		Create = {Attrib=abso, Modify=abso, Create=abso, Delete=repl },
 		Delete = {Attrib=abso, Modify=abso, Create=repl, Delete=abso },
 	}
 	
@@ -353,7 +353,7 @@ local Combiner = (function()
 			   d2.path2:byte(-1) == 47 and string.starts(d1.path,  d2.path2) 
 			then
 				log("Delay","Move:",d2.path,"->",d2.path2,
-					"splitted by ",d1.etype,":",d1.path)
+					" splits on ",d1.etype,":",d1.path)
 				return "split"	
 			end
 			return nil
@@ -375,7 +375,7 @@ local Combiner = (function()
 			   d2.path2:byte(-1) == 47 and string.starts(d1.path2, d2.path2) 
 			then
 				log("Delay","Move:",d2.path,"->",d1.path2,
-					"splitted by Move:",d1.path,"->",d1.path2)
+					" splits on Move:",d1.path,"->",d1.path2)
 				return "split"
 			end
 			return nil
