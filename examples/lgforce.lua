@@ -56,13 +56,11 @@ fi
 -- all group permissions are set to rw
 -- and to executable flag for directories
 --
--- the hash in the first line is important, otherwise due to the starting
--- slash, Lsyncd would think it is a call to the binary /bin/chgrp only
--- and would optimize the bash away.
+-- the carret as first char tells Lsycnd to call a shell altough it
+-- starts with a slash otherwisw
 -- 
 startup = 
-[[#
-/bin/chgrp -R ]]..fgroup..[[ ^source || /bin/true &&
+[[^/bin/chgrp -R ]]..fgroup..[[ ^source || /bin/true &&
 /bin/chmod -R g+rw ^source || /bin/true &&
 /usr/bin/find ^source -type d | xargs chmod g+x 
 ]]

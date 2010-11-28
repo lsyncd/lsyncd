@@ -1,5 +1,5 @@
 AUTOMAKE_OPTIONS = foreign
-CFLAGS = -Wall $(LIBLUA_CFLAGS) 
+CFLAGS = -Wall $(LUA_CFLAGS) 
 bin_PROGRAMS = lsyncd
 lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua
 if INOTIFY
@@ -13,7 +13,7 @@ if FSEVENTS
 lsyncd_SOURCES += fsevents.c
 endif
 
-lsyncd_LDADD = $(LIBLUA_LIBS)
+lsyncd_LDADD = $(LUA_LIBS)
 exampledir = $(datarootdir)/doc/@PACKAGE@
 dist_example_DATA = \
 	examples/lbash.lua \

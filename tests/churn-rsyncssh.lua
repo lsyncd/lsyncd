@@ -21,7 +21,7 @@ local logs = {}
 --logs =  {"-log", "Inotify", "-log", "Exec" }
 --logs =  {"-log", "Delay"}
 
-local pid = spawn("./lsyncd", "-nodaemon", 
+local pid = spawn("./lsyncd", "-nodaemon", "-delay", "5",
                   "-rsyncssh", srcdir, "localhost", trgdir,
                   unpack(logs))
 

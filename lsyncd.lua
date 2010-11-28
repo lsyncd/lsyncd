@@ -1373,11 +1373,18 @@ local Syncs = (function()
 		local uconfig = config
 		config = {}
 		inherit(config, uconfig)
-		
-		-- at very first let the userscript 'prepare' function 
+	
+		-----
+		-- Lets settings or commandline override delay values.
+		--
+		if settings then
+			config.delay = settings.delay or config.delay
+		end
+
+		-- at very first lets the userscript 'prepare' function 
 		-- fill out more values.
 		if type(config.prepare) == "function" then
-			-- give explicitly a writeable copy of config.
+			-- explicitly gives a writeable copy of config.
 			config.prepare(config)
 		end 
 
@@ -1994,8 +2001,12 @@ local functionWriter = (function()
 		str = string.match(str, "^%s*(.-)%s*$")
 
 		local ft
-		if string.byte(str, 1, 1) == 47 then
-			 ft = translateBinary(str)
+		if string.byte(str, 1, 1) == 47 then 
+			-- starts with /
+			 ft = translateBinary(str) 
+		elseif string.byte(str, 1, 1) == 94 then
+			-- starts with ^
+			 ft = translateShell(str:sub(2, -1))
 		else
 			 ft = translateShell(str)
 		end
@@ -2185,6 +2196,7 @@ USAGE:
     lsyncd [OPTIONS] -rsyncssh [SOURCE] [HOST] [TARGETDIR]
 
 OPTIONS:
+  -delay SECS         Overrides default delay times
   -help               Shows this
   -log    all         Logs everything (debug)
   -log    scarce      Logs errors only
@@ -2232,11 +2244,15 @@ function runner.configure(args, monitors)
 	--
 	local options = {
 		-- log is handled by core already.
+		delay    = 
+			{1, function(secs)
+				clSettings.delay = secs
+			end},
 		log      = 
 			{1, nil},
 		logfile   = 
 			{1, function(file)
-				clSettings.logfile=file
+				clSettings.logfile = file
 			end},
 		monitor = 
 			{-1, function(monitor)
@@ -2289,29 +2305,28 @@ function runner.configure(args, monitors)
 				a = a:sub(2)
 			end
 			local o = options[a]
-			if o then
-				if o[1] >= 0 and i + o[1] > #args then
-					log("Error",a," needs ",o[1]," arguments")
-					os.exit(-1) -- ERRNO
-				else
-					o[1] = -o[1]
-				end
-				if o[2] then
-					if o[1] == 0 then
-						o[2]()
-					elseif o[1] == 1 then
-						o[2](args[i + 1])
-					elseif o[1] == 2 then
-						o[2](args[i + 1], args[i + 2])
-					elseif o[1] == 3 then
-						o[2](args[i + 1], args[i + 2], args[i + 3])
-					end
-				end
-				i = i + o[1]
-			else
+			if not o then
 				log("Error","unknown option command line option ", args[i])
 				os.exit(-1) -- ERRNO
 			end
+			if o[1] >= 0 and i + o[1] > #args then
+				log("Error",a," needs ",o[1]," arguments")
+				os.exit(-1) -- ERRNO
+			elseif o[1] < 0 then
+				o[1] = -o[1]
+			end
+			if o[2] then
+				if o[1] == 0 then
+					o[2]()
+				elseif o[1] == 1 then
+					o[2](args[i + 1])
+				elseif o[1] == 2 then
+					o[2](args[i + 1], args[i + 2])
+				elseif o[1] == 3 then
+					o[2](args[i + 1], args[i + 2], args[i + 3])
+				end
+			end
+			i = i + o[1]
 		end
 		i = i + 1
 	end
@@ -2644,12 +2659,26 @@ local default_rsync = {
 	action = function(inlet) 
 		-- gets all events ready for syncing
 		local elist = inlet.getEvents()
+	
+		-----
+		-- replaces filter rule by literals
+		--
+		local function sub(p) 
+			if not p then
+				return 
+			end
+			return p:gsub("%?", "\\?"):
+			   	     gsub("%*", "\\*"):
+					 gsub("%[", "\\["):
+					 gsub("%]", "\\]")
+		end
+
 		local paths = elist.getPaths(
 			function(etype, path1, path2) 
 				if etype == "Delete" and string.byte(path1, -1) == 47 then
-					return path1 .. "***", path2
+					return sub(path1) .. "***", sub(path2)
 				else
-					return path1, path2
+					return sub(path1), sub(path2)
 				end
 			end)
 		-- stores all filters with integer index	
@@ -2685,21 +2714,22 @@ local default_rsync = {
 		end
 		
 		local filterS = table.concat(filterI, "\n")
+		local filter0 = table.concat(filterI, "\000")
 		log("Normal", 
 			"Calling rsync with filter-list of new/modified files/dirs\n", 
 			filterS)
 		local config = inlet.getConfig()
 		spawn(elist, "/usr/bin/rsync", 
-			"<", filterS, 
+			"<", filter0,
 			config.rsyncOps,
 			"-r",
 			"--delete",
 			"--force",
+			"--from0",
 			"--include-from=-",
 			"--exclude=*",
 			config.source, 
 			config.target)
-		
 	end,
 
 	-----
@@ -2782,10 +2812,12 @@ local default_rsyncssh = {
 			end
 
 			local sPaths = table.concat(paths, "\n")
+			local zPaths = table.concat(paths, "\000")
 			log("Normal", "Deleting list\n", sPaths)
 			spawn(elist, "/usr/bin/ssh", 
-				"<", sPaths,
-				config.host, "xargs", "rm -rf")
+				"<", zPaths,
+				config.host, 
+				"xargs", "-0", "rm -rf")
 			return
 		end
 
@@ -2802,11 +2834,13 @@ local default_rsyncssh = {
 				paths[k] = string.sub(v, 1, -2)
 			end
 		end
-		local sPaths = table.concat(paths, "\n") -- TODO 0 delimiter
+		local sPaths = table.concat(paths, "\n") 
+		local zPaths = table.concat(paths, "\000")
 		log("Normal", "Rsyncing list\n", sPaths)
 		spawn(elist, "/usr/bin/rsync", 
-			"<", sPaths, 
+			"<", zPaths, 
 			config.rsyncOps,
+			"--from0",
 			"--files-from=-",
 			config.source, 
 			config.host .. ":" .. config.targetdir)
@@ -3070,6 +3104,11 @@ default = {
 	--
 	statusIntervall = 10,
 }
+
+-----
+-- provides a default empty settings table.
+--
+settings = {}
 
 -----
 -- Returns the core the runners function interface.

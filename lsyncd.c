@@ -642,6 +642,7 @@ l_exec(lua_State *L)
 
 	/* the pipe to text */
 	char const *pipe_text = NULL;
+	size_t pipe_len = 0;
 	/* the arguments */
 	char const **argv;
 	/* pipe file descriptors */
@@ -663,7 +664,11 @@ l_exec(lua_State *L)
 
 	if (argc >= 2 && !strcmp(luaL_checkstring(L, 2), "<")) {
 		/* pipes something into stdin */
-		pipe_text = luaL_checkstring(L, 3);
+		if (!lua_isstring(L, 3)) {
+			logstring("Error", "in spawn(), expected a string after pipe '<'");
+			exit(-1); // ERRNO
+		}
+		pipe_text = lua_tolstring(L, 3, &pipe_len);
 		/* creates the pipe */
 		if (pipe(pipefd) == -1) {
 			logstring("Error", "cannot create a pipe!");
@@ -716,17 +721,16 @@ l_exec(lua_State *L)
 	}
 
 	if (pipe_text) {
-		int tlen = strlen(pipe_text);
 		int len;
 		/* first closes read-end of pipe, this is for child process only */
 		close(pipefd[0]);
 		/* start filling the pipe */
-		len = write(pipefd[1], pipe_text, tlen);
+		len = write(pipefd[1], pipe_text, pipe_len);
 		if (len < 0) {
 			logstring("Normal", "immediatly broken pipe.");
 			close(pipefd[0]);
 		}
-		if (len == tlen) {
+		if (len == pipe_len) {
 			/* usual and best case, the pipe accepted all input -> close */
 			close(pipefd[1]);
 			logstring("Exec", "one-sweeped pipe");
@@ -734,8 +738,9 @@ l_exec(lua_State *L)
 			struct pipemsg *pm;
 			logstring("Exec", "adding pipe observance");
 			pm = s_calloc(1, sizeof(struct pipemsg));
-			pm->text = s_strdup(pipe_text);
-			pm->tlen = tlen;
+			pm->text = s_calloc(pipe_len + 1, sizeof(char*));
+			memcpy(pm->text, pipe_text, pipe_len + 1);
+			pm->tlen = pipe_len;
 			pm->pos  = len;
 			observe_fd(pipefd[1], NULL, pipe_writey, pipe_tidy, pm);
 		}
