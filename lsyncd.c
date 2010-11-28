@@ -44,17 +44,32 @@
 	extern char _binary_luac_out_end; 
 #endif
 
-
 /**
- * The default notification system to use.
+ * Makes sure there is one monitor.
  */
-#if   defined  LSYNCD_WITH_INOTIFY
-	static char *default_notify = "Inotify";
-#elif defined LSYNCD_WITH_FSEVENTS
-	static char *default_notify = "FsEvents";
-#else
+#ifndef LSYNCD_WITH_INOTIFY
+#ifndef LSYNCD_WITH_FANOTIFY
+#ifndef LSYNCD_WITH_FSEVENTS
 #	error "need at least one notifcation system. please rerun ./configure"
 #endif
+#endif
+#endif
+
+/**
+ * All monitors supported by this Lsyncd.
+ */
+static char *monitors[] = {
+#ifdef LSYNCD_WITH_INOTIFY
+	"inotify",
+#endif
+#ifdef LSYNCD_WITH_FANOTIFY
+	"fanotify",
+#endif
+#ifdef LSYNCD_WITH_FSEVENTS
+	"fsevents",
+#endif
+	NULL,
+};
 
 /**
  * configuration parameters
@@ -1542,10 +1557,16 @@ main1(int argc, char *argv[])
 	}
 
 	{
+		int idx = 1;
 		/* runs initialitions from runner 
 		 * lua code will set configuration and add watches */
 		load_runner_func(L, "initialize");
-		lua_pushstring(L, default_notify);
+		lua_newtable(L);
+		while (monitors[idx]) {
+			lua_pushnumber(L, idx);
+			lua_pushstring(L, monitors[idx++]);
+			lua_settable(L, -3);
+		}
 		if (lua_pcall(L, 1, 0, -3)) {
 			exit(-1); // ERRNO
 		}

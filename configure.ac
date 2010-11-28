@@ -29,7 +29,7 @@ AM_CONDITIONAL([RUNNER],  [test x${with_runner} != x])
 ###
 # --without-inotify option
 AC_ARG_WITH([inotify],
-[  --without-inotify       Do not compile Linux inotify event interface. On by default.])
+[  --without-inotify       Do not use Linux inotify event interface. On by default.])
 if test "x${with_inotify}" == xno; then
 	echo "compiling without inotify"
 else
@@ -39,20 +39,32 @@ fi
 AM_CONDITIONAL([INOTIFY], [test x${with_inotify} != xno])
 
 ###
+# --without-inotify option
+AC_ARG_WITH([fanotify],
+[  --with-fanotify       Uses Linux new fanotify event interface. EXPERIMENTAL!
+                        Off by default.])
+if test "x${with_fanotify}" == xno; then
+	echo "compiling without fanotify"
+else
+	echo "compiling with fanotify - WARNING experimental!"
+	AC_DEFINE(LSYNCD_WITH_FANOTIFY,,"descr")
+fi
+AM_CONDITIONAL([FANOTIFY], 
+	[test x${with_fanotify} != x -a x${with_fanotify} != xno])
+
+###
 # --with-fsevents 
 AC_ARG_WITH([fsevents],
-[  --with-fsevents=DIR     Uses MacOS (10.5) /dev/fsevents, experimental! Off by default.
-                          As DIR specify dir where xnu headers can be found.])
-if test "x${with_fsevents}" == xno; then
-	with_fsevents=
-fi
+[  --with-fsevents         Uses MacOS (10.5) /dev/fsevents. EXPERIMENTAL!
+                          Off by default.])
 if test "x${with_fsevents}" != x; then
-	echo "compiling with fsevents. Warning experimental!"
+	echo "compiling with fsevents. WARNING experimental!"
 	AC_DEFINE(LSYNCD_WITH_FSEVENTS,,"descr")
 else
 	echo "compiling without fsevents"
 fi
-AM_CONDITIONAL([FSEVENTS], [test x${with_fsevents} != x])
+AM_CONDITIONAL([FSEVENTS], 
+	[test x${with_fsevents} != x -a xno${with_fsevents} != xno])
 
 # Checks for typedefs, structures, and compiler characteristics.
 # Checks for library functions.
