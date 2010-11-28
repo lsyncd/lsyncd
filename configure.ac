@@ -10,8 +10,18 @@ AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
-# Checks for libraries.
-PKG_CHECK_MODULES(LIBLUA, lua5.1)
+
+###
+# Checks for lua
+PKG_CHECK_MODULES([LUA], [lua5.1  >= 5.1.3],,[
+PKG_CHECK_MODULES([LUA], [lua51   >= 5.1.3],,[
+PKG_CHECK_MODULES([LUA], [lua-5.1 >= 5.1.3],,[
+PKG_CHECK_MODULES([LUA], [lua >= 5.1.3])
+])
+])
+])
+
+###
 # Checks for header files.
 AC_CHECK_HEADERS([sys/inotify.h])
 AC_CHECK_HEADERS([sys/fanotify.h])
