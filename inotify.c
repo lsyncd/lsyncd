@@ -255,8 +255,12 @@ static char * readbuf = NULL;
  * to the runner.
  */
 static void
-inotify_ready(lua_State *L, int fd, void *extra)
+inotify_ready(lua_State *L, struct observance *obs)
 {
+	if (obs->fd != inotify_fd) {
+		logstring("Error", "Internal, inotify_fd != ob->fd");
+		exit(-1); // ERRNO
+	}
 	while(true) {
 		ptrdiff_t len; 
 		int err;
@@ -323,8 +327,8 @@ register_inotify(lua_State *L) {
  * closes inotify 
  */
 static void
-inotify_tidy(struct observance *ob) {
-	if (ob->fd != inotify_fd) {
+inotify_tidy(struct observance *obs) {
+	if (obs->fd != inotify_fd) {
 		logstring("Error", "Internal, inotify_fd != ob->fd");
 		exit(-1); // ERRNO
 	}

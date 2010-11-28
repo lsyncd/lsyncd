@@ -32,9 +32,23 @@
 static int fanotify_fd = -1;
 
 /**
+ * Adds a filesystem to watch
+ * 
+ * @param dir (Lua stack) the dir to watch the filesystem of.
+ * @return    nil
+ */
+static int
+l_watchfs(lua_State *L)
+{
+//	const char *path = luaL_checkstring(L, 1);
+	return 0;
+}
+
+/**
  * Cores fanotify functions.
  */
 static const luaL_reg lfanotifylib[] = {
+		{"watchfs", l_watchfs },
 		{NULL, NULL}
 };
 

@@ -40,18 +40,19 @@ fi
 AM_CONDITIONAL([INOTIFY], [test x${with_inotify} != xno])
 
 ###
-# --without-inotify option
-AC_ARG_WITH([fanotify],
-[  --with-fanotify       Uses Linux new fanotify event interface. EXPERIMENTAL!
-                        Off by default.])
-if test "x${with_fanotify}" == xno; then
-	echo "compiling without fanotify"
-else
-	echo "compiling with fanotify - WARNING experimental!"
-	AC_DEFINE(LSYNCD_WITH_FANOTIFY,,"descr")
-fi
-AM_CONDITIONAL([FANOTIFY], 
-	[test x${with_fanotify} != x -a x${with_fanotify} != xno])
+# --with-fanotify option
+##
+#AC_ARG_WITH([fanotify],
+#[  --with-fanotify       Uses Linux new fanotify event interface. EXPERIMENTAL!
+#                        Off by default.])
+##if test "x${with_fanotify}" == xno; then
+#	echo "compiling without fanotify"
+#else
+#	echo "compiling with fanotify - WARNING experimental!"
+#	AC_DEFINE(LSYNCD_WITH_FANOTIFY,,"descr")
+##fi
+#AM_CONDITIONAL([FANOTIFY], 
+#	[test x${with_fanotify} != x -a x${with_fanotify} != xno])
 
 ###
 # --with-fsevents 

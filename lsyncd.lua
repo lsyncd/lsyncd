@@ -36,6 +36,12 @@ _l = nil
 log  = lsyncd.log
 terminate = lsyncd.terminate
 
+
+------
+-- Predeclarations
+--
+local Monitors
+
 --============================================================================
 -- Lsyncd Prototypes 
 --============================================================================
@@ -885,7 +891,7 @@ local Sync = (function()
 		if delay.status then
 			-- collected an event
 			if delay.status ~= "active" then
-				error("internal fail, collecting a non-active process")
+				error("collecting a non-active process")
 			end
 			InletControl.setSync(self)
 			local rc = self.config.collect(InletControl.d2e(delay), exitcode)
@@ -1420,6 +1426,18 @@ local Syncs = (function()
 			end
 		end
 
+		-- the monitor to use
+		config.monitor = 
+			settings.monitor or config.monitor or Monitors.default()
+		if config.monitor ~= "inotify" 
+--		and config.monitor ~= "fanotify" 
+		then
+			local info = debug.getinfo(3, "Sl")
+			log("Error", info.short_src, ":", info.currentline,
+				": event monitor '",config.monitor,"' unknown.")
+			terminate(-1) -- ERRNO
+		end
+
 		--- creates the new sync
 		local s = Sync.new(config)
 		table.insert(list, s)
@@ -1464,8 +1482,6 @@ end
 -- sends events.
 --
 -- All inotify specific implementation should be enclosed here.
--- So lsyncd can work with other notifications mechanisms just
--- by changing this.
 --
 local Inotify = (function()
 
@@ -1572,15 +1588,15 @@ local Inotify = (function()
 	-----
 	-- adds a Sync to receive events
 	--
-	-- @param root   root dir to watch
 	-- @param sync   Object to receive events
+	-- @param rootdir   root dir to watch
 	--
-	local function addSync(sync, root)
+	local function addSync(sync, rootdir)
 		if syncRoots[sync] then
-			error("internal fail, duplicate sync in Inotify.addSync()")
+			error("duplicate sync in Inotify.addSync()")
 		end
-		syncRoots[sync] = root
-		addWatch(root, true)
+		syncRoots[sync] = rootdir
+		addWatch(rootdir, true)
 	end
 
 	-----
@@ -1683,7 +1699,7 @@ local Inotify = (function()
 	-- Writes a status report about inotifies to a filedescriptor
 	--
 	local function statusReport(f)
-		f:write("Watching ",wdpaths:size()," directories\n")
+		f:write("Inotify watching ",wdpaths:size()," directories\n")
 		for wd, path in wdpaths:walk() do
 			f:write("  ",wd,": ",path,"\n")
 		end
@@ -1698,13 +1714,82 @@ local Inotify = (function()
 end)()
 
 -----
+-- Interface to fanotify, watches a whole filesystems
+--
+-- NOT USED.
+--
+-- All fanotify specific implementation should be enclosed here.
+--
+--[[
+local Fanotify = (function()
+	-----
+	-- A list indexed by sync's containing the root path this
+	-- sync is interested in.
+	--
+	local syncPaths = {}
+
+	-----
+	-- adds a Sync to receive events
+	--
+	-- @param sync   Object to receive events
+	-- @param dir    dir to watch
+	--
+	local function addSync(sync, dir)
+		if syncRoots[sync] then
+			error("duplicate sync in Fanotify.addSync()")
+		end
+		-- TODO for non subdirs adddir only
+		lsyncd.fanotify.watchfs(dir)
+		syncRoots[sync] = dir
+	end
+
+	-----
+	-- Called when any event has occured.
+	--
+	-- @param etype     "Attrib", "Mofify", "Create", "Delete", "Move")
+	-- @param wd        watch descriptor (matches lsyncd.inotifyadd())
+	-- @param isdir     true if filename is a directory
+	-- @param time      time of event
+	-- @param filename  string filename without path
+	-- @param filename2 
+	--
+	local function event(etype, isdir, time, filename, filename2)
+		print("FANOTIFY", etype, isdir, time, filename, filename2)
+	end
+
+	-----
+	-- Writes a status report about inotifies to a filedescriptor
+	--
+	local function statusReport(f)
+		-- TODO
+	end
+
+	-- public interface
+	return { 
+		addSync = addSync, 
+		event = event, 
+		statusReport = statusReport 
+	}
+end)()
+]]--
+
+-----
 -- Holds information about the event monitor capabilities
 -- of the core.
 --
-local Monitors = (function()
+Monitors = (function()
+
 	-----
 	-- The cores monitor list
+	--
 	local list = {}
+
+	-----
+	-- The default event monitor.
+	--
+	local function default()
+		return list[1]
+	end
 
 	-----
 	-- initializes with info received from core
@@ -1716,7 +1801,8 @@ local Monitors = (function()
 	end
 
 	-- public interface
-	return { list = list,
+	return { default = default,
+			 list = list,
 	         initialize = initialize 
 	}
 end)()
@@ -2104,8 +2190,6 @@ OPTIONS:
   -log    scarce      Logs errors only
   -log    [Category]  Turns on logging for a debug category
   -logfile FILE       Writes log to FILE (DEFAULT: uses syslog)
-  -monitor NAME       Uses operating systems event montior NAME 
-                      (inotify/fanotify/fsevents)
   -nodaemon           Does not detach and logs to stdout/stderr
   -pidfile FILE       Writes Lsyncds PID into FILE
   -runner FILE        Loads Lsyncds lua part from FILE 
@@ -2118,6 +2202,11 @@ SEE:
   `man lsyncd` for further information.
 
 ]])
+
+--
+--  -monitor NAME       Uses operating systems event montior NAME 
+--                      (inotify/fanotify/fsevents)
+
 	os.exit(-1) -- ERRNO
 end
 
@@ -2328,7 +2417,15 @@ function runner.initialize()
 
 	-- runs through the Syncs created by users
 	for _, s in Syncs.iwalk() do
-		Inotify.addSync(s, s.source)
+		if s.config.monitor == "inotify" then
+			Inotify.addSync(s, s.source)
+--		elseif s.config.monitor == "fanotify" then 
+--			Fanotify.addSync(s, s.source)
+		else
+			error("sync "..s.config.name..
+				" has no known event monitor interface.")
+		end
+
 		if s.config.init then
 			InletControl.setSync(s)
 			s.config.init(Inlet)
