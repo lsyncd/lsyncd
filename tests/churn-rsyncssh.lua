@@ -18,8 +18,7 @@ posix.mkdir(trgdir)
 churn(srcdir, 10)
 
 local logs = {}
---logs =  {"-log", "Inotify", "-log", "Exec" }
---logs =  {"-log", "Delay"}
+logs =  {"-log", "Delay", "-log", "Exec"}
 
 local pid = spawn("./lsyncd", "-nodaemon", "-delay", "5",
                   "-rsyncssh", srcdir, "localhost", trgdir,
@@ -31,7 +30,7 @@ posix.sleep(1)
 churn(srcdir, 100)
 
 cwriteln("waiting for Lsyncd to finish its jobs.")
-posix.sleep(30)
+posix.sleep(10)
 
 cwriteln("killing the Lsyncd daemon")
 posix.kill(pid)
