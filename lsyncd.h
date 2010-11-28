@@ -103,15 +103,39 @@ extern void non_block_fd(int fd);
 /* Sets the close-on-exit flag for a file descriptor. */
 extern void close_exec_fd(int fd);
 
-/* makes the core to observe a file descriptor */
+
+/**
+ * An observance to be called when a file descritor becomes
+ * read-ready or write-ready.
+ */
+struct observance {
+	/* The file descriptor to observe. */
+	int fd;
+
+	/* Function to call when read becomes ready. */
+	void (*ready)(lua_State *, struct observance *);
+	
+	/* Function to call when write becomes ready.  */
+	void (*writey)(lua_State *, struct observance *);
+	
+	/* Function to call to clean up */
+	void (*tidy)(struct observance *);
+
+	/* Extra tokens to pass to the functions- */
+	void *extra;
+};
+
+/* makes the core observe a file descriptor */
 extern void observe_fd(
 	int fd, 
-	void (*ready)(lua_State *L, int fd, void *extra), 
-	void (*writey)(lua_State *L, int fd, void *extra), 
-	void *extra);
+	void (*ready) (lua_State *, struct observance *), 
+	void (*writey)(lua_State *, struct observance *), 
+	void (*tidy)  (struct observance *), 
+	void *extra
+);
 
 /* stops the core to observe a file descriptor */
-extern void unobserve_fd(int fd);
+extern void nonobserve_fd(int fd);
 
 /*-----------------------------------------------------------------------------
  * inotify
@@ -119,7 +143,14 @@ extern void unobserve_fd(int fd);
 #ifdef LSYNCD_WITH_INOTIFY
 extern void register_inotify(lua_State *L);
 extern void open_inotify(lua_State *L);
-extern void close_inotify();
+#endif
+
+/*-----------------------------------------------------------------------------
+ * fanotify
+ */
+#ifdef LSYNCD_WITH_FANOTIFY
+extern void register_fanotify(lua_State *L);
+extern void open_fanotify(lua_State *L);
 #endif
 
 /*-----------------------------------------------------------------------------
@@ -128,7 +159,6 @@ extern void close_inotify();
 #ifdef LSYNCD_WITH_FSEVENTS
 extern void register_fsevents(lua_State *L);
 extern void open_fsevents(lua_State *L);
-extern void close_fsevents();
 #endif
 
 

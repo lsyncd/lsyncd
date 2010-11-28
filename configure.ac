@@ -14,6 +14,7 @@ AC_PROG_MAKE_SET
 PKG_CHECK_MODULES(LIBLUA, lua5.1)
 # Checks for header files.
 AC_CHECK_HEADERS([sys/inotify.h])
+AC_CHECK_HEADERS([sys/fanotify.h])
 
 ###
 # --with-runner option

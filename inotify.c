@@ -92,6 +92,9 @@ l_rmwatch(lua_State *L)
 	return 0;
 }
 
+/**
+ * Cores inotify functions.
+ */
 static const luaL_reg linotfylib[] = {
 		{"addwatch",   l_addwatch   },
 		{"rmwatch",    l_rmwatch    },
@@ -317,6 +320,22 @@ register_inotify(lua_State *L) {
 }
 
 /** 
+ * closes inotify 
+ */
+static void
+inotify_tidy(struct observance *ob) {
+	if (ob->fd != inotify_fd) {
+		logstring("Error", "Internal, inotify_fd != ob->fd");
+		exit(-1); // ERRNO
+	}
+	close(inotify_fd);
+	free(readbuf);
+	readbuf = NULL;
+}
+
+
+
+/** 
  * opens and initalizes inotify.
  */
 extern void
@@ -331,23 +350,13 @@ open_inotify(lua_State *L) {
 	inotify_fd = inotify_init();
 	if (inotify_fd == -1) {
 		printlogf(L, "Error", 
-			"Cannot create inotify instance! (%d:%s)", 
+			"Cannot access inotify monitor! (%d:%s)", 
 			errno, strerror(errno));
 		exit(-1); // ERRNO
 	}
 
 	close_exec_fd(inotify_fd);
 	non_block_fd(inotify_fd);
-	observe_fd(inotify_fd, inotify_ready, NULL, NULL);
-}
-
-/** 
- * closes inotify 
- */
-extern void
-close_inotify() {
-	close(inotify_fd);
-	free(readbuf);
-	readbuf = NULL;
+	observe_fd(inotify_fd, inotify_ready, NULL, inotify_tidy, NULL);
 }
 
