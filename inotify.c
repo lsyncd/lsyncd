@@ -221,7 +221,7 @@ handle_event(lua_State *L,
 		lua_pushnumber(L, move_event_buf->wd);
 	}
 	lua_pushboolean(L, (event->mask & IN_ISDIR) != 0);
-	lua_pushinteger(L, times(NULL));
+	l_now(L);
 	if (event_type == MOVE) {
 		lua_pushstring(L, move_event_buf->name);
 		lua_pushnumber(L, event->wd);

@@ -485,6 +485,7 @@ write_pidfile(lua_State *L, const char *pidfile) {
 
 static int l_stackdump(lua_State* L);
 
+
 /**
  * Logs a message.
  *
@@ -527,6 +528,16 @@ l_log(lua_State *L)
 				}
 				lua_replace(L, i);
 				break;
+			case LUA_TUSERDATA:
+				{
+					clock_t *c = (clock_t *)
+						luaL_checkudata(L, i, "Lsyncd.jiffies");
+					double d = (*c);
+					d /= clocks_per_sec;
+					lua_pushfstring(L, "(Timestamp: %f)", d);
+					lua_replace(L, i);
+					break;
+				}
 			case LUA_TNIL:
 				lua_pushstring(L, "(nil)");
 				lua_replace(L, i);
@@ -544,79 +555,19 @@ l_log(lua_State *L)
 }
 
 /**
- * Returns (on Lua stack) true if time1 is earler than time2
- * @param (on Lua Stack) time1
- * @param (on Lua Stack) time2
- * @return the true if time1 < time2
- */
-static int
-l_clockbefore(lua_State *L) 
-{
-	clock_t t1 = (clock_t) luaL_checkinteger(L, 1);
-	clock_t t2 = (clock_t) luaL_checkinteger(L, 2);
-	lua_pushboolean(L, time_before(t1, t2));
-	return 1;
-}
-
-/**
- * Returns (on Lua stack) true if time1 is earler or eq to time2
- * @param (on Lua Stack) time1
- * @param (on Lua Stack) time2
- * @return the true if time1 <= time2
- */
-static int
-l_clockbeforeq(lua_State *L) 
-{
-	clock_t t1 = (clock_t) luaL_checkinteger(L, 1);
-	clock_t t2 = (clock_t) luaL_checkinteger(L, 2);
-	lua_pushboolean(L, time_before_eq(t1, t2));
-	return 1;
-}
-
-/**
- * Returns (on Lua stack) the earlier or two clock times.
- *
- * @param (on Lua Stack) time1
- * @param (on Lua Stack) time2
- * @return the earlier time
- */
-static int
-l_earlier(lua_State *L) 
-{
-	clock_t t1 = (clock_t) luaL_checkinteger(L, 1);
-	clock_t t2 = (clock_t) luaL_checkinteger(L, 2);
-	lua_pushinteger(L, time_before(t1, t2) ? t1 : t2);
-	return 1;
-}
-
-/**
  * Returns (on Lua stack) the current kernels 
  * clock state (jiffies)
  */
-static int
+extern int
 l_now(lua_State *L) 
 {
-	lua_pushinteger(L, times(NULL));
+	clock_t *j = lua_newuserdata(L, sizeof(clock_t));
+	luaL_getmetatable(L, "Lsyncd.jiffies");
+	lua_setmetatable(L, -2);
+	*j = times(NULL);
 	return 1;
 }
 
-/**
- * Returns (on Lua stack) the addition of a clock timer by seconds. 
- *
- * @param1 (Lua stack) the clock timer
- * @param2 (Lua stack) seconds to change clock.
- *
- * @return (Lua stack) clock timer + seconds.
- */
-static int
-l_addtoclock(lua_State *L) 
-{
-	clock_t c1 = luaL_checkinteger(L, 1);
-	clock_t c2 = luaL_checkinteger(L, 2);
-	lua_pop(L, 2);
-	lua_pushinteger(L, c1 + c2 * clocks_per_sec);
-	return 1;
-}
 
 /**
  * Executes a subprocess. Does not wait for it to return.
@@ -955,13 +906,8 @@ l_configure(lua_State *L)
 	return 0;
 }
 
-
 static const luaL_reg lsyncdlib[] = {
-		{"addtoclock",   l_addtoclock   },
-		{"clockbefore",  l_clockbefore  },
-		{"clockbeforeq", l_clockbeforeq },
 		{"configure",    l_configure    },
-		{"earlier",      l_earlier      },
 		{"exec",         l_exec         },
 		{"log",          l_log          },
 		{"now",          l_now          },
@@ -971,6 +917,127 @@ static const luaL_reg lsyncdlib[] = {
 		{"terminate",    l_terminate    },
 		{NULL, NULL}
 };
+
+/**
+ * Adds two jiffies or a number to a jiffy
+ */
+static int 
+l_jiffies_add(lua_State *L) 
+{
+	clock_t *p1 = (clock_t *) lua_touserdata(L, 1);
+	clock_t *p2 = (clock_t *) lua_touserdata(L, 2);
+	clock_t a1  = p1 ? *p1 :  luaL_checknumber(L, 1) * clocks_per_sec;
+	clock_t a2  = p2 ? *p2 :  luaL_checknumber(L, 2) * clocks_per_sec;
+	clock_t *r  = (clock_t *) lua_newuserdata(L, sizeof(clock_t));
+	luaL_getmetatable(L, "Lsyncd.jiffies");
+	lua_setmetatable(L, -2);
+	*r = a1 + a2; 
+	return 1;
+}
+
+/**
+ * Adds two jiffies or a number to a jiffy
+ */
+static int 
+l_jiffies_sub(lua_State *L) 
+{
+	clock_t *p1 = (clock_t *) lua_touserdata(L, 1);
+	clock_t *p2 = (clock_t *) lua_touserdata(L, 2);
+	clock_t a1  = p1 ? *p1 :  luaL_checknumber(L, 1) * clocks_per_sec;
+	clock_t a2  = p2 ? *p2 :  luaL_checknumber(L, 2) * clocks_per_sec;
+	clock_t *r  = (clock_t *) lua_newuserdata(L, sizeof(clock_t));
+	luaL_getmetatable(L, "Lsyncd.jiffies");
+	lua_setmetatable(L, -2);
+	*r = a1 - a2; 
+	return 1;
+}
+
+/**
+ * Substracts two jiffies or a number to a jiffy
+ */
+static int 
+l_jiffies_eq(lua_State *L) 
+{
+	clock_t a1 = (*(clock_t *) luaL_checkudata(L, 1, "Lsyncd.jiffies"));
+	clock_t a2 = (*(clock_t *) luaL_checkudata(L, 2, "Lsyncd.jiffies"));
+	lua_pushboolean(L, a1 == a2);
+	return 1;
+}
+
+/**
+ * True if jiffy1 before jiffy2
+ */
+static int 
+l_jiffies_lt(lua_State *L) 
+{
+	clock_t a1 = (*(clock_t *) luaL_checkudata(L, 1, "Lsyncd.jiffies"));
+	clock_t a2 = (*(clock_t *) luaL_checkudata(L, 2, "Lsyncd.jiffies"));
+	lua_pushboolean(L, time_before(a1, a2));
+	return 1;
+}
+
+/**
+ * True if jiffy1 before or == jiffy2
+ */
+static int 
+l_jiffies_le(lua_State *L) 
+{
+	clock_t a1 = (*(clock_t *) luaL_checkudata(L, 1, "Lsyncd.jiffies"));
+	clock_t a2 = (*(clock_t *) luaL_checkudata(L, 2, "Lsyncd.jiffies"));
+	lua_pushboolean(L, (a1 == a2) || time_before(a1, a2));
+	return 1;
+}
+
+
+/**
+ * Registers the lsyncd lib
+ */
+void
+register_lsyncd(lua_State *L) 
+{
+	luaL_register(L, "lsyncd", lsyncdlib);
+	lua_setglobal(L, "lysncd");
+
+	/* creates the metatable for jiffies userdata */
+	luaL_newmetatable(L, "Lsyncd.jiffies");
+	lua_pushstring(L, "__add");
+	lua_pushcfunction(L, l_jiffies_add);
+	lua_settable(L, -3);
+
+	lua_pushstring(L, "__sub");
+	lua_pushcfunction(L, l_jiffies_sub);
+	lua_settable(L, -3);
+	
+	lua_pushstring(L, "__lt");
+	lua_pushcfunction(L, l_jiffies_lt);
+	lua_settable(L, -3);
+	
+	lua_pushstring(L, "__le");
+	lua_pushcfunction(L, l_jiffies_le);
+	lua_settable(L, -3);
+	
+	lua_pushstring(L, "__eq");
+	lua_pushcfunction(L, l_jiffies_eq);
+	lua_settable(L, -3);
+	lua_pop(L, 1);
+	
+	lua_getglobal(L, "lysncd");
+#ifdef LSYNCD_WITH_INOTIFY
+	register_inotify(L);
+	lua_settable(L, -3);
+#endif
+#ifdef LSYNCD_WITH_FSEVENTS
+	register_fsevents(L);
+	lua_settable(L, -3);
+#endif
+	lua_pop(L, 1);
+	if (lua_gettop(L)) {
+		logstring("Error", "internal, stack not empty in lsyncd_register()");
+		exit(-1); // ERRNO
+	}
+}
+
+
 
 /*****************************************************************************
  * Lsyncd Core 
@@ -1145,16 +1212,18 @@ masterloop(lua_State *L)
 			have_alarm = lua_toboolean(L, -1);
 		} else {
 			have_alarm = true;
-			alarm_time = (clock_t) luaL_checkinteger(L, -1);
+			alarm_time = 
+				*((clock_t *) luaL_checkudata(L, -1, "Lsyncd.jiffies"));
 		}
 		lua_pop(L, 2);
 
 		if (have_alarm && time_before_eq(alarm_time, now)) {
-			/* there is a delay that wants to be handled already thus instead of  
-			 * reading/writing from observances it jumps directly to handling */
+			/* there is a delay that wants to be handled already thus instead 
+			 * of reading/writing from observances it jumps directly to 
+			 * handling */
 
-			// TODO: Actually it might be smarter to handler observances eitherway.
-			//       since event queues might overflow.
+			// TODO: Actually it might be smarter to handler observances 
+			// eitherway. since event queues might overflow.
 			logstring("Masterloop", "immediately handling delays.");
 		} else {
 			/* use select() to determine what happens next
@@ -1164,6 +1233,7 @@ masterloop(lua_State *L)
 			struct timespec tv;
 
 			if (have_alarm) { 
+				// TODO use trunc instead of long converstions
 				double d = ((double)(alarm_time - now)) / clocks_per_sec;
 				tv.tv_sec  = d;
 				tv.tv_nsec = ((d - (long) d)) * 1000000000.0;
@@ -1274,7 +1344,7 @@ masterloop(lua_State *L)
 		/* lets the runner do stuff every cycle, 
 		 * like starting new processes, writing the statusfile etc. */
 		load_runner_func(L, "cycle");
-		lua_pushinteger(L, times(NULL));
+		l_now(L);
 		if (lua_pcall(L, 1, 1, -3)) {
 			exit(-1); // ERRNO
 		}
@@ -1343,19 +1413,7 @@ main1(int argc, char *argv[])
 	}
 
 	/* registers lsycnd core */
-	luaL_register(L, "lsyncd", lsyncdlib);
-	lua_setglobal(L, "lysncd");
-	
-	lua_getglobal(L, "lysncd");
-#ifdef LSYNCD_WITH_INOTIFY
-	register_inotify(L);
-	lua_settable(L, -3);
-#endif
-#ifdef LSYNCD_WITH_FSEVENTS
-	register_fsevents(L);
-	lua_settable(L, -3);
-#endif
-	lua_pop(L, 1);
+	register_lsyncd(L);
 
 	if (check_logcat("Debug") >= settings.log_level) {
 		/* printlogf doesnt support %ld :-( */
@@ -1556,7 +1614,6 @@ main1(int argc, char *argv[])
 	}
 
 	{
-		int idx = 0;
 		/* runs initialitions from runner 
 		 * lua code will set configuration and add watches */
 		load_runner_func(L, "initialize");

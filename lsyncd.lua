@@ -1087,7 +1087,7 @@ local Sync = (function()
 				if alarm < 1 then
 					alarm = 1 
 				end
-				delay.alarm = lsyncd.addtoclock(lsyncd.now(), alarm)
+				delay.alarm = lsyncd.now() + alarm
 			end
 		else
 			log("Delay", "collected a list")
@@ -1105,7 +1105,7 @@ local Sync = (function()
 				if alarm < 1 then
 					alarm = 1 
 				end
-				alarm = lsyncd.addtoclock(lsyncd.now(), alarm)
+				alarm = lsyncd.now() + alarm
 				for k, d in pairs(delay) do
 					if type(k) == "number" then
 						d.alarm = alarm
@@ -1194,7 +1194,7 @@ local Sync = (function()
 		-- creates the new action
 		local alarm 
 		if time and self.config.delay then
-			alarm = lsyncd.addtoclock(time, self.config.delay)
+			alarm = time + self.config.delay
 		else
 			alarm = lsyncd.now()
 		end
@@ -1324,7 +1324,7 @@ local Sync = (function()
 			if #self.delays < self.config.maxDelays then
 				-- time constrains only are only a concern if not maxed 
 				-- the delay FIFO already.
-				if d.alarm ~= true and lsyncd.clockbefore(now, d.alarm) then
+				if d.alarm ~= true and now < d.alarm then
 					-- reached point in stack where delays are in future
 					return
 				end
@@ -1349,7 +1349,7 @@ local Sync = (function()
 			if #self.delays < self.config.maxDelays then
 				-- time constrains only are only a concern if not maxed 
 				-- the delay FIFO already.
-				if d.alarm ~= true and lsyncd.clockbefore(now, d.alarm) then
+				if d.alarm ~= true and now < d.alarm then
 					-- reached point in stack where delays are in future
 					return nil
 				end
@@ -2183,15 +2183,15 @@ local StatusFile = (function()
 		-- some logic to not write too often
 		if settings.statusIntervall > 0 then
 			-- already waiting
-			if alarm and lsyncd.clockbefore(now, alarm) then
+			if alarm and now < alarm then
 				log("Statusfile", "waiting(",now," < ",alarm,")")
 				return
 			end
 			-- determines when a next write will be possible
 			if not alarm then
-				local nextWrite = lastWritten and
-					lsyncd.addtoclock(now, settings.statusIntervall)
-				if nextWrite and lsyncd.clockbefore(now, nextWrite) then
+				local nextWrite = 
+					lastWritten and now + settings.statusIntervall
+				if nextWrite and now < nextWrite then
 					log("Statusfile", "setting alarm: ", nextWrite)
 					alarm = nextWrite
 					return
@@ -2602,7 +2602,10 @@ function runner.getAlarm()
 		if not alarm then
 			alarm = a
 		else
-			alarm = lsyncd.earlier(alarm, a)
+			-- the earlier time
+			if a < alarm then
+				alarm = a
+			end
 		end
 	end
 

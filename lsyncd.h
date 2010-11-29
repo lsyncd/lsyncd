@@ -50,6 +50,8 @@ extern struct settings {
 #define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
 #define time_before_eq(a,b)     time_after_eq(b,a)
 
+/* returns (on Lua stack) the current kernels * clock state (jiffies) */
+extern int l_now(lua_State *L);
 
 /* pushes a runner function and the runner error handler onto Lua stack */
 extern void load_runner_func(lua_State *L, const char *name);
