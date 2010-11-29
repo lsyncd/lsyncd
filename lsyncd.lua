@@ -1589,7 +1589,7 @@ local Syncs = (function()
 		config.monitor = 
 			settings.monitor or config.monitor or Monitors.default()
 		if config.monitor ~= "inotify" 
---		and config.monitor ~= "fanotify" 
+		and config.monitor ~= "fsevents" 
 		then
 			local info = debug.getinfo(3, "Sl")
 			log("Error", info.short_src, ":", info.currentline,
@@ -1873,14 +1873,11 @@ local Inotify = (function()
 end)()
 
 -----
--- Interface to fanotify, watches a whole filesystems
+-- Interface to OSX /dev/fsevents, watches the whole filesystems
 --
--- NOT USED.
+-- All fsevents specific implementation should be enclosed here.
 --
--- All fanotify specific implementation should be enclosed here.
---
---[[
-local Fanotify = (function()
+local Fsevents = (function()
 	-----
 	-- A list indexed by sync's containing the root path this
 	-- sync is interested in.
@@ -1913,7 +1910,7 @@ local Fanotify = (function()
 	-- @param filename2 
 	--
 	local function event(etype, isdir, time, filename, filename2)
-		print("FANOTIFY", etype, isdir, time, filename, filename2)
+		print("FSEVENTS", etype, isdir, time, filename, filename2)
 	end
 
 	-----
@@ -1930,7 +1927,6 @@ local Fanotify = (function()
 		statusReport = statusReport 
 	}
 end)()
-]]--
 
 -----
 -- Holds information about the event monitor capabilities
@@ -2514,7 +2510,7 @@ end
 function runner.initialize()
 	-- creates settings if user didnt
 	settings = settings or {}
-
+	
 	-- From this point on, no globals may be created anymore
 	lockGlobals()
 
@@ -2592,8 +2588,8 @@ function runner.initialize()
 	for _, s in Syncs.iwalk() do
 		if s.config.monitor == "inotify" then
 			Inotify.addSync(s, s.source)
---		elseif s.config.monitor == "fanotify" then 
---			Fanotify.addSync(s, s.source)
+		elseif s.config.monitor == "fanotify" then 
+			Fsevents.addSync(s, s.source)
 		else
 			error("sync "..s.config.name..
 				" has no known event monitor interface.")

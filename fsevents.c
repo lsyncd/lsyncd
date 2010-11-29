@@ -171,7 +171,6 @@ fsevents_tidy(struct observance *obs)
 		exit(-1); // ERRNO
 	}
 	close(fsevents_fd);
-
 }
 
 
@@ -188,7 +187,9 @@ register_fsevents(lua_State *L) {
  * opens and initalizes fsevents.
  */
 extern void
-open_fsevents(lua_State *L) {
+open_fsevents(lua_State *L) 
+{
+	return;
 
 	int8_t event_list[] = { // action to take for each event
     	FSE_REPORT,  /* FSE_CREATE_FILE         */

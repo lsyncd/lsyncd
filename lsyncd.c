@@ -716,8 +716,19 @@ l_realdir(lua_State *L)
 	const char *rdir = luaL_checkstring(L, 1);
 	
 	/* use c-library to get absolute path */
+#ifdef _GNU_SOURCE
 	cbuf = realpath(rdir, NULL);
-	if (cbuf == NULL) {
+#else
+#	warning must use oldstyle realpath() 
+	{
+		char *ccbuf = s_calloc(sizeof(char), PATH_MAX);
+		cbuf = realpath(rdir, ccbuf);
+		if (!cbuf) {
+			free(ccbuf);
+		} 
+	}
+#endif
+	if (!cbuf) {
 		printlogf(L, "Error", "failure getting absolute path of [%s]", rdir);
 		return 0;
 	}
