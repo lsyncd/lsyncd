@@ -244,6 +244,21 @@ local Combiner = (function()
 	end
 	
 	----
+	-- new delay replaces the old one if it is a file
+	--
+	local function refi(d1, d2)
+		if d2.path:byte(-1) == 47 then
+			log("Delay",d2.etype,":",d2.path," blocked by ",
+						d1.etype,":",d1.path)
+			return "stack"
+		end
+		log("Delay",d2.etype,":",d2.path," replaces ",
+					d1.etype,":",d1.path)
+		return "replace"
+	end
+
+	
+	----
 	-- new delay replaces the old one
 	--
 	local function repl(d1, d2) 
@@ -268,7 +283,7 @@ local Combiner = (function()
 		Attrib = {Attrib=abso, Modify=repl, Create=repl, Delete=repl },
 		Modify = {Attrib=abso, Modify=abso, Create=repl, Delete=repl },
 		Create = {Attrib=abso, Modify=abso, Create=abso, Delete=repl },
-		Delete = {Attrib=abso, Modify=abso, Create=repl, Delete=abso },
+		Delete = {Attrib=abso, Modify=abso, Create=refi, Delete=abso },
 	}
 	
 	------
