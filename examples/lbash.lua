@@ -29,9 +29,9 @@ bash = {
 	onStartup = 
 		[[if [ "$(ls -A ^source)" ]; then cp -r ^source* ^target; fi]],
 
-	onCreate = prefix..[[cp -r ^sourcePath ^targetPath]],
+	onCreate = prefix..[[cp -r ^sourcePath ^targetPathdir]],
 	
-	onModify = prefix..[[cp -r ^sourcePath ^targetPath]],
+	onModify = prefix..[[cp -r ^sourcePath ^targetPathdir]],
 	
 	onDelete = prefix..[[rm -rf ^targetPath]],
 

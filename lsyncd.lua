@@ -562,6 +562,15 @@ local Inlet, InletControl = (function()
 		end,
 		
 		------
+		-- Returns the absolute dir of the file/dir.
+		-- Includes a trailing slash.
+		--
+		sourcePathdir = function(event)
+			return sync.source .. 
+				(string.match(getPath(event), "^(.*/)[^/]+/?") or "")
+		end,
+		
+		------
 		-- Returns the absolute path of the file/dir.
 		-- Excludes a trailing slash for dirs.
 		--
@@ -579,6 +588,7 @@ local Inlet, InletControl = (function()
 		target = function(event)
 			return sync.config.target
 		end,
+		
 
 		------
 		-- Returns the relative dir/file appended to the target.
@@ -586,6 +596,15 @@ local Inlet, InletControl = (function()
 		--
 		targetPath = function(event)
 			return sync.config.target .. getPath(event)
+		end,
+		
+		------
+		-- Returns the dir of the dir/file appended to the target.
+		-- Includes a trailing slash.
+		--
+		targetPathdir = function(event)
+			return sync.config.target .. 
+				(string.match(getPath(event), "^(.*/)[^/]+/?") or "")
 		end,
 		
 		------
@@ -1959,22 +1978,28 @@ local functionWriter = (function()
 		{ "%^pathdir",           "event.pathdir"         , 1, },
 		{ "%^path",              "event.path"            , 1, },
 		{ "%^sourcePathname",    "event.sourcePathname"  , 1, },
+		{ "%^sourcePathdir",     "event.sourcePathdir"   , 1, },
 		{ "%^sourcePath",        "event.sourcePath"      , 1, },
 		{ "%^source",            "event.source"          , 1, },
 		{ "%^targetPathname",    "event.targetPathname"  , 1, },
+		{ "%^targetPathdir",     "event.targetPathdir"   , 1, },
 		{ "%^targetPath",        "event.targetPath"      , 1, },
 		{ "%^target",            "event.target"          , 1, },
 		{ "%^o%.pathname",       "event.pathname"        , 1, },
 		{ "%^o%.path",           "event.path"            , 1, },
 		{ "%^o%.sourcePathname", "event.sourcePathname"  , 1, },
+		{ "%^o%.sourcePathdir",  "event.sourcePathdir"   , 1, },
 		{ "%^o%.sourcePath",     "event.sourcePath"      , 1, },
 		{ "%^o%.targetPathname", "event.targetPathname"  , 1, },
+		{ "%^o%.targetPathdir",  "event.targetPathdir"   , 1, },
 		{ "%^o%.targetPath",     "event.targetPath"      , 1, },
 		{ "%^d%.pathname",       "event2.pathname"       , 2, },
 		{ "%^d%.path",           "event2.path"           , 2, },
 		{ "%^d%.sourcePathname", "event2.sourcePathname" , 2, },
+		{ "%^d%.sourcePathdir",  "event2.sourcePathdir"  , 2, },
 		{ "%^d%.sourcePath",     "event2.sourcePath"     , 2, },
 		{ "%^d%.targetPathname", "event2.targetPathname" , 2, },
+		{ "%^d%.targetPathdir",  "event2.targetPathdir"  , 2, },
 		{ "%^d%.targetPath",     "event2.targetPath"     , 2, },
 	}
 
