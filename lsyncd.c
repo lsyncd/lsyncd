@@ -1213,6 +1213,7 @@ masterloop(lua_State *L)
 {
 	while(true) {
 		bool have_alarm;
+		bool force_alarm;
 		clock_t now = times(NULL);
 		clock_t alarm_time;
 
@@ -1223,7 +1224,8 @@ masterloop(lua_State *L)
 		}
 		
 		if (lua_type(L, -1) == LUA_TBOOLEAN) {
-			have_alarm = lua_toboolean(L, -1);
+			have_alarm = false;
+			force_alarm = lua_toboolean(L, -1);
 		} else {
 			have_alarm = true;
 			alarm_time = 
@@ -1231,7 +1233,9 @@ masterloop(lua_State *L)
 		}
 		lua_pop(L, 2);
 
-		if (have_alarm && time_before_eq(alarm_time, now)) {
+		if (force_alarm || 
+		    (have_alarm && time_before_eq(alarm_time, now))
+		) {
 			/* there is a delay that wants to be handled already thus instead 
 			 * of reading/writing from observances it jumps directly to 
 			 * handling */

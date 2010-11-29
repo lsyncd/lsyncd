@@ -71,7 +71,7 @@ static int
 l_addwatch(lua_State *L)
 {
 	const char *path = luaL_checkstring(L, 1);
-	lua_Integer wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
+	int wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
 	printlogf(L, "Inotify", "addwatch(%s)->%d", path, wd);
 	lua_pushinteger(L, wd);
 	return 1;
@@ -86,7 +86,7 @@ l_addwatch(lua_State *L)
 static int
 l_rmwatch(lua_State *L)
 {
-	lua_Integer wd = luaL_checkinteger(L, 1);
+	int wd = luaL_checkinteger(L, 1);
 	inotify_rm_watch(inotify_fd, wd);
 	printlogf(L, "Inotify", "rmwatch()<-%d", wd);
 	return 0;
@@ -352,7 +352,7 @@ open_inotify(lua_State *L) {
 	readbuf = s_malloc(readbuf_size);
 
 	inotify_fd = inotify_init();
-	if (inotify_fd == -1) {
+	if (inotify_fd < 0) {
 		printlogf(L, "Error", 
 			"Cannot access inotify monitor! (%d:%s)", 
 			errno, strerror(errno));
