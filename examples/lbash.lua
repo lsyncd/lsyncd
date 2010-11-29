@@ -26,8 +26,13 @@ bash = {
 	maxProcesses = 1,
 
 	-- calls `cp -r SOURCE/* TARGET` only when there is something in SOURCE
-	onStartup = 
-		[[if [ "$(ls -A ^source)" ]; then cp -r ^source* ^target; fi]],
+	-- otherwise it deletes contents in the target if there.
+	onStartup = [[
+if [ "$(ls -A ^source)" ]; then 
+	cp -r ^source* ^target; 
+else 
+	if [ "$(ls -A ^target)" ]; then rm -rf ^target/*; fi
+fi]],
 
 	onCreate = prefix..[[cp -r ^sourcePath ^targetPathdir]],
 	

@@ -1660,12 +1660,13 @@ main1(int argc, char *argv[])
 		int ci;
 		struct logcat *lc;
 		for(ci = 'A'; ci <= 'Z'; ci++) {
-			for(lc = logcats[ci]; lc && lc->name; lc++) {
+			for(lc = logcats[ci - 'A']; lc && lc->name; lc++) {
 				free(lc->name);
 				lc->name = NULL;
 			}
-			if (logcats[ci]) {
-				free(logcats[ci]);
+			if (logcats[ci - 'A']) {
+				free(logcats[ci - 'A']);
+				logcats[ci - 'A'] = NULL;
 			}
 		}
 	}
