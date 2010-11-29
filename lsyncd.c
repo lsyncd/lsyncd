@@ -483,8 +483,8 @@ write_pidfile(lua_State *L, const char *pidfile) {
  *
  ****************************************************************************/
 
+static void daemonize(lua_State *L);
 static int l_stackdump(lua_State* L);
-
 
 /**
  * Logs a message.
@@ -888,11 +888,7 @@ l_configure(lua_State *L)
 				settings.log_syslog = true;
 			}
 			logstring("Debug", "daemonizing now.");
-			if (daemon(0, 0)) {
-				logstring("Error", "Failed to daemonize");
-				exit(-1); //ERRNO
-			}
-			is_daemon = true;
+			daemonize(L);
 		}
 	} else if (!strcmp(command, "nodaemon")) {
 		settings.nodaemon = true;
@@ -1214,6 +1210,63 @@ nonobserve_fd(int fd)
 	memmove(observances + pos, observances + pos + 1, 
 	        (observances_len - pos) * (sizeof(struct observance)));
 	observances_len--;
+}
+
+/**
+ * Daemonizes.
+ * 
+ * Lsyncds own implementation over daemon(0, 0) since 
+ *  a) OSX keeps bugging about it being deprecated
+ *  b) for reason since blindly closing stdin/out/err is unsafe, since 
+ *     they might not have existed and actually close the monitors fd!
+ */
+static void
+daemonize(lua_State *L)
+{
+	pid_t pid, sid;
+
+	pid = fork();
+	if (pid < 0) {
+		printlogf(L, "Error", 
+			"Failure in daemonize at fork: %s", strerror(errno));
+		exit(-1); // ERRNO
+	}
+	if (pid > 0) {
+		/* return parent to shell */
+		exit(0);
+	}
+	sid = setsid();
+	if (sid < 0) {
+		printlogf(L, "Error", 
+			"Failure in daemonize at setsid: %s", strerror(errno));
+		exit(-1); // ERRNO
+	}
+
+	/* goto root dir */
+	if ((chdir("/")) < 0) {
+		printlogf(L, "Error", 
+			"Failure in daemonize at chdir(\"/\"): %s", strerror(errno));
+		exit(-1); // ERRNO
+	}
+
+	/* does what clibs daemon(0, 0) cannot do, 
+	 * checks if there were no stdstreams and it might close used fds!  */
+	if (observances_len && observances->fd < 3) {
+		printlogf(L, "Normal", 
+			"daemonize not closing stdin/out/err, since there seem to none.");
+		return;
+	}
+
+	/* disconnects stdstreams */
+	if (!freopen("/dev/null", "r", stdin) ||
+		!freopen("/dev/null", "r", stdout) ||
+		!freopen("/dev/null", "r", stderr)
+	) {
+		printlogf(L, "Error", 
+			"Failure in daemonize at freopen(/dev/null, std[in|out|err])");
+	}
+	
+	is_daemon = true;
 }
 
 /**
