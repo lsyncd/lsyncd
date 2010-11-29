@@ -716,7 +716,7 @@ l_realdir(lua_State *L)
 	const char *rdir = luaL_checkstring(L, 1);
 	
 	/* use c-library to get absolute path */
-#ifdef _GNU_SOURCE
+#ifdef __GLIBC__
 	cbuf = realpath(rdir, NULL);
 #else
 #	warning must use oldstyle realpath() 

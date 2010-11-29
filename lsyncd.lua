@@ -33,9 +33,13 @@ _l = nil
 -----
 -- Shortcuts (which user is supposed to be able to use them as well)
 --
-log  = lsyncd.log
+log       = lsyncd.log
 terminate = lsyncd.terminate
-
+now       = lsyncd.now
+-- just to safe from userscripts changing this.
+local log       = log
+local terminate = terminate
+local now       = now
 
 ------
 -- Predeclarations
@@ -825,7 +829,7 @@ local Inlet, InletControl = (function()
 	-- Gets the next not blocked event from queue.
 	--
 	local function getEvent()
-		return d2e(sync:getNextDelay(lysncd.now()))
+		return d2e(sync:getNextDelay(now()))
 	end
 	
 	-----
@@ -1106,7 +1110,7 @@ local Sync = (function()
 				if alarm < 1 then
 					alarm = 1 
 				end
-				delay.alarm = lsyncd.now() + alarm
+				delay.alarm = now() + alarm
 			end
 		else
 			log("Delay", "collected a list")
@@ -1124,7 +1128,7 @@ local Sync = (function()
 				if alarm < 1 then
 					alarm = 1 
 				end
-				alarm = lsyncd.now() + alarm
+				alarm = now() + alarm
 				for k, d in pairs(delay) do
 					if type(k) == "number" then
 						d.alarm = alarm
@@ -1215,7 +1219,7 @@ local Sync = (function()
 		if time and self.config.delay then
 			alarm = time + self.config.delay
 		else
-			alarm = lsyncd.now()
+			alarm = now()
 		end
 		-- new delay
 		local nd = Delay.new(etype, alarm, path, path2)
@@ -1333,8 +1337,8 @@ local Sync = (function()
 	-----
 	-- Creates new actions
 	--
-	local function invokeActions(self, now)
-		log("Function", "invokeActions('",self.config.name,"',",now,")")
+	local function invokeActions(self, timestamp)
+		log("Function", "invokeActions('",self.config.name,"',",timestamp,")")
 		if self.processes:size() >= self.config.maxProcesses then
 			-- no new processes
 			return
@@ -1343,7 +1347,7 @@ local Sync = (function()
 			if #self.delays < self.config.maxDelays then
 				-- time constrains only are only a concern if not maxed 
 				-- the delay FIFO already.
-				if d.alarm ~= true and now < d.alarm then
+				if d.alarm ~= true and timestamp < d.alarm then
 					-- reached point in stack where delays are in future
 					return
 				end
@@ -1363,12 +1367,12 @@ local Sync = (function()
 	-----
 	-- Gets the next event to be processed.
 	--
-	local function getNextDelay(self, now)
+	local function getNextDelay(self, timestamp)
 		for i, d in ipairs(self.delays) do
 			if #self.delays < self.config.maxDelays then
 				-- time constrains only are only a concern if not maxed 
 				-- the delay FIFO already.
-				if d.alarm ~= true and now < d.alarm then
+				if d.alarm ~= true and timestamp < d.alarm then
 					-- reached point in stack where delays are in future
 					return nil
 				end
@@ -2198,27 +2202,27 @@ local StatusFile = (function()
 	-----
 	-- Called to check if to write a status file.
 	--
-	local function write(now)
-		log("Function", "write(", now, ")")
+	local function write(timestamp)
+		log("Function", "write(", timestamp, ")")
 
 		-- some logic to not write too often
 		if settings.statusIntervall > 0 then
 			-- already waiting
-			if alarm and now < alarm then
-				log("Statusfile", "waiting(",now," < ",alarm,")")
+			if alarm and timestamp < alarm then
+				log("Statusfile", "waiting(",timestamp," < ",alarm,")")
 				return
 			end
 			-- determines when a next write will be possible
 			if not alarm then
 				local nextWrite = 
-					lastWritten and now + settings.statusIntervall
-				if nextWrite and now < nextWrite then
+					lastWritten and timestamp + settings.statusIntervall
+				if nextWrite and timestamp < nextWrite then
 					log("Statusfile", "setting alarm: ", nextWrite)
 					alarm = nextWrite
 					return
 				end
 			end
-			lastWritten = now
+			lastWritten = timestamp
 			alarm = false
 		end
 
@@ -2243,6 +2247,60 @@ local StatusFile = (function()
 	return {write = write, getAlarm = getAlarm}
 end)()
 
+------
+-- Lets the userscript make its own alarms
+--
+local UserAlarms = (function() 
+	local alarms = {}
+
+	-----
+	-- Calls the user function at timestamp
+	--
+	local function alarm(timestamp, func, extra)
+		local idx 
+		for k, v in ipairs(alarms) do
+			if timestamp < v.timestamp then
+				idx = k
+				break
+			end
+		end
+		local a = {timestamp = timestamp, 
+		           func = func, 
+		           extra = extra}
+		if idx then
+			table.insert(alarms, idx, a)
+		else
+			table.insert(alarms, a)
+		end
+	end
+
+	----
+	-- Retrieves the nearest alarm
+	--
+	local function getAlarm()
+		if #alarms == 0 then
+			return nil
+		else
+			return alarms[1].timestamp
+		end
+	end
+
+	-----
+	-- Calls user alarms
+	--
+	local function invoke(timestamp)
+		while #alarms > 0 and alarms[1].timestamp <= timestamp do
+			alarms[1].func(alarms[1].timestamp, alarms[1].extra)
+			table.remove(alarms, 1)
+		end
+	end
+
+	-- public interface
+	return { alarm    = alarm,
+			 getAlarm = getAlarm,
+			 invoke   = invoke }
+end)()
+
 --============================================================================
 -- lsyncd runner plugs. These functions will be called from core. 
 --============================================================================
@@ -2258,6 +2316,7 @@ local lsyncdStatus = "init"
 
 ----
 -- the cores interface to the runner
+--
 local runner = {}
 
 -----
@@ -2299,9 +2358,9 @@ end
 --   * received inotify events.
 --   * received a HUP or TERM signal.
 --
--- @param now   the current kernel time (in jiffies)
+-- @param timestamp   the current kernel time (in jiffies)
 --
-function runner.cycle(now)
+function runner.cycle(timestamp)
 	-- goes through all syncs and spawns more actions
 	-- if possible
 	if lsyncdStatus == "fade" then
@@ -2321,11 +2380,13 @@ function runner.cycle(now)
 	end
 
 	for _, s in Syncs.iwalk() do
-		s:invokeActions(now)
+		s:invokeActions(timestamp)
 	end
+	
+	UserAlarms.invoke(timestamp)
 
 	if settings.statusFile then
-		StatusFile.write(now)
+		StatusFile.write(timestamp)
 	end
 
 	return true
@@ -2636,6 +2697,7 @@ function runner.getAlarm()
 	end
 	-- checks if a statusfile write has been delayed
 	checkAlarm(StatusFile.getAlarm())
+	checkAlarm(UserAlarms.getAlarm())
 
 	log("Debug", "getAlarm returns: ",alarm)
 	return alarm
@@ -2753,6 +2815,13 @@ function spawnShell(agent, command, ...)
 	return spawn(agent, "/bin/sh", "-c", command, "/bin/sh", ...)
 end
 
+-----
+-- Calls func at timestamp.
+-- Use now() to receive current timestamp 
+-- add seconds with '+' to it)
+--
+alarm = UserAlarms.alarm
+
 
 -----
 -- Comfort routine also for user.
@@ -2787,7 +2856,7 @@ local rsync_exitcodes = {
 	[  6] = "again",
 	[ 10] = "again", 
 	[ 11] = "again",
---	[ 12] = "again", -- dont consistent failure, if e.g. target dir not there.
+--	[ 12] = "again", -- dont, consistent failure, if e.g. target dir not there.
 	[ 14] = "again",
 	[ 20] = "again",
 	[ 21] = "again",
@@ -3061,7 +3130,8 @@ local default_rsyncssh = {
 			" -> ", config.host .. ":" .. config.targetdir)
 		spawn(event, "/usr/bin/rsync", 
 			"--delete",
-			config.rsyncOps .. "r", 
+			"-r", 
+			config.rsyncOps, 
 			config.source, 
 			config.host .. ":" .. config.targetdir)
 	end,
