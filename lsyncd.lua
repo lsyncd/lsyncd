@@ -1243,7 +1243,11 @@ local Sync = (function()
 			end
 			il = il - 1
 		end
-		log("Delay", "New ",nd.etype,":",path)
+		if nd.path2 then
+			log("Delay", "New ",nd.etype,":",nd.path,"->",nd.path2)
+		else
+			log("Delay", "New ",nd.etype,":",nd.path)
+		end
 		-- no block or combo
 		table.insert(self.delays, nd)
 	end
@@ -2907,12 +2911,14 @@ local default_rsyncssh = {
 		local config = inlet.getConfig()
 		
 		-- makes move local on host
+		-- if fails deletes the source...
 		if event.etype == 'Move' then
 			log("Normal", "Moving ",event.path," -> ",event2.path)
 			spawn(event, "/usr/bin/ssh", 
 				config.host, "mv",
 				config.targetdir .. event.path, 
-				config.targetdir .. event2.path)
+				config.targetdir .. event2.path, 
+				"||", "rm", "-rf", config.targetdir .. event.path)
 			return
 		end
 		
