@@ -1,5 +1,5 @@
 AUTOMAKE_OPTIONS = foreign
-CFLAGS = -Wall $(LUA_CFLAGS) 
+CFLAGS += -Wall $(LUA_CFLAGS) 
 bin_PROGRAMS = lsyncd
 lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua
 if INOTIFY
