@@ -926,13 +926,19 @@ l_jiffies_add(lua_State *L)
 {
 	clock_t *p1 = (clock_t *) lua_touserdata(L, 1);
 	clock_t *p2 = (clock_t *) lua_touserdata(L, 2);
-	clock_t a1  = p1 ? *p1 :  luaL_checknumber(L, 1) * clocks_per_sec;
-	clock_t a2  = p2 ? *p2 :  luaL_checknumber(L, 2) * clocks_per_sec;
-	clock_t *r  = (clock_t *) lua_newuserdata(L, sizeof(clock_t));
-	luaL_getmetatable(L, "Lsyncd.jiffies");
-	lua_setmetatable(L, -2);
-	*r = a1 + a2; 
-	return 1;
+	if (p1 && p2) {
+		logstring("Error", "Cannot add to timestamps!");
+		exit(-1); /* ERRNO */
+	}
+	{
+		clock_t a1  = p1 ? *p1 :  luaL_checknumber(L, 1) * clocks_per_sec;
+		clock_t a2  = p2 ? *p2 :  luaL_checknumber(L, 2) * clocks_per_sec;
+		clock_t *r  = (clock_t *) lua_newuserdata(L, sizeof(clock_t));
+		luaL_getmetatable(L, "Lsyncd.jiffies");
+		lua_setmetatable(L, -2);
+		*r = a1 + a2; 
+		return 1;
+	}
 }
 
 /**
@@ -943,6 +949,14 @@ l_jiffies_sub(lua_State *L)
 {
 	clock_t *p1 = (clock_t *) lua_touserdata(L, 1);
 	clock_t *p2 = (clock_t *) lua_touserdata(L, 2);
+	if (p1 && p2) {
+		/* substracting two timestamps result in a timespan in seconds */
+		clock_t a1  = *p1;
+		clock_t a2  = *p2;
+		lua_pushnumber(L, ((double) (a1 -a2)) / clocks_per_sec);
+		return 1;
+	}
+	/* makes a timestamp earlier by NUMBER seconds */
 	clock_t a1  = p1 ? *p1 :  luaL_checknumber(L, 1) * clocks_per_sec;
 	clock_t a2  = p2 ? *p2 :  luaL_checknumber(L, 2) * clocks_per_sec;
 	clock_t *r  = (clock_t *) lua_newuserdata(L, sizeof(clock_t));
