@@ -5,30 +5,22 @@
 -- how user custom alarms can be now. It will log 
 -- "Beep!" every 5 seconds.
 --
+settings.nodaemon = true
 
-lalarm = {
-	init = function(inlet)
-		-- creates the first alarm in 5 seconds from now.
-		inlet.alarm(now() + 5, "Beep")
-	end,
-
-	-- called when alarms ring
-	alarm = function(inlet, timestamp, extra)
-		log("Normal", extra)
-		
-		spawn(inlet.createBlanketEvent(), "/bin/echo", "hello")
-		-- creates a new alarm in 5 seconds after this one rang
-		inlet.alarm(timestamp + 5, extra)
-	end,
-
-	action = function(inlet)
-		-- just discard anything that happes in source dir.
-		inlet.discardEvent(inlet.getEvent())
-	end
-}
+local function noAction (inlet)
+	-- just discard any events that happes in source dir.
+	inlet.discardEvent(inlet.getEvent())
+end
 
 -----
--- Lsyncd needs to watch something, altough in this minimal example
--- it isnt used.
-sync{source="/usr/local/etc/", lalarm }
+-- Adds a watch to some not so large directory for this example.
+local in1 = sync{source="/usr/local/etc/", action = noAction }
+
+local function myAlarm(timestamp, extra)
+	log("Normal", extra.message)
+	spawn(extra.inlet.createBlanketEvent(), "/bin/echo", extra.message)
+	alarm(timestamp + 5, myAlarm, extra)
+end
+
+alarm(now() + 5, myAlarm, {inlet = in1, message = "Beep"})
 
