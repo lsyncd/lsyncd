@@ -5,7 +5,7 @@
 require("posix")
 dofile("tests/testlib.lua")
 
-local tdir, srcdir, trdir = mktemps()
+local tdir, srcdir, trgdir = mktemps()
 
 -- makes some startup data 
 churn(srcdir, 10)
