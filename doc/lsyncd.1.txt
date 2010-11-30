@@ -4,7 +4,7 @@ lsyncd(1)
 
 NAME
 ----
-lsyncd - daemon to live synchronize dircectory trees with (remote) targets.
+lsyncd — a daemon to continously syncronize dircectory trees 
 
 SYNOPSIS
 --------
@@ -19,11 +19,37 @@ default rync+ssh bevahior (moves and deletes through ssh): ::
 
 DESCRTIPTION
 ------------
-Lsyncd(1) 
+Lsyncd(1) watches a local directory trees event monitor interface (inotify).
+It aggregates and combines events for a few seconds and then spawns one (or
+more) process(es) to synchronize the changes. By default this is rsync(1).
+Lsyncd is thus a light-weight live mirror solution that is comparatively easy
+to install not requiring new filesystems or blockdevices and does not hamper
+local filesystem performance.
+
+Rsync+ssh is an advanced action configuration that uses a SSH(1) to act file
+and directory moves directly on the target instead of retransmating the move
+destination over the wire.
+
+More fine-grained customizaton can be achieved through the CONFIG-FILE.  Custom
+action configurations can even be written from scratch in cascading layers
+ranging from shell scripts to code written in the LUA(1) language.  This way
+simplicity can be balanced with powerfullness.  See the online manual for
+details on the CONFIG-FILE http://code.google.com/p/lsyncd/wiki/Lsyncd2.0Manual
 
 OPTIONS
 -------
-TODO
+*-delay* 'SECS'::
+	Overrides the default delay times.
+
+*-help*::
+	Show a help message.
+
+*-log* 'LEVEL|CATEGORY'::
+	Controls which kind of events are logged. By default Lsyncd logs 'Normal'
+	and 'Error' Messages. *-log scarce* will make Lsyncd log Error messages
+	only. Debug messages are grouped in categories. *-log all* will log all
+	debug messages. -log Inotify will e.g. only log additional information
+	about the inotify monitor.
 
 EXIT STATUS
 -----------
