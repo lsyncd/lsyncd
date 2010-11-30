@@ -1,6 +1,10 @@
 lsyncd(1)
 =========
 :doctype: manpage
+:man source: Lsyncd
+:man manual: Lsyncd
+:man version: 2.0
+:date: December 2010
 
 NAME
 ----
@@ -8,14 +12,14 @@ lsyncd - a daemon to continously syncronize dircectory trees
 
 SYNOPSIS
 --------
-config file: ::
-    {zwsp}*lsyncd* ['OPTIONS'] 'CONFIG-FILE' 
+config file:::
+	{nbsp}*lsyncd* ['OPTIONS'] 'CONFIG-FILE' 
 
-default rsync behaviour: ::
-    {zwsp}*lsyncd* ['OPTIONS'] -rsync 'SOURCE' 'TARGET' ...
+default rsync behaviour:::
+	{nbsp}*lsyncd* ['OPTIONS'] -rsync 'SOURCE' 'TARGET' ...
 
-default rync+ssh bevahior (moves and deletes through ssh): ::
-    {zwsp}*lsyncd* ['OPTIONS'] -rsyncssh 'SOURCE' 'HOST' 'TARGETDIR' ...
+default rync+ssh bevahior (moves and deletes through ssh):::
+	{nbsp}*lsyncd* ['OPTIONS'] -rsyncssh 'SOURCE' 'HOST' 'TARGETDIR' ...
 
 DESCRTIPTION
 ------------
@@ -80,7 +84,7 @@ Online Manual: http://code.google.com/p/lsyncd/wiki/Lsyncd2
 
 VERSION
 ------
-	This man page is in development (TODOX) for lsyncd(1) version 2.0
+This man page is in development (TODOX) for lsyncd(1) version 2.0
 
 AUTHOR
 ------
@@ -92,5 +96,4 @@ Copyright \(C) 2010 Axel Kittenberger. Free use of this software is granted
 under the terms of the GNU General Public License (GPL) version 2, or any later
 version. Free redistrubition of this Documentation (/doc directory) is granted
 under the terms of the Creative Commons 3.0 Attribution License (CC-3.0-BY).
-
 
