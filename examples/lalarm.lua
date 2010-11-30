@@ -13,20 +13,30 @@
 -- @param extra     ... a free token to store anything in it.
 --                      here used as string.
 --
-local function myAlarm(timestamp, extra)
-	log("Normal", extra)
 
-	-- creates a new alarm in 5 seconds after this one rang
-	alarm(timestamp + 5, myAlarm, extra)
-end
+lalarm = {
+	init = function(inlet)
+		-- creates the first alarm in 5 seconds from now.
+		inlet.alarm(now() + 5, "Beep")
+	end,
 
--- creates the first alarm in 5 seconds from now.
-alarm(now() + 5, myAlarm, "Beep!")
+	-- called when alarms ring
+	alarm = function(inlet, timestamp, extra)
+		log("Normal", extra)
+		
+		spawn(inlet.createBlanketEvent(), "/bin/echo", "hello")
+		-- creates a new alarm in 5 seconds after this one rang
+		inlet.alarm(timestamp + 5, extra)
+	end,
+
+	action = function(inlet)
+		-- just discard anything that happes in source dir.
+		inlet.discardEvent(inlet.getEvent())
+	end
+}
 
 -----
--- Just a minimal dummy sync in sake for this example. 
--- Lsyncd needs to feel like it is doing something useful.
--- Any real application needs to watch anything otherwise
--- probably shouldn't use Lsyncd :-)
-sync{source="/usr/local/etc/", onModify = function() end }
+-- Lsyncd needs to watch something, altough in this minimal example
+-- it isnt used.
+sync{source="/usr/local/etc/", lalarm }
 

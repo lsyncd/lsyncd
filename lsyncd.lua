@@ -637,6 +637,13 @@ local Inlet, InletControl = (function()
 		end
 	}
 
+
+	------
+	-- registers an alarm.
+	alarm = function(timestamp, func, extra)
+		return sync:addAlarm(timestamp, func, extra)
+	end
+
 	-----
 	-- adds an exclude.
 	--
@@ -884,6 +891,7 @@ local Inlet, InletControl = (function()
 	-- this one is split, one for user one for runner.
 	return {
 			addExclude         = addExclude,
+			alarm              = alarm, 
 			createBlanketEvent = createBlanketEvent,
 			discardEvent       = discardEvent,
 			getEvent           = getEvent, 
@@ -1030,12 +1038,32 @@ end)()
 -- Holds information about one observed directory inclusively subdirs.
 --
 local Sync = (function()
-
 	-----
 	-- Syncs that have no name specified by the user script 
 	-- get an incremental default name 'Sync[X]'
 	--
 	local nextDefaultName = 1
+
+	-----
+	-- Adds an user alarm.
+	-- Calls the user function at timestamp.
+	--
+	local function addAlarm(self, timestamp, extra)
+		local idx 
+		for k, v in ipairs(self.alarms) do
+			if timestamp < v.timestamp then
+				idx = k
+				break
+			end
+		end
+		local a = {timestamp = timestamp, 
+		           extra = extra}
+		if idx then
+			table.insert(self.alarms, idx, a)
+		else
+			table.insert(self.alarms, a)
+		end
+	end
 
 	-----
 	-- Adds an exclude.
@@ -1280,20 +1308,27 @@ local Sync = (function()
 	-- Returns the nearest alarm for this Sync.
 	--
 	local function getAlarm(self)
-		-- first checks if more processses could be spawned 
-		if self.processes:size() >= self.config.maxProcesses then
-			return nil
-		end
+		local alarm
 
-		-- finds the nearest delay waiting to be spawned
-		for _, d in ipairs(self.delays) do
-			if d.status == "wait" then
-				return d.alarm
+		-- first checks if more processses could be spawned 
+		if self.processes:size() < self.config.maxProcesses then
+			-- finds the nearest delay waiting to be spawned
+			for _, d in ipairs(self.delays) do
+				if d.status == "wait" then
+					alarm = d.alarm
+					break
+				end
 			end
 		end
 
-		-- nothing to spawn.
-		return nil
+		-- return the earlier alarm, user alarms or events
+		if #self.alarms == 0 then
+			return alarm
+		elseif not alarm or self.alarms[1].timestamp < alarm then
+			return self.alarms[1].timestamp
+		else 
+			return alarm
+		end
 	end
 		
 	
@@ -1362,6 +1397,18 @@ local Sync = (function()
 				end
 			end
 		end
+		
+		-- invokes user alarms
+		while #self.alarms > 0 and self.alarms[1].timestamp <= timestamp do
+			InletControl.setSync(self)
+			if type(self.config.alarm) == "function" then
+				self.config.alarm(Inlet, 
+					self.alarms[1].timestamp, self.alarms[1].extra)
+			else
+				log("Error", "registered alarm, but there is no alarm function")
+			end
+			table.remove(self.alarms, 1)
+		end
 	end
 	
 	-----
@@ -1383,7 +1430,6 @@ local Sync = (function()
 			end
 		end
 	end
-
 
 	------
 	-- adds and returns a blanket delay thats blocks all 
@@ -1425,21 +1471,13 @@ local Sync = (function()
 		f:write("\n")
 	end
 
-	--[[--
-	-- DEBUG delays
-	local _delay = delay
-	delay = function(self, ...) 
-		_delay(self, ...)
-		statusReport(self, io.stdout)
-	end
-	--]]
-
 	-----
 	-- Creates a new Sync
 	--
 	local function new(config) 
 		local s = {
 			-- fields
+			alarms = {},
 			config = config,
 			delays = CountArray.new(),
 			source = config.source,
@@ -1447,7 +1485,7 @@ local Sync = (function()
 			excludes = Excludes.new(),
 
 			-- functions
-
+			addAlarm        = addAlarm,
 			addBlanketDelay = addBlanketDelay,
 			addExclude      = addExclude,
 			collect         = collect,
@@ -2247,60 +2285,6 @@ local StatusFile = (function()
 	return {write = write, getAlarm = getAlarm}
 end)()
 
-------
--- Lets the userscript make its own alarms
---
-local UserAlarms = (function() 
-	local alarms = {}
-
-	-----
-	-- Calls the user function at timestamp
-	--
-	local function alarm(timestamp, func, extra)
-		local idx 
-		for k, v in ipairs(alarms) do
-			if timestamp < v.timestamp then
-				idx = k
-				break
-			end
-		end
-		local a = {timestamp = timestamp, 
-		           func = func, 
-		           extra = extra}
-		if idx then
-			table.insert(alarms, idx, a)
-		else
-			table.insert(alarms, a)
-		end
-	end
-
-	----
-	-- Retrieves the nearest alarm
-	--
-	local function getAlarm()
-		if #alarms == 0 then
-			return nil
-		else
-			return alarms[1].timestamp
-		end
-	end
-
-	-----
-	-- Calls user alarms
-	--
-	local function invoke(timestamp)
-		while #alarms > 0 and alarms[1].timestamp <= timestamp do
-			alarms[1].func(alarms[1].timestamp, alarms[1].extra)
-			table.remove(alarms, 1)
-		end
-	end
-
-	-- public interface
-	return { alarm    = alarm,
-			 getAlarm = getAlarm,
-			 invoke   = invoke }
-end)()
-
 --============================================================================
 -- lsyncd runner plugs. These functions will be called from core. 
 --============================================================================
@@ -2383,8 +2367,6 @@ function runner.cycle(timestamp)
 		s:invokeActions(timestamp)
 	end
 	
-	UserAlarms.invoke(timestamp)
-
 	if settings.statusFile then
 		StatusFile.write(timestamp)
 	end
@@ -2697,7 +2679,6 @@ function runner.getAlarm()
 	end
 	-- checks if a statusfile write has been delayed
 	checkAlarm(StatusFile.getAlarm())
-	checkAlarm(UserAlarms.getAlarm())
 
 	log("Debug", "getAlarm returns: ",alarm)
 	return alarm
@@ -2814,14 +2795,6 @@ end
 function spawnShell(agent, command, ...)
 	return spawn(agent, "/bin/sh", "-c", command, "/bin/sh", ...)
 end
-
------
--- Calls func at timestamp.
--- Use now() to receive current timestamp 
--- add seconds with '+' to it)
---
-alarm = UserAlarms.alarm
-
 
 -----
 -- Comfort routine also for user.
