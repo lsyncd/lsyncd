@@ -35,6 +35,41 @@ function mktempd()
 end
 
 -----
+-- creates a tmp directory with the
+-- typical lsyncd test architecture
+-- 
+-- @returns path of tmpdir
+--          path of srcdir
+--          path of trgdir
+--
+
+function mktemps()
+	local tdir = mktempd().."/"
+	cwriteln("using ", tdir, " as test root")
+	local srcdir = tdir.."src/"
+	local trgdir = tdir.."trg/"
+	posix.mkdir(srcdir)
+	posix.mkdir(trgdir)
+	return tdir, srcdir, trgdir
+end
+
+----
+-- Writes a file with 'text' in it.
+-- and adds a newline.
+--
+function writefile(filename, text)
+	local f = io.open(filename, "w")
+	if not f then
+		cwriteln("Cannot open '"..filename.."' for writing.")
+		return false
+	end
+	f:write(text)
+	f:write('\n')
+	f:close()
+	return true
+end
+
+-----
 -- spawns a subprocess.
 --
 -- @returns the processes pid
