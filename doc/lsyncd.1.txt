@@ -4,7 +4,7 @@ lsyncd(1)
 
 NAME
 ----
-lsyncd — a daemon to continously syncronize dircectory trees 
+lsyncd - a daemon to continously syncronize dircectory trees 
 
 SYNOPSIS
 --------
@@ -44,12 +44,27 @@ OPTIONS
 *-help*::
 	Show a help message.
 
-*-log* 'LEVEL|CATEGORY'::
+*-log* 'LEVEL'::
 	Controls which kind of events are logged. By default Lsyncd logs 'Normal'
 	and 'Error' Messages. *-log scarce* will make Lsyncd log Error messages
-	only. Debug messages are grouped in categories. *-log all* will log all
-	debug messages. -log Inotify will e.g. only log additional information
-	about the inotify monitor.
+	only. *-log all* will log all
+	debug messages. 
+	
+*-log* 'Category'::
+	Turns on a specific debug message. E.g. *-log Exec* will log
+	all processes as they are spawned.
+
+*-nodaemon*::
+	Lsyncd will not detach from the invoker and log as well to stdout/err.
+
+*-pifile* 'FILE'::
+	Lsyncd will write its process ID in 'FILE'.
+
+*-runner* 'FILE'::
+	Makes the Lsyncd core load the part of Lsyncd written in Lua from 'FILE' 
+
+*-version*::
+	Writes version information and exits.
 
 EXIT STATUS
 -----------
@@ -67,9 +82,9 @@ VERSION
 ------
 	This man page is in development (TODOX) for lsyncd(1) version 2.0
 
-AUTOR
------
-Axel Kittenberger <axkibe@gmail.com> 2010
+AUTHOR
+------
+Axel Kittenberger, <axkibe@gmail.com> 2010
 
 COPYING 
 ------- 
