@@ -6,14 +6,6 @@
 -- "Beep!" every 5 seconds.
 --
 
-----
--- Defines a function to be called when the alarm
--- is raised. 
--- @param timestamp ... timestamp this alarm was registered with
--- @param extra     ... a free token to store anything in it.
---                      here used as string.
---
-
 lalarm = {
 	init = function(inlet)
 		-- creates the first alarm in 5 seconds from now.
