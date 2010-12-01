@@ -81,7 +81,7 @@ function writeIRC(...)
 	-- Gives it to the socket and sees how much it accepted
 	local s, err = ircSocket:send(ircWBuf)
 	-- If it cant the socket terminated.
-	if not s and err~="\n" then
+	if not s and err~="timeout" then
 		log("Error", "IRC connection failed: ", err)
 		terminate(-1)
 	end
