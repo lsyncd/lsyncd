@@ -1233,7 +1233,7 @@ local Sync = (function()
 	--
 	local function getAlarm(self)
 		if self.processes:size() >= self.config.maxProcesses then
-			return nil
+			return false
 		end
 
 		-- first checks if more processses could be spawned 
@@ -1247,7 +1247,7 @@ local Sync = (function()
 		end
 
 		-- nothing to spawn
-		return nil
+		return false
 	end
 		
 	
@@ -2224,7 +2224,7 @@ local UserAlarms = (function()
 	--
 	local function getAlarm()
 		if #alarms == 0 then
-			return nil
+			return false 
 		else
 			return alarms[1].timestamp
 		end
@@ -2620,27 +2620,28 @@ function runner.getAlarm()
 	----
 	-- checks if current nearest alarm or a is earlier
 	--
-	local function checkAlarm(alarm, a) 
+	local function checkAlarm(a) 
+		if a == nil then
+			error("got nil alarm")
+		end
 		if alarm == true or not a then
 			-- already immediate or no new alarm
-			return alarm
+			return
 		end
 		-- returns the ealier time
 		if not alarm or a < alarm then
-			return a
-		else
-			return alarm
+			alarm = a
 		end
 	end
 
 	-- checks all syncs for their earliest alarm
 	for _, s in Syncs.iwalk() do
-		alarm = checkAlarm(alarm, s:getAlarm())
+		checkAlarm(s:getAlarm())
 	end
 	-- checks if a statusfile write has been delayed
-	alarm = checkAlarm(alarm, StatusFile.getAlarm())
+	checkAlarm(StatusFile.getAlarm())
 	-- checks for an userAlarm
-	alarm = checkAlarm(alarm, UserAlarms.getAlarm())
+	checkAlarm(UserAlarms.getAlarm())
 
 	log("Debug","getAlarm returns: ",alarm)
 	return alarm
