@@ -423,6 +423,19 @@ pipe_tidy(struct observance *observance)
  ****************************************************************************/
 
 /**
+ * Dummy variable whos address is used as the cores index in the lua registry
+ * to the lua runners function table in the lua registry.
+ */
+static int runner;
+
+/**
+ * Dummy variable whos address is used as the cores index n the lua registry
+ * to the lua runners error handler.
+ */
+static int callError;
+
+
+/**
  * Sets the close-on-exit flag for an fd
  */
 extern void
@@ -474,13 +487,206 @@ write_pidfile(lua_State *L, const char *pidfile) {
 	fclose(f); 
 }
 
+/*****************************************************************************
+ * Observances
+ ****************************************************************************/
+
+/**
+ * List of file descriptor watches.
+ */
+static struct observance * observances = NULL;
+static int observances_len = 0;
+static int observances_size = 0;
+
+/**
+ * List of file descriptors to nonobserve.
+ * While working for the oberver lists, it may
+ * not be altered, thus nonobserve stores here the
+ * actions that will be delayed.
+ */
+static int *nonobservances = NULL;
+static int nonobservances_len = 0;
+static int nonobservances_size = 0;
+
+/**
+ * true while the observances list is being handled.
+ */
+static bool observance_action = false;
+
+/**
+ * Core watches a filedescriptor to become ready,
+ * one of read_ready or write_ready may be zero
+ */
+extern void
+observe_fd(int fd, 
+           void (*ready) (lua_State *, struct observance *),
+           void (*writey)(lua_State *, struct observance *),
+           void (*tidy)  (struct observance *),
+		   void *extra)
+{
+	int pos;
+	/* looks if the fd is already there as pos or
+	 * stores the position to insert the new fd in pos */
+	for(pos = 0; pos < observances_len; pos++) {
+		if (fd <= observances[pos].fd) {
+			break;
+		}
+	}
+	if (pos < observances_len && observances[pos].fd == fd) {
+		/* just update an existing observance */
+		logstring("Masterloop", "updating n fd observance");
+		observances[pos].ready  = ready;
+		observances[pos].writey = writey;
+		observances[pos].tidy   = tidy;
+		observances[pos].extra  = extra;
+		return;
+	}
+printf("new observance %d:%d\n", fd, pos);
+
+	if (observance_action) {
+		// TODO
+		logstring("Error", 
+	"internal, New observances in ready/writey handlers not yet supported");
+		exit(-1); // ERRNO
+	}
+
+	if (!tidy) {
+		logstring("Error", 
+			"internal, tidy() in observe_fd() must not be NULL.");
+		exit(-1); // ERRNO
+	}
+	if (observances_len + 1 > observances_size) {
+		observances_size = observances_len + 1;
+		observances = s_realloc(observances, 
+			observances_size * sizeof(struct observance));
+	}
+	memmove(observances + pos + 1, observances + pos, 
+	        (observances_len - pos) * (sizeof(struct observance)));
+
+	observances_len++;
+	observances[pos].fd = fd;
+	observances[pos].ready  = ready;
+	observances[pos].writey = writey;
+	observances[pos].tidy   = tidy;
+	observances[pos].extra  = extra;
+}
+
+/**
+ * Makes core no longer watch fd.
+ */
+extern void
+nonobserve_fd(int fd)
+{
+	int pos;
+
+	if (observance_action) {
+		/* this function is called through a ready/writey handler 
+		 * while the core works through the observance list, thus
+		 * it does not alter the list, but stores this actions
+		 * on a stack 
+		 */
+		nonobservances_len++;
+		if (nonobservances_len > nonobservances_size) {
+			nonobservances_size = nonobservances_len;
+			nonobservances = s_realloc(nonobservances, 
+				nonobservances_size * sizeof(int));
+		}
+		nonobservances[nonobservances_len - 1] = fd;
+		return;
+	}
+
+	/* looks for the fd */
+	for(pos = 0; pos < observances_len; pos++) {
+		if (observances[pos].fd == fd) {
+			break;
+		}
+	}
+	if (pos >= observances_len) {
+		logstring("Error", 
+			"internal fail, not observance file descriptor in nonobserve");
+		exit(-1); //ERRNO
+	}
+
+	/* and moves the list down */
+	memmove(observances + pos, observances + pos + 1, 
+	        (observances_len - pos) * (sizeof(struct observance)));
+	observances_len--;
+}
+
+/**
+ * A user observance became read-ready
+ */
+static void
+user_obs_ready(lua_State *L, struct observance *obs)
+{
+	int fd = obs->fd;
+	/* pushes the ready table on table */
+	lua_pushlightuserdata(L, (void *) user_obs_ready);
+	lua_gettable(L, LUA_REGISTRYINDEX);
+	
+	/* pushes the error handler */
+	lua_pushlightuserdata(L, (void *) &callError);
+	lua_gettable(L, LUA_REGISTRYINDEX);
+
+	/* pushed the user func */
+	lua_pushnumber(L, fd);
+	lua_gettable(L, -3);
+
+	/* gives the ufunc the fd */
+	lua_pushnumber(L, fd);
+
+	/* calls the user function */
+	if (lua_pcall(L, 1, 0, -3)) {
+		exit(-1); // ERRNO
+	}
+	lua_pop(L, 2);
+}
+
+/**
+ * A user observance became write-ready
+ */
+static void
+user_obs_writey(lua_State *L, struct observance *obs)
+{
+	int fd = obs->fd;
+	/* pushes the writey table on table */
+	lua_pushlightuserdata(L, (void *) user_obs_writey);
+	lua_gettable(L, LUA_REGISTRYINDEX);
+
+	/* pushes the error handler */
+	lua_pushlightuserdata(L, (void *) &callError);
+	lua_gettable(L, LUA_REGISTRYINDEX);
+
+	/* pushed the user func */
+	lua_pushnumber(L, fd);
+	lua_gettable(L, -3);
+
+	/* gives the ufunc the fd */
+	lua_pushnumber(L, fd);
+
+	/* calls the user function */
+	if (lua_pcall(L, 1, 0, -3)) {
+		exit(-1); // ERRNO
+	}
+	lua_pop(L, 2);
+}
+
+/**
+ * Tidies up a user observance
+ * TODO - give the user a chance to do something in that case!
+ */
+static void
+user_obs_tidy(struct observance *obs)
+{
+	close(obs->fd);
+}
+
 
 /*****************************************************************************
  * Library calls for lsyncd.lua
  * 
  * These are as minimal as possible glues to the operating system needed for 
  * lsyncd operation.
- *
  ****************************************************************************/
 
 static void daemonize(lua_State *L);
@@ -913,15 +1119,109 @@ l_configure(lua_State *L)
 	return 0;
 }
 
+/**
+ * Allows the user to observe filedescriptors
+ *
+ * @param (Lua stack) filedescriptor. 
+ * @param (Lua stack) function to call on ready
+ * @param (Lua stack) function to call on writey
+ */
+static int 
+l_observe_fd(lua_State *L)
+{
+	int fd = luaL_checknumber(L, 1);
+	bool ready  = false;
+	bool writey = false;
+	/* Stores the user function in the lua registry.
+	 * It uses the address of the cores ready/write functions 
+	 * for the user as key */
+	if (!lua_isnoneornil(L, 2)) {
+		lua_pushlightuserdata(L, (void *) user_obs_ready);
+		lua_gettable(L, LUA_REGISTRYINDEX);
+		if lua_isnil(L, -1) {
+			lua_pop(L, 1);
+			lua_newtable(L);
+			lua_pushlightuserdata(L, (void *) user_obs_ready);
+			lua_pushvalue(L, -2);
+			lua_settable(L, LUA_REGISTRYINDEX);
+		}
+		lua_pushnumber(L, fd);
+		lua_pushvalue(L, 2);
+		lua_settable(L, -3);
+		lua_pop(L, 1);
+		ready = true;
+	}
+
+	if (!lua_isnoneornil(L, 3)) {
+		lua_pushlightuserdata(L, (void *) user_obs_writey);
+		lua_gettable(L, LUA_REGISTRYINDEX);
+		if lua_isnil(L, -1) {
+			lua_pop(L, 1);
+			lua_newtable(L);
+			lua_pushlightuserdata(L, (void *) user_obs_writey);
+			lua_pushvalue(L, -2);
+			lua_settable(L, LUA_REGISTRYINDEX);
+		}
+		lua_pushnumber(L, fd);
+		lua_pushvalue(L, 3);
+		lua_settable(L, -3);
+		lua_pop(L, 1);
+		writey = true;
+	}
+	/* tells the core to watch the fd */
+	observe_fd(fd, 
+	           ready  ? user_obs_ready : NULL, 
+			   writey ? user_obs_writey : NULL,
+			   user_obs_tidy,
+			   NULL);
+	return 0;
+}
+
+/**
+ * Removes a user observance
+ * @param (Lua stack) filedescriptor. 
+ */
+extern int
+l_nonobserve_fd(lua_State *L)
+{
+	int fd = luaL_checknumber(L, 1);
+
+	/* removes read func */
+	lua_pushlightuserdata(L, (void *) user_obs_ready);
+	lua_gettable(L, LUA_REGISTRYINDEX);
+	if (!lua_isnil(L, -1)) {
+		lua_pushnumber(L, fd);
+		lua_pushnil(L);
+		lua_settable(L, -2);
+	}
+	lua_pop(L, 1);
+	
+	lua_pushlightuserdata(L, (void *) user_obs_writey);
+	lua_gettable(L, LUA_REGISTRYINDEX);
+	if (!lua_isnil(L, -1)) {
+		lua_pushnumber(L, fd);
+		lua_pushnil(L);
+		lua_settable(L, -2);
+	}
+	lua_pop(L, 1);
+
+	nonobserve_fd(fd);
+	return 0;
+}
+
+
+
 static const luaL_reg lsyncdlib[] = {
-		{"configure",    l_configure    },
-		{"exec",         l_exec         },
-		{"log",          l_log          },
-		{"now",          l_now          },
-		{"readdir",      l_readdir      },
-		{"realdir",      l_realdir      },
-		{"stackdump",    l_stackdump    },
-		{"terminate",    l_terminate    },
+		{"configure",     l_configure     },
+		{"exec",          l_exec          },
+		{"log",           l_log           },
+		{"now",           l_now           },
+		{"nonobserve_fd", l_nonobserve_fd },
+		{"observe_fd",    l_observe_fd    },
+		{"readdir",       l_readdir       },
+		{"realdir",       l_realdir       },
+		{"stackdump",     l_stackdump     },
+		{"terminate",     l_terminate     },
 		{NULL, NULL}
 };
 
@@ -1065,18 +1365,6 @@ register_lsyncd(lua_State *L)
 ****************************************************************************/
 
 /**
- * Dummy variable whos address is used as the cores index in the lua registry
- * to the lua runners function table in the lua registry.
- */
-static int runner;
-
-/**
- * Dummy variable whos address is used as the cores index n the lua registry
- * to the lua runners error handler.
- */
-static int callError;
-
-/**
  * Pushes a function from the runner on the stack.
  * Prior it pushed the callError handler.
  */
@@ -1096,120 +1384,6 @@ load_runner_func(lua_State *L,
 	lua_pushstring(L, name);
 	lua_gettable(L, -2);
 	lua_remove(L, -2);
-}
-
-/**
- * List of file descriptor watches.
- */
-static struct observance * observances = NULL;
-static int observances_len = 0;
-static int observances_size = 0;
-
-/**
- * List of file descriptors to nonobserve.
- * While working for the oberver lists, it may
- * not be altered, thus nonobserve stores here the
- * actions that will be delayed.
- */
-static int *nonobservances = NULL;
-static int nonobservances_len = 0;
-static int nonobservances_size = 0;
-
-/**
- * true while the observances list is being handled.
- */
-static bool observance_action = false;
-
-/**
- * Core watches a filedescriptor to become ready,
- * one of read_ready or write_ready may be zero
- */
-extern void
-observe_fd(int fd, 
-           void (*ready) (lua_State *, struct observance *),
-           void (*writey)(lua_State *, struct observance *),
-           void (*tidy)  (struct observance *),
-		   void *extra)
-{
-	int pos;
-	if (observance_action) {
-		// TODO
-		logstring("Error", 
-	"internal, New observances in ready/writey handlers not yet supported");
-		exit(-1); // ERRNO
-	}
-
-	if (!tidy) {
-		logstring("Error", 
-			"internal, tidy() in observe_fd() must not be NULL.");
-		exit(-1); // ERRNO
-	}
-	if (observances_len + 1 > observances_size) {
-		observances_size = observances_len + 1;
-		observances = s_realloc(observances, 
-			observances_size * sizeof(struct observance));
-	}
-	for(pos = 0; pos < observances_len; pos++) {
-		if (observances[pos].fd <= fd) {
-			break;
-		}
-	}
-	if (observances[pos].fd == fd) {
-		logstring("Error", 
-			"Observing already an observed file descriptor.");
-		exit(-1); // ERRNO
-	}
-	memmove(observances + pos + 1, observances + pos, 
-	        (observances_len - pos) * (sizeof(struct observance)));
-
-	observances_len++;
-	observances[pos].fd = fd;
-	observances[pos].ready  = ready;
-	observances[pos].writey = writey;
-	observances[pos].tidy   = tidy;
-	observances[pos].extra  = extra;
-}
-
-/**
- * Makes core no longer watch fd.
- */
-extern void
-nonobserve_fd(int fd)
-{
-	int pos;
-
-	if (observance_action) {
-		/* this function is called through a ready/writey handler 
-		 * while the core works through the observance list, thus
-		 * it does not alter the list, but stores this actions
-		 * on a stack 
-		 */
-		nonobservances_len++;
-		if (nonobservances_len > nonobservances_size) {
-			nonobservances_size = nonobservances_len;
-			nonobservances = s_realloc(nonobservances, 
-				nonobservances_size * sizeof(int));
-		}
-		nonobservances[nonobservances_len - 1] = fd;
-		return;
-	}
-
-	/* looks for the fd */
-	for(pos = 0; pos < observances_len; pos++) {
-		if (observances[pos].fd == fd) {
-			break;
-		}
-	}
-	if (pos >= observances_len) {
-		logstring("Error", 
-			"internal fail, not observance file descriptor in nonobserve");
-		exit(-1); //ERRNO
-	}
-
-	/* and moves the list down */
-	memmove(observances + pos, observances + pos + 1, 
-	        (observances_len - pos) * (sizeof(struct observance)));
-	observances_len--;
 }
 
 /**
@@ -1338,12 +1512,12 @@ masterloop(lua_State *L)
 				FD_ZERO(&wfds);
 
 				for(pi = 0; pi < observances_len; pi++) {
-					int fd = observances[pi].fd;
-					if (observances[pi].ready) {
-						FD_SET(fd, &rfds);
+					struct observance *obs = observances + pi;
+					if (obs->ready) {
+						FD_SET(obs->fd, &rfds);
 					}
-					if (observances[pi].writey) {
-						FD_SET(fd, &wfds);
+					if (obs->writey) {
+						FD_SET(obs->fd, &wfds);
 					}
 				}
 

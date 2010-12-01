@@ -337,8 +337,6 @@ inotify_tidy(struct observance *obs) {
 	readbuf = NULL;
 }
 
-
-
 /** 
  * opens and initalizes inotify.
  */
@@ -358,6 +356,7 @@ open_inotify(lua_State *L) {
 			errno, strerror(errno));
 		exit(-1); // ERRNO
 	}
+	printlogf(L, "Inotify", "inotify fd = %d", inotify_fd);
 
 	close_exec_fd(inotify_fd);
 	non_block_fd(inotify_fd);

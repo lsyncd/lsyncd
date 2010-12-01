@@ -2644,7 +2644,7 @@ function runner.getAlarm()
 	-- checks for an userAlarm
 	checkAlarm(UserAlarms.getAlarm())
 
-	log("Debug", "getAlarm returns: ",alarm)
+	log("Debug","getAlarm returns: ",alarm)
 	return alarm
 end
 
@@ -2761,6 +2761,20 @@ end
 --
 function spawnShell(agent, command, ...)
 	return spawn(agent, "/bin/sh", "-c", command, "/bin/sh", ...)
+end
+
+-----
+-- Observes a filedescriptor
+--
+function observefd(fd, ready, writey)
+	return lsyncd.observe_fd(fd, ready, writey)
+end
+
+-----
+-- Nonobserves a filedescriptor
+--
+function nonobservefd(fd)
+	return lsyncd.nonobserve_fd(fd)
 end
 
 -----
