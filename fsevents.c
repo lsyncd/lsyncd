@@ -100,6 +100,20 @@ static const luaL_reg lfseventslib[] = {
 		{NULL, NULL}
 };
 
+// event names
+static const char *eventNames[FSE_MAX_EVENTS] = {
+	"CREATE_FILE",
+	"DELETE",
+	"STAT_CHANGED",
+	"RENAME",
+	"CONTENT_MODIFIED",
+	"EXCHANGE",
+	"FINDER_INFO_CHANGED",
+	"CREATE_DIR",
+	"CHOWN",
+	"XATTR_MODIFIED",
+	"XATTR_REMOVED",
+};
 
 static size_t const readbuf_size = 131072;
 static char * readbuf = NULL;
@@ -154,8 +168,21 @@ fsevents_ready(lua_State *L, struct observance *obs)
 				}
 				atype  = event->type & FSE_TYPE_MASK;
 				aflags = FSE_GET_FLAGS(event->type);
-			}
 
+				if ((atype < FSE_MAX_EVENTS) && (atype >= -1)) {
+					printlogf(L, "Fsevents", "got event %s", eventNames[atype]);
+					if (aflags & FSE_COMBINED_EVENTS) {
+						logstring("Fsevents", "combined events");
+					}
+					if (aflags & FSE_CONTAINS_DROPPED_EVENTS) {
+						logstring("Fsevents", "contains dropped events");
+					}
+				} else {
+					printlogf(L, "Error", "unknown event(%d) in fsevents.", 
+						atype);
+					exit(-1); // ERRNO
+				}
+			}
 		}
 	}
 }
@@ -171,6 +198,8 @@ fsevents_tidy(struct observance *obs)
 		exit(-1); // ERRNO
 	}
 	close(fsevents_fd);
+	free(readbuf);
+	readbuf = NULL;
 }
 
 
@@ -224,6 +253,13 @@ open_fsevents(lua_State *L)
 			DEV_FSEVENTS, errno, strerror(errno));
         exit(-1); // ERRNO
     }
+	
+	if (readbuf) {
+		logstring("Error", 
+			"internal fail, inotify readbuf!=NULL in open_inotify()") 
+		exit(-1); // ERRNO
+	}
+	readbuf = s_malloc(readbuf_size);
 
 	/* fd has been cloned, closes access fd */
     close(fd);

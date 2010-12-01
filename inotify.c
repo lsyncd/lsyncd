@@ -318,7 +318,8 @@ inotify_ready(lua_State *L, struct observance *obs)
  * registers inotify functions.
  */
 extern void
-register_inotify(lua_State *L) {
+register_inotify(lua_State *L) 
+{
 	lua_pushstring(L, "inotify");
 	luaL_register(L, "inotify", linotfylib);
 }
@@ -327,7 +328,8 @@ register_inotify(lua_State *L) {
  * closes inotify 
  */
 static void
-inotify_tidy(struct observance *obs) {
+inotify_tidy(struct observance *obs) 
+{
 	if (obs->fd != inotify_fd) {
 		logstring("Error", "Internal, inotify_fd != ob->fd");
 		exit(-1); // ERRNO
@@ -341,7 +343,8 @@ inotify_tidy(struct observance *obs) {
  * opens and initalizes inotify.
  */
 extern void
-open_inotify(lua_State *L) {
+open_inotify(lua_State *L) 
+{
 	if (readbuf) {
 		logstring("Error", 
 			"internal fail, inotify readbuf!=NULL in open_inotify()") 
