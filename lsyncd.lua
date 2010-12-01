@@ -2620,29 +2620,27 @@ function runner.getAlarm()
 	----
 	-- checks if current nearest alarm or a is earlier
 	--
-	local function checkAlarm(a) 
+	local function checkAlarm(alarm, a) 
 		if alarm == true or not a then
 			-- already immediate or no new alarm
-			return
+			return alarm
 		end
-		if not alarm then
-			alarm = a
+		-- returns the ealier time
+		if not alarm or a < alarm then
+			return a
 		else
-			-- the earlier time
-			if a < alarm then
-				alarm = a
-			end
+			return alarm
 		end
 	end
 
 	-- checks all syncs for their earliest alarm
 	for _, s in Syncs.iwalk() do
-		checkAlarm(s:getAlarm())
+		alarm = checkAlarm(alarm, s:getAlarm())
 	end
 	-- checks if a statusfile write has been delayed
-	checkAlarm(StatusFile.getAlarm())
+	alarm = checkAlarm(alarm, StatusFile.getAlarm())
 	-- checks for an userAlarm
-	checkAlarm(UserAlarms.getAlarm())
+	alarm = checkAlarm(alarm, UserAlarms.getAlarm())
 
 	log("Debug","getAlarm returns: ",alarm)
 	return alarm

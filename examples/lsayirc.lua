@@ -1,7 +1,7 @@
 require("socket")
 settings.nodaemon = true
---hostname = "irc.freenode.org"
-hostname = "127.0.0.1"
+hostname = "irc.freenode.org"
+--hostname = "127.0.0.1"
 port = 6667
 nick = "lbot01"
 chan = "##lfile01"

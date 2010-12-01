@@ -1610,6 +1610,12 @@ masterloop(lua_State *L)
 			return;
 		}
 		lua_pop(L, 2);
+
+		if (lua_gettop(L)) {
+			logstring("Error", "internal, stack is dirty.")
+			l_stackdump(L);
+			exit(-1); // ERRNO
+		}
 	}
 }
 
