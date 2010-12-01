@@ -31,13 +31,13 @@ to install not requiring new filesystems or blockdevices and does not hamper
 local filesystem performance.
 
 Rsync+ssh is an advanced action configuration that uses a SSH(1) to act file
-and directory moves directly on the target instead of retransmating the move
+and directory moves directly on the target instead of retransmitting the move
 destination over the wire.
 
-More fine-grained customizaton can be achieved through the CONFIG-FILE.  Custom
-action configurations can even be written from scratch in cascading layers
+Fine-grained customizaton can be achieved through the CONFIG-FILE.  Custom
+action configs can even be written from scratch in cascading layers
 ranging from shell scripts to code written in the LUA(1) language.  This way
-simplicity can be balanced with powerfullness.  See the online manual for
+simplicity can be balanced with powerfulness.  See the online manual for
 details on the CONFIG-FILE http://code.google.com/p/lsyncd/wiki/Lsyncd2.0Manual
 
 OPTIONS
