@@ -1241,7 +1241,7 @@ local Sync = (function()
 			-- finds the nearest delay waiting to be spawned
 			for _, d in ipairs(self.delays) do
 				if d.status == "wait" then
-					return alarm 
+					return d.alarm 
 				end
 			end
 		end
@@ -2616,7 +2616,6 @@ end
 --
 function runner.getAlarm()
 	local alarm = false
-
 	----
 	-- checks if current nearest alarm or a is earlier
 	--

@@ -23,7 +23,7 @@ ircSocket:settimeout(0)
 -- Buffer for stuff to send and receive on IRC:
 local ircWBuf = ""
 local ircRBuf = ""
-local writeIrc
+local writeIrc 
 
 -----
 -- Called when the IRC socket can be written
@@ -35,7 +35,6 @@ end
 -- Called when socket can be read
 local function ircReady(socket)
 	local l, err, ircRBuf = ircSocket:receive("*l", ircRBuf)
-	log("Normal", "XXX", l)
 	if not l then
 		if errr ~= "timeout" then
 			log("Error", "IRC connection failed: ", err)
@@ -98,10 +97,10 @@ local function action(inlet)
 	local event, event2 = inlet.getEvent()
 	if not event2 then
 		writeIrc("PRIVMSG ",chan," :",event.etype," ",
-			event.path)
+			event.path, "\n")
 	else
 		writeIrc("PRIVMSG ",chan," :",event.etype," ",
-			event.path," -> ",event2.path)
+			event.path," -> ",event2.path, "\n")
 	end
 	inlet.discardEvent(event)
 end
@@ -110,3 +109,7 @@ end
 
 sync{source= "src", action= action, delay= 1 }
 
+
+for k, v in pairs(_G) do
+	print(k, v)
+end
