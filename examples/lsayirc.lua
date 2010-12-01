@@ -12,7 +12,10 @@
 --
 -- This demo codes just minimal IRC functionality. 
 -- it does not respond to anything else than IRC PING messages.
-
+--
+-- There is no flood control, if a lot happens the IRC server will disconnect
+-- the bot.
+--
 -- Requires "luasocket" to be installed
 require("socket")
 

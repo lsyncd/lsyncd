@@ -802,10 +802,10 @@ local InletFactory = (function()
 	-- Forwards access to inlet functions.
 	--
 	local inletMeta = {
-		__index = function(inlet, f)
-			local f = inletFuncs[f]
+		__index = function(inlet, func)
+			local f = inletFuncs[func]
 			if not f then
-				error("inlet does not have function '"..f.."'", 2)
+				error("inlet does not have function '"..func.."'", 2)
 			end
 			return function(...)
 				return f(inlets[inlet], ...)
