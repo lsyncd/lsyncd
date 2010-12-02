@@ -2,16 +2,16 @@ AUTOMAKE_OPTIONS = foreign
 CFLAGS += -Wall $(LUA_CFLAGS) 
 bin_PROGRAMS = lsyncd
 lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua
-if INOTIFY
+#if INOTIFY
 lsyncd_SOURCES += inotify.c
-endif
+#endif
 #if FANOTIFY
 #lsyncd_SOURCES += fanotify.c
 #endif
 
-if FSEVENTS
-lsyncd_SOURCES += fsevents.c
-endif
+#if FSEVENTS
+#lsyncd_SOURCES += fsevents.c
+#endif
 
 lsyncd_LDADD = $(LUA_LIBS)
 exampledir = $(datarootdir)/doc/@PACKAGE@
@@ -24,7 +24,8 @@ dist_example_DATA = \
 	examples/lrsyncssh.lua
 TESTS = tests/l4-rsync-data.sh
 
-man1_MANS = doc/lsyncd.1
+dist_man1_MANS = doc/lsyncd.1
+EXTRA_DIST = doc/lsyncd.1.txt doc/lsyncd.1.xml
 
 doc/lsyncd.1: doc/lsyncd.1.xml
 	xsltproc -o $@ -nonet /etc/asciidoc/docbook-xsl/manpage.xsl $<

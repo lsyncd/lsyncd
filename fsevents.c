@@ -26,6 +26,8 @@
  * volume to determine "what changed". 
  */
 
+#error "This code is not yet finished."
+
 #include "lsyncd.h"
 
 #include <sys/types.h>

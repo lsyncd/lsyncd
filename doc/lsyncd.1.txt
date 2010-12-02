@@ -3,7 +3,7 @@ lsyncd(1)
 :doctype: manpage
 :man source: Lsyncd
 :man manual: Lsyncd
-:man version: 2.0
+:man version: 2.0.0
 :date: December 2010
 
 NAME
@@ -84,7 +84,7 @@ Online Manual: http://code.google.com/p/lsyncd/wiki/Lsyncd2
 
 VERSION
 ------
-This man page is in development (TODOX) for lsyncd(1) version 2.0
+This man page is for lsyncd(1) version 2.0.0
 
 AUTHOR
 ------

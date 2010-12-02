@@ -541,7 +541,6 @@ observe_fd(int fd,
 		observances[pos].extra  = extra;
 		return;
 	}
-printf("new observance %d:%d\n", fd, pos);
 
 	if (observance_action) {
 		// TODO

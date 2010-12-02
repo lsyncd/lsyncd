@@ -20,7 +20,7 @@ if lsyncd_version then
 		"You cannot use the lsyncd runner as configuration file!")
 	lsyncd.terminate(-1) -- ERRNO
 end
-lsyncd_version = "2.0beta3"
+lsyncd_version = "2.0.0"
 
 -----
 -- Hides the core interface from user scripts
@@ -281,7 +281,7 @@ local Combiner = (function()
 	end
 
 	-----
-	-- TODO
+	-- Table how to combine events that dont involve a move.
 	--
 	local combineNoMove = {
 		Attrib = {Attrib=abso, Modify=repl, Create=repl, Delete=repl },
@@ -733,7 +733,7 @@ local InletFactory = (function()
 	end
 
 	-----
-	-- TODO
+	-- The functions the inlet provides.
 	--
 	local inletFuncs = {
 		-----
@@ -1358,7 +1358,6 @@ local Sync = (function()
 			local st = vd.status
 			f:write(st, string.sub(spaces, 1, 7 - #st))
 			f:write(vd.etype," ")
-			-- TODO spaces
 			f:write(vd.path)
 			if (vd.path2) then
 				f:write(" -> ",vd.path2)
@@ -1821,61 +1820,60 @@ local Inotify = (function()
 	}
 end)()
 
------
--- Interface to OSX /dev/fsevents, watches the whole filesystems
+------
+---- Interface to OSX /dev/fsevents, watches the whole filesystems
+----
+---- All fsevents specific implementation should be enclosed here.
+----
+--local Fsevents = (function()
+--	-----
+--	-- A list indexed by sync's containing the root path this
+--	-- sync is interested in.
+--	--
+--	local syncPaths = {}
 --
--- All fsevents specific implementation should be enclosed here.
+--	-----
+--	-- adds a Sync to receive events
+--	--
+--	-- @param sync   Object to receive events
+--	-- @param dir    dir to watch
+--	--
+--	local function addSync(sync, dir)
+--		if syncRoots[sync] then
+--			error("duplicate sync in Fanotify.addSync()")
+--		end
+--		-- TODO for non subdirs adddir only
+--		syncRoots[sync] = dir
+--	end
 --
-local Fsevents = (function()
-	-----
-	-- A list indexed by sync's containing the root path this
-	-- sync is interested in.
-	--
-	local syncPaths = {}
-
-	-----
-	-- adds a Sync to receive events
-	--
-	-- @param sync   Object to receive events
-	-- @param dir    dir to watch
-	--
-	local function addSync(sync, dir)
-		if syncRoots[sync] then
-			error("duplicate sync in Fanotify.addSync()")
-		end
-		-- TODO for non subdirs adddir only
-		lsyncd.fanotify.watchfs(dir)
-		syncRoots[sync] = dir
-	end
-
-	-----
-	-- Called when any event has occured.
-	--
-	-- @param etype     "Attrib", "Mofify", "Create", "Delete", "Move")
-	-- @param wd        watch descriptor (matches lsyncd.inotifyadd())
-	-- @param isdir     true if filename is a directory
-	-- @param time      time of event
-	-- @param filename  string filename without path
-	-- @param filename2 
-	--
-	local function event(etype, isdir, time, filename, filename2)
-		print("FSEVENTS", etype, isdir, time, filename, filename2)
-	end
-
-	-----
-	-- Writes a status report about inotifies to a filedescriptor
-	--
-	local function statusReport(f)
-		-- TODO
-	end
-
-	-- public interface
-	return { 
-		addSync = addSync, 
-		event = event, 
-		statusReport = statusReport 
-	}
-end)()
+--	-----
+--	-- Called when any event has occured.
+--	--
+--	-- @param etype     "Attrib", "Mofify", "Create", "Delete", "Move")
+--	-- @param wd        watch descriptor (matches lsyncd.inotifyadd())
+--	-- @param isdir     true if filename is a directory
+--	-- @param time      time of event
+--	-- @param filename  string filename without path
+--	-- @param filename2 
+--	--
+--	local function event(etype, isdir, time, filename, filename2)
+--		log("Fsevents", etype, isdir, time, filename, filename2)
+--	end
+--
+--	-----
+--	-- Writes a status report about inotifies to a filedescriptor
+--	--
+--	local function statusReport(f)
+--		-- TODO
+--	end
+--
+--	-- public interface
+--	return { 
+--		addSync = addSync, 
+--		event = event, 
+--		statusReport = statusReport 
+--	}
+--end)()
 
 -----
 -- Holds information about the event monitor capabilities
