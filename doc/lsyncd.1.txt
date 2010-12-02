@@ -8,7 +8,7 @@ lsyncd(1)
 
 NAME
 ----
-lsyncd - a daemon to continously syncronize dircectory trees 
+lsyncd - a daemon to continuously synchronize directory trees 
 
 SYNOPSIS
 --------
