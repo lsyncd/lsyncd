@@ -804,6 +804,31 @@ l_exec(lua_State *L)
 	/* pipe file descriptors */
 	int pipefd[2];
 
+	/* expands tables if there are any */
+	{
+		int i;
+		for(i = 1; i <= lua_gettop(L); i++) {
+			if (lua_istable(L, i)) {
+				int tlen;
+				int it;
+				/* table is now on top of stack */
+				lua_checkstack(L, lua_gettop(L) + lua_objlen(L, i) + 1);
+				lua_pushvalue(L, i);
+				lua_remove(L, i);
+				argc--;
+				tlen = lua_objlen(L, -1);
+				for (it = 1; it <= tlen; it++) {
+					lua_pushinteger(L, it);
+					lua_gettable(L, -2);
+					lua_insert(L,i);
+					i++;
+					argc++;
+				}
+				i--;
+				lua_pop(L, 1);
+			}
+		}
+	}
 	/* writes a log message, prepares the message only if actually needed. */
 	if (check_logcat("Exec") >= settings.log_level) {
 		int i;

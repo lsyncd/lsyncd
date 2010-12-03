@@ -2728,6 +2728,9 @@ function spawn(agent, binary, ...)
 	if lsyncdStatus == "fade" then
 		log("Normal", "ignored spawn processs since status fading")
 	end
+	if type(binary) ~= "string" then
+		error("calling spawn(agent, binary, ...), binary is not a string", 2)
+	end
 	local pid = lsyncd.exec(binary, ...)
 	if pid and pid > 0 then
 		local sync = InletFactory.getSync(agent)
