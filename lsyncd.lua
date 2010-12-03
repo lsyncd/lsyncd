@@ -919,7 +919,7 @@ local Excludes = (function()
 	-- Adds a list of patterns to exclude.
 	--
 	local function addList(self, plist)
-		for _, v in plist do
+		for _, v in ipairs(plist) do
 			add(self, v)
 		end
 	end
@@ -966,7 +966,7 @@ local Excludes = (function()
 
 			-- functions
 			add      = add,
-			adList   = addList,
+			addList  = addList,
 			loadFile = loadFile,
 			remove   = remove,
 			test     = test,
@@ -1413,7 +1413,14 @@ local Sync = (function()
 
 		-- loads exclusions
 		if config.exclude then
-			s.excludes:addList(config.exclude)
+			local te = type(config.exclude)
+			if te == "table" then
+				s.excludes:addList(config.exclude)
+			elseif te == "string" then
+				s.excludes:add(config.exclude)
+			else
+				error("type for exclude must be table or string", 2)
+			end
 		end
 		if config.excludeFrom then
 			s.excludes:loadFile(config.excludeFrom)
