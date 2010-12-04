@@ -946,11 +946,11 @@ local Excludes = (function()
 	end
 
 	-----
-	-- Tests if 'file' is excluded.
+	-- Tests if 'path' is excluded.
 	--
-	local function test(self, file)
+	local function test(self, path)
 		for _, p in pairs(self.list) do
-			if (string.match(file, p)) then
+			if (string.match(path, p)) then
 				return true
 			end
 		end
@@ -1025,6 +1025,28 @@ local Sync = (function()
 				vd.status = "wait"
 			end
 		end
+	end
+
+	-----
+	-- Returns true if this Sync concerns about
+	-- 'path'
+	--
+	local function concerns(self, path)
+		-- not concerned if watch rootdir doesnt match
+		if not self.source:starts(path) then
+			return false
+		end
+print("subdirtest", path:sub(#self.source, -1))
+
+		-- a sub dir and not concerned about subdirs
+		if self.config.subdirs ~= nil and not self.config.subdirs and
+			path:sub(#self.source, -1):match("[^/]+/?")
+		then
+			return false
+		end
+
+		-- concerned if not excluded
+		return not self.excludes:test(path)
 	end
 
 	-----
@@ -1377,6 +1399,9 @@ local Sync = (function()
 	end
 
 	-----
+	-- b
+
+	-----
 	-- Creates a new Sync
 	--
 	local function new(config) 
@@ -1392,6 +1417,7 @@ local Sync = (function()
 			addBlanketDelay = addBlanketDelay,
 			addExclude      = addExclude,
 			collect         = collect,
+			concerns        = concerns,
 			delay           = delay,
 			getAlarm        = getAlarm,
 			getDelays       = getDelays,
@@ -1571,8 +1597,23 @@ local Syncs = (function()
 		return #list
 	end
 
+	------
+	-- tests if any sync is interested in path
+	--
+	local function concerns(path)
+		for _, s in ipairs(list) do
+			if s:concerns(path) then
+				return true
+			end
+		end
+		return false
+	end
+
 	-- public interface
-	return {add = add, iwalk = iwalk, size = size}
+	return {add = add, 
+	        concerns = concerns,
+	        iwalk = iwalk, 
+			size = size}
 end)()
 
 
@@ -1650,6 +1691,11 @@ local Inotify = (function()
 			"Inotify.addWatch(",path,", ",recurse,", ",
 			raiseSync,", ",raiseTime,")")
 
+		if not Syncs.concerns(path) then
+			log("Inotify", "not concerning '",path,"'")
+			return
+		end
+
 		-- lets the core registers watch with the kernel
 		local wd = lsyncd.inotify.addwatch(path);
 		if wd < 0 then
@@ -1693,7 +1739,7 @@ local Inotify = (function()
 				end
 			end
 			-- adds syncs for subdirs
-			if isdir and recurse then
+			if isdir then
 				addWatch(pd, true, raiseSync, raiseTime)
 			end
 		end
@@ -1794,9 +1840,7 @@ local Inotify = (function()
 			end
 			sync:delay(etyped, time, relative, relative2)
 			
-			if isdir and 
-				(sync.config.subdirs or sync.config.subdirs == nil) 
-			then
+			if isdir then
 				if etyped == "Create" then
 					addWatch(path, true, sync, time)
 				elseif etyped == "Delete" then
