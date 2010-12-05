@@ -1484,7 +1484,7 @@ local Syncs = (function()
 		-- first copies from source all 
 		-- non-defined non-integer keyed values 
 		for k, v in pairs(cs) do
-			if type(k) ~= "number" and not cd[k] then
+			if type(k) ~= "number" and cd[k] == nil then
 				cd[k] = v
 			end
 		end
