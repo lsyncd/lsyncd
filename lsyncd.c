@@ -130,6 +130,16 @@ sig_handler(int sig)
 	}
 }
 
+/**
+ * Non glibc builds need a real tms structure for times() call
+ */
+#ifdef __GLIBC__
+	static struct tms *dummy_tms = NULL;
+#else
+	static struct tms _dummy_tms;
+	static struct tms *dummy_tms = &_dummy_tms;
+#endif
+
 /*****************************************************************************
  * Logging
  ****************************************************************************/
@@ -769,7 +779,7 @@ l_now(lua_State *L)
 	clock_t *j = lua_newuserdata(L, sizeof(clock_t));
 	luaL_getmetatable(L, "Lsyncd.jiffies");
 	lua_setmetatable(L, -2);
-	*j = times(NULL);
+	*j = times(dummy_tms);
 	return 1;
 }
 
@@ -1476,7 +1486,7 @@ masterloop(lua_State *L)
 	while(true) {
 		bool have_alarm;
 		bool force_alarm;
-		clock_t now = times(NULL);
+		clock_t now = times(dummy_tms);
 		clock_t alarm_time;
 
 		/* queries runner about soonest alarm  */
