@@ -2,16 +2,16 @@ AUTOMAKE_OPTIONS = foreign
 CFLAGS += -Wall $(LUA_CFLAGS) 
 bin_PROGRAMS = lsyncd
 lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua
-#if INOTIFY
+if INOTIFY
 lsyncd_SOURCES += inotify.c
-#endif
-#if FANOTIFY
-#lsyncd_SOURCES += fanotify.c
-#endif
+endif
+if FANOTIFY
+lsyncd_SOURCES += fanotify.c
+endif
 
-#if FSEVENTS
-#lsyncd_SOURCES += fsevents.c
-#endif
+if FSEVENTS
+lsyncd_SOURCES += fsevents.c
+endif
 
 lsyncd_LDADD = $(LUA_LIBS)
 exampledir = $(datarootdir)/doc/@PACKAGE@

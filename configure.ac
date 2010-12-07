@@ -41,44 +41,44 @@ AM_CONDITIONAL([RUNNER],  [test x${with_runner} != x])
 ## With this release Lsyncd can yet only do with inotify.
 ## enabling fsevents and disabling inotify is thus commented out.
 
-####
-## --without-inotify option
-#AC_ARG_WITH([inotify],
-#[  --without-inotify       Do not use Linux inotify event interface. On by default.])
-#if test "x${with_inotify}" == xno; then
-#	echo "compiling without inotify"
-#else
-	echo "compiling with inotify"
-	AC_DEFINE(LSYNCD_WITH_INOTIFY,,"descr")
-#fi
+###
+# --without-inotify option
+AC_ARG_WITH([inotify],
+[  --without-inotify       Do not use Linux inotify event interface. On by default.])
+if test "x${with_inotify}" == xno; then
+	echo "compiling without inotify"
+else
+   echo "compiling with inotify"
+   AC_DEFINE(LSYNCD_WITH_INOTIFY,,"descr")
+fi
 AM_CONDITIONAL([INOTIFY], [test x${with_inotify} != xno])
 
-####
-## --with-fanotify option
-##
-#AC_ARG_WITH([fanotify],
-#[  --with-fanotify       Uses Linux new fanotify event interface. EXPERIMENTAL!
-#                        Off by default.])
-##if test "x${with_fanotify}" == xno; then
-#	echo "compiling without fanotify"
-#else
-#	echo "compiling with fanotify - WARNING experimental!"
-#	AC_DEFINE(LSYNCD_WITH_FANOTIFY,,"descr")
-##fi
+###
+# --with-fanotify option
+#
+AC_ARG_WITH([fanotify],
+[  --with-fanotify       Uses Linux new fanotify event interface. EXPERIMENTAL!
+                        Off by default.])
+if test "x${with_fanotify}" == x || test "x${with_fanotify}no" == xno; then
+	echo "compiling without fanotify"
+else
+	echo "compiling with fanotify - WARNING experimental!"
+	AC_DEFINE(LSYNCD_WITH_FANOTIFY,,"descr")
+fi
 AM_CONDITIONAL([FANOTIFY], 
 	[test x${with_fanotify} != x -a x${with_fanotify} != xno])
 
-####
-## --with-fsevents 
-#AC_ARG_WITH([fsevents],
-#[  --with-fsevents         Uses MacOS (10.5) /dev/fsevents. EXPERIMENTAL!
-#                          Off by default.])
-#if test "x${with_fsevents}" != x; then
-#	echo "compiling with fsevents. WARNING experimental!"
-#	AC_DEFINE(LSYNCD_WITH_FSEVENTS,,"descr")
-#else
-#	echo "compiling without fsevents"
-#fi
+###
+# --with-fsevents 
+AC_ARG_WITH([fsevents],
+[  --with-fsevents         Uses MacOS (10.5) /dev/fsevents. EXPERIMENTAL!
+                          Off by default.])
+if test "x${with_fsevents}" != x; then
+	echo "compiling with fsevents. WARNING experimental!"
+	AC_DEFINE(LSYNCD_WITH_FSEVENTS,,"descr")
+else
+	echo "compiling without fsevents"
+fi
 AM_CONDITIONAL([FSEVENTS], 
 	[test x${with_fsevents} != x -a xno${with_fsevents} != xno])
 

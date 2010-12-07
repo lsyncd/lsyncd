@@ -25,9 +25,6 @@
  * including Spotlight.  Consequently, Spotlight may need to look at the entire
  * volume to determine "what changed". 
  */
-
-#error "This code is not yet finished."
-
 #include "lsyncd.h"
 
 #include <sys/types.h>
@@ -90,7 +87,8 @@ struct kfs_event {
     pid_t    pid;
 
 	/* event arguments */
-    struct kfs_event_arg args[KFS_NUM_ARGS]; 
+    struct kfs_event_arg args[]; 
+	/* struct kfs_event_arg args[KFS_NUM_ARGS]; */
 };
 
 /**
@@ -102,7 +100,7 @@ static const luaL_reg lfseventslib[] = {
 		{NULL, NULL}
 };
 
-// event names
+/* event names */
 static const char *eventNames[FSE_MAX_EVENTS] = {
 	"CREATE_FILE",
 	"DELETE",
@@ -117,8 +115,110 @@ static const char *eventNames[FSE_MAX_EVENTS] = {
 	"XATTR_REMOVED",
 };
 
+/* argument names*/
+static const char *argNames[] = {
+	"UNKNOWN",
+	"VNODE",
+	"STRING",
+	"PATH",
+	"INT32",
+	"INT64",
+	"RAW",
+	"INO",
+	"UID",     
+	"DEV",   
+	"MODE",   
+	"GID",
+	"FINFO",
+};
+
+/**
+ * The read buffer 
+ */
 static size_t const readbuf_size = 131072;
 static char * readbuf = NULL;
+
+/**
+ * Handles one fsevents event
+ * @returns the size of the event
+ */
+static ssize_t
+handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
+{
+	/* the len of the event */
+	ssize_t len = sizeof(int32_t) + sizeof(pid_t);
+	
+	bool want_path = false;
+	const char *path = NULL;
+
+	if (event->type == FSE_EVENTS_DROPPED) {
+		logstring("Fsevents", "Events dropped!");
+		load_runner_func(L, "overflow");
+		if (lua_pcall(L, 0, 0, -2)) {
+			exit(-1); // ERRNO
+		}
+		lua_pop(L, 1);
+		hup = 1;
+		len += sizeof(u_int16_t);
+		return len;
+	}
+	{
+		int32_t atype  = event->type & FSE_TYPE_MASK;
+		uint32_t aflags = FSE_GET_FLAGS(event->type);
+
+		if ((atype < FSE_MAX_EVENTS) && (atype >= -1)) {
+			printlogf(L, "Fsevents", "got event %s", eventNames[atype]);
+			if (aflags & FSE_COMBINED_EVENTS) {
+				logstring("Fsevents", "combined events");
+			}
+			if (aflags & FSE_CONTAINS_DROPPED_EVENTS) {
+				logstring("Fsevents", "contains dropped events");
+			}
+		} else {
+			printlogf(L, "Error", "unknown event(%d) in fsevents.", 
+				atype);
+			exit(-1); // ERRNO
+		}
+
+		switch(atype) {
+		case FSE_CREATE_FILE :
+			want_path = true;
+			break;
+		}
+	}
+
+	{
+		struct kfs_event_arg *arg = event->args;
+		while (len < mlen) {
+			int eoff;
+			if (arg->type == FSE_ARG_DONE) {
+				logstring("Fsevents", "argdone");
+				len += sizeof(u_int16_t);
+				break;
+			}
+
+			switch (arg->type) {
+			case FSE_ARG_STRING :
+				if (want_path && !path) {
+					path = arg->data.str;
+				}
+				break;
+			}
+
+			eoff = sizeof(arg->type) + sizeof(arg->len) + arg->len;
+			len += eoff;
+			printlogf(L, "Fsevents", "arg:%s:%d", 
+				argNames[arg->type > FSE_MAX_ARGS ? 0 : arg->type], 
+				arg->len);
+			arg = (struct kfs_event_arg *) ((char *) arg + eoff);
+		}
+	}
+
+	if (path) {
+//		printlogf(L, "path=%s", path);
+	}
+	return len;	
+}
 
 /**
  * Called when fsevents has something to read 
@@ -141,7 +241,7 @@ fsevents_ready(lua_State *L, struct observance *obs)
 		}
 		if (len < 0) {
 			if (err == EAGAIN) {
-				/* nothing more inotify */
+				/* nothing more */
 				break;
 			} else {
 				printlogf(L, "Error", "Read fail on fsevents");
@@ -150,40 +250,9 @@ fsevents_ready(lua_State *L, struct observance *obs)
 		}
 		{
 			int off = 0;
-			int32_t atype;
-			uint32_t aflags;
-
 			while (off < len && !hup && !term) {
 				struct kfs_event *event = (struct kfs_event *) &readbuf[off];
-				off += sizeof(int32_t) + sizeof(pid_t);
-
-				if (event->type == FSE_EVENTS_DROPPED) {
-					logstring("Fsevents", "Events dropped!");
-       				load_runner_func(L, "overflow");
-        			if (lua_pcall(L, 0, 0, -2)) {
-            			exit(-1); // ERRNO
-        			}
-        			lua_pop(L, 1);
-        			hup = 1;
-					off += sizeof(u_int16_t);
-					continue;
-				}
-				atype  = event->type & FSE_TYPE_MASK;
-				aflags = FSE_GET_FLAGS(event->type);
-
-				if ((atype < FSE_MAX_EVENTS) && (atype >= -1)) {
-					printlogf(L, "Fsevents", "got event %s", eventNames[atype]);
-					if (aflags & FSE_COMBINED_EVENTS) {
-						logstring("Fsevents", "combined events");
-					}
-					if (aflags & FSE_CONTAINS_DROPPED_EVENTS) {
-						logstring("Fsevents", "contains dropped events");
-					}
-				} else {
-					printlogf(L, "Error", "unknown event(%d) in fsevents.", 
-						atype);
-					exit(-1); // ERRNO
-				}
+				off += handle_event(L, event, len);
 			}
 		}
 	}
@@ -220,8 +289,6 @@ register_fsevents(lua_State *L) {
 extern void
 open_fsevents(lua_State *L) 
 {
-	return;
-
 	int8_t event_list[] = { // action to take for each event
     	FSE_REPORT,  /* FSE_CREATE_FILE         */
 		FSE_REPORT,  /* FSE_DELETE              */
