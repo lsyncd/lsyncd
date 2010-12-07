@@ -1555,12 +1555,16 @@ masterloop(lua_State *L)
 					}
 				}
 
+				if (!observances_len) {
+					logstring("Error", 
+						"Internal fail, no observances, no monitor!");
+					exit(-1);
+				}
 				/* the great select */
 				pr = pselect(
 					observances[observances_len - 1].fd + 1,
 					&rfds, &wfds, NULL, 
 					have_alarm ? &tv : NULL, &sigset);
-
 				if (pr >= 0) {
 					/* walks through the observances calling ready/writey */
 					observance_action = true;
