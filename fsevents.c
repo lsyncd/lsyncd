@@ -116,7 +116,7 @@ static const char *eventNames[FSE_MAX_EVENTS] = {
 };
 
 /* argument names*/
-static const char *argNames[] = {
+/*static const char *argNames[] = {
 	"UNKNOWN",
 	"VNODE",
 	"STRING",
@@ -130,7 +130,7 @@ static const char *argNames[] = {
 	"MODE",   
 	"GID",
 	"FINFO",
-};
+};*/
 
 /**
  * The read buffer 
@@ -148,8 +148,11 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 	/* the len of the event */
 	ssize_t len = sizeof(int32_t) + sizeof(pid_t);
 	
-	bool want_path = false;
+	bool expect_path = false;
+	bool expect_trg  = false;
+
 	const char *path = NULL;
+	const char *trg  = NULL;
 
 	if (event->type == FSE_EVENTS_DROPPED) {
 		logstring("Fsevents", "Events dropped!");
@@ -181,41 +184,49 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 		}
 
 		switch(atype) {
+		case FSE_RENAME :
+			expect_trg  = true;
+			/* fallthrough */
+		case FSE_CONTENT_MODIFIED :
 		case FSE_CREATE_FILE :
-			want_path = true;
+		case FSE_CREATE_DIR :
+		case FSE_DELETE :
+			expect_path = true;
 			break;
 		}
 	}
 
 	{
+		/* assigns the expected arguments */
 		struct kfs_event_arg *arg = event->args;
 		while (len < mlen) {
 			int eoff;
 			if (arg->type == FSE_ARG_DONE) {
-				logstring("Fsevents", "argdone");
 				len += sizeof(u_int16_t);
 				break;
 			}
 
 			switch (arg->type) {
 			case FSE_ARG_STRING :
-				if (want_path && !path) {
-					path = arg->data.str;
+				if (expect_path && !path) {
+					path = (char *)&arg->data.str;
+				} else if (expect_trg && path) {
+					trg = (char *)&arg->data.str;
 				}
 				break;
 			}
 
 			eoff = sizeof(arg->type) + sizeof(arg->len) + arg->len;
 			len += eoff;
-			printlogf(L, "Fsevents", "arg:%s:%d", 
-				argNames[arg->type > FSE_MAX_ARGS ? 0 : arg->type], 
-				arg->len);
 			arg = (struct kfs_event_arg *) ((char *) arg + eoff);
 		}
 	}
 
 	if (path) {
-//		printlogf(L, "path=%s", path);
+		printlogf(L, "Fsevents", "path:%s", path);
+	}
+	if (trg) {
+		printlogf(L, "Fsevents", "trg:%s", trg);
 	}
 	return len;	
 }
