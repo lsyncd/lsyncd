@@ -1770,10 +1770,7 @@ local Inotify = (function()
 	-- @param filename2 
 	--
 	local function event(etype, wd, isdir, time, filename, wd2, filename2)
-		local ftype;
-
 		if isdir then
-			ftype = "directory"
 			filename = filename .. "/"
 			if filename2 then
 				filename2 = filename2 .. "/"
@@ -1893,7 +1890,6 @@ local Fsevents = (function()
 		if syncRoots[sync] then
 			error("duplicate sync in Fanotify.addSync()")
 		end
-		-- TODO for non subdirs adddir only
 		syncRoots[sync] = dir
 	end
 
@@ -1907,8 +1903,36 @@ local Fsevents = (function()
 	-- @param filename  string filename without path
 	-- @param filename2 
 	--
-	local function event(etype, isdir, time, filename, filename2)
-		log("Fsevents",etype,",",isdir,",",time,",",filename,",",filename2)
+	local function event(etype, isdir, time, path, path2)
+		log("Fsevents",etype,",",isdir,",",time,",",path,",",path2)
+		for _, s in Syncs.iwalk() do repeat
+			local root = s.source
+			if not path:starts(root) then
+				break  -- continue
+			end
+			local relative  = splitPath(path, root)
+			local relative2 
+			if path2 then
+				relative2 = splitPath(path2, root)
+			end
+			
+			-- makes a copy of etype to possibly change it
+			local etyped = etype 
+			if etyped == 'Move' then
+				if not relative2 then
+					log("Normal", "Transformed Move to Create for ",
+						sync.config.name)
+					etyped = 'Create'
+				elseif not relative then
+					relative = relative2
+					relative2 = nil
+					log("Normal", "Transformed Move to Delete for ",
+						sync.config.name)
+					etyped = 'Delete'
+				end
+			end
+			s:delay(etyped, time, relative, relative2)
+		until true end
 	end
 
 	-----

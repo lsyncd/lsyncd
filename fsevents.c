@@ -299,19 +299,18 @@ fsevents_ready(lua_State *L, struct observance *obs)
 		logstring("Error", "Internal, fsevents_fd != ob->fd");
 		exit(-1); // ERRNO
 	}
-	while(true) {
+	{
 		ptrdiff_t len; 
 		int err;
 		len = read (fsevents_fd, readbuf, readbuf_size);
 		err = errno;
 		if (len == 0) {
-			/* nothing more */
-			break;
+			return;
 		}
 		if (len < 0) {
 			if (err == EAGAIN) {
 				/* nothing more */
-				break;
+				return;
 			} else {
 				printlogf(L, "Error", "Read fail on fsevents");
 				exit(-1); // ERRNO
