@@ -1908,7 +1908,7 @@ local Fsevents = (function()
 	-- @param filename2 
 	--
 	local function event(etype, isdir, time, filename, filename2)
-		log("Fsevents", etype, isdir, time, filename, filename2)
+		log("Fsevents",etype,",",isdir,",",time,",",filename,",",filename2)
 	end
 
 	-----
@@ -2701,6 +2701,7 @@ end
 -- Simply forwards it directly to the object.
 --
 runner.inotifyEvent = Inotify.event
+runner.fsEventsEvent = Fsevents.event
 
 -----
 -- Collector for every child process that finished in startup phase

@@ -699,7 +699,7 @@ user_obs_tidy(struct observance *obs)
  ****************************************************************************/
 
 static void daemonize(lua_State *L);
-static int l_stackdump(lua_State* L);
+int l_stackdump(lua_State* L);
 
 /**
  * Logs a message.
@@ -1002,7 +1002,7 @@ l_realdir(lua_State *L)
 /**
  * Dumps the LUA stack. For debugging purposes.
  */
-static int
+int
 l_stackdump(lua_State* L)
 {
 	int i;

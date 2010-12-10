@@ -101,7 +101,7 @@ static const luaL_reg lfseventslib[] = {
 };
 
 /* event names */
-static const char *eventNames[FSE_MAX_EVENTS] = {
+/*static const char *eventNames[FSE_MAX_EVENTS] = {
 	"CREATE_FILE",
 	"DELETE",
 	"STAT_CHANGED",
@@ -113,7 +113,7 @@ static const char *eventNames[FSE_MAX_EVENTS] = {
 	"CHOWN",
 	"XATTR_MODIFIED",
 	"XATTR_REMOVED",
-};
+};*/
 
 /* argument names*/
 /*static const char *argNames[] = {
@@ -148,11 +148,11 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 	/* the len of the event */
 	ssize_t len = sizeof(int32_t) + sizeof(pid_t);
 	
-	bool expect_path = false;
-	bool expect_trg  = false;
-
+	int32_t atype;
 	const char *path = NULL;
 	const char *trg  = NULL;
+	const char *etype = NULL;
+	int isdir = -1;
 
 	if (event->type == FSE_EVENTS_DROPPED) {
 		logstring("Fsevents", "Events dropped!");
@@ -166,36 +166,24 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 		return len;
 	}
 	{
-		int32_t atype  = event->type & FSE_TYPE_MASK;
-		uint32_t aflags = FSE_GET_FLAGS(event->type);
+		atype  = event->type & FSE_TYPE_MASK;
+		/*uint32_t aflags = FSE_GET_FLAGS(event->type);*/
 
 		if ((atype < FSE_MAX_EVENTS) && (atype >= -1)) {
-			printlogf(L, "Fsevents", "got event %s", eventNames[atype]);
+			/*printlogf(L, "Fsevents", "got event %s", eventNames[atype]);
 			if (aflags & FSE_COMBINED_EVENTS) {
 				logstring("Fsevents", "combined events");
 			}
 			if (aflags & FSE_CONTAINS_DROPPED_EVENTS) {
 				logstring("Fsevents", "contains dropped events");
-			}
+			}*/
 		} else {
 			printlogf(L, "Error", "unknown event(%d) in fsevents.", 
 				atype);
 			exit(-1); // ERRNO
 		}
 
-		switch(atype) {
-		case FSE_RENAME :
-			expect_trg  = true;
-			/* fallthrough */
-		case FSE_CONTENT_MODIFIED :
-		case FSE_CREATE_FILE :
-		case FSE_CREATE_DIR :
-		case FSE_DELETE :
-			expect_path = true;
-			break;
-		}
 	}
-
 	{
 		/* assigns the expected arguments */
 		struct kfs_event_arg *arg = event->args;
@@ -208,10 +196,33 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 
 			switch (arg->type) {
 			case FSE_ARG_STRING :
-				if (expect_path && !path) {
-					path = (char *)&arg->data.str;
-				} else if (expect_trg && path) {
-					trg = (char *)&arg->data.str;
+				switch(atype) {
+				case FSE_RENAME :
+					if (path) {
+						/* for move events second string is target */
+						trg = (char *) &arg->data.str;
+					}
+					/* fallthrough */
+				case FSE_CHOWN :
+				case FSE_CONTENT_MODIFIED :
+				case FSE_CREATE_FILE :
+				case FSE_CREATE_DIR :
+				case FSE_DELETE :
+				case FSE_STAT_CHANGED :
+					if (!path) {
+						path = (char *)&arg->data.str;
+					}
+					break;
+				}
+				break;
+			case FSE_ARG_MODE :
+				switch(atype) {
+				case FSE_CHOWN :
+				case FSE_RENAME :
+				case FSE_DELETE :
+				case FSE_STAT_CHANGED :
+					isdir = arg->data.mode & S_IFDIR ? 1 : 0;
+					break;
 				}
 				break;
 			}
@@ -222,11 +233,58 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 		}
 	}
 
-	if (path) {
-		printlogf(L, "Fsevents", "path:%s", path);
+	switch(atype) {
+	case FSE_CHOWN :
+	case FSE_STAT_CHANGED :
+		etype = "Attrib";
+		break;
+	case FSE_CREATE_DIR :
+		etype = "Create";
+		isdir = 1;
+		break;
+	case FSE_CREATE_FILE :
+		etype = "Create";
+		isdir = 0;
+		break;
+	case FSE_DELETE :
+		etype = "Delete";
+		isdir = 0;
+		break;
+	case FSE_RENAME :
+		etype = "Move";
+		break;
+	case FSE_CONTENT_MODIFIED :
+		etype = "Modify";
+		isdir = 0;
+		break;
 	}
-	if (trg) {
-		printlogf(L, "Fsevents", "trg:%s", trg);
+
+	if (etype) {
+		if (!path) {
+			printlogf(L, "Error", 
+				"Internal fail, fsevents, no path.");
+			exit(-1);
+		}
+		if (isdir < 0) {
+			printlogf(L, "Error", 
+				"Internal fail, fsevents, neither dir nor file.");
+			exit(-1);
+		}
+		load_runner_func(L, "fsEventsEvent");
+		lua_pushstring(L, etype);
+		lua_pushboolean(L, isdir);
+		l_now(L);
+		lua_pushstring(L, path);
+		if (trg) {
+			lua_pushstring(L, path);
+		} else {
+			lua_pushnil(L);
+		}
+		
+   	 	if (lua_pcall(L, 5, 0, -7)) {
+        	exit(-1); // ERRNO
+    	}
+    	lua_pop(L, 1);
 	}
 	return len;	
 }
@@ -320,6 +378,13 @@ open_fsevents(lua_State *L)
 		.fd = &fsevents_fd,
 	};
 	int fd = open(DEV_FSEVENTS, O_RDONLY);
+	printlogf(L, "Warn", 
+		"Using /dev/fsevents which is considered an OSX internal interface.");
+	printlogf(L, "Warn", 
+		"Functionality might break across OSX versions");
+	printlogf(L, "Warn", 
+		"A hanging Lsyncd might cause Spotlight/Timemachine doing extra work.");
+
 	if (fd < 0) {
 		printlogf(L, "Error", 
 			"Cannot access %s monitor! (%d:%s)", 
