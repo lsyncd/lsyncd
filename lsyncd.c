@@ -195,7 +195,7 @@ add_logcat(const char *name, int priority)
 		return true;
 	}
 	if (!strcmp("scarce", name)) {
-		settings.log_level = LOG_ERR;
+		settings.log_level = LOG_WARNING;
 		return true;
 	}
 
@@ -1696,6 +1696,7 @@ main1(int argc, char *argv[])
 		/* prepares logging early */
 		int i = 1;
 		add_logcat("Normal", LOG_NOTICE);
+		add_logcat("Warn",   LOG_WARNING);
 		add_logcat("Error",  LOG_ERR);
 		while (i < argc) {
 			if (strcmp(argv[i], "-log") && strcmp(argv[i], "--log")) {
