@@ -1904,7 +1904,16 @@ local Fsevents = (function()
 	-- @param filename2 
 	--
 	local function event(etype, isdir, time, path, path2)
+		
+		if isdir then
+			path = path .. '/'
+			if path2 then
+				path2 = path2 .. '/'
+			end
+		end
+
 		log("Fsevents",etype,",",isdir,",",time,",",path,",",path2)
+	
 		for _, s in Syncs.iwalk() do repeat
 			local root = s.source
 			if not path:starts(root) then

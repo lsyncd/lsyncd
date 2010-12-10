@@ -217,8 +217,11 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 				break;
 			case FSE_ARG_MODE :
 				switch(atype) {
-				case FSE_CHOWN :
 				case FSE_RENAME :
+				case FSE_CHOWN :
+				case FSE_CONTENT_MODIFIED :
+				case FSE_CREATE_FILE :
+				case FSE_CREATE_DIR :
 				case FSE_DELETE :
 				case FSE_STAT_CHANGED :
 					isdir = arg->data.mode & S_IFDIR ? 1 : 0;
@@ -239,23 +242,17 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 		etype = "Attrib";
 		break;
 	case FSE_CREATE_DIR :
-		etype = "Create";
-		isdir = 1;
-		break;
 	case FSE_CREATE_FILE :
 		etype = "Create";
-		isdir = 0;
 		break;
 	case FSE_DELETE :
 		etype = "Delete";
-		isdir = 0;
 		break;
 	case FSE_RENAME :
 		etype = "Move";
 		break;
 	case FSE_CONTENT_MODIFIED :
 		etype = "Modify";
-		isdir = 0;
 		break;
 	}
 
@@ -276,7 +273,7 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 		l_now(L);
 		lua_pushstring(L, path);
 		if (trg) {
-			lua_pushstring(L, path);
+			lua_pushstring(L, trg);
 		} else {
 			lua_pushnil(L);
 		}
