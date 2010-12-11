@@ -1033,13 +1033,12 @@ local Sync = (function()
 	--
 	local function concerns(self, path)
 		-- not concerned if watch rootdir doesnt match
-		if not self.source:starts(path) then
+		if not path:starts(self.source) then
 			return false
 		end
-print("subdirtest", path:sub(#self.source, -1))
 
 		-- a sub dir and not concerned about subdirs
-		if self.config.subdirs ~= nil and not self.config.subdirs and
+		if self.config.subdirs == false and
 			path:sub(#self.source, -1):match("[^/]+/?")
 		then
 			return false
