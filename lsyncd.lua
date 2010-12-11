@@ -164,7 +164,7 @@ Queue = (function()
 	-----
 	-- Creates a new queue.
 	local function new() 
-		return { first = 0, last = -1, size = 0};
+		return { first = 1, last = 0, size = 0};
 	end
 
 	-----
@@ -206,8 +206,8 @@ Queue = (function()
 
 		-- reset indizies if list is empty
 		if list.last < list.first then
-			list.last = -1
-			list.first = 0
+			list.first = 1
+			list.last  = 0
 		end
 		list.size = list.size - 1
 	end
@@ -740,18 +740,19 @@ local InletFactory = (function()
 				error("cannot find delay list from event list.")
 			end
 			local result = {}
-			for k, d in pairs(dlist) do
-				if type(k) == "number" then
-					local s1, s2
-					if mutator then
-						s1, s2 = mutator(d.etype, d.path, d.path2)
-					else
-						s1, s2 = d.path, d.path2
-					end
-					table.insert(result, s1)
-					if s2 then
-						table.insert(result, s2)
-					end
+			local resultn = 1
+			for k, d in ipairs(dlist) do
+				local s1, s2
+				if mutator then
+					s1, s2 = mutator(d.etype, d.path, d.path2)
+				else
+					s1, s2 = d.path, d.path2
+				end
+				result[resultn] = s1
+				resultn = resultn + 1
+				if s2 then
+					result[resultn] = s2
+					resultn = resultn + 1
 				end
 			end
 			return result
@@ -1204,20 +1205,16 @@ local Sync = (function()
 					alarm = 1 
 				end
 				alarm = now() + alarm
-				for k, d in pairs(delay) do
-					if type(k) == "number" then
-						d.alarm = alarm
-						d.status = "wait"
-					end
+				for _, d in ipairs(delay) do
+					d.alarm = alarm
+					d.status = "wait"
 				end
 			end
-			for k, d in pairs(delay) do
-				if type(k) == "number" then
-					if rc ~= "again" then
-						removeDelay(self, d)
-					else
-						d.status = "wait"
-					end
+			for _, d in ipairs(delay) do
+				if rc ~= "again" then
+					removeDelay(self, d)
+				else
+					d.status = "wait"
 				end
 			end
 			log("Delay","Finished list = ",exitcode)
@@ -1379,6 +1376,8 @@ local Sync = (function()
 	--
 	local function getDelays(self, test)
 		local dlist = {}
+		local dlistn = 1
+
 		local blocks = {}
 
 		----
@@ -1399,12 +1398,11 @@ local Sync = (function()
 			then
 				getBlocks(d)
 			elseif not blocks[d] then
-				dlist[i] = d
+				dlist[dlistn] = d
+				dlistn = dlistn + 1
 			end
 		end
 		
-		--- TODO: make incremental indexes in dlist,
-		--        and replace pairs with ipairs.
 		return dlist
 	end
 
@@ -2928,10 +2926,8 @@ function spawn(agent, binary, ...)
 			sync.processes[pid] = dol
 		else 
 			-- is a list
-			for k, d in pairs(dol) do
-				if type(k) == "number" then
-					d.status = "active"
-				end
+			for _, d in ipairs(dol) do
+				d.status = "active"
 			end
 			sync.processes[pid] = dol
 		end
