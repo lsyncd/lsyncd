@@ -9,6 +9,8 @@
 -- It works closely together with the Lsyncd core in lsyncd.c. This means it
 -- cannot be runned directly from the standard lua interpreter.
 --============================================================================
+-- require("profiler")
+-- profiler.start()
 
 -----
 -- A security measurement.
@@ -2967,7 +2969,7 @@ alarm = UserAlarms.alarm
 -- Returns true if 'String' starts with 'Start'
 --
 function string.starts(String,Start)
-	return string.sub(String,1,string.len(Start))==Start
+	return string.sub(String,1,#Start)==Start
 end
 
 -----
@@ -2975,7 +2977,7 @@ end
 -- Returns true if 'String' ends with 'End'
 --
 function string.ends(String,End)
-	return End=='' or string.sub(String,-string.len(End))==End
+	return End=='' or string.sub(String,-#End)==End
 end
 
 
