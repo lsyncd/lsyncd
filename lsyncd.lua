@@ -154,6 +154,87 @@ local CountArray = (function()
 	return {new = new}
 end)()
 
+-----
+-- Queue
+--   optimized for pushing on the right and poping on the left.
+--  
+--
+Queue = (function()
+	
+	-----
+	-- Creates a new queue.
+	local function new() 
+		return { first = 0, last = -1, size = 0};
+	end
+
+	-----
+	-- Pushes a value on the queue.
+	-- Returns the last value
+	local function push(list, value)
+		if not value then 
+			error("Queue pushing nil value", 2)
+		end
+		local last = list.last + 1
+		list.last = last
+		list[last] = value
+		list.size = list.size + 1
+		return last
+	end
+
+	-----
+	-- Removes item at pos from Queue.
+	--
+	local function remove(list, pos)
+		if list[pos] == nil then
+			error("Removing nonexisting item in Queue", 2)
+		end
+		list[pos] = nil
+		
+		-- if removing first element, move list on.
+		if pos == list.first then
+			local last = list.last 
+			while list[pos] == nil and pos <= list.last do
+				pos = pos + 1 
+			end
+			list.first = pos
+		elseif pos == list.last then
+			while list[pos] == nil and pos >= list.first do
+				pos = pos - 1
+			end
+			list.last = pos
+		end
+
+		-- reset indizies if list is empty
+		if list.last < list.first then
+			list.last = -1
+			list.first = 0
+		end
+		list.size = list.size - 1
+	end
+
+	-----
+	-- Stateless queue iterator.
+	local function iter(list, pos)
+		pos = pos + 1
+		while list[pos] == nil and pos <= list.last do
+			pos = pos + 1
+		end
+		if pos > list.last then
+			return nil
+		end
+		return pos, list[pos]
+	end
+
+	----
+	-- Iteraters through the queue
+	-- returning all non-nil pos-value entries
+	local function qpairs(list)
+		return iter, list, list.first - 1
+	end
+
+	return {new = new, push = push, remove = remove, qpairs = qpairs}
+end)()
+
 ----
 -- Locks globals,
 -- no more globals can be created
