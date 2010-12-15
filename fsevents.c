@@ -279,9 +279,9 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 		}
 		
    	 	if (lua_pcall(L, 5, 0, -7)) {
-        	exit(-1); // ERRNO
-    	}
-    	lua_pop(L, 1);
+			exit(-1); // ERRNO
+		}
+		lua_pop(L, 1);
 	}
 	return len;	
 }
