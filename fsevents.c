@@ -377,7 +377,7 @@ open_fsevents(lua_State *L)
 	printlogf(L, "Warn", 
 		"Using /dev/fsevents which is considered an OSX internal interface.");
 	printlogf(L, "Warn", 
-		"Functionality might break across OSX versions");
+		"Functionality might break across OSX versions (This is for 10.5.X)");
 	printlogf(L, "Warn", 
 		"A hanging Lsyncd might cause Spotlight/Timemachine doing extra work.");
 
