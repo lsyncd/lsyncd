@@ -96,10 +96,6 @@ struct kfs_event {
  */
 static int fsevents_fd = -1;
 
-static const luaL_reg lfseventslib[] = {
-		{NULL, NULL}
-};
-
 /* event names */
 /*static const char *eventNames[FSE_MAX_EVENTS] = {
 	"CREATE_FILE",
@@ -297,10 +293,8 @@ fsevents_ready(lua_State *L, struct observance *obs)
 		exit(-1); // ERRNO
 	}
 	{
-		ptrdiff_t len; 
-		int err;
-		len = read (fsevents_fd, readbuf, readbuf_size);
-		err = errno;
+		ptrdiff_t len = read (fsevents_fd, readbuf, readbuf_size);
+		int err = errno;
 		if (len == 0) {
 			return;
 		}
@@ -343,9 +337,9 @@ fsevents_tidy(struct observance *obs)
  * registers fsevents functions.
  */
 extern void
-register_fsevents(lua_State *L) {
-	lua_pushstring(L, "fsevents");
-	luaL_register(L, "fsevents", lfseventslib);
+register_fsevents(lua_State *L) 
+{
+	/* nothing */
 }
 
 /** 
@@ -355,7 +349,7 @@ extern void
 open_fsevents(lua_State *L) 
 {
 	int8_t event_list[] = { // action to take for each event
-    	FSE_REPORT,  /* FSE_CREATE_FILE         */
+		FSE_REPORT,  /* FSE_CREATE_FILE         */
 		FSE_REPORT,  /* FSE_DELETE              */
 		FSE_REPORT,  /* FSE_STAT_CHANGED        */
 		FSE_REPORT,  /* FSE_RENAME              */
@@ -388,12 +382,12 @@ open_fsevents(lua_State *L)
 		exit(-1); // ERRNO
 	}
 
-    if (ioctl(fd, FSEVENTS_CLONE, (char *)&fca) < 0) {
+	if (ioctl(fd, FSEVENTS_CLONE, (char *)&fca) < 0) {
 		printlogf(L, "Error", 
 			"Cannot control %s monitor! (%d:%s)", 
 			DEV_FSEVENTS, errno, strerror(errno));
-        exit(-1); // ERRNO
-    }
+		exit(-1); // ERRNO
+	}
 	
 	if (readbuf) {
 		logstring("Error", 
@@ -403,7 +397,7 @@ open_fsevents(lua_State *L)
 	readbuf = s_malloc(readbuf_size);
 
 	/* fd has been cloned, closes access fd */
-    close(fd);
+	close(fd);
 	close_exec_fd(fsevents_fd);
 	non_block_fd(fsevents_fd);
 	observe_fd(fsevents_fd, fsevents_ready, NULL, fsevents_tidy, NULL);
