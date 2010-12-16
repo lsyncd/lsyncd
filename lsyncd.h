@@ -159,7 +159,6 @@ extern void open_fanotify(lua_State *L);
  * /dev/fsevents
  */
 #ifdef LSYNCD_WITH_FSEVENTS
-extern void register_fsevents(lua_State *L);
 extern void open_fsevents(lua_State *L);
 #endif
 

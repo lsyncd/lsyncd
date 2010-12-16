@@ -11,7 +11,7 @@ local tdir, srcdir, trgdir = mktemps()
 churn(srcdir, 10)
 
 local logs = {}
-logs =  {"-log", "Delay", "-log", "Exec"}
+logs =  {"-log", "Delay" }
 
 local pid = spawn("./lsyncd", "-nodaemon", "-delay", "5",
                   "-rsyncssh", srcdir, "localhost", trgdir,
@@ -20,7 +20,7 @@ local pid = spawn("./lsyncd", "-nodaemon", "-delay", "5",
 cwriteln("waiting for Lsyncd to startup")
 posix.sleep(1)
 
-churn(srcdir, 100)
+churn(srcdir, 20)
 
 cwriteln("waiting for Lsyncd to finish its jobs.")
 posix.sleep(10)

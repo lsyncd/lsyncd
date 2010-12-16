@@ -1381,10 +1381,6 @@ register_lsyncd(lua_State *L)
 	register_inotify(L);
 	lua_settable(L, -3);
 #endif
-#ifdef LSYNCD_WITH_FSEVENTS
-	register_fsevents(L);
-	lua_settable(L, -3);
-#endif
 	lua_pop(L, 1);
 	if (lua_gettop(L)) {
 		logstring("Error", "internal, stack not empty in lsyncd_register()");

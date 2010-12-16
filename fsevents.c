@@ -332,16 +332,6 @@ fsevents_tidy(struct observance *obs)
 	readbuf = NULL;
 }
 
-
-/** 
- * registers fsevents functions.
- */
-extern void
-register_fsevents(lua_State *L) 
-{
-	/* nothing */
-}
-
 /** 
  * opens and initalizes fsevents.
  */
