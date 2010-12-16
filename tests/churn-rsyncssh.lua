@@ -20,7 +20,7 @@ local pid = spawn("./lsyncd", "-nodaemon", "-delay", "5",
 cwriteln("waiting for Lsyncd to startup")
 posix.sleep(1)
 
-churn(srcdir, 20)
+churn(srcdir, 100)
 
 cwriteln("waiting for Lsyncd to finish its jobs.")
 posix.sleep(10)

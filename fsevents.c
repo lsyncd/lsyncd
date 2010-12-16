@@ -358,6 +358,7 @@ open_fsevents(lua_State *L)
 		.fd = &fsevents_fd,
 	};
 	int fd = open(DEV_FSEVENTS, O_RDONLY);
+	int err = errno;
 	printlogf(L, "Warn", 
 		"Using /dev/fsevents which is considered an OSX internal interface.");
 	printlogf(L, "Warn", 
@@ -368,7 +369,7 @@ open_fsevents(lua_State *L)
 	if (fd < 0) {
 		printlogf(L, "Error", 
 			"Cannot access %s monitor! (%d:%s)", 
-			DEV_FSEVENTS, errno, strerror(errno));
+			DEV_FSEVENTS, err, strerror(err));
 		exit(-1); // ERRNO
 	}
 

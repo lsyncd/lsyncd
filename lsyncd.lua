@@ -3211,6 +3211,7 @@ local default_rsyncssh = {
 		spawn(elist, "/usr/bin/rsync", 
 			"<", zPaths, 
 			config.rsyncOps,
+			"-r",
 			"--from0",
 			"--files-from=-",
 			config.source, 
