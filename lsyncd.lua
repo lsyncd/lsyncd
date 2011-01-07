@@ -519,7 +519,7 @@ local Combiner = (function()
 end)()
 
 -----
--- Creates inlets for syncs, the user interface for events.
+-- Creates inlets for syncs: the user interface for events.
 --
 local InletFactory = (function()
 	-- table to receive the delay of an event.
@@ -527,9 +527,9 @@ local InletFactory = (function()
 	local e2d = {}
 	-- table to receive the sync of an event or event list
 	local e2s = {}
-	-- dont stop the garbage collect to remove entries.
-	setmetatable(e2d, { __mode = 'kv' })
-	setmetatable(e2s, { __mode = 'kv' })
+	-- dont stop the garbage collector to remove entries.
+	setmetatable(e2d, { __mode = 'k' })
+	setmetatable(e2s, { __mode = 'k' })
 	
 	-----
 	-- removes the trailing slash from a path
@@ -787,12 +787,12 @@ local InletFactory = (function()
 
 	
 	----
-	-- list of all inlets and their syncs
+	-- table of all inlets with their syncs
 	--
 	local inlets = {}
 
-	-- dont stop the garbage collect to remove entries.
-	setmetatable(inlets, { __mode = 'kv' })
+	-- dont stop the garbage collector to remove entries.
+	setmetatable(inlets, { __mode = 'v' })
 	
 	-----
 	-- Encapsulates a delay into an event for the user script.
@@ -2892,15 +2892,11 @@ end
 
 
 -----
--- Spawn a new child process
+-- Spawns a new child process.
 --
 -- @param agent   the reason why a process is spawned.
 --                normally this is a delay/event of a sync.
 --                it will mark the related files as blocked.
---                or it is a string saying "all", that this 
---                process blocks all events and is blocked by all
---                this is used on startup.
--- @param collect a table of exitvalues and the action that shall taken.
 -- @param binary  binary to call
 -- @param ...     arguments
 --
@@ -3035,9 +3031,9 @@ local default_rsync = {
 				return 
 			end
 			return p:gsub("%?", "\\?"):
-			   	     gsub("%*", "\\*"):
-					 gsub("%[", "\\["):
-					 gsub("%]", "\\]")
+			       gsub("%*", "\\*"):
+			       gsub("%[", "\\["):
+			       gsub("%]", "\\]")
 		end
 
 		local paths = elist.getPaths(
@@ -3057,7 +3053,7 @@ local default_rsync = {
 
 		-- adds one entry into the filter
 		-- @param path ... path to add
-		-- @param leaf ... true if this the orinal path
+		-- @param leaf ... true if this the original path
 		--                 false if its a parent
 		local function addToFilter(path) 
 			if filterP[path] then
