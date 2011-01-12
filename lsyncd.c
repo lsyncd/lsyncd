@@ -1120,15 +1120,15 @@ l_configure(lua_State *L)
 		 * from this on log to configurated log end instead of 
 		 * stdout/stderr */
 		running = true;
-		if (settings.pidfile) {
-			write_pidfile(L, settings.pidfile);
-		}
 		if (!settings.nodaemon && !is_daemon) {
 			if (!settings.log_file) {
 				settings.log_syslog = true;
 			}
 			logstring("Debug", "daemonizing now.");
 			daemonize(L);
+		}
+		if (settings.pidfile) {
+			write_pidfile(L, settings.pidfile);
 		}
 	} else if (!strcmp(command, "nodaemon")) {
 		settings.nodaemon = true;
