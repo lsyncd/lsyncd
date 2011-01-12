@@ -5,13 +5,13 @@ lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua
 if INOTIFY
 lsyncd_SOURCES += inotify.c
 endif
-if FANOTIFY
-lsyncd_SOURCES += fanotify.c
-endif
+#if FANOTIFY
+#lsyncd_SOURCES += fanotify.c
+#endif
 
-if FSEVENTS
-lsyncd_SOURCES += fsevents.c
-endif
+#if FSEVENTS
+#lsyncd_SOURCES += fsevents.c
+#endif
 
 lsyncd_LDADD = $(LUA_LIBS)
 exampledir = $(datarootdir)/doc/@PACKAGE@

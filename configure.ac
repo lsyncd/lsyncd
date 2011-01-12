@@ -2,7 +2,7 @@
 echo XXXXXXXXX
 # Process this file with autoconf to produce a configure script.
 #AC_PREREQ(2.60)
-AC_INIT(lsyncd, 2.0.0, axkibe@gmail.com)
+AC_INIT(lsyncd, 2.0.1, axkibe@gmail.com)
 AC_CONFIG_SRCDIR([lsyncd.c])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
@@ -53,36 +53,40 @@ else
 fi
 AM_CONDITIONAL([INOTIFY], [test x${with_inotify} != xno])
 
-###
-# --with-fanotify option
-#
-AC_ARG_WITH([fanotify],
-[  --with-fanotify       Uses Linux new fanotify event interface. EXPERIMENTAL!
-                        Off by default.])
-if test "x${with_fanotify}" == x || test "x${with_fanotify}no" == xno; then
-	echo "compiling without fanotify"
-else
-	echo "compiling with fanotify - WARNING experimental!"
-	AC_DEFINE(LSYNCD_WITH_FANOTIFY,,"descr")
-fi
-AM_CONDITIONAL([FANOTIFY], 
-	[test x${with_fanotify} != x -a x${with_fanotify} != xno])
+####
+## --with-fanotify option
+## disabled, does not work.
+##
+#AC_ARG_WITH([fanotify],
+#[  --with-fanotify       Uses Linux new fanotify event interface. EXPERIMENTAL!
+#                        Off by default.])
+#if test "x${with_fanotify}" == x || test "x${with_fanotify}no" == xno; then
+#	echo "compiling without fanotify"
+#else
+#	echo "compiling with fanotify - WARNING experimental!"
+#	AC_DEFINE(LSYNCD_WITH_FANOTIFY,,"descr")
+#fi
+#AM_CONDITIONAL([FANOTIFY], 
+#	[test x${with_fanotify} != x -a x${with_fanotify} != xno])
 
-###
-# --with-fsevents 
-AC_ARG_WITH([fsevents],
-[  --with-fsevents         Uses MacOS (10.5) /dev/fsevents. EXPERIMENTAL!
-                          Off by default.])
-if test "x${with_fsevents}" != x; then
-	echo "compiling with fsevents. WARNING experimental!"
-	AC_DEFINE(LSYNCD_WITH_FSEVENTS,,"descr")
-else
-	echo "compiling without fsevents"
-fi
-AM_CONDITIONAL([FSEVENTS], 
-	[test x${with_fsevents} != x -a xno${with_fsevents} != xno])
+####
+## --with-fsevents 
+## disabled per default, experimental, works only with OS X 10.5
+#AC_ARG_WITH([fsevents],
+#[  --with-fsevents         Uses MacOS (10.5) /dev/fsevents. EXPERIMENTAL!
+#                          Off by default.])
+#if test "x${with_fsevents}" != x; then
+#	echo "compiling with fsevents. WARNING experimental!"
+#	AC_DEFINE(LSYNCD_WITH_FSEVENTS,,"descr")
+#else
+##	echo "compiling without fsevents"
+#fi
+#AM_CONDITIONAL([FSEVENTS], 
+#	[test x${with_fsevents} != x -a xno${with_fsevents} != xno])
 
 # Checks for typedefs, structures, and compiler characteristics.
 # Checks for library functions.
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
+
+

@@ -1,3 +1,11 @@
+11-01-2011: 2.0.1
+	fix: write pidfile after daemonize()
+	fix: fixed weak tables that allowed  garbage collector to collect 
+	     event lists too eraly.
+	improvement: allow multiple arguments as table for rsyncOps
+	change: added OSX fsevents interface, disabled in autoconf by default
+	        since still very experimental and limited to OSX 10.5 only.
+
 02-12-2010: 2.0.0
 	a complete recoding!
 
