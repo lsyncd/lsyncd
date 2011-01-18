@@ -2701,7 +2701,7 @@ function runner.initialize()
 	lockGlobals()
 
 	-- copies simple settings with numeric keys to "key=true" settings.
-	for k, v in pairs(settings) do
+	for k, v in ipairs(settings) do
 		if settings[v] then
 			log("Error", "Double setting '"..v.."'")
 			os.exit(-1) -- ERRNO

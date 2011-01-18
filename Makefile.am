@@ -22,7 +22,10 @@ dist_example_DATA = \
 	examples/limagemagic.lua \
 	examples/lrsync.lua \
 	examples/lrsyncssh.lua
-TESTS = tests/l4-rsync-data.sh
+TESTS = \
+	tests/churn-rsync.lua \
+	tests/churn-rsyncssh.lua \
+	tests/l4rsyncdata.lua
 
 dist_man1_MANS = doc/lsyncd.1
 EXTRA_DIST = doc/lsyncd.1.txt doc/lsyncd.1.xml
