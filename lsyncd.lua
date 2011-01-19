@@ -994,10 +994,9 @@ local Excludes = (function()
 		p = string.gsub(p, "%-", "%-")
 		p = string.gsub(p, "%?", "[^/]")
 		p = string.gsub(p, "%*", "[^/]*")
-		-- this was a ** before v
+		-- this was a ** before 
 		p = string.gsub(p, "%[%^/%]%*%[%^/%]%*", ".*") 
 		p = string.gsub(p, "^/", "^") 
-		p = string.gsub(p, "/$", ".*/$") 
 		log("Exclude", "toLuaPattern '",o,"' = '",p,'"')
 		return p
 	end
@@ -1062,8 +1061,27 @@ local Excludes = (function()
 	--
 	local function test(self, path)
 		for _, p in pairs(self.list) do
-			if (string.match(path, p)) then
-				return true
+			if p:byte(1) == 94 and p:byte(-1) == 36 then
+				-- start with ^ and ends with $
+				if p:match(p) then
+					return true
+				end
+			elseif p:byte(1) == 94 then
+				-- starts with ^ but does not end with $
+				-- end can be a / or $ 
+				if p:match(p.."/") or p:match(p.."$") then
+					return true
+				end
+			elseif p:byte(-1) == 36 then
+				-- does not start with ^ but ends with $
+				if p:match("/"..p) or p:match("^"..p) then
+					return true
+				end
+			else 
+				if p:match("/"..p.."/") or p:match("/"..p.."$") or
+				   p:match("^"..p.."/") or p:match("^"..p.."$") then
+				   return true
+				end
 			end
 		end
 		return false
