@@ -996,7 +996,7 @@ local Excludes = (function()
 		p = string.gsub(p, "%*", "[^/]*")
 		-- this was a ** before 
 		p = string.gsub(p, "%[%^/%]%*%[%^/%]%*", ".*") 
-		p = string.gsub(p, "^/", "^") 
+		p = string.gsub(p, "^/", "^/") 
 		log("Exclude", "toLuaPattern '",o,"' = '",p,'"')
 		return p
 	end
@@ -1061,28 +1061,20 @@ local Excludes = (function()
 	--
 	local function test(self, path)
 		for _, p in pairs(self.list) do
-			if p:byte(1) == 94 and p:byte(-1) == 36 then
-				-- start with ^ and ends with $
-				if p:match(p) then
+			if p:byte(-1) == 36 then
+				-- ends with $
+				if path:match(p) then
+					log("Exclude", "'",path,"' matches '",p,"' (1)")
 					return true
 				end
-			elseif p:byte(1) == 94 then
-				-- starts with ^ but does not end with $
-				-- end can be a / or $ 
-				if p:match(p.."/") or p:match(p.."$") then
+			else
+				-- end either end with / or $ 
+				if path:match(p.."/") or path:match(p.."$") then
+					log("Exclude", "'",path,"' matches '",p,"' (2)")
 					return true
-				end
-			elseif p:byte(-1) == 36 then
-				-- does not start with ^ but ends with $
-				if p:match("/"..p) or p:match("^"..p) then
-					return true
-				end
-			else 
-				if p:match("/"..p.."/") or p:match("/"..p.."$") or
-				   p:match("^"..p.."/") or p:match("^"..p.."$") then
-				   return true
 				end
 			end
+			log("Exclude", "'",path,"' NOT matches '",p,"'")
 		end
 		return false
 	end
@@ -1167,7 +1159,7 @@ local Sync = (function()
 		end
 
 		-- concerned if not excluded
-		return not self.excludes:test(path)
+		return not self.excludes:test(path:sub(#self.source))
 	end
 
 	-----
