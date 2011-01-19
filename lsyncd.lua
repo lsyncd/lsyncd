@@ -869,8 +869,8 @@ local InletFactory = (function()
 			-- creates a copy
 			local e = {}
 			local en = 1;
-			for _, v in pairs(sync.excludes.list) do
-				e[en] = v;
+			for k, _ in pairs(sync.excludes.list) do
+				e[en] = k;
 				en = en + 1;
 			end
 			return e;
@@ -1011,6 +1011,10 @@ local Excludes = (function()
 		-- this was a ** before 
 		p = string.gsub(p, "%[%^/%]%*%[%^/%]%*", ".*") 
 		p = string.gsub(p, "^/", "^/") 
+		if p.byte(1) ~= 47 then -- does not begin with "/"
+			-- all matches should begin with "/".
+			p = "/" .. p;
+		end
 		log("Exclude", "toLuaPattern '",o,"' = '",p,'"')
 		return p
 	end
