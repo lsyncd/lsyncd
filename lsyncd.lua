@@ -863,6 +863,20 @@ local InletFactory = (function()
 		end,
 	
 		-----
+		-- gets the list of excludes in their original rsynlike patterns form.
+		--
+		getExcludes = function(sync)
+			-- creates a copy
+			local e = {}
+			local en = 1;
+			for _, v in pairs(sync.excludes.list) do
+				e[en] = v;
+				en = en + 1;
+			end
+			return e;
+		end,
+
+		-----
 		-- Creates a blanketEvent that blocks everything
 		-- and is blocked by everything.
 		--
@@ -1258,13 +1272,13 @@ local Sync = (function()
 
 		-- exclusion tests
 		if not path2 then
-			-- simple test for 1 path events
+			-- simple test for single path events
 			if self.excludes:test(path) then
 				log("Exclude", "excluded ",etype," on '",path,"'")
 				return
 			end
 		else
-			-- for 2 paths (move) it might result into a split
+			-- for double paths (move) it might result into a split
 			local ex1 = self.excludes:test(path)
 			local ex2 = self.excludes:test(path2)
 			if ex1 and ex2 then
@@ -3116,12 +3130,28 @@ local default_rsync = {
 		if string.sub(config.target, -1) ~= "/" then
 			config.target = config.target .. "/"
 		end
-		log("Normal", "recursive startup rsync: ", config.source,
-			" -> ", config.target)
-		spawn(event, "/usr/bin/rsync", 
-			"--delete",
-			config.rsyncOps, "-r", 
-			config.source, config.target)
+
+		local excludes = inlet.getExcludes();
+		if #excludes == 0 then
+			log("Normal", "recursive startup rsync: ", config.source,
+				" -> ", config.target)
+			spawn(event, "/usr/bin/rsync", 
+				"--delete",
+				config.rsyncOps, "-r", 
+				config.source, 
+				config.target)
+		else
+			local exS = table.concat(excludes, "\n")
+			log("Normal", "recursive startup rsync: ", config.source,
+				" -> ", config.target," excluding\n", exS)
+			spawn(event, "/usr/bin/rsync",  
+				"<", exS,
+				"--exclude-from=-",
+				"--delete",
+				config.rsyncOps, "-r", 
+				config.source, 
+				config.target)
+		end
 	end,
 
 	-----
@@ -3276,14 +3306,30 @@ local default_rsyncssh = {
 		if string.sub(config.targetdir, -1) ~= "/" then
 			config.targetdir = config.targetdir .. "/"
 		end
-		log("Normal", "recursive startup rsync: ", config.source,
-			" -> ", config.host .. ":" .. config.targetdir)
-		spawn(event, "/usr/bin/rsync", 
-			"--delete",
-			"-r", 
-			config.rsyncOps, 
-			config.source, 
-			config.host .. ":" .. config.targetdir)
+
+		local excludes = inlet.getExcludes();
+		if #excludes == 0 then
+			log("Normal", "recursive startup rsync: ", config.source,
+				" -> ", config.host .. ":" .. config.targetdir)
+			spawn(event, "/usr/bin/rsync", 
+				"--delete",
+				"-r", 
+				config.rsyncOps, 
+				config.source, 
+				config.host .. ":" .. config.targetdir)
+		else
+			local exS = table.concat(excludes, "\n")
+			log("Normal", "recursive startup rsync: ", config.source,
+				" -> ", config.host .. ":" .. config.targetdir, " excluding\n")
+			spawn(event, "/usr/bin/rsync",  
+				"<", exS,
+				"--exclude-from=-",
+				"--delete",
+				"-r",
+				config.rsyncOps, 
+				config.source, 
+				config.host .. ":" .. config.targetdir)
+		end
 	end,
 
 	-----
