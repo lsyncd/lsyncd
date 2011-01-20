@@ -897,7 +897,7 @@ l_exec(lua_State *L)
 		if (pipe_text) {
 			dup2(pipefd[0], STDIN_FILENO);
 		}
-		close_exec_fd(pipefd[0]);
+		// close_exec_fd(pipefd[0]);
 		/* if lsyncd runs as a daemon and has a logfile it will redirect
 		   stdout/stderr of child processes to the logfile. */
 		if (is_daemon && settings.log_file) {
