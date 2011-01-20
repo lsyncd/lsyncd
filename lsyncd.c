@@ -411,7 +411,7 @@ pipe_writey(lua_State *L, struct observance *observance)
 		logstring("Normal", "broken pipe.");
 		nonobserve_fd(fd);
 	} else if (pm->pos >= pm->tlen) {
-		logstring("Debug", "finished pipe.");
+		logstring("Exec", "finished pipe.");
 		nonobserve_fd(fd);
 	}
 }
@@ -555,7 +555,7 @@ observe_fd(int fd,
 	if (observance_action) {
 		// TODO
 		logstring("Error", 
-	"internal, New observances in ready/writey handlers not yet supported");
+			"internal, New observances in ready/writey handlers not yet supported");
 		exit(-1); // ERRNO
 	}
 
@@ -616,6 +616,9 @@ nonobserve_fd(int fd)
 		exit(-1); //ERRNO
 	}
 
+	/* tidy up the observance */
+	observances[pos].tidy(observances + pos); 
+	
 	/* and moves the list down */
 	memmove(observances + pos, observances + pos + 1, 
 	        (observances_len - pos) * (sizeof(struct observance)));
@@ -860,16 +863,19 @@ l_exec(lua_State *L)
 			exit(-1); // ERRNO
 		}
 		pipe_text = lua_tolstring(L, 3, &pipe_len);
-		/* creates the pipe */
-		if (pipe(pipefd) == -1) {
-			logstring("Error", "cannot create a pipe!");
-			exit(-1); // ERRNO
+		if (strlen(pipe_text) > 0) {
+			/* creates the pipe */
+			if (pipe(pipefd) == -1) {
+				logstring("Error", "cannot create a pipe!");
+				exit(-1); // ERRNO
+			}
+			/* always close the write end for child processes */
+			close_exec_fd(pipefd[1]);
+			/* set the write end on non-blocking */
+			non_block_fd(pipefd[1]);
+		} else {
+			pipe_text = NULL;
 		}
-		/* always close the write end for child processes */
-		close_exec_fd(pipefd[1]);
-		/* set the write end on non-blocking */
-		non_block_fd(pipefd[1]);
-
 		argc -= 2;
 		li += 2;
 	}
@@ -891,6 +897,7 @@ l_exec(lua_State *L)
 		if (pipe_text) {
 			dup2(pipefd[0], STDIN_FILENO);
 		}
+		close_exec_fd(pipefd[0]);
 		/* if lsyncd runs as a daemon and has a logfile it will redirect
 		   stdout/stderr of child processes to the logfile. */
 		if (is_daemon && settings.log_file) {
@@ -919,9 +926,8 @@ l_exec(lua_State *L)
 		len = write(pipefd[1], pipe_text, pipe_len);
 		if (len < 0) {
 			logstring("Normal", "immediatly broken pipe.");
-			close(pipefd[0]);
-		}
-		if (len == pipe_len) {
+			close(pipefd[1]);
+		} else if (len == pipe_len) {
 			/* usual and best case, the pipe accepted all input -> close */
 			close(pipefd[1]);
 			logstring("Exec", "one-sweeped pipe");
