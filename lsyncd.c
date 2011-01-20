@@ -935,7 +935,6 @@ l_exec(lua_State *L)
 			pm->pos  = len;
 			observe_fd(pipefd[1], NULL, pipe_writey, pipe_tidy, pm);
 		}
-		close(pipefd[0]);
 	}
 	free(argv);
 	lua_pushnumber(L, pid);
