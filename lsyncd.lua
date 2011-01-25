@@ -3223,12 +3223,12 @@ local default_rsyncssh = {
 			end
 
 			local sPaths = table.concat(paths, "\n")
-			local zPaths = table.concat(paths, "\000")
+			local zPaths = table.concat(paths, config.xargs.delimiter)
 			log("Normal", "Deleting list\n", sPaths)
 			spawn(elist, "/usr/bin/ssh", 
 				"<", zPaths,
 				config.host, 
-				"xargs", "-0", "rm -rf")
+				config.xargs.binary, config.xargs.xparams)
 			return
 		end
 
@@ -3355,6 +3355,14 @@ local default_rsyncssh = {
 	-- Default delay. 
 	--
 	delay = 15,
+
+	-----
+	-- Delimiter, the binary and the paramters passed to xargs 
+	-- xargs is used to delete multiple remote files, when ssh access is 
+	-- available this is simpler than to build filters for rsync for this.
+	-- Default uses '0' as limiter, you might override this for old systems.
+	--
+	xargs = {delimiter = '\000', binary = "xargs", xparams = {"-0", "rm -rf"}}
 }
 
 -----
