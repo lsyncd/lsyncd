@@ -72,7 +72,12 @@ l_addwatch(lua_State *L)
 {
 	const char *path = luaL_checkstring(L, 1);
 	int wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
-	printlogf(L, "Inotify", "addwatch(%s)->%d", path, wd);
+	if (wd < 0) {
+		printlogf(L, "Inotify", "addwatch(%s)->%d; err=%d:%s", path, wd,
+			errno, strerror(errno));
+	} else {
+		printlogf(L, "Inotify", "addwatch(%s)->%d", path, wd);
+	}
 	lua_pushinteger(L, wd);
 	return 1;
 }
