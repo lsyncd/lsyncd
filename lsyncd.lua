@@ -1626,17 +1626,13 @@ local Syncs = (function()
 	-- Adds a new directory to observe.
 	--
 	local function add(config)
-		-----
 		-- Creates a new config table and inherit all keys/values
 		-- from integer keyed tables
-		--
 		local uconfig = config
 		config = {}
 		inherit(config, uconfig)
 	
-		-----
 		-- Lets settings or commandline override delay values.
-		--
 		if settings then
 			config.delay = settings.delay or config.delay
 		end
@@ -3075,7 +3071,7 @@ local default_rsync = {
 				end
 			end)
 		-- stores all filters with integer index	
-		local filterI = {} 
+		local filterI = inlet.getExcludes();
 		-- stores all filters with path index	
 		local filterP = {}
 
@@ -3088,7 +3084,7 @@ local default_rsync = {
 				return
 			end
 			filterP[path]=true
-			table.insert(filterI, path)
+			table.insert(filterI, "+ "..path)
 		end
 
 		-- adds a path to the filter, for rsync this needs
@@ -3105,6 +3101,7 @@ local default_rsync = {
 				end
 			end
 		end
+		table.insert(filterI, "- *")
 		
 		local filterS = table.concat(filterI, "\n")
 		local filter0 = table.concat(filterI, "\000")
@@ -3119,8 +3116,7 @@ local default_rsync = {
 			"--delete",
 			"--force",
 			"--from0",
-			"--include-from=-",
-			"--exclude=*",
+			"--exclude-from=-",
 			config.source, 
 			config.target)
 	end,
@@ -3248,14 +3244,16 @@ local default_rsyncssh = {
 		local sPaths = table.concat(paths, "\n") 
 		local zPaths = table.concat(paths, "\000")
 		log("Normal", "Rsyncing list\n", sPaths)
-		spawn(elist, "/usr/bin/rsync", 
+		spawn(
+			elist, "/usr/bin/rsync", 
 			"<", zPaths, 
 			config.rsyncOps,
 			"-r",
 			"--from0",
 			"--files-from=-",
 			config.source, 
-			config.host .. ":" .. config.targetdir)
+			config.host .. ":" .. config.targetdir
+		)
 	end,
 	
 	-----
@@ -3315,24 +3313,40 @@ local default_rsyncssh = {
 		if #excludes == 0 then
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.host .. ":" .. config.targetdir)
-			spawn(event, "/usr/bin/rsync", 
+			spawn(
+				event, "/usr/bin/rsync", 
 				"--delete",
 				"-r", 
 				config.rsyncOps, 
 				config.source, 
-				config.host .. ":" .. config.targetdir)
+				config.host .. ":" .. config.targetdir
+			)
 		else
 			local exS = table.concat(excludes, "\n")
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.host .. ":" .. config.targetdir, " excluding\n")
-			spawn(event, "/usr/bin/rsync",  
+			spawn(
+				event, "/usr/bin/rsync",  
 				"<", exS,
 				"--exclude-from=-",
 				"--delete",
 				"-r",
 				config.rsyncOps, 
 				config.source, 
-				config.host .. ":" .. config.targetdir)
+				config.host .. ":" .. config.targetdir
+			)
+		end
+	end,
+
+	-----
+	-- Checks the configuration
+	--
+	prepare = function(config)
+		if not config.host then
+			error("default.rsyncssh needs 'host' configured", 4)
+		end
+		if not config.targetdir then
+			error("default.rsyncssh needs 'targetdir' configured", 4)
 		end
 	end,
 

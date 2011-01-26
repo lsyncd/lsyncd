@@ -5,6 +5,10 @@
 require("posix")
 dofile("tests/testlib.lua")
 
+cwriteln("****************************************************************")
+cwriteln(" Testing default.rsync with random data activity ")
+cwriteln("****************************************************************")
+
 local tdir, srcdir, trgdir = mktemps()
 
 -- makes some startup data 
