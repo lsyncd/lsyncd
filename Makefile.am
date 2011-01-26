@@ -25,6 +25,8 @@ dist_example_DATA = \
 TESTS = \
 	tests/churn-rsync.lua \
 	tests/churn-rsyncssh.lua \
+	tests/exclude-rsync.lua \
+	tests/exclude-rsyncssh.lua \
 	tests/l4rsyncdata.lua
 
 dist_man1_MANS = doc/lsyncd.1
