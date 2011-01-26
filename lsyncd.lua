@@ -1011,7 +1011,7 @@ local Excludes = (function()
 		-- this was a ** before 
 		p = string.gsub(p, "%[%^/%]%*%[%^/%]%*", ".*") 
 		p = string.gsub(p, "^/", "^/") 
-		if p.byte(1) ~= 47 then -- does not begin with "/"
+		if p:sub(1,2) ~= "^/" then -- does not begin with "^/"
 			-- all matches should begin with "/".
 			p = "/" .. p;
 		end

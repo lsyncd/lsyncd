@@ -49,6 +49,12 @@ cwriteln("Exitcode of Lsyncd = ", exitmsg, " ", lexitcode)
 posix.sleep(1)
 
 cwriteln("* differences:")
-os.execute("diff -urN "..srcdir.." "..trgdir)
+exitcode = os.execute("diff -urN "..srcdir.." "..trgdir)
+cwriteln("Exitcode of diff = '", exitcode, "'")
+if exitcode ~= 0 then
+	os.exit(1)
+else
+	os.exit(0)
+end
 
 -- TODO remove temp
