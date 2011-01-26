@@ -5,10 +5,11 @@
 require("posix")
 dofile("tests/testlib.lua")
 
-cwriteln("****************************************************************")
-cwriteln(" Testing default.rsyncssh with random data activity             ")
-cwriteln("****************************************************************")
-cwriteln("(This test needs passwordless localhost access of current user)");
+cwriteln("****************************************************************");
+cwriteln(" Testing default.rsyncssh with random data activity ");
+cwriteln("****************************************************************");
+cwriteln(" (this test needs passwordless ssh localhost access ");
+cwriteln("  for current user)");
 
 local tdir, srcdir, trgdir = mktemps()
 

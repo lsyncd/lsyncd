@@ -1082,17 +1082,17 @@ local Excludes = (function()
 			if p:byte(-1) == 36 then
 				-- ends with $
 				if path:match(p) then
-					log("Exclude", "'",path,"' matches '",p,"' (1)")
+					--log("Exclude", "'",path,"' matches '",p,"' (1)")
 					return true
 				end
 			else
 				-- end either end with / or $ 
 				if path:match(p.."/") or path:match(p.."$") then
-					log("Exclude", "'",path,"' matches '",p,"' (2)")
+					--log("Exclude", "'",path,"' matches '",p,"' (2)")
 					return true
 				end
 			end
-			log("Exclude", "'",path,"' NOT matches '",p,"'")
+			--log("Exclude", "'",path,"' NOT matches '",p,"'")
 		end
 		return false
 	end
@@ -3247,7 +3247,6 @@ local default_rsyncssh = {
 			elist, "/usr/bin/rsync", 
 			"<", zPaths, 
 			config.rsyncOps,
-			"-r",
 			"--from0",
 			"--files-from=-",
 			config.source, 
