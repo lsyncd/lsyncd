@@ -3062,16 +3062,15 @@ local default_rsync = {
 
 		local paths = elist.getPaths(
 			function(etype, path1, path2) 
-				if (etype == "Delete" or etype == "Create") 
-					and string.byte(path1, -1) == 47 
-				then
+				if etype == "Delete" and string.byte(path1, -1) == 47 then
 					return sub(path1) .. "***", sub(path2)
 				else
 					return sub(path1), sub(path2)
 				end
 			end)
 		-- stores all filters with integer index	
-		local filterI = inlet.getExcludes();
+		--local filterI = inlet.getExcludes();
+		local filterI = {}
 		-- stores all filters with path index	
 		local filterP = {}
 
@@ -3084,7 +3083,7 @@ local default_rsync = {
 				return
 			end
 			filterP[path]=true
-			table.insert(filterI, "+ "..path)
+			table.insert(filterI, path)
 		end
 
 		-- adds a path to the filter, for rsync this needs
@@ -3101,7 +3100,6 @@ local default_rsync = {
 				end
 			end
 		end
-		table.insert(filterI, "- *")
 		
 		local filterS = table.concat(filterI, "\n")
 		local filter0 = table.concat(filterI, "\000")
@@ -3116,7 +3114,8 @@ local default_rsync = {
 			"--delete",
 			"--force",
 			"--from0",
-			"--exclude-from=-",
+			"--include-from=-",
+			"--exclude=*",
 			config.source, 
 			config.target)
 	end,
