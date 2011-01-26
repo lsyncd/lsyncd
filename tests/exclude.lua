@@ -14,21 +14,21 @@ local log = {"-log", "all"}
 
 writefile(cfgfile, [[
 settings = {
-    .logfile = "]]..logfile..[[",
-    .nodaemon = true,
-	.delay = 3,
+    logfile = "]]..logfile..[[",
+    nodaemon = true,
+	delay = 3,
 }
 
-rsync {
-    defaults.rsync,
+sync {
+    default.rsync,
 	source = "]]..srcdir..[[",
 	target = "]]..trgdir..[[",
 	exclude = {
-        "erf,
+        "erf",
 		"/eaf",
 		"erd/",
 		"/ead",
-	}
+	},
 }]]);
 
 -- writes all files
@@ -48,11 +48,11 @@ end
 local function testfile(filename, expect) 
 	local stat, err = posix.stat(filename)
 	if stat and not expect then
-		cwriteln("failure: " .. filename " .. should be excluded");
+		cwriteln("failure: ",filename," should be excluded");
 		os.exit(1);
 	end
 	if not stat and expect then
-		cwriteln("failure: " .. filename " .. should not be excluded");
+		cwriteln("failure: ",filename," should not be excluded");
 		os.exit(1);
 	end
 end
@@ -73,7 +73,7 @@ end
 cwriteln("testing startup excludes");
 writefiles();
 cwriteln("starting Lsyncd");
-local pid = spawn("./lsyncd");
+local pid = spawn("./lsyncd", cfgfile);
 cwriteln("waiting for Lsyncd to start");
 posix.sleep(3)
 cwriteln("testing excludes after startup");
