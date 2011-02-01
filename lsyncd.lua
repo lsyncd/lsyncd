@@ -3126,6 +3126,8 @@ local default_rsync = {
 	init = function(inlet)
 		local config = inlet.getConfig()
 		local event = inlet.createBlanketEvent()
+		event.isStartup = true -- marker for user scripts 
+		
 		if string.sub(config.target, -1) ~= "/" then
 			config.target = config.target .. "/"
 		end
@@ -3152,9 +3154,18 @@ local default_rsync = {
 				config.target)
 		end
 	end,
+	
+	-----
+	-- Checks the configuration.
+	--
+	prepare = function(config)
+		if not config.target then
+			error("default.rsync needs 'target' configured", 4)
+		end
+	end,
 
 	-----
-	-- Calls rsync with this options.
+	-- Calls rsync with this default short opts.
 	--
 	rsyncOps = "-lts",
 
@@ -3303,6 +3314,7 @@ local default_rsyncssh = {
 	init = function(inlet)
 		local config = inlet.getConfig()
 		local event = inlet.createBlanketEvent()
+		event.isStartup = true -- marker for user scripts 
 		if string.sub(config.targetdir, -1) ~= "/" then
 			config.targetdir = config.targetdir .. "/"
 		end
@@ -3337,7 +3349,7 @@ local default_rsyncssh = {
 	end,
 
 	-----
-	-- Checks the configuration
+	-- Checks the configuration.
 	--
 	prepare = function(config)
 		if not config.host then
@@ -3349,7 +3361,7 @@ local default_rsyncssh = {
 	end,
 
 	-----
-	-- Calls rsync with this options
+	-- Calls rsync with this default short opts.
 	--
 	rsyncOps = "-lts",
 
@@ -3459,6 +3471,7 @@ default = {
 		-- calls a startup if given by user script.
 		if type(config.onStartup) == "function" then
 			local event = inlet.createBlanketEvent()
+			event.isStartup = true -- marker for user scripts 
 			local startup = config.onStartup(event)
 			if event.status == "wait" then
 				-- user script did not spawn anything
