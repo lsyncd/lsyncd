@@ -3035,7 +3035,6 @@ local ssh_exitcodes = {
 	[255] = "again",
 }
 
-
 -----
 -- Lsyncd classic - sync with rsync
 --
@@ -3045,7 +3044,11 @@ local default_rsync = {
 	--
 	action = function(inlet) 
 		-- gets all events ready for syncing
-		local elist = inlet.getEvents()
+		local elist = inlet.getEvents(
+			function(event) 
+				return event.etype ~= "Blanket"
+			end
+		)
 	
 		-----
 		-- replaces filter rule by literals
@@ -3241,7 +3244,9 @@ local default_rsyncssh = {
 		-- for everything else spawn a rsync
 		local elist = inlet.getEvents(
 			function(e) 
-				return e.etype ~= "Move" and e.etype ~= "Delete"
+				return e.etype ~= "Move" and 
+				       e.etype ~= "Delete" and
+					   e.etype ~= "Blanket"
 			end)
 		local paths = elist.getPaths()
 		
