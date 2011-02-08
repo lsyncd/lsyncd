@@ -3431,8 +3431,14 @@ local default_direct = {
 		-- gets all events ready for syncing
 		local event, event2 = inlet.getEvent()
 
-		if event.etype == "Create" or event.etpye == "Modifiy" then
-			spawn(event, "/bin/cp", "-r", event.sourcePath, event.targetPathdir)
+		if event.etype == "Create" or event.etype == "Modifiy" then
+			spawn(event, 
+				"/bin/cp", 
+				"-p", 
+				event.sourcePath, 
+				"-t", 
+				event.targetPathdir
+			)
 		elseif event.etype == "Delete" then
 			local tp = event.targetPath
 			-- extra security check
@@ -3493,6 +3499,11 @@ local default_direct = {
 	-- Default delay is very short.
 	--
 	delay = 1,
+	
+	-----
+	-- For startup sync
+	--
+	rsyncOps = "-lts",
 
 	-----
 	-- On many system multiple disk operations just rather slow down

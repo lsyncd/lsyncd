@@ -15,7 +15,7 @@ churn(srcdir, 10)
 
 local logs = {}
 --logs =  {"-log", "Delay", "-log", "Fsevents" }
-local pid = spawn("./lsyncd", "-nodaemon", "-delay", "5",
+local pid = spawn("./lsyncd", "-nodaemon", 
                   "-direct", srcdir, trgdir, unpack(logs))
 
 cwriteln("waiting for Lsyncd to startup")

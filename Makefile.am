@@ -20,11 +20,13 @@ dist_example_DATA = \
 	examples/lecho.lua \
 	examples/lgforce.lua \
 	examples/limagemagic.lua \
+	examples/lpostcmd.lua \
 	examples/lrsync.lua \
 	examples/lrsyncssh.lua
 TESTS = \
 	tests/churn-rsync.lua \
 	tests/churn-rsyncssh.lua \
+	tests/churn-direct.lua \
 	tests/exclude-rsync.lua \
 	tests/exclude-rsyncssh.lua \
 	tests/l4rsyncdata.lua
