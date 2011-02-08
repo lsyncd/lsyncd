@@ -2558,6 +2558,9 @@ USAGE:
   
   default rsync with mv's through ssh:
     lsyncd [OPTIONS] -rsyncssh [SOURCE] [HOST] [TARGETDIR]
+  
+  default local copying mechanisms (cp|mv|rm):
+    lsyncd [OPTIONS] -direct [SOURCE] [TARGETDIR]
 
 OPTIONS:
   -delay SECS         Overrides default delay times
@@ -2648,6 +2651,11 @@ function runner.configure(args, monitors)
 			{3, function(src, host, tdir) 
 				clSettings.syncs = clSettings.syncs or {}
 				table.insert(clSettings.syncs, {"rsyncssh", src, host, tdir})
+			end},
+		direct = 
+			{2, function(src, trg) 
+				clSettings.syncs = clSettings.syncs or {}
+				table.insert(clSettings.syncs, {"direct", src, trg})
 			end},
 		version  =
 			{0, function()
@@ -2747,6 +2755,8 @@ function runner.initialize()
 				sync{default.rsync, source=s[2], target=s[3]}
 			elseif s[1] == "rsyncssh" then
 				sync{default.rsyncssh, source=s[2], host=s[3], targetdir=s[4]}
+			elseif s[1] == "direct" then
+				sync{default.direct, source=s[2], target=s[3]}
 			end
 		end
 	end
@@ -3410,6 +3420,89 @@ local default_rsyncssh = {
 }
 
 -----
+-- Keeps two directories with /bin/cp, /bin/rm and /bin/mv in sync.
+-- Startup still uses rsync tough.
+--
+local default_direct = {
+	-----
+	-- Spawns rsync for a list of events
+	--
+	action = function(inlet) 
+		-- gets all events ready for syncing
+		local event, event2 = inlet.getEvent()
+
+		if event.etype == "Create" or event.etpye == "Modifiy" then
+			spawn(event, "/bin/cp", "-r", event.sourcePath, event.targetPathdir)
+		elseif event.etype == "Delete" then
+			local tp = event.targetPath
+			-- extra security check
+			if tp == "" or tp == "/" or not tp then
+				error("Refusing to erase your harddisk")
+			end
+			spawn(event, "/bin/rm", "-rf", tp)
+		elseif event.etype == "Move" then
+			spawn(event, "/bin/mv", event.targetPath, event2.targetPath)
+		else
+			error("Do not know how to handle unknown event")
+		end
+	end,
+	
+	-----
+	-- Called when collecting a finished child process
+	--
+	collect = function(agent, exitcode)
+		local config = agent.config
+
+		if not agent.isList and agent.etype == "Blanket" then
+			if exitcode == 0 then
+				log("Normal", "Startup of '",agent.source,"' finished.")
+			elseif rsync_exitcodes and 
+			       rsync_exitcodes[exitcode] == "again" 
+			then
+				log("Normal", 
+					"Retrying startup of '",agent.source,"'.")
+				return "again"
+			else
+				log("Error", "Failure on startup of '",agent.source,"'.")
+				terminate(-1) -- ERRNO
+			end
+			return
+		end
+
+		-- everything else just is as is, 
+		-- there is no network to retry something.
+		return nil
+	end,
+
+	-----
+	-- Spawns the recursive startup sync
+	-- identical to default rsync.
+	-- 
+	init = default_rsync.init,
+	
+	-----
+	-- Checks the configuration.
+	--
+	prepare = function(config)
+		if not config.target then
+			error("default.direct needs 'target' configured", 4)
+		end
+	end,
+
+	-----
+	-- Default delay is very short.
+	--
+	delay = 1,
+
+	-----
+	-- On many system multiple disk operations just rather slow down
+	-- than speed up.
+
+	maxProcesses = 1,
+}
+
+
+-----
 -- The default table for the user to accesss.
 -- Provides all the default layer 1 functions.
 -- 
@@ -3524,6 +3617,11 @@ default = {
 	-- a default rsync configuration with ssh'd move and rm actions
 	--
 	rsyncssh = default_rsyncssh,
+	
+	-----
+	-- a default configuration using /bin/cp|rm|mv.
+	--
+	direct = default_direct,
 
 	-----
 	-- Minimum seconds between two writes of a status file.

@@ -1,7 +1,6 @@
 #!/usr/bin/lua
 -- a heavy duty test.
 -- makes thousends of random changes to the source tree
--- checks every X changes if lsyncd managed to keep target tree in sync.
 require("posix")
 dofile("tests/testlib.lua")
 

@@ -4,11 +4,9 @@
 require("posix")
 dofile("tests/testlib.lua")
 
-cwriteln("****************************************************************");
-cwriteln(" Testing default.rsyncssh with random data activity ");
-cwriteln("****************************************************************");
-cwriteln(" (this test needs passwordless ssh localhost access ");
-cwriteln("  for current user)");
+cwriteln("****************************************************************")
+cwriteln(" Testing default.direct with random data activity ")
+cwriteln("****************************************************************")
 
 local tdir, srcdir, trgdir = mktemps()
 
@@ -16,16 +14,14 @@ local tdir, srcdir, trgdir = mktemps()
 churn(srcdir, 10)
 
 local logs = {}
-logs =  {"-log", "Delay" }
-
+--logs =  {"-log", "Delay", "-log", "Fsevents" }
 local pid = spawn("./lsyncd", "-nodaemon", "-delay", "5",
-                  "-rsyncssh", srcdir, "localhost", trgdir,
-                  unpack(logs))
+                  "-direct", srcdir, trgdir, unpack(logs))
 
 cwriteln("waiting for Lsyncd to startup")
 posix.sleep(1)
 
-churn(srcdir, 100)
+churn(srcdir, 500)
 
 cwriteln("waiting for Lsyncd to finish its jobs.")
 posix.sleep(10)
