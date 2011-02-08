@@ -1,5 +1,6 @@
 -----
 -- User configuration file for lsyncd.
+-- This needs lsyncd >= 2.0.3
 --
 -- This configuration will execute a command on the remote host
 -- after every successfullycompleted rsync operation.
@@ -17,14 +18,15 @@ local rsyncpostcmd = {
 	-- called whenever something is to be done
 	action = function(inlet)
 		local event = inlet.getEvent()
+		local config = inlet.getConfig()
 		-- if the event is a blanket event and not the startup,
 		-- its there to spawn the webservice restart at the target.
 		if event.etype == "Blanket" then
 			-- uses rawget to test if "isRestart" has been set without
 			-- triggering an error if not.
-			local isRestart = rawget(event, "isRestart")
-			if event.isRestart then
-				spawn(event, "/usr/bin/ssh", host, postcmd)
+			local isPostcmd = rawget(event, "isPostcmd")
+			if event.isPostcmd then
+				spawn(event, "/usr/bin/ssh", config.host, config.postcmd)
         		return
 			else
             	-- this is the startup, forwards it to default routine.
@@ -32,18 +34,20 @@ local rsyncpostcmd = {
         	end
 			error("this should never be reached")
 		end
-     	-- for any other event, an blanket event is created that
+     	-- for any other event, a blanket event is created that
 		-- will stack on the queue and do the postcmd when its finished
 		local sync = inlet.createBlanketEvent()
-		sync.isRestart = true
-		-- the original event if forward to the normal action handler
+		sync.isPostcmd = true
+		-- the original event is simply forwarded to the normal action handler
 		return default.rsync.action(inlet)
 	end,
 
+	-- called when a process exited.
+	-- this can be a rsync command, the startup rsync or the postcmd
 	collect = function(agent, exitcode)
-		-- for the restart ssh commands 255 is network error -> try again
-		local isRestart = rawget(agent, "isRestart")
-		if not agent.isList and agent.etype == "Blanket" and isRestart then
+		-- for the ssh commands 255 is network error -> try again
+		local isPostcmd = rawget(agent, "isPostcmd")
+		if not agent.isList and agent.etype == "Blanket" and isPostcmd then
 			if exitcode == 255 then
 				return "again"
 			end
@@ -55,6 +59,8 @@ local rsyncpostcmd = {
 		error("this should never be reached")
 	end
 
+	-- called before anything else
+	-- builds the target from host and targetdir
 	prepare = function(config)
 		if not config.host then
 			error("rsyncpostcmd neets 'host' configured", 4)
