@@ -2934,14 +2934,29 @@ function spawn(agent, binary, ...)
 	if type(binary) ~= "string" then
 		error("calling spawn(agent, binary, ...), binary is not a string", 2)
 	end
+	local dol = InletFactory.getDelayOrList(agent)
+	if not dol then
+		error("spawning with an unknown agent", 2)
+	end
+
+	-- checks if spawn is called on already active event
+	if dol.status then
+		if dol.status ~= "wait" then
+			error("Spawn() called on an non-waiting event", 2)
+		end
+	else -- is a list
+		for _, d in ipairs(dol) do
+			if d.status ~= "wait" and d.status ~= "block" then
+				error("Spawn() called on an non-waiting event list", 2)
+			end
+		end
+	end
+
 	local pid = lsyncd.exec(binary, ...)
+
 	if pid and pid > 0 then
 		local sync = InletFactory.getSync(agent)
 		-- delay or list
-		local dol = InletFactory.getDelayOrList(agent)
-		if not dol then
-			error("spawning with an unknown agent", 2)
-		end
 		if dol.status then
 			-- is a delay
 			dol.status = "active"
