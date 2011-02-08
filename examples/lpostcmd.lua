@@ -11,8 +11,8 @@ local rsyncpostcmd = {
 	-- based on default rsync.
 	default.rsync,
 
-    -- for this config it is important to keep maxProcesses at 1, so
-    -- the postcmds will only be spawned after the rsync completed
+	-- for this config it is important to keep maxProcesses at 1, so
+	-- the postcmds will only be spawned after the rsync completed
 	maxProcesses = 1,
 
 	-- called whenever something is to be done
@@ -22,11 +22,12 @@ local rsyncpostcmd = {
 		-- if the event is a blanket event and not the startup,
 		-- its there to spawn the webservice restart at the target.
 		if event.etype == "Blanket" then
-			-- uses rawget to test if "isRestart" has been set without
+			-- uses rawget to test if "isPostcmd" has been set without
 			-- triggering an error if not.
 			local isPostcmd = rawget(event, "isPostcmd")
 			if event.isPostcmd then
-				spawn(event, "/usr/bin/ssh", config.host, config.postcmd)
+				spawn(event, "/usr/bin/ssh", 
+					config.host, config.postcmd)
         		return
 			else
             	-- this is the startup, forwards it to default routine.
@@ -34,7 +35,7 @@ local rsyncpostcmd = {
         	end
 			error("this should never be reached")
 		end
-     	-- for any other event, a blanket event is created that
+		-- for any other event, a blanket event is created that
 		-- will stack on the queue and do the postcmd when its finished
 		local sync = inlet.createBlanketEvent()
 		sync.isPostcmd = true
