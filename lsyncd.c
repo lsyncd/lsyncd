@@ -1078,7 +1078,7 @@ l_readdir (lua_State *L)
 			strcpy(entry, dirname);
 			strcat(entry, "/");
 			strcat(entry, de->d_name);
-			stat(entry, &st);
+			lstat(entry, &st);
 			isdir = S_ISDIR(st.st_mode);
 			free(entry);
 		} else {
