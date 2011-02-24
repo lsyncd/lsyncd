@@ -845,6 +845,7 @@ l_exec(lua_State *L)
 	/* writes a log message, prepares the message only if actually needed. */
 	if (check_logcat("Exec") >= settings.log_level) {
 		int i;
+		lua_checkstack(L, lua_gettop(L) + argc * 3 + 2);
 		lua_pushvalue(L, 1);
 		for(i = 1; i <= argc; i++) {
 			lua_pushstring(L, " [");
