@@ -3406,7 +3406,7 @@ local default_rsyncssh = {
 	maxProcesses = 1,
 	
 	------
-	-- Let the core not split move event.
+	-- Let the core not split move events.
 	--
 	onMove = true,
 	
@@ -3527,6 +3527,11 @@ local default_direct = {
 	-- Default delay is very short.
 	--
 	delay = 1,
+	
+	------
+	-- Let the core not split move events.
+	--
+	onMove = true,
 	
 	-----
 	-- For startup sync
