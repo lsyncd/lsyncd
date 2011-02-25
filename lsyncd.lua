@@ -563,6 +563,9 @@ local InletFactory = (function()
 			return e2s[event].config
 		end,
 
+		-----
+		-- Returns the inlet belonging to an event.
+		-- 
 		inlet = function(event)
 			return e2s[event].inlet
 		end,
@@ -578,14 +581,17 @@ local InletFactory = (function()
 		end,
 
 		-----
-		-- Tells script this isnt a list.
+		-- Tells this isn't a list.
 		--
 		isList = function()
 			return false
 		end,
 
 		-----
-		-- Status
+		-- Return the status of the event.
+		-- Can be:
+		--    'wait', 'active', 'block'.
+		-- 
 		status = function(event)
 			return e2d[event].status
 		end,
@@ -1330,7 +1336,6 @@ local Sync = (function()
 			if self.delays.size > 0 then
 				stack(self.delays[self.delays.last], nd)
 			end
-			addDelayPath("", nd)
 			nd.dpos = Queue.push(self.delays, nd)
 			return
 		end
@@ -3447,9 +3452,15 @@ local default_direct = {
 			end
 			spawn(event, "/bin/rm", "-rf", tp)
 		elseif event.etype == "Move" then
-			spawn(event, "/bin/mv", event.targetPath, event2.targetPath)
+			local tp = event.targetPath
+			-- extra security check
+			if tp == "" or tp == "/" or not tp then
+				error("Refusing to erase your harddisk")
+			end
+			spawnShell(event, "/bin/mv $1 $2 || /bin/rm -rf $1", event.targetPath, event2.targetPath)
 		else
-			error("Do not know how to handle unknown event")
+			log("Warn", "ignored an event of type '", event.etype, "'")
+			inlet.discardEvent(event)
 		end
 	end,
 	
