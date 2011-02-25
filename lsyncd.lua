@@ -3436,13 +3436,30 @@ local default_direct = {
 		-- gets all events ready for syncing
 		local event, event2 = inlet.getEvent()
 
-		if event.etype == "Create" or event.etype == "Modifiy" then
+		if event.etype == "Create" then
+			if event.isdir then
+				spawn(event,
+					"/bin/mkdir",
+					"-p",
+					event.targetPath
+				)
+			else
+				spawn(event, 
+					"/bin/cp", 
+					"-t", 
+					event.targetPathdir,
+					event.sourcePath 
+				)
+			end
+		elseif event.etype == "Modify" then
+			if event.isdir then
+				error("Do not know how to handle 'Modify' on dirs")
+			end
 			spawn(event, 
 				"/bin/cp", 
-				"-p", 
-				event.sourcePath, 
 				"-t", 
-				event.targetPathdir
+				event.targetPathdir,
+				event.sourcePath 
 			)
 		elseif event.etype == "Delete" then
 			local tp = event.targetPath

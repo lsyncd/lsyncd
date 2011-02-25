@@ -13,7 +13,7 @@ local tdir, srcdir, trgdir = mktemps()
 -- makes some startup data 
 churn(srcdir, 10)
 
-local logs = {}
+local logs = {"-log", "Exec"}
 --logs =  {"-log", "Delay", "-log", "Fsevents" }
 local pid = spawn("./lsyncd", "-nodaemon", 
                   "-direct", srcdir, trgdir, unpack(logs))
