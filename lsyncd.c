@@ -32,6 +32,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define LUA_USE_APICHECK 1
+
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
