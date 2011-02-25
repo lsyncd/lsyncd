@@ -1,3 +1,18 @@
+25-02-2011: 2.0.3
+	enhancement: new default target --direct using /bin/ binaries
+	             to keep to local dirs in sync (and by default
+				 not preserving ownership)
+	example: added a new example how to remotely execute a command
+	         after each rsync operations
+	fix: possible crash with long rsyncOps table exceeding lua stack.
+	fix: excludes now properly match relative and absolute paths
+	fix: call to nil function when manually adding blanket delays
+	fix: on ReiserFS not delivering proper dir stats and when encountering
+	     a symlink, aquire the node stat for the symlink instead from
+		 the linked node.
+	change: leave lua apichecking enabled by default.
+	
+
 20-01-2011: 2.0.2
 	fix: exclude rules not terminated with '/' now match a file
 	     or dir named exactly the same not starting with.
