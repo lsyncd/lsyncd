@@ -16,10 +16,13 @@ config file:::
 	{nbsp}*lsyncd* ['OPTIONS'] 'CONFIG-FILE' 
 
 default rsync behaviour:::
-	{nbsp}*lsyncd* ['OPTIONS'] -rsync 'SOURCE' 'TARGET' ...
+	{nbsp}*lsyncd* ['OPTIONS'] -rsync 'SOURCEDIR' 'TARGET' ...
 
-default rync+ssh bevahior (moves and deletes through ssh):::
-	{nbsp}*lsyncd* ['OPTIONS'] -rsyncssh 'SOURCE' 'HOST' 'TARGETDIR' ...
+default rync+ssh bevahiour (moves and deletes through ssh):::
+	{nbsp}*lsyncd* ['OPTIONS'] -rsyncssh 'SOURCEDIR' 'TARGETHOST' 'TARGETDIR' ...
+
+default direct bevahiour (local file operations/rsync):::
+	{nbsp}*lsyncd* ['OPTIONS'] -direct 'SOURCEDIR' 'TARGETDIR' ...
 
 DESCRTIPTION
 ------------

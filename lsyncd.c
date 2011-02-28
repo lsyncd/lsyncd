@@ -1736,7 +1736,7 @@ main1(int argc, char *argv[])
 				LSYNCD_DEFAULT_RUNNER_FILE);
 #else
 			logstring("Error", 
-				"Using a staticly included runner as default.");
+				"Using a statically included runner as default.");
 #endif
 			exit(-1); //ERRNO
 		}
