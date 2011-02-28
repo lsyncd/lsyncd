@@ -2360,7 +2360,7 @@ local StatusFile = (function()
 		log("Function", "write(", timestamp, ")")
 
 		-- some logic to not write too often
-		if settings.statusIntervall > 0 then
+		if settings.statusInterval > 0 then
 			-- already waiting
 			if alarm and timestamp < alarm then
 				log("Statusfile", "waiting(",timestamp," < ",alarm,")")
@@ -2369,7 +2369,7 @@ local StatusFile = (function()
 			-- determines when a next write will be possible
 			if not alarm then
 				local nextWrite = 
-					lastWritten and timestamp + settings.statusIntervall
+					lastWritten and timestamp + settings.statusInterval
 				if nextWrite and timestamp < nextWrite then
 					log("Statusfile", "setting alarm: ", nextWrite)
 					alarm = nextWrite
@@ -2775,10 +2775,18 @@ function runner.initialize()
 	if settings.pidfile then
 		lsyncd.configure("pidfile", settings.pidfile)
 	end
+
+	-- TODO: Remove after deprecation timespan.
+	if settings.statusIntervall ~= nil and settings.statusInterval == nil then
+		log("Warn", 
+		  "The setting 'statusIntervall' has been renamed to 'statusInterval'.")
+		settings.statusInterval = settings.statusIntervall
+	end
+
 	-----
 	-- transfers some defaults to settings 
-	if settings.statusIntervall == nil then
-		settings.statusIntervall = default.statusIntervall
+	if settings.statusInterval == nil then
+		settings.statusInterval = default.statusInterval
 	end
 
 	-- makes sure the user gave Lsyncd anything to do 
@@ -3670,7 +3678,7 @@ default = {
 	-----
 	-- Minimum seconds between two writes of a status file.
 	--
-	statusIntervall = 10,
+	statusInterval = 10,
 }
 
 -----
