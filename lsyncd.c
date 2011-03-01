@@ -14,6 +14,8 @@
 
 #include "lsyncd.h"
 
+#define SYSLOG_NAMES 1
+
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
@@ -79,9 +81,43 @@ static char *monitors[] = {
 struct settings settings = {
 	.log_file = NULL,
 	.log_syslog = false,
+	.log_ident = NULL,
+	.log_facility = LOG_USER,
 	.log_level = 0,
 	.nodaemon = false,
 };
+
+
+/**
+ * configurable names for logging facility 
+ * to be translated to integer value.
+ */
+//struct {
+//	const char * c_name;
+//	int c_val;
+//} facilitynames[] = {
+//	{ "auth",      LOG_AUTH     },
+//	{ "authprive", LOG_AUTHPRIV },
+//	{ "cron",      LOG_CRON     },
+//	{ "daemon",    LOG_DAEMON   },
+//	{ "ftp",       LOG_FTP      },
+//	{ "kern",      LOG_KERN     },
+//	{ "lpr",       LOG_LPR      },
+//	{ "mail",      LOG_MAIL     },
+//	{ "news",      LOG_NEWS     },
+//	{ "syslog",    LOG_SYSLOG   },
+//	{ "user",      LOG_USER     },
+//	{ "uucp",      LOG_UUCP     },
+//	{ "local0",    LOG_LOCAL0   },
+//	{ "local1",    LOG_LOCAL1   },
+//	{ "local2",    LOG_LOCAL2   },
+//	{ "local3",    LOG_LOCAL3   },
+//	{ "local4",    LOG_LOCAL4   },
+//	{ "local5",    LOG_LOCAL5   },
+//	{ "local6",    LOG_LOCAL6   },
+//	{ "local7",    LOG_LOCAL7   },
+//	{ NULL,       -1            },
+//};
 
 /**
  * True when lsyncd daemonized itself.
@@ -1128,6 +1164,12 @@ l_configure(lua_State *L)
 		 * from this on log to configurated log end instead of 
 		 * stdout/stderr */
 		running = true;
+		if (settings.log_syslog) {
+			openlog(settings.log_ident ? settings.log_ident : "lsyncd", 
+				0,
+				settings.log_facility
+			);
+		}
 		if (!settings.nodaemon && !is_daemon) {
 			if (!settings.log_file) {
 				settings.log_syslog = true;
@@ -1152,6 +1194,32 @@ l_configure(lua_State *L)
 			free(settings.pidfile);
 		}
 		settings.pidfile = s_strdup(file);
+	} else if (!strcmp(command, "logfacility")) {
+		if (lua_isstring(L, 2)) {
+			const char * fname = luaL_checkstring(L, 2);
+			int i;
+			for(i = 0; facilitynames[i].c_name; i++) {
+				if (!strcasecmp(fname, facilitynames[i].c_name)) {
+					break;
+				}
+			} 
+			if (!facilitynames[i].c_name) {
+				printlogf(L, "Error", "Logging facility '%s' unknown.", fname);
+				exit(-1); //ERRNO
+			}
+			settings.log_facility = facilitynames[i].c_val;
+		} else if (lua_isnumber(L, 2)) {
+			settings.log_facility = luaL_checknumber(L, 2);
+		} else {
+			printlogf(L, "Error", "Logging facility must be a number or string");
+			exit(-1); // ERRNO;
+		}
+	} else if (!strcmp(command, "logident")) {
+		const char * ident = luaL_checkstring(L, 2);
+		if (settings.log_ident) {
+			free(settings.log_ident);
+		}
+		settings.log_ident = s_strdup(ident);
 	} else {
 		printlogf(L, "Error", 
 			"Internal error, unknown parameter in l_configure(%s)", 
@@ -1967,10 +2035,14 @@ main1(int argc, char *argv[])
 		free(settings.log_file);
 		settings.log_file = NULL;
 	}
-	settings.log_syslog = false,
-	settings.log_level = 0,
-	settings.nodaemon = false,
-
+	settings.log_syslog = false;
+	if (settings.log_ident) {
+		free(settings.log_ident);
+		settings.log_ident = NULL;
+	}
+	settings.log_facility = LOG_USER;
+	settings.log_level = 0;
+	settings.nodaemon = false;
 	lua_close(L);
 	return 0;
 }

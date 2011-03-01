@@ -31,6 +31,12 @@ extern struct settings {
 	/* If true Lsyncd sends log messages to syslog */
 	bool log_syslog;
 
+	/* If not NULL the syslog identity (otherwise "Lsyncd") */
+	char * log_ident;
+
+	/* The syslog facility */
+	int log_facility;
+
 	/* -1 logs everything, 0 normal mode, LOG_ERROR errors only.*/
 	int log_level;
 

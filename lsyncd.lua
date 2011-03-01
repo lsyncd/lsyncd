@@ -2772,6 +2772,12 @@ function runner.initialize()
 	if settings.logfile then
 		lsyncd.configure("logfile", settings.logfile)
 	end
+	if settings.logident then
+		lsyncd.condigure("logident", settings.logident)
+	end
+	if settings.logfacility then
+		lsyncd.configure("logfacility", settings.logfacility)
+	end
 	if settings.pidfile then
 		lsyncd.configure("pidfile", settings.pidfile)
 	end
