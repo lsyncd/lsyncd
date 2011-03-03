@@ -2773,7 +2773,7 @@ function runner.initialize()
 		lsyncd.configure("logfile", settings.logfile)
 	end
 	if settings.logident then
-		lsyncd.condigure("logident", settings.logident)
+		lsyncd.configure("logident", settings.logident)
 	end
 	if settings.logfacility then
 		lsyncd.configure("logfacility", settings.logfacility)

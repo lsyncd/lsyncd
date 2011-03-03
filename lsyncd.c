@@ -1164,7 +1164,7 @@ l_configure(lua_State *L)
 		 * from this on log to configurated log end instead of 
 		 * stdout/stderr */
 		running = true;
-		if (settings.log_syslog) {
+		if (settings.log_syslog || !settings.log_file) {
 			openlog(settings.log_ident ? settings.log_ident : "lsyncd", 
 				0,
 				settings.log_facility
