@@ -3001,7 +3001,7 @@ function spawn(agent, binary, ...)
 end
 
 -----
--- Spawns a child process using bash.
+-- Spawns a child process using the default shell.
 --
 function spawnShell(agent, command, ...)
 	return spawn(agent, "/bin/sh", "-c", command, "/bin/sh", ...)
@@ -3116,7 +3116,7 @@ local default_rsync = {
 				end
 			end)
 		-- stores all filters with integer index	
-		--local filterI = inlet.getExcludes();
+		-- local filterI = inlet.getExcludes();
 		local filterI = {}
 		-- stores all filters with path index	
 		local filterP = {}
