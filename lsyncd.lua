@@ -1002,7 +1002,7 @@ local Excludes = (function()
 	-- 
 	local function toLuaPattern(p)
 		local o = p
-		p = string.gsub(p, "%%", "%%")
+		p = string.gsub(p, "%%", "%%") -- TODO check
 		p = string.gsub(p, "%^", "%%^")
 		p = string.gsub(p, "%$", "%%$")
 		p = string.gsub(p, "%(", "%%(")
@@ -3245,9 +3245,10 @@ local default_rsyncssh = {
 			log("Normal", "Moving ",event.path," -> ",event2.path)
 			spawn(event, "/usr/bin/ssh", 
 				config.host, "mv",
-				config.targetdir .. event.path, 
-				config.targetdir .. event2.path, 
-				"||", "rm", "-rf", config.targetdir .. event.path)
+				'\"' .. config.targetdir .. event.path .. '\"', 
+				'\"' .. config.targetdir .. event2.path .. '\"', 
+				"||", "rm", "-rf", 
+				'\"' .. config.targetdir .. event.path .. '\"')
 			return
 		end
 		
