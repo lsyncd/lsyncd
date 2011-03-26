@@ -1002,7 +1002,7 @@ local Excludes = (function()
 	-- 
 	local function toLuaPattern(p)
 		local o = p
-		p = string.gsub(p, "%%", "%%") -- TODO check
+		p = string.gsub(p, "%%", "%%%%")
 		p = string.gsub(p, "%^", "%%^")
 		p = string.gsub(p, "%$", "%%$")
 		p = string.gsub(p, "%(", "%%(")
