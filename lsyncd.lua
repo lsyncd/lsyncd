@@ -22,7 +22,7 @@ if lsyncd_version then
 		"You cannot use the lsyncd runner as configuration file!")
 	lsyncd.terminate(-1) -- ERRNO
 end
-lsyncd_version = "2.0.3"
+lsyncd_version = "2.0.4"
 
 -----
 -- Hides the core interface from user scripts
