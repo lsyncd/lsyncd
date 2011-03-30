@@ -16,6 +16,7 @@
 
 #define SYSLOG_NAMES 1
 
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
