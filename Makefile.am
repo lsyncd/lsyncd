@@ -45,20 +45,13 @@ else
 # or compiles it into the binary
 lsyncd_LDADD += luac.o
 
-objarch: | lsyncd.o
-	objdump -f lsyncd.o | grep architecture | \
-		sed -e "s/,.*$$//" -e "s/[^ ]* \(.*\)/\1/" > $@ || rm $@
-
-objtarget: | lsyncd.o
-	objdump -f lsyncd.o | grep "file format" | \
-		sed -e "s/.* \(.*\)/\1/" > $@ || rm $@
-
-luac.o: luac.out objarch objtarget
-	objcopy --input-target=binary \
-		--output-target=`cat objtarget` \
-		--binary-architecture=`cat objarch` $< $@
+luac.o: luac.c
 
 luac.out: lsyncd.lua
 	luac $<
+
+luac.c: lsyncd.lua bin2carray.lua
+	lua ./bin2carray.lua lsyncd.lua luac luac.c
+
 endif
 

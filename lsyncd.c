@@ -45,8 +45,8 @@
  * The Lua part of lsyncd if compiled into the binary.
  */
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
-	extern char _binary_luac_out_start;
-	extern char _binary_luac_out_end; 
+	extern unsigned char * luac_out;
+	extern size_t luac_size;
 #endif
 
 /**
@@ -1837,8 +1837,7 @@ main1(int argc, char *argv[])
 	} else {
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
 		/* loads the runner from binary */
-		if (luaL_loadbuffer(L, &_binary_luac_out_start, 
-				&_binary_luac_out_end - &_binary_luac_out_start, "lsyncd.lua"))
+		if (luaL_loadbuffer(L, luac_out, luac_size, "lsyncd.lua"))
 		{
 			printlogf(L, "Error", 
 				"error loading precompiled lsyncd.lua runner: %s", 

@@ -25,7 +25,8 @@ if fout == nil then
 end
 
 fout:write("/* created by "..arg[0].." from file "..arg[1].." */\n")
-fout:write("const unsigned char "..arg[2].."[] = {\n")
+fout:write("#include <stddef.h>\n")
+fout:write("const unsigned char "..arg[2].."_out[] = {\n")
 while true do
 	local block = fin:read(16)
 	if block == nil then
@@ -40,7 +41,7 @@ while true do
 	end
 	fout:write("\n")
 end
-fout:write("};");
+fout:write("};\n\nsize_t "..arg[2].."_size = sizeof("..arg[2].."_out);\n");
 
 fin:close();
 fout:close();
