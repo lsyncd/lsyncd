@@ -45,7 +45,7 @@
  * The Lua part of lsyncd if compiled into the binary.
  */
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
-	extern unsigned char * luac_out;
+	extern const char luac_out[];
 	extern size_t luac_size;
 #endif
 

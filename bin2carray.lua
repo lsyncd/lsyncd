@@ -26,7 +26,7 @@ end
 
 fout:write("/* created by "..arg[0].." from file "..arg[1].." */\n")
 fout:write("#include <stddef.h>\n")
-fout:write("const unsigned char "..arg[2].."_out[] = {\n")
+fout:write("const char "..arg[2].."_out[] = {\n")
 while true do
 	local block = fin:read(16)
 	if block == nil then

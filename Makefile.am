@@ -47,11 +47,11 @@ lsyncd_LDADD += luac.o
 
 luac.o: luac.c
 
+luac.c: luac.out bin2carray.lua
+	lua ./bin2carray.lua luac.out luac luac.c
+
 luac.out: lsyncd.lua
 	luac $<
-
-luac.c: lsyncd.lua bin2carray.lua
-	lua ./bin2carray.lua lsyncd.lua luac luac.c
 
 endif
 
