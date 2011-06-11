@@ -193,9 +193,6 @@ handle_event(lua_State *L,
 	} else if (IN_MOVED_TO & event->mask) {
 		/* must be an unary move-to */
 		event_type = CREATE;
-	} else if (IN_MOVED_FROM & event->mask) {
-		/* must be an unary move-from */
-		event_type = DELETE;
 	} else if (IN_ATTRIB & event->mask) {
 		/* just attrib change */
 		event_type = ATTRIB;
