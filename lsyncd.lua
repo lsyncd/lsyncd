@@ -3209,6 +3209,13 @@ local default_rsync = {
 		if not config.target then
 			error("default.rsync needs 'target' configured", 4)
 		end
+
+		if config.rsyncOpts then
+			if config.rsyncOps then
+				error("'rsyncOpts' and 'rsyncOps' provided in config, decide for one.")
+			end
+			config.rsyncOps = config.rsyncOpts
+		end
 	end,
 
 	-----
@@ -3402,6 +3409,12 @@ local default_rsyncssh = {
 	-- Checks the configuration.
 	--
 	prepare = function(config)
+		if config.rsyncOpts then
+			if config.rsyncOps then
+				error("'rsyncOpts' and 'rsyncOps' provided in config, decide for one.")
+			end
+			config.rsyncOps = config.rsyncOpts
+		end
 		if not config.host then
 			error("default.rsyncssh needs 'host' configured", 4)
 		end
