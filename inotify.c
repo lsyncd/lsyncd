@@ -54,24 +54,52 @@ static const char * MOVE   = "Move";
 static int inotify_fd = -1;
 
 /**
- * TODO allow configure.
+ * Standard inotify events to listen to.
  */
 static const uint32_t standard_event_mask = 
 		IN_ATTRIB   | IN_CLOSE_WRITE | IN_CREATE     |
 		IN_DELETE   | IN_DELETE_SELF | IN_MOVED_FROM |
 		IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR;
 
+
 /**
  * Adds an inotify watch
  * 
- * @param dir (Lua stack) path to directory
- * @return    (Lua stack) numeric watch descriptor
+ * @param dir         (Lua stack) path to directory
+ * @param inotifyMode (Lua stack) path to directory
+ * @return            (Lua stack) numeric watch descriptor
  */
 static int
 l_addwatch(lua_State *L)
 {
-	const char *path = luaL_checkstring(L, 1);
-	int wd = inotify_add_watch(inotify_fd, path, standard_event_mask);
+	const char *path  = luaL_checkstring(L, 1);
+	const char *imode = luaL_checkstring(L, 2);
+	uint32_t mask = standard_event_mask;
+	if (*imode) {
+		if (!strcmp(imode, "Modify")) {
+			/* act on modify instead of closeWrite */
+			mask |= IN_MODIFY;
+			mask &= ~IN_CLOSE_WRITE;
+		} else if (!strcmp(imode, "CloseWrite")) {
+			/* default */
+		} else if (!strcmp(imode, "CloseWrite or Modify")) {
+			/* acts on modify and closeWrite */
+			mask |= IN_MODIFY;
+		} else if (!strcmp(imode, "CloseWrite after Modify")) {
+			/* might be done in future */
+			printlogf(L, "Error", 
+				"'CloseWrite after Modify' not implemented.");
+			exit(-1); // ERRNO
+		} else {
+			/* will be done in future */
+			printlogf(L, "Error", 
+				"'%s' not a valid inotfiyMode.", imode);
+			exit(-1); // ERRNO
+		}
+	}
+
+
+	int wd = inotify_add_watch(inotify_fd, path, mask);
 	if (wd < 0) {
 		printlogf(L, "Inotify", "addwatch(%s)->%d; err=%d:%s", path, wd,
 			errno, strerror(errno));

@@ -1824,7 +1824,8 @@ local Inotify = (function()
 		end
 
 		-- lets the core registers watch with the kernel
-		local wd = lsyncd.inotify.addwatch(path);
+		local wd = lsyncd.inotify.addwatch(path, 
+			(settings and settings.inotifyMode) or "");
 		if wd < 0 then
 			log("Inotify","Unable to add watch '",path,"'")
 			return
