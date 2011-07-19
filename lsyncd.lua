@@ -38,6 +38,7 @@ _l = nil
 log       = lsyncd.log
 terminate = lsyncd.terminate
 now       = lsyncd.now
+readdir   = lsyncd.readdir
 -- just to safe from userscripts changing this.
 local log       = log
 local terminate = terminate

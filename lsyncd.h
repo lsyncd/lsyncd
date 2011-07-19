@@ -11,6 +11,10 @@
 #ifndef LSYNCD_H
 #define LSYNCD_H
 
+/* some older machines need this to see pselect */
+#define _BSD_SOURCE 1
+#define _XOPEN_SOURCE 600
+
 /* includes needed for headerfile */
 #include "config.h"
 

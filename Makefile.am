@@ -11,7 +11,7 @@ endif
 #endif
 
 lsyncd_LDADD = $(LUA_LIBS)
-exampledir = $(datarootdir)/doc/@PACKAGE@
+exampledir = $(docdir)/
 dist_example_DATA = \
 	examples/lbash.lua \
 	examples/lecho.lua \
