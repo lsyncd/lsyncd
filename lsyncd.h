@@ -13,7 +13,8 @@
 
 /* some older machines need this to see pselect */
 #define _BSD_SOURCE 1
-#define _XOPEN_SOURCE 600
+#define _XOPEN_SOURCE 700
+#define _DARWIN_C_SOURCE 1
 
 /* includes needed for headerfile */
 #include "config.h"

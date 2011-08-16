@@ -3,6 +3,7 @@
  * License: GPLv2 (see COPYING) or any later version
  *
  * Authors: Axel Kittenberger <axkibe@gmail.com>
+ *          Damian Steward <damian.stewart@gmail.com>
  *
  * -----------------------------------------------------------------------
  *
@@ -87,8 +88,7 @@ struct kfs_event {
     pid_t    pid;
 
 	/* event arguments */
-    struct kfs_event_arg args[]; 
-	/* struct kfs_event_arg args[KFS_NUM_ARGS]; */
+    struct kfs_event_arg* args[FSE_MAX_ARGS]; 
 };
 
 /**
@@ -135,15 +135,17 @@ static size_t const readbuf_size = 131072;
 static char * readbuf = NULL;
 
 /**
- * Handles one fsevents event
- * @returns the size of the event
+ * The event buffer
  */
-static ssize_t
+static size_t const eventbuf_size = FSEVENT_BUFSIZ;
+static char* eventbuf = NULL;
+
+/**
+ * Handles one fsevents event
+ */
+static void
 handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 {
-	/* the len of the event */
-	ssize_t len = sizeof(int32_t) + sizeof(pid_t);
-	
 	int32_t atype;
 	const char *path = NULL;
 	const char *trg  = NULL;
@@ -158,35 +160,32 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 		}
 		lua_pop(L, 1);
 		hup = 1;
-		len += sizeof(u_int16_t);
-		return len;
+		return;
 	}
-	{
-		atype  = event->type & FSE_TYPE_MASK;
-		/*uint32_t aflags = FSE_GET_FLAGS(event->type);*/
 
-		if ((atype < FSE_MAX_EVENTS) && (atype >= -1)) {
-			/*printlogf(L, "Fsevents", "got event %s", eventNames[atype]);
-			if (aflags & FSE_COMBINED_EVENTS) {
-				logstring("Fsevents", "combined events");
-			}
-			if (aflags & FSE_CONTAINS_DROPPED_EVENTS) {
-				logstring("Fsevents", "contains dropped events");
-			}*/
-		} else {
-			printlogf(L, "Error", "unknown event(%d) in fsevents.", 
-				atype);
-			exit(-1); // ERRNO
+	atype  = event->type & FSE_TYPE_MASK;
+	/*uint32_t aflags = FSE_GET_FLAGS(event->type);*/
+
+	if ((atype < FSE_MAX_EVENTS) && (atype >= -1)) {
+		/*printlogf(L, "Fsevents", "got event %s", eventNames[atype]);
+		if (aflags & FSE_COMBINED_EVENTS) {
+			logstring("Fsevents", "combined events");
 		}
-
+		if (aflags & FSE_CONTAINS_DROPPED_EVENTS) {
+			logstring("Fsevents", "contains dropped events");
+		}*/
+	} else {
+		printlogf(L, "Error", "unknown event(%d) in fsevents.", 
+			atype);
+		exit(-1); // ERRNO
 	}
+
 	{
 		/* assigns the expected arguments */
-		struct kfs_event_arg *arg = event->args;
-		while (len < mlen) {
-			int eoff;
+		int whichArg = 0;
+		while (whichArg < FSE_MAX_ARGS) {
+			struct kfs_event_arg * arg = event->args[whichArg++];
 			if (arg->type == FSE_ARG_DONE) {
-				len += sizeof(u_int16_t);
 				break;
 			}
 
@@ -225,10 +224,6 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 				}
 				break;
 			}
-
-			eoff = sizeof(arg->type) + sizeof(arg->len) + arg->len;
-			len += eoff;
-			arg = (struct kfs_event_arg *) ((char *) arg + eoff);
 		}
 	}
 
@@ -279,7 +274,6 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 		}
 		lua_pop(L, 1);
 	}
-	return len;	
 }
 
 /**
@@ -310,8 +304,53 @@ fsevents_ready(lua_State *L, struct observance *obs)
 		{
 			int off = 0;
 			while (off < len && !hup && !term) {
-				struct kfs_event *event = (struct kfs_event *) &readbuf[off];
-				off += handle_event(L, event, len);
+				/* deals with alignment issues on 64 bit by copying data bit by bit */
+				struct kfs_event* event = (struct kfs_event *) eventbuf;
+				event->type = *(int32_t*)(readbuf+off);
+				off += sizeof(int32_t);
+				event->pid = *(pid_t*)(readbuf+off);
+				off += sizeof(pid_t);
+				/* arguments */
+				int whichArg = 0;
+				int eventbufOff = sizeof(struct kfs_event);
+				size_t ptrSize = sizeof(void*);
+				if ((eventbufOff % ptrSize) != 0) {
+					eventbufOff += ptrSize-(eventbufOff%ptrSize);
+				}
+				while (off < len && whichArg < FSE_MAX_ARGS) {
+					/* assign argument pointer to eventbuf based on 
+					   known current offset into eventbuf */
+					uint16_t argLen = 0;
+					event->args[whichArg] = (struct kfs_event_arg *) (eventbuf + eventbufOff);
+					/* copy type */
+					uint16_t argType = *(uint16_t*)(readbuf + off);
+					event->args[whichArg]->type = argType;
+					off += sizeof(uint16_t);
+					if (argType == FSE_ARG_DONE) {
+						/* done */
+						break;
+					} else {
+						/* copy data length */
+						argLen = *(uint16_t *)(readbuf + off);
+						event->args[whichArg]->len = argLen;
+						off += sizeof(uint16_t);
+						/* copy data */
+						memcpy(&(event->args[whichArg]->data), readbuf + off, argLen);
+						  off += argLen;
+					}
+					/* makes sure alignment is correct for 64 bit systems */
+					size_t argStructLen = sizeof(uint16_t) + sizeof(uint16_t);
+					if ((argStructLen % ptrSize) != 0) {
+						argStructLen += ptrSize-(argStructLen % ptrSize);
+					}
+					argStructLen += argLen;
+					if ((argStructLen % ptrSize) != 0) {
+						argStructLen += ptrSize-(argStructLen % ptrSize);
+					}
+					eventbufOff += argStructLen;
+					whichArg++;
+				}
+				handle_event(L, event, len);
 			}
 		}
 	}
@@ -330,6 +369,8 @@ fsevents_tidy(struct observance *obs)
 	close(fsevents_fd);
 	free(readbuf);
 	readbuf = NULL;
+	free(eventbuf);
+	eventbuf = NULL;
 }
 
 /** 
@@ -386,7 +427,7 @@ open_fsevents(lua_State *L)
 		exit(-1); // ERRNO
 	}
 	readbuf = s_malloc(readbuf_size);
-
+	eventbuf = s_malloc(eventbuf_size);
 	/* fd has been cloned, closes access fd */
 	close(fd);
 	close_exec_fd(fsevents_fd);

@@ -3156,9 +3156,9 @@ local default_rsync = {
 			"Calling rsync with filter-list of new/modified files/dirs\n", 
 			filterS)
 		local config = inlet.getConfig() 
-		spawn(elist, "/usr/bin/rsync", 
+		spawn(elist, config.rsyncBinary, 
 			"<", filter0,
-			config.rsyncOps,
+			config.rsyncOpts,
 			"-r",
 			"--delete",
 			"--force",
@@ -3185,20 +3185,20 @@ local default_rsync = {
 		if #excludes == 0 then
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.target)
-			spawn(event, "/usr/bin/rsync", 
+			spawn(event, config.rsyncBinary, 
 				"--delete",
-				config.rsyncOps, "-r", 
+				config.rsyncOpts, "-r", 
 				config.source, 
 				config.target)
 		else
 			local exS = table.concat(excludes, "\n")
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.target," excluding\n", exS)
-			spawn(event, "/usr/bin/rsync",  
+			spawn(event, config.rsyncBinary,  
 				"<", exS,
 				"--exclude-from=-",
 				"--delete",
-				config.rsyncOps, "-r", 
+				config.rsyncOpts, "-r", 
 				config.source, 
 				config.target)
 		end
@@ -3212,18 +3212,23 @@ local default_rsync = {
 			error("default.rsync needs 'target' configured", 4)
 		end
 
-		if config.rsyncOpts then
-			if config.rsyncOps then
+		if config.rsyncOps then
+			if config.rsyncOpts then
 				error("'rsyncOpts' and 'rsyncOps' provided in config, decide for one.")
 			end
-			config.rsyncOps = config.rsyncOpts
+			config.rsyncOpts = config.rsyncOps
 		end
 	end,
+	
+	-----
+	-- The rsync binary called.
+	--
+	rsyncBinary = "/usr/bin/rsync",
 
 	-----
 	-- Calls rsync with this default short opts.
 	--
-	rsyncOps = "-lts",
+	rsyncOpts = "-lts",
 
 	-----
 	-- exit codes for rsync.
@@ -3314,9 +3319,9 @@ local default_rsyncssh = {
 		local zPaths = table.concat(paths, "\000")
 		log("Normal", "Rsyncing list\n", sPaths)
 		spawn(
-			elist, "/usr/bin/rsync", 
+			elist, rsyncBinary, 
 			"<", zPaths, 
-			config.rsyncOps,
+			config.rsyncOpts,
 			"--from0",
 			"--files-from=-",
 			config.source, 
@@ -3383,10 +3388,10 @@ local default_rsyncssh = {
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.host .. ":" .. config.targetdir)
 			spawn(
-				event, "/usr/bin/rsync", 
+				event, rsyncBinary, 
 				"--delete",
 				"-r", 
-				config.rsyncOps, 
+				config.rsyncOpts, 
 				config.source, 
 				config.host .. ":" .. config.targetdir
 			)
@@ -3395,12 +3400,12 @@ local default_rsyncssh = {
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.host .. ":" .. config.targetdir, " excluding\n")
 			spawn(
-				event, "/usr/bin/rsync",  
+				event, rsyncBinary,  
 				"<", exS,
 				"--exclude-from=-",
 				"--delete",
 				"-r",
-				config.rsyncOps, 
+				config.rsyncOpts, 
 				config.source, 
 				config.host .. ":" .. config.targetdir
 			)
@@ -3411,11 +3416,11 @@ local default_rsyncssh = {
 	-- Checks the configuration.
 	--
 	prepare = function(config)
-		if config.rsyncOpts then
-			if config.rsyncOps then
+		if config.rsyncOps then
+			if config.rsyncOpts then
 				error("'rsyncOpts' and 'rsyncOps' provided in config, decide for one.")
 			end
-			config.rsyncOps = config.rsyncOpts
+			config.rsyncOpts = config.rsyncOps
 		end
 		if not config.host then
 			error("default.rsyncssh needs 'host' configured", 4)
@@ -3424,11 +3429,16 @@ local default_rsyncssh = {
 			error("default.rsyncssh needs 'targetdir' configured", 4)
 		end
 	end,
+	
+	-----
+	-- The rsync binary called.
+	--
+	rsyncBinary = "/usr/bin/rsync",
 
 	-----
 	-- Calls rsync with this default short opts.
 	--
-	rsyncOps = "-lts",
+	rsyncOpts = "-lts",
 
 	-----
 	-- allow processes
@@ -3451,7 +3461,7 @@ local default_rsyncssh = {
 	-- available this is simpler than to build filters for rsync for this.
 	-- Default uses '0' as limiter, you might override this for old systems.
 	--
-	xargs = {delimiter = '\000', binary = "xargs", xparams = {"-0", "rm -rf"}}
+	xargs = {delimiter = '\000', binary = "/usr/bin/xargs", xparams = {"-0", "rm -rf"}}
 }
 
 -----
@@ -3564,9 +3574,14 @@ local default_direct = {
 	onMove = true,
 	
 	-----
+	-- The rsync binary called.
+	--
+	rsyncBinary = "/usr/bin/rsync",
+	
+	-----
 	-- For startup sync
 	--
-	rsyncOps = "-lts",
+	rsyncOpts = "-lts",
 
 	-----
 	-- On many system multiple disk operations just rather slow down

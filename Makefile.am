@@ -6,9 +6,9 @@ if INOTIFY
 lsyncd_SOURCES += inotify.c
 endif
 
-#if FSEVENTS
-#lsyncd_SOURCES += fsevents.c
-#endif
+if FSEVENTS
+lsyncd_SOURCES += fsevents.c
+endif
 
 lsyncd_LDADD = $(LUA_LIBS)
 exampledir = $(docdir)/
@@ -29,13 +29,15 @@ TESTS = \
 	tests/l4rsyncdata.lua
 
 dist_man1_MANS = doc/lsyncd.1
-EXTRA_DIST = doc/lsyncd.1.txt doc/lsyncd.1.xml
+EXTRA_DIST = doc/lsyncd.1.txt doc/lsyncd.1.xml inotify.c fsevents.c
 
 doc/lsyncd.1: doc/lsyncd.1.xml
 	xsltproc -o $@ -nonet /etc/asciidoc/docbook-xsl/manpage.xsl $<
 
 doc/lsyncd.1.xml: doc/lsyncd.1.txt
 	asciidoc -o $@ -b docbook -d manpage $<
+
+CLEANFILES = luac.out luac.c
 
 if RUNNER
 # installs the runner script
