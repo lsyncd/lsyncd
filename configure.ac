@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 #AC_PREREQ(2.60)
-AC_INIT(lsyncd, 2.0.4, axkibe@gmail.com)
+AC_INIT(lsyncd, 2.0.5-beta, axkibe@gmail.com)
 AC_CONFIG_SRCDIR([lsyncd.c])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
@@ -43,7 +43,7 @@ AM_CONDITIONAL([RUNNER],  [test x${with_runner} != x])
 # --without-inotify option
 AC_ARG_WITH([inotify],
 [  --without-inotify       Do not use Linux inotify event interface. On by default.])
-if test "x${without_inotify}" != x; then
+if test "x${without_inotify}" == x; then
 	echo "compiling with inotify"
 	AC_DEFINE(LSYNCD_WITH_INOTIFY,,"descr")
 else
