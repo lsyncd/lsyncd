@@ -100,6 +100,13 @@ l_addwatch(lua_State *L)
 
 	int wd = inotify_add_watch(inotify_fd, path, mask);
 	if (wd < 0) {
+		if (errno == ENOSPC) {
+			printlogf(L, "Error", 
+"Terminating since out of inotify watches.");
+			printlogf(L, "Error", 
+"Consider increasing /proc/sys/fs/inotify/max_user_watches");
+			exit(-1); // ERRNO.
+		}
 		printlogf(L, "Inotify", "addwatch(%s)->%d; err=%d:%s", path, wd,
 			errno, strerror(errno));
 	} else {
