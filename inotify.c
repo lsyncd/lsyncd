@@ -91,7 +91,6 @@ l_addwatch(lua_State *L)
 				"'CloseWrite after Modify' not implemented.");
 			exit(-1); // ERRNO
 		} else {
-			/* will be done in future */
 			printlogf(L, "Error", 
 				"'%s' not a valid inotfiyMode.", imode);
 			exit(-1); // ERRNO

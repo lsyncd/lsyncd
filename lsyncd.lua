@@ -2572,6 +2572,7 @@ USAGE:
 OPTIONS:
   -delay SECS         Overrides default delay times
   -help               Shows this
+  -inisit             Continues startup even if it cannot connect
   -log    all         Logs everything (debug)
   -log    scarce      Logs errors only
   -log    [Category]  Turns on logging for a debug category
@@ -2622,6 +2623,10 @@ function runner.configure(args, monitors)
 			{1, function(secs)
 				clSettings.delay = secs
 			end},
+		insist   =
+			{0, function()
+				clSettings.insist = true
+			end},
 		log      = 
 			{1, nil},
 		logfile   = 
@@ -2643,7 +2648,7 @@ function runner.configure(args, monitors)
 			end},
 		nodaemon = 
 			{0, function() 
-				clSettings.nodaemon=true 
+				clSettings.nodaemon = true 
 			end},
 		pidfile   = 
 			{1, function(file)
@@ -3063,7 +3068,7 @@ local rsync_exitcodes = {
 	[  6] = "again",
 	[ 10] = "again", 
 	[ 11] = "again",
---	[ 12] = "again", -- dont, consistent failure, if e.g. target dir not there.
+	[ 12] = "again", 
 	[ 14] = "again",
 	[ 20] = "again",
 	[ 21] = "again",
@@ -3319,7 +3324,7 @@ local default_rsyncssh = {
 		local zPaths = table.concat(paths, "\000")
 		log("Normal", "Rsyncing list\n", sPaths)
 		spawn(
-			elist, rsyncBinary, 
+			elist, config.rsyncBinary, 
 			"<", zPaths, 
 			config.rsyncOpts,
 			"--from0",
@@ -3337,9 +3342,14 @@ local default_rsyncssh = {
 			if exitcode == 0 then
 				log("Normal", "Startup of '",agent.source,"' finished.")
 			elseif rsync_exitcodes[exitcode] == "again" then
-				log("Normal", 
-					"Retrying startup of '",agent.source,"'.")
-				return "again"
+				if settings.insist then
+					log("Normal", "Retrying startup of '",agent.source,"'.")
+					return "again"
+				else
+					log("Error", 
+"Temporary or permanent failure on startup. Terminating since not insist'ing.");
+					terminate(-1) -- ERRNO
+				end
 			else
 				log("Error", "Failure on startup of '",agent.source,"'.")
 				terminate(-1) -- ERRNO
@@ -3388,7 +3398,7 @@ local default_rsyncssh = {
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.host .. ":" .. config.targetdir)
 			spawn(
-				event, rsyncBinary, 
+				event, config.rsyncBinary, 
 				"--delete",
 				"-r", 
 				config.rsyncOpts, 
@@ -3400,7 +3410,7 @@ local default_rsyncssh = {
 			log("Normal", "recursive startup rsync: ", config.source,
 				" -> ", config.host .. ":" .. config.targetdir, " excluding\n")
 			spawn(
-				event, rsyncBinary,  
+				event, config.rsyncBinary,  
 				"<", exS,
 				"--exclude-from=-",
 				"--delete",
@@ -3533,9 +3543,14 @@ local default_direct = {
 			elseif rsync_exitcodes and 
 			       rsync_exitcodes[exitcode] == "again" 
 			then
-				log("Normal", 
-					"Retrying startup of '",agent.source,"'.")
-				return "again"
+				if settings.insist then
+					log("Normal", "Retrying startup of '",agent.source,"'.")
+					return "again"
+				else
+					log("Error", 
+"Temporary or permanent failure on startup. Terminating since not insist'ing.");
+					terminate(-1) -- ERRNO
+				end
 			else
 				log("Error", "Failure on startup of '",agent.source,"'.")
 				terminate(-1) -- ERRNO
