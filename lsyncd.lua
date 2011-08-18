@@ -3546,7 +3546,7 @@ local default_rsyncssh = {
 	-- available this is simpler than to build filters for rsync for this.
 	-- Default uses '0' as limiter, you might override this for old systems.
 	--
-	xargs = {delimiter = '\000', binary = "/usr/bin/xargs", xparams = {"-0", "rm -rf"}}
+	xargs = {binary = "/usr/bin/xargs", delimiter = '\000', xparams = {"-0", "rm -rf"}}
 }
 
 -----
