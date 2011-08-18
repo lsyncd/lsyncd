@@ -26,6 +26,7 @@ TESTS = \
 	tests/churn-direct.lua \
 	tests/exclude-rsync.lua \
 	tests/exclude-rsyncssh.lua \
+	tests/schedule.lua \
 	tests/l4rsyncdata.lua
 
 dist_man1_MANS = doc/lsyncd.1
