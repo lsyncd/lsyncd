@@ -3135,6 +3135,7 @@ end
 -- Exitcodes to retry on network failures of rsync.
 --
 local rsync_exitcodes = {
+	[  0] = "ok",
 	[  1] = "die",
 	[  2] = "die",
 	[  3] = "again",
@@ -3148,6 +3149,8 @@ local rsync_exitcodes = {
 	[ 20] = "again",
 	[ 21] = "again",
 	[ 22] = "again",
+	[ 23] = "ok", -- partial transfers are ok, since Lsyncd has registered the event that 
+	[ 24] = "ok", -- caused the transfer to be partial and will recall rsync.
 	[ 25] = "die",
 	[ 30] = "again",
 	[ 35] = "again",
@@ -3158,6 +3161,7 @@ local rsync_exitcodes = {
 -- Exitcodes to retry on network failures of rsync.
 --
 local ssh_exitcodes = {
+	[0]   = "ok",
 	[255] = "again",
 }
 
@@ -3408,52 +3412,62 @@ local default_rsyncssh = {
 			config.host .. ":" .. config.targetdir
 		)
 	end,
-	
+		
 	-----
 	-- Called when collecting a finished child process
 	--
 	collect = function(agent, exitcode)
 		if not agent.isList and agent.etype == "Init" then
-			if exitcode == 0 then
+			local rc = rsync_exitcodes[exitcode]
+			if rc == "ok" then
 				log("Normal", "Startup of '",agent.source,"' finished.")
-			elseif rsync_exitcodes[exitcode] == "again" then
+			elseif rc == "again" then
 				if settings.insist then
 					log("Normal", "Retrying startup of '",agent.source,"'.")
-					return "again"
 				else
 					log("Error", 
-"Temporary or permanent failure on startup. Terminating since not insist'ing.");
+					"Temporary or permanent failure on startup. Terminating since not insisting.");
 					terminate(-1) -- ERRNO
 				end
-			else
+			elseif rc == "die" then
 				log("Error", "Failure on startup of '",agent.source,"'.")
-				terminate(-1) -- ERRNO
+			else
+				log("Error", "Unknown exitcode '",exticode,"' with a list")
+				rc = "die"
 			end
+			return rc
 		end
 
 		if agent.isList then
 			local rc = rsync_exitcodes[exitcode] 
-			if rc == "die" then
-				return rc
-			end
-			if rc == "again" then
-				log("Normal", "Retrying a list on exitcode = ",exitcode)
-			else
+			if rc == "ok" then
 				log("Normal", "Finished a list = ",exitcode)
+			elseif rc == "again" then
+				log("Normal", "Retrying a list on exitcode = ",exitcode)
+			elseif rc == "die" then
+				log("Error", "Failure on list on exitcode = ",exitcode)
+			else 
+				log("Error", "Unknown exitcode on list = ",exitcode)
+				rc = "die"
 			end
 			return rc
 		else
 			local rc = ssh_exitcodes[exitcode] 
-			if rc == "die" then
-				return rc
-			end
-			if rc == "again" then
-				log("Normal", "Retrying ",agent.etype,
-					" on ",agent.sourcePath," = ",exitcode)
-			else
+			if rc == "ok" then
 				log("Normal", "Finished ",agent.etype,
 					" on ",agent.sourcePath," = ",exitcode)
+			elseif rc == "again" then
+				log("Normal", "Retrying ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+			elseif rc == "die" then
+				log("Normal", "Failure ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+			else
+				log("Error", "Unknown exitcode ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+				rc = "die"
 			end
+			return rc
 		end
 	end,
 
@@ -3611,31 +3625,31 @@ local default_direct = {
 	--
 	collect = function(agent, exitcode)
 		local config = agent.config
-
+		
 		if not agent.isList and agent.etype == "Init" then
-			if exitcode == 0 then
+			local rc = rsync_exitcodes[exitcode]
+			if rc == "ok" then
 				log("Normal", "Startup of '",agent.source,"' finished.")
-			elseif rsync_exitcodes and 
-			       rsync_exitcodes[exitcode] == "again" 
-			then
+			elseif rc == "again" then
 				if settings.insist then
 					log("Normal", "Retrying startup of '",agent.source,"'.")
-					return "again"
 				else
 					log("Error", 
-"Temporary or permanent failure on startup. Terminating since not insist'ing.");
+					"Temporary or permanent failure on startup. Terminating since not insisting.");
 					terminate(-1) -- ERRNO
 				end
-			else
+			elseif rc == "die" then
 				log("Error", "Failure on startup of '",agent.source,"'.")
-				terminate(-1) -- ERRNO
+			else
+				log("Error", "Unknown exitcode '",exticode,"' with a list")
+				rc = "die"
 			end
-			return
+			return rc
 		end
 
-		-- everything else just is as is, 
+		-- everything else is just as it is, 
 		-- there is no network to retry something.
-		return nil
+		return 
 	end,
 
 	-----
@@ -3709,45 +3723,61 @@ default = {
 
 	
 	-----
+	-- Default collector.
 	-- Called when collecting a finished child process
 	--
 	collect = function(agent, exitcode)
 		local config = agent.config
-
-		if not agent.isList and agent.etype == "Init" then
-			if exitcode == 0 then
-				log("Normal", "Startup of '",agent.source,"' finished.")
-			elseif config.exitcodes and 
-			       config.exitcodes[exitcode] == "again" 
-			then
-				log("Normal", 
-					"Retrying startup of '",agent.source,"'.")
-				return "again"
-			else
-				log("Error", "Failure on startup of '",agent.source,"'.")
-				terminate(-1) -- ERRNO
-			end
-			return
+		local rc
+		if config.exitcodes then
+			rc = config.exitcodes[exitcode]
+		elseif exitcode == 0 then
+			rc = "ok"
+		else
+			rc = "die"
 		end
 
-		local rc = config.exitcodes and config.exitcodes[exitcode] 
-		if rc == "die" then
-			return rc
+		if not agent.isList and agent.etype == "Init" then
+			if rc == "ok" then
+				log("Normal", "Startup of '",agent.source,"' finished.")
+				return "ok"
+			elseif rc == "again" then
+				log("Normal", "Retrying startup of '",agent.source,"'.")
+				return "again"
+			elseif rc == "die" then
+				log("Error", "Failure on startup of '",agent.source,"'.")
+				terminate(-1) -- ERRNO
+			else
+				log("Error", "Unknown exitcode '",exitcode,"' on startup of '",agent.source,"'.")
+				return "die"
+			end
 		end
 
 		if agent.isList then
-			if rc == "again" then
-				log("Normal", "Retrying a list on exitcode = ",exitcode)
-			else
+			if rc == "ok" then
 				log("Normal", "Finished a list = ",exitcode)
+			elseif rc == "again" then
+				log("Normal", "Retrying a list on exitcode = ",exitcode)
+			elseif rc == "die" then
+				log("Error", "Failure with a list on exitcode = ",exitcode)
+			else 
+				log("Error", "Unknown exitcode '",exitcode,"' with a list")
+				rc = "die"
 			end
 		else
-			if rc == "again" then
+			if rc == "ok" then
 				log("Normal", "Retrying ",agent.etype,
 					" on ",agent.sourcePath," = ",exitcode)
-			else
+			elseif rc == "again" then
 				log("Normal", "Finished ",agent.etype,
 					" on ",agent.sourcePath," = ",exitcode)
+			elseif rc == "die" then
+				log("Error", "Failure with ",agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+			else
+				log("Normal", "Unknown exitcode '",exitcode,"' with ", agent.etype,
+					" on ",agent.sourcePath," = ",exitcode)
+				rc = "die"
 			end
 		end
 		return rc
