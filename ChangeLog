@@ -1,3 +1,29 @@
+??-??-2011: 2.0.5
+	fix: Lsyncd will now terminate if it inotify watches exeed their limit.
+	fix: rsync error exit code 12 now results in retries.
+	fix: Lsyncd 2.0.5 should now compile better on a little elder 
+		GNU/Linux versions.
+	fix: examples are now installed in the configured document directory.
+	fix: partial transfers during startup are considered ok. Lsyncd will
+		rework the specified files anyway.
+	change: Layer 1 interface init() now receives an "Init" event instead
+		of the inlet.
+	change: builtin code now loaded via c-array. Now more portable and 
+		correct memory bits set.
+	change: Lsyncd will now bail on unknown error codes.
+	enhancement: settings.maxProcesses is now a global limit of childprocesses
+	enhancement: Lsyncd will refuse to startup when any startup rsync
+		does not work and returns "again", unless settings.insist or 
+		--insist is specified, then Lsyncd will retry until it works.
+	enhancement: option "rsyncBinary" determines which rsync Lsyncd calls.
+		 Default is "/usr/bin/rsync"
+	enhancement: fsevents ("inotify for OSX") fixed for Snowleopard.
+		and available by default.
+	enhancement: settings.inotifyMode: the actualy Modification event 
+		Lsyncd reacts to can now be configured. Default is to react on
+		file closing in write mode.
+	enhancement: readdir(path) is available to userscripts.
+
 27-03-2011: 2.0.4
 	enhancement: new setting options logident, logfacility
 	fix: moving filenames with spaces through ssh
