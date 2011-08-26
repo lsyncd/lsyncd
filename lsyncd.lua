@@ -2920,6 +2920,9 @@ end
 --         times ... the alarm time (only read if number is 1)
 --
 function runner.getAlarm()
+	if lsyncdStatus ~= "run" then
+		return false
+	end
 	local alarm = false
 	----
 	-- checks if current nearest alarm or a is earlier
