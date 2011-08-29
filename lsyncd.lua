@@ -3294,7 +3294,7 @@ local default_rsync = {
 		end
 
 		if config.rsyncOps then
-			if config.rsyncOpts then
+			if config.rsyncOpts ~= "-lts" then
 				error("'rsyncOpts' and 'rsyncOps' provided in config, decide for one.")
 			end
 			config.rsyncOpts = config.rsyncOps
@@ -3514,7 +3514,7 @@ local default_rsyncssh = {
 	--
 	prepare = function(config)
 		if config.rsyncOps then
-			if config.rsyncOpts then
+			if config.rsyncOpts ~= "-lts" then
 				error("'rsyncOpts' and 'rsyncOps' provided in config, decide for one.")
 			end
 			config.rsyncOpts = config.rsyncOps
