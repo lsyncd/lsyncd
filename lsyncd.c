@@ -128,12 +128,15 @@ struct settings settings = {
 static bool is_daemon = false;
 
 /**
- * True after first configuration phase. This is to write configuration error
- * messages to stdout/stderr after being first started. Then it uses whatever
- * it has been configured to. This survives a reset by HUP signal or 
- * inotify OVERFLOW.
+ * False after first time Lsyncd started up.
+ * 
+ * Thus configuration error  messages are written to stdout/stderr only on 
+ * first start.
+ *
+ * All other resets (HUP or inotify OVERFLOW) run with implictly --insist 
+ * turned on and thus Lsyncd not failing on a not responding target.
  */
-static bool running = false;
+static bool first_time = true;
 
 /**
  * Set to TERM or HUP in signal handler, when lsyncd should end or reset ASAP.
@@ -288,7 +291,7 @@ logstring0(int priority, const char *cat, const char *message)
 	if (priority < 0) {
 		priority = LOG_DEBUG;
 	}
-	if (!running) {
+	if (first_time) {
 		/* lsyncd is in intial configuration.
 		 * thus just print to normal stdout/stderr. */
 		if (priority >= LOG_ERR) {
@@ -1166,7 +1169,7 @@ l_configure(lua_State *L)
 		/* set by runner after first initialize 
 		 * from this on log to configurated log end instead of 
 		 * stdout/stderr */
-		running = true;
+		first_time = false;
 		if (settings.log_syslog || !settings.log_file) {
 			openlog(settings.log_ident ? settings.log_ident : "lsyncd", 
 				0,
@@ -1992,7 +1995,8 @@ main1(int argc, char *argv[])
 		/* runs initialitions from runner 
 		 * lua code will set configuration and add watches */
 		load_runner_func(L, "initialize");
-		if (lua_pcall(L, 0, 0, -2)) {
+		lua_pushboolean(L, first_time);
+		if (lua_pcall(L, 1, 0, -3)) {
 			exit(-1); // ERRNO
 		}
 		lua_pop(L, 1);

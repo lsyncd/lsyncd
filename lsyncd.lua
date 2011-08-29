@@ -2800,8 +2800,11 @@ end
 
 ----
 -- Called from core on init or restart after user configuration.
+--
+-- @firstTime true the first time Lsyncd startup, false on resets
+-- due to HUP signal or monitor queue OVERFLOW.
 -- 
-function runner.initialize()
+function runner.initialize(firstTime)
 	-- creates settings if user didnt
 	settings = settings or {}
 	
@@ -2816,12 +2819,17 @@ function runner.initialize()
 		end
 		settings[v]=true
 	end
-	
+
 	-- all command line settings overwrite config file settings
 	for k, v in pairs(clSettings) do
 		if k ~= "syncs" then
 			settings[k]=v 
 		end
+	end
+	
+	-- implicitly force insist to be true on Lsyncd resets.
+	if not firstTime then
+		settings.insist = true
 	end
 
 	-- adds syncs specified by command line.
