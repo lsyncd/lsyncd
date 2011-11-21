@@ -86,7 +86,7 @@ struct settings settings = {
 	.log_syslog = false,
 	.log_ident = NULL,
 	.log_facility = LOG_USER,
-	.log_level = 0,
+	.log_level = LOG_NOTICE,
 	.nodaemon = false,
 };
 
@@ -211,11 +211,11 @@ check_logcat(const char *name)
 {
 	struct logcat *lc;
 	if (name[0] < 'A' || name[0] > 'Z') {
-		return false;
+		return 99;
 	}
 	lc = logcats[name[0]-'A'];
 	if (!lc) {
-		return -1;
+		return 99;
 	}
 	while (lc->name) {
 		if (!strcmp(lc->name, name)) {
@@ -223,7 +223,7 @@ check_logcat(const char *name)
 		}
 		lc++;
 	}
-	return -1;
+	return 99;
 }
 
 /**
@@ -235,7 +235,7 @@ add_logcat(const char *name, int priority)
 {
 	struct logcat *lc; 
 	if (!strcmp("all", name)) {
-		settings.log_level = -1;
+		settings.log_level = 99;
 		return true;
 	}
 	if (!strcmp("scarce", name)) {
@@ -287,10 +287,6 @@ add_logcat(const char *name, int priority)
 extern void 
 logstring0(int priority, const char *cat, const char *message)
 {
-	/* in case of logall and not found category priority will be -1 */
-	if (priority < 0) {
-		priority = LOG_DEBUG;
-	}
 	if (first_time) {
 		/* lsyncd is in intial configuration.
 		 * thus just print to normal stdout/stderr. */
@@ -767,7 +763,7 @@ l_log(lua_State *L)
 	cat = luaL_checkstring(L, 1);
 	priority = check_logcat(cat);
 	/* skips filtered messages */
-	if (priority < settings.log_level) {
+	if (priority > settings.log_level) {
 		return 0;
 	}
 
@@ -887,7 +883,7 @@ l_exec(lua_State *L)
 		}
 	}
 	/* writes a log message, prepares the message only if actually needed. */
-	if (check_logcat("Exec") >= settings.log_level) {
+	if (check_logcat("Exec") <= settings.log_level) {
 		int i;
 		lua_checkstack(L, lua_gettop(L) + argc * 3 + 2);
 		lua_pushvalue(L, 1);
@@ -1794,7 +1790,7 @@ main1(int argc, char *argv[])
 	/* registers lsycnd core */
 	register_lsyncd(L);
 
-	if (check_logcat("Debug") >= settings.log_level) {
+	if (check_logcat("Debug") <= settings.log_level) {
 		/* printlogf doesnt support %ld :-( */
 		printf("kernels clocks_per_sec=%ld\n", clocks_per_sec);
 	}
@@ -2047,7 +2043,7 @@ main1(int argc, char *argv[])
 		settings.log_ident = NULL;
 	}
 	settings.log_facility = LOG_USER;
-	settings.log_level = 0;
+	settings.log_level = LOG_NOTICE;
 	settings.nodaemon = false;
 	lua_close(L);
 	return 0;

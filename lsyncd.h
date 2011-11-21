@@ -90,13 +90,13 @@ extern int check_logcat(const char *name);
 
 /* logs a string */
 #define logstring(cat, message) \
-	{int p; if ((p = check_logcat(cat)) >= settings.log_level) \
+	{int p; if ((p = check_logcat(cat)) <= settings.log_level) \
 	{logstring0(p, cat, message);}}
 extern void logstring0(int priority, const char *cat, const char *message);
 
 /* logs a formated string */
 #define printlogf(L, cat, ...) \
-	{int p; if ((p = check_logcat(cat)) >= settings.log_level)  \
+	{int p; if ((p = check_logcat(cat)) <= settings.log_level)  \
 	{printlogf0(L, p, cat, __VA_ARGS__);}}
 extern void
 printlogf0(lua_State *L, 
