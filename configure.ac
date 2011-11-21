@@ -42,8 +42,9 @@ AM_CONDITIONAL([RUNNER],  [test x${with_runner} != x])
 ###
 # --without-inotify option
 AC_ARG_WITH([inotify],
-[  --without-inotify       Do not use Linux inotify event interface. On by default.])
-if test "x${without_inotify}" == x; then
+[  --without-inotify       Do not use Linux inotify event interface. On by default.],
+[],[with_inotify=yes])
+if test "x${with_inotify}" == xyes; then
 	echo "compiling with inotify"
 	AC_DEFINE(LSYNCD_WITH_INOTIFY,,"descr")
 else
@@ -57,7 +58,7 @@ AM_CONDITIONAL([INOTIFY], [test x${with_inotify} != xno])
 AC_ARG_WITH([fsevents],
 [  --with-fsevents         Uses MacOS (10.5) /dev/fsevents. EXPERIMENTAL!
                           Off by default.])
-if test "x${with_fsevents}" != x; then
+if test "x${with_fsevents}" == xyes; then
 	echo "compiling with fsevents. WARNING experimental!"
 	AC_DEFINE(LSYNCD_WITH_FSEVENTS,,"descr")
 fi
