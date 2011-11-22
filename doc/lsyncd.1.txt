@@ -8,12 +8,12 @@ lsyncd(1)
 
 NAME
 ----
-lsyncd - a daemon to continuously synchronize directory trees 
+lsyncd - a daemon to continuously synchronize directory trees
 
 SYNOPSIS
 --------
 config file:::
-	{nbsp}*lsyncd* ['OPTIONS'] 'CONFIG-FILE' 
+	{nbsp}*lsyncd* ['OPTIONS'] 'CONFIG-FILE'
 
 default rsync behaviour:::
 	{nbsp}*lsyncd* ['OPTIONS'] -rsync 'SOURCEDIR' 'TARGET' ...
@@ -60,9 +60,8 @@ OPTIONS
 *-log* 'LEVEL'::
 	Controls which kind of events are logged. By default Lsyncd logs 'Normal'
 	and 'Error' Messages. *-log scarce* will make Lsyncd log Error messages
-	only. *-log all* will log all
-	debug messages. 
-	
+	only. *-log all* will log all debug messages.
+
 *-log* 'Category'::
 	Turns on a specific debug message. E.g. *-log Exec* will log
 	all processes as they are spawned.
@@ -70,11 +69,11 @@ OPTIONS
 *-nodaemon*::
 	Lsyncd will not detach from the invoker and log as well to stdout/err.
 
-*-pifile* 'FILE'::
+*-pidfile* 'FILE'::
 	Lsyncd will write its process ID in 'FILE'.
 
 *-runner* 'FILE'::
-	Makes the Lsyncd core load the part of Lsyncd written in Lua from 'FILE' 
+	Makes the Lsyncd core load the part of Lsyncd written in Lua from 'FILE'.
 
 *-version*::
 	Writes version information and exits.
@@ -99,8 +98,8 @@ AUTHOR
 ------
 Axel Kittenberger, <axkibe@gmail.com> 2010-2011
 
-COPYING 
-------- 
+COPYING
+-------
 Copyright \(C) 2010-2011 Axel Kittenberger. Free use of this software is granted
 under the terms of the GNU General Public License (GPL) version 2, or any later
 version. Free redistrubition of this Documentation (/doc directory) is granted
