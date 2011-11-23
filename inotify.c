@@ -1,4 +1,4 @@
-/** 
+/**
  * inotify.c from Lsyncd - Live (Mirror) Syncing Demon
  *
  * License: GPLv2 (see COPYING) or any later version
@@ -56,7 +56,7 @@ static int inotify_fd = -1;
 /**
  * Standard inotify events to listen to.
  */
-static const uint32_t standard_event_mask = 
+static const uint32_t standard_event_mask =
 		IN_ATTRIB   | IN_CLOSE_WRITE | IN_CREATE     |
 		IN_DELETE   | IN_DELETE_SELF | IN_MOVED_FROM |
 		IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR;
@@ -64,7 +64,7 @@ static const uint32_t standard_event_mask =
 
 /**
  * Adds an inotify watch
- * 
+ *
  * @param dir         (Lua stack) path to directory
  * @param inotifyMode (Lua stack) path to directory
  * @return            (Lua stack) numeric watch descriptor
@@ -162,9 +162,9 @@ static bool move_event = false;
 /**
  * Handles an inotify event.
  */
-static void 
-handle_event(lua_State *L, 
-             struct inotify_event *event) 
+static void
+handle_event(lua_State *L,
+             struct inotify_event *event)
 {
 	const char *event_type = NULL;
 
@@ -185,19 +185,19 @@ handle_event(lua_State *L,
 		return;
 	}
 	if (event && event->len == 0) {
-		/* sometimes inotify sends such strange events, 
+		/* sometimes inotify sends such strange events,
 		 * (e.g. when touching a dir */
 		return;
 	}
 
 	if (event == NULL) {
-		/* a buffered MOVE_FROM is not followed by anything, 
+		/* a buffered MOVE_FROM is not followed by anything,
 		   thus it is unary */
 		event = move_event_buf;
 		event_type = "Delete";
 		move_event = false;
-	} else if (move_event && 
-	            ( !(IN_MOVED_TO & event->mask) || 
+	} else if (move_event &&
+	            ( !(IN_MOVED_TO & event->mask) ||
 			      event->cookie != move_event_buf->cookie) ) {
 		/* there is a MOVE_FROM event in the buffer and this is not the match
 		 * continue in this function iteration to handle the buffer instead */
@@ -206,15 +206,15 @@ handle_event(lua_State *L,
 		event = move_event_buf;
 		event_type = "Delete";
 		move_event = false;
-	} else if ( move_event && 
-	            (IN_MOVED_TO & event->mask) && 
+	} else if ( move_event &&
+	            (IN_MOVED_TO & event->mask) &&
 			    event->cookie == move_event_buf->cookie ) {
 		/* this is indeed a matched move */
 		event_type = "Move";
 		move_event = false;
 	} else if (IN_MOVED_FROM & event->mask) {
-		/* just the MOVE_FROM, buffers this event, and wait if next event is 
-		 * a matching MOVED_TO of this was an unary move out of the watched 
+		/* just the MOVE_FROM, buffers this event, and wait if next event is
+		 * a matching MOVED_TO of this was an unary move out of the watched
 		 * tree. */
 		size_t el = sizeof(struct inotify_event) + event->len;
 		if (move_event_buf_size < el) {
@@ -245,12 +245,12 @@ handle_event(lua_State *L,
 	}
 
 	/* and hands over to runner */
-	load_runner_func(L, "inotifyEvent"); 
+	load_runner_func(L, "inotifyEvent");
 	if (!event_type) {
-		logstring("Error", "Internal: unknown event in handle_event()"); 
+		logstring("Error", "Internal: unknown event in handle_event()");
 		exit(-1);	// ERRNO
 	}
-	lua_pushstring(L, event_type); 
+	lua_pushstring(L, event_type);
 	if (event_type != MOVE) {
 		lua_pushnumber(L, event->wd);
 	} else {
@@ -279,14 +279,14 @@ handle_event(lua_State *L,
 	}
 }
 
-/** 
+/**
  * buffer to read inotify events into
  */
 static size_t readbuf_size = 2048;
 static char * readbuf = NULL;
 
 /**
- * Called by function pointer from when the inotify file descriptor 
+ * Called by function pointer from when the inotify file descriptor
  * became ready. Reads it contents and forward all received events
  * to the runner.
  */
@@ -298,7 +298,7 @@ inotify_ready(lua_State *L, struct observance *obs)
 		exit(-1); // ERRNO
 	}
 	while(true) {
-		ptrdiff_t len; 
+		ptrdiff_t len;
 		int err;
 		do {
 			len = read (inotify_fd, readbuf, readbuf_size);
@@ -312,9 +312,8 @@ inotify_ready(lua_State *L, struct observance *obs)
 				 */
 				readbuf_size *= 2;
 				readbuf = s_realloc(readbuf, readbuf_size);
-				continue;
 			}
-		} while(0);
+		} while(len < 0 && err == EINVAL);
 		if (len == 0) {
 			/* nothing more inotify */
 			break;
@@ -331,7 +330,7 @@ inotify_ready(lua_State *L, struct observance *obs)
 		{
 			int i = 0;
 			while (i < len && !hup && !term) {
-				struct inotify_event *event = 
+				struct inotify_event *event =
 					(struct inotify_event *) &readbuf[i];
 				handle_event(L, event);
 				i += sizeof(struct inotify_event) + event->len;
@@ -346,25 +345,25 @@ inotify_ready(lua_State *L, struct observance *obs)
 	/* checks if there is an unary MOVE_FROM left in the buffer */
 	if (move_event) {
 		logstring("Inotify", "icore, handling unary move from.");
-		handle_event(L, NULL);	
+		handle_event(L, NULL);
 	}
 }
 
-/** 
+/**
  * registers inotify functions.
  */
 extern void
-register_inotify(lua_State *L) 
+register_inotify(lua_State *L)
 {
 	lua_pushstring(L, "inotify");
 	luaL_register(L, "inotify", linotfylib);
 }
 
-/** 
- * closes inotify 
+/**
+ * closes inotify
  */
 static void
-inotify_tidy(struct observance *obs) 
+inotify_tidy(struct observance *obs)
 {
 	if (obs->fd != inotify_fd) {
 		logstring("Error", "Internal, inotify_fd != ob->fd");
@@ -375,23 +374,23 @@ inotify_tidy(struct observance *obs)
 	readbuf = NULL;
 }
 
-/** 
+/**
  * opens and initalizes inotify.
  */
 extern void
-open_inotify(lua_State *L) 
+open_inotify(lua_State *L)
 {
 	if (readbuf) {
-		logstring("Error", 
-			"internal fail, inotify readbuf!=NULL in open_inotify()") 
+		logstring("Error",
+			"internal fail, inotify readbuf!=NULL in open_inotify()")
 		exit(-1); // ERRNO
 	}
 	readbuf = s_malloc(readbuf_size);
 
 	inotify_fd = inotify_init();
 	if (inotify_fd < 0) {
-		printlogf(L, "Error", 
-			"Cannot access inotify monitor! (%d:%s)", 
+		printlogf(L, "Error",
+			"Cannot access inotify monitor! (%d:%s)",
 			errno, strerror(errno));
 		exit(-1); // ERRNO
 	}
