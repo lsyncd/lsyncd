@@ -407,7 +407,7 @@ local Combiner = (function()
 	-- combines two delays
 	--
 	local function combine(d1, d2)
-		if d1.etype == "Init" or d1.etype == "Blanket" then
+		if d1.etype == 'Init' or d1.etype == 'Blanket' then
 			-- everything is blocked by init or blanket delays.
 			if d2.path2 then
 				log('Delay',d2.etype,':',d2.path,'->',d2.path2,'blocked by',d1.etype,' event')
@@ -448,9 +448,9 @@ local Combiner = (function()
 
 			--  Event does something with the move destination
 			if d1.path2 == d2.path then
-				if d2.etype == "Delete" or d2.etype == "Create" then
-					if d1.status == "active" then
-						return "stack"
+				if d2.etype == 'Delete' or d2.etype == 'Create' then
+					if d1.status == 'active' then
+						return 'stack'
 					end
 					log('Delay',d2.etype,':',d2.path,' turns ',
 				        'Move :',d1.path,'->',d1.path2,' into ','Delete:',d1.path)
@@ -458,7 +458,7 @@ local Combiner = (function()
 					d1.path2 = nil
 					return 'stack'
 				end
-				-- on "Attrib" or "Modify" simply wait for the move first
+				-- on 'Attrib' or 'Modify' simply wait for the move first
 				return 'stack'
 			end
 
@@ -466,7 +466,7 @@ local Combiner = (function()
 			   d1.path2:byte(-1) == 47 and string.starts(d2.path,  d1.path2)
 			then
 				log('Delay',d2.etype,':',d2.path,' blocked by ','Move:',d1.path,'->',d1.path2)
-				return "stack"
+				return 'stack'
 			end
 			return nil
 		end
@@ -502,12 +502,12 @@ local Combiner = (function()
 			then
 				log('Delay','Move:',d2.path,'->',d1.path2,
 					' splits on Move:',d1.path,'->',d1.path2)
-				return "split"
+				return 'split'
 			end
 			return nil
 		end
 
-		error("reached impossible position")
+		error('reached impossible state')
 	end
 
 	-- public interface
@@ -568,9 +568,7 @@ local InletFactory = (function()
 
 		-----
 		-- Returns the type of the event.
-		-- Can be:
-		--    "Attrib", "Create", "Delete",
-		--    "Modify" or "Move",
+		-- Can be: 'Attrib', 'Create', 'Delete', 'Modify' or 'Move',
 		--
 		etype = function(event)
 			return e2d[event].etype
@@ -677,7 +675,7 @@ local InletFactory = (function()
 		-- Just for user comfort
 		--
 		-- (except here, the lsyncd.runner does not care event about the
-		-- existance of 'target", this is up to the scripts.)
+		-- existance of 'target', this is up to the scripts.)
 		--
 		target = function(event)
 			return e2s[event].config.target
@@ -1064,18 +1062,11 @@ local Excludes = (function()
 		for _, p in pairs(self.list) do
 			if p:byte(-1) == 36 then
 				-- ends with $
-				if path:match(p) then
-					--log("Exclude", "'",path,"' matches '",p,"' (1)")
-					return true
-				end
+				if path:match(p) then return true end
 			else
-				-- end either end with / or $
-				if path:match(p..'/') or path:match(p..'$') then
-					--log("Exclude", "'",path,"' matches '",p,"' (2)")
-					return true
-				end
+				-- ends either end with / or $
+				if path:match(p..'/') or path:match(p..'$') then return true end
 			end
-			--log("Exclude", "'",path,"' NOT matches '",p,"'")
 		end
 		return false
 	end
@@ -1395,7 +1386,7 @@ local Sync = (function()
 		end
 
 		for i, d in Queue.qpairs(self.delays) do
-			if d.status == "active" or
+			if d.status == 'active' or
 				(test and not test(InletFactory.d2e(self, d)))
 			then
 				getBlocks(d)
@@ -1705,10 +1696,10 @@ local Syncs = (function()
 		-- the monitor to use
 		config.monitor =
 			settings.monitor or config.monitor or Monitors.default()
-		if config.monitor ~= "inotify" and config.monitor ~= "fsevents" then
-			local info = debug.getinfo(3, "Sl")
-			log("Error", info.short_src, ":", info.currentline,
-				": event monitor '",config.monitor,"' unknown.")
+		if config.monitor ~= 'inotify' and config.monitor ~= 'fsevents' then
+			local info = debug.getinfo(3, 'Sl')
+			log('Error',info.short_src,':',info.currentline,
+				': event monitor "',config.monitor,'" unknown.')
 			terminate(-1) -- ERRNO
 		end
 
@@ -1836,7 +1827,7 @@ local Inotify = (function()
 
 		-- lets the core registers watch with the kernel
 		local wd = lsyncd.inotify.addwatch(path,
-			(settings and settings.inotifyMode) or "");
+			(settings and settings.inotifyMode) or '');
 		if wd < 0 then
 			log('Inotify','Unable to add watch "',path,'"')
 			return
@@ -1866,21 +1857,15 @@ local Inotify = (function()
 		end
 		for dirname, isdir in pairs(entries) do
 			local pd = path .. dirname
-			if isdir then
-				pd = pd .. "/"
-			end
+			if isdir then pd = pd..'/' end
 
 			-- creates a Create event for entry.
 			if raiseSync then
-				local relative  = splitPath(pd, syncRoots[raiseSync])
-				if relative then
-					raiseSync:delay("Create", raiseTime, relative)
-				end
+				local relative = splitPath(pd, syncRoots[raiseSync])
+				if relative then raiseSync:delay("Create", raiseTime, relative) end
 			end
 			-- adds syncs for subdirs
-			if isdir then
-				addWatch(pd, true, raiseSync, raiseTime)
-			end
+			if isdir then addWatch(pd, true, raiseSync, raiseTime) end
 		end
 	end
 
@@ -1911,9 +1896,7 @@ local Inotify = (function()
 	local function event(etype, wd, isdir, time, filename, wd2, filename2)
 		if isdir then
 			filename = filename..'/'
-			if filename2 then
-				filename2 = filename2..'/'
-			end
+			if filename2 then filename2 = filename2..'/' end
 		end
 
 		if filename2 then
@@ -1924,14 +1907,10 @@ local Inotify = (function()
 
 		-- looks up the watch descriptor id
 		local path = wdpaths[wd]
-		if path then
-			path = path..filename
-		end
+		if path then path = path..filename end
 
 		local path2 = wd2 and wdpaths[wd2]
-		if path2 and filename2 then
-			path2 = path2..filename2
-		end
+		if path2 and filename2 then path2 = path2..filename2 end
 
 		if not path and path2 and etype == 'Move' then
 			log("Inotify", "Move from deleted directory ",path2,
@@ -2025,9 +2004,7 @@ local Fsevents = (function()
 	-- @param dir    dir to watch
 	--
 	local function addSync(sync, dir)
-		if syncRoots[sync] then
-			error("duplicate sync in Fanotify.addSync()")
-		end
+		if syncRoots[sync] then error("duplicate sync in Fanotify.addSync()") end
 		syncRoots[sync] = dir
 	end
 
@@ -2041,7 +2018,6 @@ local Fsevents = (function()
 	-- path2:  path of target in case of 'Move'
 	--
 	local function event(etype, isdir, time, path, path2)
-
 		if isdir then
 			path = path..'/'
 			if path2 then path2 = path2..'/' end
@@ -2136,33 +2112,33 @@ local functionWriter = (function()
 	-----
 	-- all variables for layer 3
 	transVars = {
-		{ "%^pathname",          "event.pathname"        , 1, },
-		{ "%^pathdir",           "event.pathdir"         , 1, },
-		{ "%^path",              "event.path"            , 1, },
-		{ "%^sourcePathname",    "event.sourcePathname"  , 1, },
-		{ "%^sourcePathdir",     "event.sourcePathdir"   , 1, },
-		{ "%^sourcePath",        "event.sourcePath"      , 1, },
-		{ "%^source",            "event.source"          , 1, },
-		{ "%^targetPathname",    "event.targetPathname"  , 1, },
-		{ "%^targetPathdir",     "event.targetPathdir"   , 1, },
-		{ "%^targetPath",        "event.targetPath"      , 1, },
-		{ "%^target",            "event.target"          , 1, },
-		{ "%^o%.pathname",       "event.pathname"        , 1, },
-		{ "%^o%.path",           "event.path"            , 1, },
-		{ "%^o%.sourcePathname", "event.sourcePathname"  , 1, },
-		{ "%^o%.sourcePathdir",  "event.sourcePathdir"   , 1, },
-		{ "%^o%.sourcePath",     "event.sourcePath"      , 1, },
-		{ "%^o%.targetPathname", "event.targetPathname"  , 1, },
-		{ "%^o%.targetPathdir",  "event.targetPathdir"   , 1, },
-		{ "%^o%.targetPath",     "event.targetPath"      , 1, },
-		{ "%^d%.pathname",       "event2.pathname"       , 2, },
-		{ "%^d%.path",           "event2.path"           , 2, },
-		{ "%^d%.sourcePathname", "event2.sourcePathname" , 2, },
-		{ "%^d%.sourcePathdir",  "event2.sourcePathdir"  , 2, },
-		{ "%^d%.sourcePath",     "event2.sourcePath"     , 2, },
-		{ "%^d%.targetPathname", "event2.targetPathname" , 2, },
-		{ "%^d%.targetPathdir",  "event2.targetPathdir"  , 2, },
-		{ "%^d%.targetPath",     "event2.targetPath"     , 2, },
+		{ '%^pathname',          'event.pathname',        1 },
+		{ '%^pathdir',           'event.pathdir',         1 },
+		{ '%^path',              'event.path',            1 },
+		{ '%^sourcePathname',    'event.sourcePathname',  1 },
+		{ '%^sourcePathdir',     'event.sourcePathdir',   1 },
+		{ '%^sourcePath',        'event.sourcePath',      1 },
+		{ '%^source',            'event.source',          1 },
+		{ '%^targetPathname',    'event.targetPathname',  1 },
+		{ '%^targetPathdir',     'event.targetPathdir',   1 },
+		{ '%^targetPath',        'event.targetPath',      1 },
+		{ '%^target',            'event.target',          1 },
+		{ '%^o%.pathname',       'event.pathname',        1 },
+		{ '%^o%.path',           'event.path',            1 },
+		{ '%^o%.sourcePathname', 'event.sourcePathname',  1 },
+		{ '%^o%.sourcePathdir',  'event.sourcePathdir',   1 },
+		{ '%^o%.sourcePath',     'event.sourcePath',      1 },
+		{ '%^o%.targetPathname', 'event.targetPathname',  1 },
+		{ '%^o%.targetPathdir',  'event.targetPathdir',   1 },
+		{ '%^o%.targetPath',     'event.targetPath',      1 },
+		{ '%^d%.pathname',       'event2.pathname',       2 },
+		{ '%^d%.path',           'event2.path',           2 },
+		{ '%^d%.sourcePathname', 'event2.sourcePathname', 2 },
+		{ '%^d%.sourcePathdir',  'event2.sourcePathdir',  2 },
+		{ '%^d%.sourcePath',     'event2.sourcePath',     2 },
+		{ '%^d%.targetPathname', 'event2.targetPathname', 2 },
+		{ '%^d%.targetPathdir',  'event2.targetPathdir',  2 },
+		{ '%^d%.targetPath',     'event2.targetPath',     2 },
 	}
 
 	-----
@@ -2193,7 +2169,7 @@ local functionWriter = (function()
 			arg = string.gsub(arg, '"', '\\"')
 			table.insert(args, arg)
 			str = string.sub(str, bp + 1, -1)
-			str = string.match(str, "^%s*(.-)%s*$")
+			str = string.match(str, '^%s*(.-)%s*$')
 		end
 		return args
 	end
@@ -2219,19 +2195,17 @@ local functionWriter = (function()
 				while ai <= #a do
 					if a[ai][1] then
 						local pre, post =
-							string.match(a[ai][2], "(.*)"..v[1].."(.*)")
+							string.match(a[ai][2], '(.*)"..v[1].."(.*)')
 						if pre then
 							if v[3] > 1 then
 								haveEvent2 = true
 							end
-							if pre ~= "" then
+							if pre ~= '' then
 								table.insert(a, ai, {true, pre})
 								ai = ai + 1
 							end
 							a[ai] = {false, v[2]}
-							if post ~= "" then
-								table.insert(a, ai + 1, {true, post})
-							end
+							if post ~= '' then table.insert(a, ai + 1, {true, post}) end
 						end
 					end
 					ai = ai + 1
@@ -2239,7 +2213,7 @@ local functionWriter = (function()
 			end
 
 			-- concats the argument pieces into a string.
-			local as = ""
+			local as = ''
 			local first = true
 			for _, v in ipairs(a) do
 				if not first then
@@ -2257,17 +2231,18 @@ local functionWriter = (function()
 
 		local ft
 		if not haveEvent2 then
-			ft = "function(event)\n"
+			ft = 'function(event)\n'
 		else
-			ft = "function(event, event2)\n"
+			ft = 'function(event, event2)\n'
 		end
-		ft = ft .. '    log("Normal", "Event " .. event.etype ..\n'
-		ft = ft .. "        [[ spawns action '" .. str .. '\']])\n'
-		ft = ft .. "    spawn(event"
+		ft = ft..
+			[[    log('Normal', 'Event ', event.etype, \n]]..
+			[[        ' spawns action "]].. str..[["')\n]]..
+			[[    spawn(event]]
 		for _, v in ipairs(args) do
-			ft = ft .. ",\n         " .. v
+			ft = ft..',\n         '..v
 		end
-		ft = ft .. ")\nend"
+		ft = ft..')\nend'
 		return ft
 	end
 
@@ -2300,18 +2275,19 @@ local functionWriter = (function()
 		end
 		local ft
 		if not haveEvent2 then
-			ft = "function(event)\n"
+			ft = 'function(event)\n'
 		else
-			ft = "function(event, event2)\n"
+			ft = 'function(event, event2)\n'
 		end
 		-- TODO do array joining instead
-		ft = ft..'    log("Normal", "Event " .. event.etype ..\n'
-		ft = ft.."        [[ spawns shell '"..lc..'\']])\n'
-		ft = ft.."    spawnShell(event, [["..cmd.. "]]"
+		ft = ft..
+			[[    log('Normal', 'Event ',event.etype,\n]]..
+			[[        ' spawns shell "]]..lc..[[")\n]]..
+			[[    spawnShell(event, ']]..cmd..[[',]]
 		for _, v in ipairs(args) do
-			ft = ft..",\n         "..v
+			ft = ft..',\n         '..v
 		end
-		ft = ft .. ")\nend"
+		ft = ft..')\nend'
 		return ft
 	end
 
@@ -2319,7 +2295,7 @@ local functionWriter = (function()
 	-- writes a lua function for a layer 3 user script.
 	local function translate(str)
 		-- trim spaces
-		str = string.match(str, "^%s*(.-)%s*$")
+		str = string.match(str, '^%s*(.-)%s*$')
 
 		local ft
 		if string.byte(str, 1, 1) == 47 then
@@ -2331,7 +2307,7 @@ local functionWriter = (function()
 		else
 			 ft = translateShell(str)
 		end
-		log("FWrite","translated [[",str,"]] to \n",ft)
+		log('FWrite','translated "',str,'" to \n',ft)
 		return ft
 	end
 
@@ -2367,13 +2343,13 @@ local StatusFile = (function()
 	-- Called to check if to write a status file.
 	--
 	local function write(timestamp)
-		log("Function", "write(", timestamp, ")")
+		log('Function', 'write(', timestamp, ')')
 
 		-- some logic to not write too often
 		if settings.statusInterval > 0 then
 			-- already waiting
 			if alarm and timestamp < alarm then
-				log("Statusfile", "waiting(",timestamp," < ",alarm,")")
+				log('Statusfile', "waiting(",timestamp," < ",alarm,")")
 				return
 			end
 			-- determines when a next write will be possible
