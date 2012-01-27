@@ -24,7 +24,7 @@
  * in them. Since there is a single buffer, a slow subscriber can cause it to
  * overflow. If this happens, events will be dropped — for all subscribers,
  * including Spotlight.  Consequently, Spotlight may need to look at the entire
- * volume to determine "what changed". 
+ * volume to determine "what changed".
  */
 #include "lsyncd.h"
 
@@ -58,11 +58,11 @@
 /* an event argument */
 struct kfs_event_arg {
 	/* argument type */
-    u_int16_t  type; 
+    u_int16_t  type;
 
     /* size of argument data that follows this field */
     u_int16_t  len;
- 
+
     union {
         struct vnode *vp;
         char    *str;
@@ -88,7 +88,7 @@ struct kfs_event {
     pid_t    pid;
 
 	/* event arguments */
-    struct kfs_event_arg* args[FSE_MAX_ARGS]; 
+    struct kfs_event_arg* args[FSE_MAX_ARGS];
 };
 
 /**
@@ -121,15 +121,15 @@ static int fsevents_fd = -1;
 	"INT64",
 	"RAW",
 	"INO",
-	"UID",     
-	"DEV",   
-	"MODE",   
+	"UID",
+	"DEV",
+	"MODE",
 	"GID",
 	"FINFO",
 };*/
 
 /**
- * The read buffer 
+ * The read buffer
  */
 static size_t const readbuf_size = 131072;
 static char * readbuf = NULL;
@@ -194,19 +194,17 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 				switch(atype) {
 				case FSE_RENAME :
 					if (path) {
-						/* for move events second string is target */
+						// for move events second string is target
 						trg = (char *) &arg->data.str;
 					}
-					/* fallthrough */
+					// fallthrough
 				case FSE_CHOWN :
 				case FSE_CONTENT_MODIFIED :
 				case FSE_CREATE_FILE :
 				case FSE_CREATE_DIR :
 				case FSE_DELETE :
 				case FSE_STAT_CHANGED :
-					if (!path) {
-						path = (char *)&arg->data.str;
-					}
+					if (!path) path = (char *)&arg->data.str;
 					break;
 				}
 				break;
@@ -249,13 +247,11 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 
 	if (etype) {
 		if (!path) {
-			printlogf(L, "Error", 
-				"Internal fail, fsevents, no path.");
+			printlogf(L, "Error", "Internal fail, fsevents, no path.");
 			exit(-1);
 		}
 		if (isdir < 0) {
-			printlogf(L, "Error", 
-				"Internal fail, fsevents, neither dir nor file.");
+			printlogf(L, "Error", "Internal fail, fsevents, neither dir nor file.");
 			exit(-1);
 		}
 		load_runner_func(L, "fsEventsEvent");
@@ -268,7 +264,7 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 		} else {
 			lua_pushnil(L);
 		}
-		
+
    	 	if (lua_pcall(L, 5, 0, -7)) {
 			exit(-1); // ERRNO
 		}
@@ -277,7 +273,7 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 }
 
 /**
- * Called when fsevents has something to read 
+ * Called when fsevents has something to read
  */
 static void
 fsevents_ready(lua_State *L, struct observance *obs)
@@ -286,78 +282,77 @@ fsevents_ready(lua_State *L, struct observance *obs)
 		logstring("Error", "Internal, fsevents_fd != ob->fd");
 		exit(-1); // ERRNO
 	}
-	{
-		ptrdiff_t len = read (fsevents_fd, readbuf, readbuf_size);
-		int err = errno;
-		if (len == 0) {
+
+	ptrdiff_t len = read (fsevents_fd, readbuf, readbuf_size);
+	int err = errno;
+	if (len == 0) {
+		return;
+	}
+	if (len < 0) {
+		if (err == EAGAIN) {
+			/* nothing more */
 			return;
+		} else {
+			printlogf(L, "Error", "Read fail on fsevents");
+			exit(-1); // ERRNO
 		}
-		if (len < 0) {
-			if (err == EAGAIN) {
-				/* nothing more */
-				return;
-			} else {
-				printlogf(L, "Error", "Read fail on fsevents");
-				exit(-1); // ERRNO
+	}
+	{
+		int off = 0;
+		while (off < len && !hup && !term) {
+			/* deals with alignment issues on 64 bit by copying data bit by bit */
+			struct kfs_event* event = (struct kfs_event *) eventbuf;
+			event->type = *(int32_t*)(readbuf+off);
+			off += sizeof(int32_t);
+			event->pid = *(pid_t*)(readbuf+off);
+			off += sizeof(pid_t);
+			/* arguments */
+			int whichArg = 0;
+			int eventbufOff = sizeof(struct kfs_event);
+			size_t ptrSize = sizeof(void*);
+			if ((eventbufOff % ptrSize) != 0) {
+				eventbufOff += ptrSize-(eventbufOff%ptrSize);
 			}
-		}
-		{
-			int off = 0;
-			while (off < len && !hup && !term) {
-				/* deals with alignment issues on 64 bit by copying data bit by bit */
-				struct kfs_event* event = (struct kfs_event *) eventbuf;
-				event->type = *(int32_t*)(readbuf+off);
-				off += sizeof(int32_t);
-				event->pid = *(pid_t*)(readbuf+off);
-				off += sizeof(pid_t);
-				/* arguments */
-				int whichArg = 0;
-				int eventbufOff = sizeof(struct kfs_event);
-				size_t ptrSize = sizeof(void*);
-				if ((eventbufOff % ptrSize) != 0) {
-					eventbufOff += ptrSize-(eventbufOff%ptrSize);
-				}
-				while (off < len && whichArg < FSE_MAX_ARGS) {
-					/* assign argument pointer to eventbuf based on 
-					   known current offset into eventbuf */
-					uint16_t argLen = 0;
-					event->args[whichArg] = (struct kfs_event_arg *) (eventbuf + eventbufOff);
-					/* copy type */
-					uint16_t argType = *(uint16_t*)(readbuf + off);
-					event->args[whichArg]->type = argType;
+			while (off < len && whichArg < FSE_MAX_ARGS) {
+				/* assign argument pointer to eventbuf based on 
+				   known current offset into eventbuf */
+				uint16_t argLen = 0;
+				event->args[whichArg] = (struct kfs_event_arg *) (eventbuf + eventbufOff);
+				/* copy type */
+				uint16_t argType = *(uint16_t*)(readbuf + off);
+				event->args[whichArg]->type = argType;
+				off += sizeof(uint16_t);
+				if (argType == FSE_ARG_DONE) {
+					/* done */
+					break;
+				} else {
+					/* copy data length */
+					argLen = *(uint16_t *)(readbuf + off);
+					event->args[whichArg]->len = argLen;
 					off += sizeof(uint16_t);
-					if (argType == FSE_ARG_DONE) {
-						/* done */
-						break;
-					} else {
-						/* copy data length */
-						argLen = *(uint16_t *)(readbuf + off);
-						event->args[whichArg]->len = argLen;
-						off += sizeof(uint16_t);
-						/* copy data */
-						memcpy(&(event->args[whichArg]->data), readbuf + off, argLen);
-						  off += argLen;
-					}
-					/* makes sure alignment is correct for 64 bit systems */
-					size_t argStructLen = sizeof(uint16_t) + sizeof(uint16_t);
-					if ((argStructLen % ptrSize) != 0) {
-						argStructLen += ptrSize-(argStructLen % ptrSize);
-					}
-					argStructLen += argLen;
-					if ((argStructLen % ptrSize) != 0) {
-						argStructLen += ptrSize-(argStructLen % ptrSize);
-					}
-					eventbufOff += argStructLen;
-					whichArg++;
+					/* copy data */
+					memcpy(&(event->args[whichArg]->data), readbuf + off, argLen);
+					  off += argLen;
 				}
-				handle_event(L, event, len);
+				/* makes sure alignment is correct for 64 bit systems */
+				size_t argStructLen = sizeof(uint16_t) + sizeof(uint16_t);
+				if ((argStructLen % ptrSize) != 0) {
+					argStructLen += ptrSize-(argStructLen % ptrSize);
+				}
+				argStructLen += argLen;
+				if ((argStructLen % ptrSize) != 0) {
+					argStructLen += ptrSize-(argStructLen % ptrSize);
+				}
+				eventbufOff += argStructLen;
+				whichArg++;
 			}
+			handle_event(L, event, len);
 		}
 	}
 }
 
 /**
- * Called to close/tidy fsevents 
+ * Called to close/tidy fsevents
  */
 static void
 fsevents_tidy(struct observance *obs)
@@ -373,24 +368,24 @@ fsevents_tidy(struct observance *obs)
 	eventbuf = NULL;
 }
 
-/** 
+/**
  * opens and initalizes fsevents.
  */
 extern void
-open_fsevents(lua_State *L) 
+open_fsevents(lua_State *L)
 {
 	int8_t event_list[] = { // action to take for each event
-		FSE_REPORT,  /* FSE_CREATE_FILE         */
-		FSE_REPORT,  /* FSE_DELETE              */
-		FSE_REPORT,  /* FSE_STAT_CHANGED        */
-		FSE_REPORT,  /* FSE_RENAME              */
-		FSE_REPORT,  /* FSE_CONTENT_MODIFIED    */
-		FSE_REPORT,  /* FSE_EXCHANGE            */
-		FSE_REPORT,  /* FSE_FINDER_INFO_CHANGED */
-		FSE_REPORT,  /* FSE_CREATE_DIR          */
-		FSE_REPORT,  /* FSE_CHOWN               */
-		FSE_REPORT,  /* FSE_XATTR_MODIFIED      */
-		FSE_REPORT,  /* FSE_XATTR_REMOVED       */
+		FSE_REPORT,  // FSE_CREATE_FILE
+		FSE_REPORT,  // FSE_DELETE
+		FSE_REPORT,  // FSE_STAT_CHANGED
+		FSE_REPORT,  // FSE_RENAME
+		FSE_REPORT,  // FSE_CONTENT_MODIFIED
+		FSE_REPORT,  // FSE_EXCHANGE
+		FSE_REPORT,  // FSE_FINDER_INFO_CHANGED
+		FSE_REPORT,  // FSE_CREATE_DIR
+		FSE_REPORT,  // FSE_CHOWN
+		FSE_REPORT,  // FSE_XATTR_MODIFIED
+		FSE_REPORT,  // FSE_XATTR_REMOVED
 	};
 	struct fsevent_clone_args fca = {
 		.event_list = (int8_t *) event_list,
@@ -400,35 +395,35 @@ open_fsevents(lua_State *L)
 	};
 	int fd = open(DEV_FSEVENTS, O_RDONLY);
 	int err = errno;
-	printlogf(L, "Warn", 
+	printlogf(L, "Warn",
 		"Using /dev/fsevents which is considered an OSX internal interface.");
-	printlogf(L, "Warn", 
+	printlogf(L, "Warn",
 		"Functionality might break across OSX versions (This is for 10.5.X)");
-	printlogf(L, "Warn", 
+	printlogf(L, "Warn",
 		"A hanging Lsyncd might cause Spotlight/Timemachine doing extra work.");
 
 	if (fd < 0) {
-		printlogf(L, "Error", 
-			"Cannot access %s monitor! (%d:%s)", 
+		printlogf(L, "Error",
+			"Cannot access %s monitor! (%d:%s)",
 			DEV_FSEVENTS, err, strerror(err));
 		exit(-1); // ERRNO
 	}
 
 	if (ioctl(fd, FSEVENTS_CLONE, (char *)&fca) < 0) {
-		printlogf(L, "Error", 
-			"Cannot control %s monitor! (%d:%s)", 
+		printlogf(L, "Error",
+			"Cannot control %s monitor! (%d:%s)",
 			DEV_FSEVENTS, errno, strerror(errno));
 		exit(-1); // ERRNO
 	}
-	
+
 	if (readbuf) {
-		logstring("Error", 
-			"internal fail, inotify readbuf!=NULL in open_inotify()") 
+		logstring("Error",
+			"internal fail, inotify readbuf!=NULL in open_inotify()")
 		exit(-1); // ERRNO
 	}
 	readbuf = s_malloc(readbuf_size);
 	eventbuf = s_malloc(eventbuf_size);
-	/* fd has been cloned, closes access fd */
+	// fd has been cloned, closes access fd
 	close(fd);
 	close_exec_fd(fsevents_fd);
 	non_block_fd(fsevents_fd);

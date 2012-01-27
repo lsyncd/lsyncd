@@ -87,11 +87,11 @@ l_addwatch(lua_State *L)
 			mask |= IN_MODIFY;
 		} else if (!strcmp(imode, "CloseWrite after Modify")) {
 			/* might be done in future */
-			printlogf(L, "Error", 
+			printlogf(L, "Error",
 				"'CloseWrite after Modify' not implemented.");
 			exit(-1); // ERRNO
 		} else {
-			printlogf(L, "Error", 
+			printlogf(L, "Error",
 				"'%s' not a valid inotfiyMode.", imode);
 			exit(-1); // ERRNO
 		}
@@ -101,9 +101,9 @@ l_addwatch(lua_State *L)
 	int wd = inotify_add_watch(inotify_fd, path, mask);
 	if (wd < 0) {
 		if (errno == ENOSPC) {
-			printlogf(L, "Error", 
+			printlogf(L, "Error",
 "Terminating since out of inotify watches.");
-			printlogf(L, "Error", 
+			printlogf(L, "Error",
 "Consider increasing /proc/sys/fs/inotify/max_user_watches");
 			exit(-1); // ERRNO.
 		}
@@ -118,7 +118,7 @@ l_addwatch(lua_State *L)
 
 /**
  * Removes an inotify watch
- * 
+ *
  * @param dir (Lua stack) numeric watch descriptor
  * @return    nil
  */

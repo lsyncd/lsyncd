@@ -666,13 +666,13 @@ local InletFactory = (function()
 		sourcePath = function(event)
 			return e2s[event].source .. getPath(event)
 		end,
-	
+
 		------
 		-- Returns the absolute dir of the file/dir.
 		-- Includes a trailing slash.
 		--
 		sourcePathdir = function(event)
-			return e2s[event].source .. 
+			return e2s[event].source ..
 				(string.match(getPath(event), "^(.*/)[^/]+/?") or "")
 		end,
 
@@ -686,10 +686,10 @@ local InletFactory = (function()
 
 		------
 		-- Returns the target.
-		-- Just for user comfort, for most case
-		-- (Actually except of here, the lsyncd.runner itself 
-		--  does not care event about the existance of "target",
-		--  this is completly up to the action scripts.)
+		-- Just for user comfort
+		--
+		-- (except here, the lsyncd.runner does not care event about the
+		-- existance of "target", this is up to the scripts.)
 		--
 		target = function(event)
 			return e2s[event].config.target
@@ -1689,7 +1689,7 @@ local Syncs = (function()
 		if type(config.prepare) == "function" then
 			-- explicitly gives a writeable copy of config.
 			config.prepare(config)
-		end 
+		end
 
 		if not config["source"] then
 			local info = debug.getinfo(3, "Sl")
@@ -1722,11 +1722,11 @@ local Syncs = (function()
 			settings = {}
 		end
 		local defaultValues = {
-			'action',  
-			'collect', 
-			'init', 
-			'maxDelays', 
-			'maxProcesses', 
+			'action',
+			'collect',
+			'init',
+			'maxDelays',
+			'maxProcesses',
 		}
 		for _, dn in pairs(defaultValues) do
 			if config[dn] == nil then
@@ -1735,11 +1735,9 @@ local Syncs = (function()
 		end
 
 		-- the monitor to use
-		config.monitor = 
+		config.monitor =
 			settings.monitor or config.monitor or Monitors.default()
-		if config.monitor ~= "inotify" 
-		and config.monitor ~= "fsevents" 
-		then
+		if config.monitor ~= "inotify" and config.monitor ~= "fsevents" then
 			local info = debug.getinfo(3, "Sl")
 			log("Error", info.short_src, ":", info.currentline,
 				": event monitor '",config.monitor,"' unknown.")
@@ -1784,7 +1782,7 @@ local Syncs = (function()
 		get = get,
 		getRound = getRound,
 		concerns = concerns,
-		iwalk = iwalk, 
+		iwalk = iwalk,
 		nextRound = nextRound,
 		size = size
 	}
@@ -1792,22 +1790,22 @@ end)()
 
 
 -----
--- Utility function, returns the relative part of absolute path if it 
+-- Utility function, returns the relative part of absolute path if it
 -- begins with root
 --
 local function splitPath(path, root)
-	local rl = #root
-	local sp = string.sub(path, 1, rl)
+	local rlen = #root
+	local sp = string.sub(path, 1, rlen)
 
 	if sp == root then
-		return string.sub(path, rl, -1)
+		return string.sub(path, rlen, -1)
 	else
 		return nil
 	end
 end
 
 -----
--- Interface to inotify, watches recursively subdirs and 
+-- Interface to inotify, watches recursively subdirs and
 -- sends events.
 --
 -- All inotify specific implementation should be enclosed here.
@@ -1815,7 +1813,7 @@ end
 local Inotify = (function()
 
 	-----
-	-- A list indexed by inotifies watch descriptor yielding the 
+	-- A list indexed by inotifies watch descriptor yielding the
 	-- directories absolute paths.
 	--
 	local wdpaths = CountArray.new()
@@ -1831,7 +1829,7 @@ local Inotify = (function()
 	-- sync is interested in.
 	--
 	local syncRoots = {}
-	
+
 	-----
 	-- Stops watching a directory
 	--
@@ -1842,7 +1840,7 @@ local Inotify = (function()
 	local function removeWatch(path, core)
 		local wd = pathwds[path]
 		if not wd then
-			return 
+			return
 		end
 		if core then
 			lsyncd.inotify.rmwatch(wd)
@@ -1855,13 +1853,13 @@ local Inotify = (function()
 	-- Adds watches for a directory (optionally) including all subdirectories.
 	--
 	-- @param path       absolute path of directory to observe
-	-- @param recurse    true if recursing into subdirs 
+	-- @param recurse    true if recursing into subdirs
 	-- @param raiseSync  --X --
 	--        raiseTime  if not nil sends create Events for all files/dirs
 	--                   to this sync.
 	--
 	local function addWatch(path, recurse, raiseSync, raiseTime)
-		log("Function", 
+		log("Function",
 			"Inotify.addWatch(",path,", ",recurse,", ",
 			raiseSync,", ",raiseTime,")")
 
@@ -1871,7 +1869,7 @@ local Inotify = (function()
 		end
 
 		-- lets the core registers watch with the kernel
-		local wd = lsyncd.inotify.addwatch(path, 
+		local wd = lsyncd.inotify.addwatch(path,
 			(settings and settings.inotifyMode) or "");
 		if wd < 0 then
 			log("Inotify","Unable to add watch '",path,"'")
@@ -1880,7 +1878,7 @@ local Inotify = (function()
 
 		do
 			-- If this wd is registered already the kernel
-			-- reused it for a new dir for a reason - old 
+			-- reused it for a new dir for a reason - old
 			-- dir is gone.
 			local op = wdpaths[wd]
 			if op and op ~= path then
@@ -1890,9 +1888,9 @@ local Inotify = (function()
 		pathwds[path] = wd
 		wdpaths[wd] = path
 
-		-- registers and adds watches for all subdirectories 
+		-- registers and adds watches for all subdirectories
 		-- and/or raises create events for all entries
-		if not recurse and not raise then 
+		if not recurse and not raise then
 			return
 		end
 
@@ -1905,7 +1903,7 @@ local Inotify = (function()
 			if isdir then
 				pd = pd .. "/"
 			end
-			
+
 			-- creates a Create event for entry.
 			if raiseSync then
 				local relative  = splitPath(pd, syncRoots[raiseSync])
@@ -1942,7 +1940,7 @@ local Inotify = (function()
 	-- @param isdir     true if filename is a directory
 	-- @param time      time of event
 	-- @param filename  string filename without path
-	-- @param filename2 
+	-- @param filename2
 	--
 	local function event(etype, wd, isdir, time, filename, wd2, filename2)
 		if isdir then
@@ -1953,9 +1951,9 @@ local Inotify = (function()
 		end
 
 		if filename2 then
-			log("Inotify", "got event ",etype," ",filename, 
-				"(",wd,") to ",filename2,"(",wd2,")") 
-		else 
+			log("Inotify", "got event ",etype," ",filename,
+				"(",wd,") to ",filename2,"(",wd2,")")
+		else
 			log("Inotify","got event ",etype," ",filename,"(",wd,")")
 		end
 
@@ -1964,12 +1962,12 @@ local Inotify = (function()
 		if path then
 			path = path..filename
 		end
-		
+
 		local path2 = wd2 and wdpaths[wd2]
 		if path2 and filename2 then
 			path2 = path2..filename2
 		end
-		
+
 		if not path and path2 and etype =="Move" then
 			log("Inotify", "Move from deleted directory ",path2,
 				" becomes Create.")
@@ -1986,7 +1984,7 @@ local Inotify = (function()
 
 		for sync, root in pairs(syncRoots) do repeat
 			local relative  = splitPath(path, root)
-			local relative2 
+			local relative2
 			if path2 then
 				relative2 = splitPath(path2, root)
 			end
@@ -1994,9 +1992,9 @@ local Inotify = (function()
 				-- sync is not interested in this dir
 				break -- continue
 			end
-		
+
 			-- makes a copy of etype to possibly change it
-			local etyped = etype 
+			local etyped = etype
 			if etyped == 'Move' then
 				if not relative2 then
 					log("Normal", "Transformed Move to Create for ",
@@ -2011,7 +2009,7 @@ local Inotify = (function()
 				end
 			end
 			sync:delay(etyped, time, relative, relative2)
-			
+
 			if isdir then
 				if etyped == "Create" then
 					addWatch(path, true, sync, time)
@@ -2036,10 +2034,10 @@ local Inotify = (function()
 	end
 
 	-- public interface
-	return { 
-		addSync = addSync, 
-		event = event, 
-		statusReport = statusReport 
+	return {
+		addSync = addSync,
+		event = event,
+		statusReport = statusReport
 	}
 end)()
 
@@ -2071,47 +2069,42 @@ local Fsevents = (function()
 	-----
 	-- Called when any event has occured.
 	--
-	-- @param etype     "Attrib", "Mofify", "Create", "Delete", "Move")
-	-- @param wd        watch descriptor (matches lsyncd.inotifyadd())
-	-- @param isdir     true if filename is a directory
-	-- @param time      time of event
-	-- @param filename  string filename without path
-	-- @param filename2 
+	-- etype:  'Attrib', 'Mofify', 'Create', 'Delete', 'Move')
+	-- isdir:  true if filename is a directory
+	-- time:   time of event
+	-- path:   path of file
+	-- path2:  path of target in case of 'Move'
 	--
 	local function event(etype, isdir, time, path, path2)
-		
+
 		if isdir then
-			path = path .. '/'
-			if path2 then
-				path2 = path2 .. '/'
-			end
+			path = path..'/'
+			if path2 then path2 = path2..'/' end
 		end
 
-		log("Fsevents",etype,",",isdir,",",time,",",path,",",path2)
-	
+		log('Fsevents',etype,',',isdir,',',time,',',path,',',path2)
+
 		for _, s in Syncs.iwalk() do repeat
 			local root = s.source
 			if not path:starts(root) then
 				break  -- continue
 			end
 			local relative  = splitPath(path, root)
-			local relative2 
+			local relative2
 			if path2 then
 				relative2 = splitPath(path2, root)
 			end
-			
-			-- makes a copy of etype to possibly change it
-			local etyped = etype 
+
+			-- possibly change etype for this iteration only
+			local etyped = etype
 			if etyped == 'Move' then
 				if not relative2 then
-					log("Normal", "Transformed Move to Create for ",
-						sync.config.name)
+					log('Normal', 'Transformed Move to Create for ', sync.config.name)
 					etyped = 'Create'
 				elseif not relative then
 					relative = relative2
 					relative2 = nil
-					log("Normal", "Transformed Move to Delete for ",
-						sync.config.name)
+					log('Normal', 'Transformed Move to Delete for ', sync.config.name)
 					etyped = 'Delete'
 				end
 			end
@@ -2127,10 +2120,10 @@ local Fsevents = (function()
 	end
 
 	-- public interface
-	return { 
-		addSync = addSync, 
-		event = event, 
-		statusReport = statusReport 
+	return {
+		addSync = addSync,
+		event = event,
+		statusReport = statusReport
 	}
 end)()
 
@@ -2164,7 +2157,7 @@ Monitors = (function()
 	-- public interface
 	return { default = default,
 			 list = list,
-	         initialize = initialize 
+	         initialize = initialize
 	}
 end)()
 
@@ -2207,7 +2200,7 @@ local functionWriter = (function()
 
 	-----
 	-- Splits a user string into its arguments
-	-- 
+	--
 	-- @param a string where parameters are seperated by spaces.
 	--
 	-- @return a table of arguments
@@ -2246,19 +2239,19 @@ local functionWriter = (function()
 	local function translateBinary(str)
 		-- splits the string
 		local args = splitStr(str)
-	
+
 		-- true if there is a second event
 		local haveEvent2 = false
-	
+
 		for ia, iv in ipairs(args) do
 			-- a list of arguments this arg is being split into
 			local a = {{true, iv}}
 			-- goes through all translates
 			for _, v in ipairs(transVars) do
-				local ai = 1 
+				local ai = 1
 				while ai <= #a do
 					if a[ai][1] then
-						local pre, post = 
+						local pre, post =
 							string.match(a[ai][2], "(.*)"..v[1].."(.*)")
 						if pre then
 							if v[3] > 1 then
@@ -2287,7 +2280,7 @@ local functionWriter = (function()
 				end
 				if v[1] then
 					as = as..'"'..v[2]..'"'
-				else 
+				else
 					as = as..v[2]
 				end
 				first = false
@@ -2305,9 +2298,9 @@ local functionWriter = (function()
 		ft = ft .. "        [[ spawns action '" .. str .. '\']])\n'
 		ft = ft .. "    spawn(event"
 		for _, v in ipairs(args) do
-			ft = ft .. ",\n         " .. v 
+			ft = ft .. ",\n         " .. v
 		end
-		ft = ft .. ")\nend"	
+		ft = ft .. ")\nend"
 		return ft
 	end
 
@@ -2324,10 +2317,10 @@ local functionWriter = (function()
 
 		for _, v in ipairs(transVars) do
 			local occur = false
-			cmd = string.gsub(cmd, v[1], 
-				function() 
+			cmd = string.gsub(cmd, v[1],
+				function()
 					occur = true
-					return '"$'..argn..'"' 
+					return '"$'..argn..'"'
 				end)
 			lc = string.gsub(lc, v[1], ']]..'..v[2]..'..[[')
 			if occur then
@@ -2344,11 +2337,12 @@ local functionWriter = (function()
 		else
 			ft = "function(event, event2)\n"
 		end
-		ft = ft .. '    log("Normal", "Event " .. event.etype ..\n'
-		ft = ft .. "        [[ spawns shell '" .. lc .. '\']])\n'
-		ft = ft .. "    spawnShell(event, [[" .. cmd .. "]]"
+		-- TODO do array joining instead
+		ft = ft..'    log("Normal", "Event " .. event.etype ..\n'
+		ft = ft.."        [[ spawns shell '"..lc..'\']])\n'
+		ft = ft.."    spawnShell(event, [["..cmd.. "]]"
 		for _, v in ipairs(args) do
-			ft = ft .. ",\n         " .. v 
+			ft = ft..",\n         "..v
 		end
 		ft = ft .. ")\nend"
 		return ft
@@ -2357,13 +2351,13 @@ local functionWriter = (function()
 	-----
 	-- writes a lua function for a layer 3 user script.
 	local function translate(str)
-		-- trim spaces 
+		-- trim spaces
 		str = string.match(str, "^%s*(.-)%s*$")
 
 		local ft
-		if string.byte(str, 1, 1) == 47 then 
+		if string.byte(str, 1, 1) == 47 then
 			-- starts with /
-			 ft = translateBinary(str) 
+			 ft = translateBinary(str)
 		elseif string.byte(str, 1, 1) == 94 then
 			-- starts with ^
 			 ft = translateShell(str:sub(2, -1))
@@ -2385,7 +2379,7 @@ end)()
 -- Writes a status report file at most every [statusintervall] seconds.
 --
 --
-local StatusFile = (function() 
+local StatusFile = (function()
 
 	-----
 	-- Timestamp when the status file has been written.
@@ -2417,7 +2411,7 @@ local StatusFile = (function()
 			end
 			-- determines when a next write will be possible
 			if not alarm then
-				local nextWrite = 
+				local nextWrite =
 					lastWritten and timestamp + settings.statusInterval
 				if nextWrite and timestamp < nextWrite then
 					log("Statusfile", "setting alarm: ", nextWrite)
@@ -2441,7 +2435,7 @@ local StatusFile = (function()
 			s:statusReport(f)
 			f:write("\n")
 		end
-		
+
 		Inotify.statusReport(f)
 		f:close()
 	end
@@ -2453,22 +2447,22 @@ end)()
 ------
 -- Lets the userscript make its own alarms.
 --
-local UserAlarms = (function() 
+local UserAlarms = (function()
 	local alarms = {}
 
 	-----
 	-- Calls the user function at timestamp.
 	--
 	local function alarm(timestamp, func, extra)
-		local idx 
+		local idx
 		for k, v in ipairs(alarms) do
 			if timestamp < v.timestamp then
 				idx = k
 				break
 			end
 		end
-		local a = {timestamp = timestamp, 
-		           func = func, 
+		local a = {timestamp = timestamp,
+		           func = func,
 		           extra = extra}
 		if idx then
 			table.insert(alarms, idx, a)
@@ -2482,7 +2476,7 @@ local UserAlarms = (function()
 	--
 	local function getAlarm()
 		if #alarms == 0 then
-			return false 
+			return false
 		else
 			return alarms[1].timestamp
 		end
@@ -2505,7 +2499,7 @@ local UserAlarms = (function()
 end)()
 
 --============================================================================
--- lsyncd runner plugs. These functions will be called from core. 
+-- lsyncd runner plugs. These functions will be called from core.
 --============================================================================
 
 -----
@@ -2535,17 +2529,17 @@ function runner.callError(message)
 		if not info then
 			terminate(-1) -- ERRNO
 		end
-		log("Error", "Backtrace ", level - 1, " :", 
+		log("Error", "Backtrace ", level - 1, " :",
 			info.short_src, ":", info.currentline)
 		level = level + 1
 	end
 end
 
 -----
--- Called from code whenever a child process finished and 
+-- Called from code whenever a child process finished and
 -- zombie process was collected by core.
 --
-function runner.collectProcess(pid, exitcode) 
+function runner.collectProcess(pid, exitcode)
 	processCount = processCount - 1
 	if processCount < 0 then
 		error("negative number of processes!")
@@ -2560,7 +2554,7 @@ end
 
 -----
 -- Called from core everytime a masterloop cycle runs through.
--- This happens in case of 
+-- This happens in case of
 --   * an expired alarm.
 --   * a returned child process.
 --   * received filesystem events.
@@ -2615,16 +2609,16 @@ function runner.help()
 	io.stdout:write(
 [[
 
-USAGE: 
+USAGE:
   runs a config file:
     lsyncd [OPTIONS] [CONFIG-FILE]
 
   default rsync behaviour:
-    lsyncd [OPTIONS] -rsync [SOURCE] [TARGET]  
-  
+    lsyncd [OPTIONS] -rsync [SOURCE] [TARGET]
+
   default rsync with mv's through ssh:
     lsyncd [OPTIONS] -rsyncssh [SOURCE] [HOST] [TARGETDIR]
-  
+
   default local copying mechanisms (cp|mv|rm):
     lsyncd [OPTIONS] -direct [SOURCE] [TARGETDIR]
 
@@ -2638,7 +2632,7 @@ OPTIONS:
   -logfile FILE       Writes log to FILE (DEFAULT: uses syslog)
   -nodaemon           Does not detach and logs to stdout/stderr
   -pidfile FILE       Writes Lsyncds PID into FILE
-  -runner FILE        Loads Lsyncds lua part from FILE 
+  -runner FILE        Loads Lsyncds lua part from FILE
   -version            Prints versions and exits
 
 LICENSE:
@@ -2650,7 +2644,7 @@ SEE:
 ]])
 
 --
---  -monitor NAME       Uses operating systems event montior NAME 
+--  -monitor NAME       Uses operating systems event montior NAME
 --                      (inotify/fanotify/fsevents)
 
 	os.exit(-1) -- ERRNO
@@ -2674,11 +2668,11 @@ function runner.configure(args, monitors)
 	-- a list of all valid --options
 	-- first paramter is number of options
 	--       if < 0 the function checks existance
-	-- second paramter is function to call when in args 
+	-- second paramter is function to call when in args
 	--
 	local options = {
 		-- log is handled by core already.
-		delay    = 
+		delay    =
 			{1, function(secs)
 				clSettings.delay = secs
 			end},
@@ -2686,13 +2680,13 @@ function runner.configure(args, monitors)
 			{0, function()
 				clSettings.insist = true
 			end},
-		log      = 
+		log      =
 			{1, nil},
-		logfile   = 
+		logfile  =
 			{1, function(file)
 				clSettings.logfile = file
 			end},
-		monitor = 
+		monitor =
 			{-1, function(monitor)
 				if not monitor then
 					io.stdout:write("This Lsyncd supports these monitors:\n")
@@ -2705,26 +2699,26 @@ function runner.configure(args, monitors)
 					clSettings.monitor=monitor
 				end
 			end},
-		nodaemon = 
-			{0, function() 
-				clSettings.nodaemon = true 
+		nodaemon =
+			{0, function()
+				clSettings.nodaemon = true
 			end},
-		pidfile   = 
+		pidfile   =
 			{1, function(file)
 				clSettings.pidfile=file
 			end},
-		rsync    = 
-			{2, function(src, trg) 
+		rsync    =
+			{2, function(src, trg)
 				clSettings.syncs = clSettings.syncs or {}
 				table.insert(clSettings.syncs, {"rsync", src, trg})
 			end},
-		rsyncssh = 
-			{3, function(src, host, tdir) 
+		rsyncssh =
+			{3, function(src, host, tdir)
 				clSettings.syncs = clSettings.syncs or {}
 				table.insert(clSettings.syncs, {"rsyncssh", src, host, tdir})
 			end},
-		direct = 
-			{2, function(src, trg) 
+		direct =
+			{2, function(src, trg)
 				clSettings.syncs = clSettings.syncs or {}
 				table.insert(clSettings.syncs, {"direct", src, trg})
 			end},
@@ -2776,7 +2770,7 @@ function runner.configure(args, monitors)
 
 	if clSettings.syncs then
 		if #nonopts ~= 0 then
-			log("Error", 
+			log("Error",
 			"There cannot be command line default syncs with a config file.")
 			os.exit(-1) -- ERRNO
 		end
@@ -2785,7 +2779,7 @@ function runner.configure(args, monitors)
 			runner.help(args[0])
 		elseif #nonopts == 1 then
 			return nonopts[1]
-		else 
+		else
 			log("Error", "There can only be one config file in command line.")
 			os.exit(-1) -- ERRNO
 		end
@@ -2798,11 +2792,11 @@ end
 --
 -- @firstTime true the first time Lsyncd startup, false on resets
 -- due to HUP signal or monitor queue OVERFLOW.
--- 
+--
 function runner.initialize(firstTime)
 	-- creates settings if user didnt
 	settings = settings or {}
-	
+
 	-- From this point on, no globals may be created anymore
 	lockGlobals()
 
@@ -2864,12 +2858,12 @@ function runner.initialize(firstTime)
 	end
 
 	-----
-	-- transfers some defaults to settings 
+	-- transfers some defaults to settings
 	if settings.statusInterval == nil then
 		settings.statusInterval = default.statusInterval
 	end
 
-	-- makes sure the user gave Lsyncd anything to do 
+	-- makes sure the user gave Lsyncd anything to do
 	if Syncs.size() == 0 then
 		log("Error", "Nothing to watch!")
 		log("Error", "Use sync(SOURCE, TARGET, BEHAVIOR) in your config file.");
@@ -2879,12 +2873,12 @@ function runner.initialize(firstTime)
 	-- from now on use logging as configured instead of stdout/err.
 	lsyncdStatus = "run";
 	lsyncd.configure("running");
-	
+
 	local ufuncs = {
 		"onAttrib", "onCreate", "onDelete",
 		"onModify", "onMove",   "onStartup"
 	}
-		
+
 	-- translates layer 3 scripts
 	for _, s in Syncs.iwalk() do
 		-- checks if any user functions is a layer 3 string.
@@ -2901,7 +2895,7 @@ function runner.initialize(firstTime)
 	for _, s in Syncs.iwalk() do
 		if s.config.monitor == "inotify" then
 			Inotify.addSync(s, s.source)
-		elseif s.config.monitor == "fsevents" then 
+		elseif s.config.monitor == "fsevents" then
 			Fsevents.addSync(s, s.source)
 		else
 			error("sync "..s.config.name..
