@@ -2236,9 +2236,9 @@ local functionWriter = (function()
 			ft = 'function(event, event2)\n'
 		end
 		ft = ft..
-			[[    log('Normal', 'Event ', event.etype, \n]]..
-			[[        ' spawns action "]].. str..[["')\n]]..
-			[[    spawn(event]]
+			"    log('Normal', 'Event ', event.etype, \n"..
+			"        ' spawns action \"".. str.."\"')\n"..
+			"    spawn(event"
 		for _, v in ipairs(args) do
 			ft = ft..',\n         '..v
 		end
@@ -2281,9 +2281,9 @@ local functionWriter = (function()
 		end
 		-- TODO do array joining instead
 		ft = ft..
-			[[    log('Normal', 'Event ',event.etype,\n]]..
-			[[        ' spawns shell "]]..lc..[[")\n]]..
-			[[    spawnShell(event, ']]..cmd..[[',]]
+			"    log('Normal', 'Event ',event.etype,\n"..
+			"        ' spawns shell \""..lc.."\"')\n"..
+			"    spawnShell(event, '"..cmd.."'"
 		for _, v in ipairs(args) do
 			ft = ft..',\n         '..v
 		end
@@ -2829,7 +2829,7 @@ function runner.initialize(firstTime)
 		for _, fn in ipairs(ufuncs) do
 			if type(config[fn]) == 'string' then
 				local ft = functionWriter.translate(config[fn])
-				config[fn] = assert(loadstring("return " .. ft))()
+				config[fn] = assert(loadstring('return '..ft))()
 			end
 		end
 	end
