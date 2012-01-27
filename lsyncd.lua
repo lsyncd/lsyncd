@@ -1961,11 +1961,11 @@ local Inotify = (function()
 			-- makes a copy of etype to possibly change it
 			local etyped = etype
 			if etyped == 'Move' then
-				if not relative2 then
+				if not relative then
 					log("Normal", "Transformed Move to Create for ",
 						sync.config.name)
 					etyped = 'Create'
-				elseif not relative then
+				elseif not relative2 then
 					relative = relative2
 					relative2 = nil
 					log("Normal", "Transformed Move to Delete for ",
@@ -2049,10 +2049,12 @@ local Fsevents = (function()
 
 		log('Fsevents',etype,',',isdir,',',time,',',path,',',path2)
 
-		for _, s in Syncs.iwalk() do repeat
-			local root = s.source
+		for _, sync in Syncs.iwalk() do repeat
+			local root = sync.source
 			if not path:starts(root) then
-				break  -- continue
+				if not path2 or not path2:starts(root) then
+					break  -- continue
+				end
 			end
 			local relative  = splitPath(path, root)
 			local relative2
@@ -2073,7 +2075,7 @@ local Fsevents = (function()
 					etyped = 'Delete'
 				end
 			end
-			s:delay(etyped, time, relative, relative2)
+			sync:delay(etyped, time, relative, relative2)
 		until true end
 	end
 
