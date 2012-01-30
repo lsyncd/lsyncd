@@ -1928,7 +1928,7 @@ local Inotify = (function()
 
 		for sync, root in pairs(syncRoots) do repeat
 			local relative  = splitPath(path, root)
-			local relative2
+			local relative2 = nil
 			if path2 then
 				relative2 = splitPath(path2, root)
 			end
@@ -1940,26 +1940,24 @@ local Inotify = (function()
 			-- makes a copy of etype to possibly change it
 			local etyped = etype
 			if etyped == 'Move' then
-				if not relative then
-					log("Normal", "Transformed Move to Create for ",
-						sync.config.name)
+				if not relative2 then
+					log('Normal', 'Transformed Move to Create for ', sync.config.name)
 					etyped = 'Create'
-				elseif not relative2 then
+				elseif not relative then
 					relative = relative2
 					relative2 = nil
-					log("Normal", "Transformed Move to Delete for ",
-						sync.config.name)
+					log('Normal', 'Transformed Move to Delete for ', sync.config.name)
 					etyped = 'Delete'
 				end
 			end
 			sync:delay(etyped, time, relative, relative2)
 
 			if isdir then
-				if etyped == "Create" then
+				if etyped == 'Create' then
 					addWatch(path, true, sync, time)
-				elseif etyped == "Delete" then
+				elseif etyped == 'Delete' then
 					removeWatch(path, true)
-				elseif etyped == "Move" then
+				elseif etyped == 'Move' then
 					removeWatch(path, false)
 					addWatch(path2, true, sync, time)
 				end
@@ -1971,9 +1969,9 @@ local Inotify = (function()
 	-- Writes a status report about inotifies to a filedescriptor
 	--
 	local function statusReport(f)
-		f:write("Inotify watching ",wdpaths:size()," directories\n")
+		f:write('Inotify watching ',wdpaths:size(),' directories\n')
 		for wd, path in wdpaths:walk() do
-			f:write("  ",wd,": ",path,"\n")
+			f:write('  ',wd,': ',path,'\n')
 		end
 	end
 
@@ -2004,7 +2002,7 @@ local Fsevents = (function()
 	-- @param dir    dir to watch
 	--
 	local function addSync(sync, dir)
-		if syncRoots[sync] then error("duplicate sync in Fanotify.addSync()") end
+		if syncRoots[sync] then error('duplicate sync in Fanotify.addSync()') end
 		syncRoots[sync] = dir
 	end
 
@@ -2041,10 +2039,10 @@ local Fsevents = (function()
 			-- possibly change etype for this iteration only
 			local etyped = etype
 			if etyped == 'Move' then
-				if not relative then
+				if not relative2 then
 					log('Normal', 'Transformed Move to Create for ', sync.config.name)
 					etyped = 'Create'
-				elseif not relative2 then
+				elseif not relative then
 					relative = relative2
 					relative2 = nil
 					log('Normal', 'Transformed Move to Delete for ', sync.config.name)
@@ -2150,7 +2148,7 @@ local functionWriter = (function()
 	--
 	local function splitStr(str)
 		local args = {}
-		while str ~= "" do
+		while str ~= '' do
 			-- break where argument stops
 			local bp = #str
 			-- in a quote
@@ -2217,7 +2215,7 @@ local functionWriter = (function()
 			local first = true
 			for _, v in ipairs(a) do
 				if not first then
-					as = as.." .. "
+					as = as..' .. '
 				end
 				if v[1] then
 					as = as..'"'..v[2]..'"'
@@ -2349,7 +2347,7 @@ local StatusFile = (function()
 		if settings.statusInterval > 0 then
 			-- already waiting
 			if alarm and timestamp < alarm then
-				log('Statusfile', "waiting(",timestamp," < ",alarm,")")
+				log('Statusfile', 'waiting(',timestamp,' < ',alarm,')')
 				return
 			end
 			-- determines when a next write will be possible
@@ -2357,7 +2355,7 @@ local StatusFile = (function()
 				local nextWrite =
 					lastWritten and timestamp + settings.statusInterval
 				if nextWrite and timestamp < nextWrite then
-					log("Statusfile", "setting alarm: ", nextWrite)
+					log('Statusfile', 'setting alarm: ', nextWrite)
 					alarm = nextWrite
 					return
 				end
@@ -2366,17 +2364,16 @@ local StatusFile = (function()
 			alarm = false
 		end
 
-		log("Statusfile", "writing now")
-		local f, err = io.open(settings.statusFile, "w")
+		log('Statusfile', 'writing now')
+		local f, err = io.open(settings.statusFile, 'w')
 		if not f then
-			log("Error", "Cannot open status file '"..settings.statusFile..
-				"' :"..err)
+			log('Error', 'Cannot open status file "'..settings.statusFile..  '" :'..err)
 			return
 		end
-		f:write("Lsyncd status report at ", os.date(), "\n\n")
+		f:write('Lsyncd status report at ',os.date(),'\n\n')
 		for i, s in Syncs.iwalk() do
 			s:statusReport(f)
-			f:write("\n")
+			f:write('\n')
 		end
 
 		Inotify.statusReport(f)
@@ -2448,11 +2445,11 @@ end)()
 -----
 -- Current status of lsyncd.
 --
--- "init"  ... on (re)init
--- "run"   ... normal operation
--- "fade"  ... waits for remaining processes
+-- 'init'  ... on (re)init
+-- 'run'   ... normal operation
+-- 'fade'  ... waits for remaining processes
 --
-local lsyncdStatus = "init"
+local lsyncdStatus = 'init'
 
 ----
 -- the cores interface to the runner
@@ -2464,16 +2461,15 @@ local runner = {}
 -- Logs a backtrace
 --
 function runner.callError(message)
-	log("Error", "IN LUA: ", message)
+	log('Error', 'IN LUA: ', message)
 	-- prints backtrace
 	local level = 2
 	while true do
-		local info = debug.getinfo(level, "Sl")
+		local info = debug.getinfo(level, 'Sl')
 		if not info then
 			terminate(-1) -- ERRNO
 		end
-		log("Error", "Backtrace ", level - 1, " :",
-			info.short_src, ":", info.currentline)
+		log('Error', 'Backtrace ', level - 1, ' :', info.short_src, ":", info.currentline)
 		level = level + 1
 	end
 end
@@ -2508,16 +2504,16 @@ end
 function runner.cycle(timestamp)
 	-- goes through all syncs and spawns more actions
 	-- if possible
-	if lsyncdStatus == "fade" then
+	if lsyncdStatus == 'fade' then
 		if processCount > 0 then
-			log("Normal", "waiting for ",processCount," more child processes.")
+			log('Normal', 'waiting for ',processCount,' more child processes.')
 			return true
 		else
 			return false
 		end
 	end
-	if lsyncdStatus ~= "run" then
-		error("runner.cycle() called while not running!")
+	if lsyncdStatus ~= 'run' then
+		error('runner.cycle() called while not running!')
 	end
 
 	--- only let Syncs invoke actions if not on global limit
@@ -2545,7 +2541,7 @@ function runner.cycle(timestamp)
 end
 
 -----
--- Called by core before anything is "-help" or "--help" is in
+-- Called by core before anything is '-help' or '--help' is in
 -- the arguments.
 --
 function runner.help()
@@ -2632,11 +2628,11 @@ function runner.configure(args, monitors)
 		monitor =
 			{-1, function(monitor)
 				if not monitor then
-					io.stdout:write("This Lsyncd supports these monitors:\n")
+					io.stdout:write('This Lsyncd supports these monitors:\n')
 					for _, v in ipairs(Monitors.list) do
-						io.stdout:write("   ",v,"\n")
+						io.stdout:write('   ',v,'\n')
 					end
-					io.stdout:write("\n");
+					io.stdout:write('\n');
 					lsyncd.terminate(-1); -- ERRNO
 				else
 					clSettings.monitor=monitor
@@ -2653,21 +2649,21 @@ function runner.configure(args, monitors)
 		rsync    =
 			{2, function(src, trg)
 				clSettings.syncs = clSettings.syncs or {}
-				table.insert(clSettings.syncs, {"rsync", src, trg})
+				table.insert(clSettings.syncs, {'rsync', src, trg})
 			end},
 		rsyncssh =
 			{3, function(src, host, tdir)
 				clSettings.syncs = clSettings.syncs or {}
-				table.insert(clSettings.syncs, {"rsyncssh", src, host, tdir})
+				table.insert(clSettings.syncs, {'rsyncssh', src, host, tdir})
 			end},
 		direct =
 			{2, function(src, trg)
 				clSettings.syncs = clSettings.syncs or {}
-				table.insert(clSettings.syncs, {"direct", src, trg})
+				table.insert(clSettings.syncs, {'direct', src, trg})
 			end},
 		version  =
 			{0, function()
-				io.stdout:write("Version: ", lsyncd_version,"\n")
+				io.stdout:write('Version: ',lsyncd_version,'\n')
 				os.exit(0)
 			end}
 	}
@@ -2676,21 +2672,21 @@ function runner.configure(args, monitors)
 	local i = 1
 	while i <= #args do
 		local a = args[i]
-		if a:sub(1, 1) ~= "-" then
+		if a:sub(1, 1) ~= '-' then
 			table.insert(nonopts, args[i])
 		else
-			if a:sub(1, 2) == "--" then
+			if a:sub(1, 2) == '--' then
 				a = a:sub(3)
 			else
 				a = a:sub(2)
 			end
 			local o = options[a]
 			if not o then
-				log("Error","unknown option command line option ", args[i])
+				log('Error','unknown option command line option ', args[i])
 				os.exit(-1) -- ERRNO
 			end
 			if o[1] >= 0 and i + o[1] > #args then
-				log("Error",a," needs ",o[1]," arguments")
+				log('Error',a,' needs ',o[1],' arguments')
 				os.exit(-1) -- ERRNO
 			elseif o[1] < 0 then
 				o[1] = -o[1]
@@ -2713,8 +2709,7 @@ function runner.configure(args, monitors)
 
 	if clSettings.syncs then
 		if #nonopts ~= 0 then
-			log("Error",
-			"There cannot be command line default syncs with a config file.")
+			log('Error', 'There cannot be command line default syncs with a config file.')
 			os.exit(-1) -- ERRNO
 		end
 	else
@@ -2723,7 +2718,7 @@ function runner.configure(args, monitors)
 		elseif #nonopts == 1 then
 			return nonopts[1]
 		else
-			log("Error", "There can only be one config file in command line.")
+			log('Error', 'There can only be one config file in command line.')
 			os.exit(-1) -- ERRNO
 		end
 	end
@@ -2743,10 +2738,10 @@ function runner.initialize(firstTime)
 	-- From this point on, no globals may be created anymore
 	lockGlobals()
 
-	-- copies simple settings with numeric keys to "key=true" settings.
+	-- copies simple settings with numeric keys to 'key=true' settings.
 	for k, v in ipairs(settings) do
 		if settings[v] then
-			log("Error", "Double setting '"..v.."'")
+			log('Error', 'Double setting "'..v..'"')
 			os.exit(-1) -- ERRNO
 		end
 		settings[v]=true
@@ -2754,7 +2749,7 @@ function runner.initialize(firstTime)
 
 	-- all command line settings overwrite config file settings
 	for k, v in pairs(clSettings) do
-		if k ~= "syncs" then
+		if k ~= 'syncs' then
 			settings[k]=v 
 		end
 	end
@@ -2767,37 +2762,30 @@ function runner.initialize(firstTime)
 	-- adds syncs specified by command line.
 	if clSettings.syncs then
 		for _, s in ipairs(clSettings.syncs) do
-			if s[1] == "rsync" then
+			if s[1] == 'rsync' then
 				sync{default.rsync, source=s[2], target=s[3]}
-			elseif s[1] == "rsyncssh" then
+			elseif s[1] == 'rsyncssh' then
 				sync{default.rsyncssh, source=s[2], host=s[3], targetdir=s[4]}
-			elseif s[1] == "direct" then
+			elseif s[1] == 'direct' then
 				sync{default.direct, source=s[2], target=s[3]}
 			end
 		end
 	end
 
 	if settings.nodaemon then
-		lsyncd.configure("nodaemon")
+		lsyncd.configure('nodaemon')
 	end
 	if settings.logfile then
-		lsyncd.configure("logfile", settings.logfile)
+		lsyncd.configure('logfile', settings.logfile)
 	end
 	if settings.logident then
-		lsyncd.configure("logident", settings.logident)
+		lsyncd.configure('logident', settings.logident)
 	end
 	if settings.logfacility then
-		lsyncd.configure("logfacility", settings.logfacility)
+		lsyncd.configure('logfacility', settings.logfacility)
 	end
 	if settings.pidfile then
-		lsyncd.configure("pidfile", settings.pidfile)
-	end
-
-	-- TODO: Remove after deprecation timespan.
-	if settings.statusIntervall ~= nil and settings.statusInterval == nil then
-		log("Warn", 
-		  "The setting 'statusIntervall' has been renamed to 'statusInterval'.")
-		settings.statusInterval = settings.statusIntervall
+		lsyncd.configure('pidfile', settings.pidfile)
 	end
 
 	-----
@@ -2808,18 +2796,17 @@ function runner.initialize(firstTime)
 
 	-- makes sure the user gave Lsyncd anything to do
 	if Syncs.size() == 0 then
-		log("Error", "Nothing to watch!")
-		log("Error", "Use sync(SOURCE, TARGET, BEHAVIOR) in your config file.");
+		log('Error', 'Nothing to watch!')
 		os.exit(-1) -- ERRNO
 	end
 
 	-- from now on use logging as configured instead of stdout/err.
-	lsyncdStatus = "run";
-	lsyncd.configure("running");
+	lsyncdStatus = 'run';
+	lsyncd.configure('running');
 
 	local ufuncs = {
-		"onAttrib", "onCreate", "onDelete",
-		"onModify", "onMove",   "onStartup"
+		'onAttrib', 'onCreate', 'onDelete',
+		'onModify', 'onMove',   'onStartup',
 	}
 
 	-- translates layer 3 scripts
@@ -2836,13 +2823,12 @@ function runner.initialize(firstTime)
 
 	-- runs through the Syncs created by users
 	for _, s in Syncs.iwalk() do
-		if s.config.monitor == "inotify" then
+		if s.config.monitor == 'inotify' then
 			Inotify.addSync(s, s.source)
-		elseif s.config.monitor == "fsevents" then
+		elseif s.config.monitor == 'fsevents' then
 			Fsevents.addSync(s, s.source)
 		else
-			error("sync "..s.config.name..
-				" has no known event monitor interface.")
+			error('sync '..s.config.name..' has no known event monitor interface.')
 		end
 		-- if the sync has an init function, stacks an init delay
 		-- that will cause the init function to be called.
@@ -2860,7 +2846,7 @@ end
 --         times ... the alarm time (only read if number is 1)
 --
 function runner.getAlarm()
-	if lsyncdStatus ~= "run" then
+	if lsyncdStatus ~= 'run' then
 		return false
 	end
 	local alarm = false
@@ -2869,7 +2855,7 @@ function runner.getAlarm()
 	--
 	local function checkAlarm(a) 
 		if a == nil then
-			error("got nil alarm")
+			error('got nil alarm')
 		end
 		if alarm == true or not a then
 			-- already immediate or no new alarm
@@ -2888,7 +2874,7 @@ function runner.getAlarm()
 			checkAlarm(s:getAlarm())
 		end
 	else
-		log("Alarm", "at global process limit.")
+		log('Alarm', 'at global process limit.')
 	end
 
 	-- checks if a statusfile write has been delayed
@@ -2896,7 +2882,7 @@ function runner.getAlarm()
 	-- checks for an userAlarm
 	checkAlarm(UserAlarms.getAlarm())
 
-	log("Alarm","runner.getAlarm returns: ",alarm)
+	log('Alarm', 'runner.getAlarm returns: ',alarm)
 	return alarm
 end
 
@@ -2919,7 +2905,7 @@ runner.fsEventsEvent = Fsevents.event
 --
 function runner.collector(pid, exitcode)
 	if exitcode ~= 0 then
-		log("Error", "Startup process", pid, " failed")
+		log('Error', 'Startup process',pid,' failed')
 		terminate(-1) -- ERRNO
 	end
 	return 0
@@ -2929,24 +2915,24 @@ end
 -- Called by core when an overflow happened.
 --
 function runner.overflow()
-	log("Normal", "--- OVERFLOW on inotify event queue ---")
-	lsyncdStatus = "fade"
+	log('Normal', '--- OVERFLOW in event queue ---')
+	lsyncdStatus = 'fade'
 end
 
 -----
 -- Called by core on a hup signal.
 --
 function runner.hup()
-	log("Normal", "--- HUP signal, resetting ---")
-	lsyncdStatus = "fade"
+	log('Normal', '--- HUP signal, resetting ---')
+	lsyncdStatus = 'fade'
 end
 
 -----
 -- Called by core on a term signal.
 --
 function runner.term()
-	log("Normal", "--- TERM signal, fading ---")
-	lsyncdStatus = "fade"
+	log('Normal', '--- TERM signal, fading ---')
+	lsyncdStatus = 'fade'
 end
 
 --============================================================================
@@ -2958,8 +2944,8 @@ end
 -- @returns an Inlet to that sync.
 --
 function sync(opts)
-	if lsyncdStatus ~= "init" then
-		error("Sync can only be created on initialization.", 2)
+	if lsyncdStatus ~= 'init' then
+		error('Sync can only be created during initialization.', 2)
 	end
 	return Syncs.add(opts).inlet
 end
@@ -2975,29 +2961,30 @@ end
 -- @param ...     arguments
 --
 function spawn(agent, binary, ...)
-	if agent == nil or type(agent) ~= "table" then
-		error("spawning with an invalid agent", 2)
+	if agent == nil or type(agent) ~= 'table' then
+		error('spawning with an invalid agent', 2)
 	end
-	if lsyncdStatus == "fade" then
-		log("Normal", "ignored spawn processs since status fading")
+	if lsyncdStatus == 'fade' then
+		log('Normal', 'ignored process spawning while fading')
+		return
 	end
-	if type(binary) ~= "string" then
-		error("calling spawn(agent, binary, ...), binary is not a string", 2)
+	if type(binary) ~= 'string' then
+		error('calling spawn(agent, binary, ...), binary is not a string', 2)
 	end
 	local dol = InletFactory.getDelayOrList(agent)
 	if not dol then
-		error("spawning with an unknown agent", 2)
+		error('spawning with an unknown agent', 2)
 	end
 
 	-- checks if spawn is called on already active event
 	if dol.status then
 		if dol.status ~= "wait" then
-			error("Spawn() called on an non-waiting event", 2)
+			error('spawn() called on an non-waiting event', 2)
 		end
 	else -- is a list
 		for _, d in ipairs(dol) do
-			if d.status ~= "wait" and d.status ~= "block" then
-				error("Spawn() called on an non-waiting event list", 2)
+			if d.status ~= 'wait' and d.status ~= 'block' then
+				error('spawn() called on an non-waiting event list', 2)
 			end
 		end
 	end
@@ -3007,18 +2994,18 @@ function spawn(agent, binary, ...)
 	if pid and pid > 0 then
 		processCount = processCount + 1
 		if settings.maxProcesses and processCount > settings.maxProcesses then
-			error("Spawned too much processes!")
+			error('Spawned too much processes!')
 		end
 		local sync = InletFactory.getSync(agent)
 		-- delay or list
 		if dol.status then
 			-- is a delay
-			dol.status = "active"
+			dol.status = 'active'
 			sync.processes[pid] = dol
 		else 
 			-- is a list
 			for _, d in ipairs(dol) do
-				d.status = "active"
+				d.status = 'active'
 			end
 			sync.processes[pid] = dol
 		end
@@ -3029,7 +3016,7 @@ end
 -- Spawns a child process using the default shell.
 --
 function spawnShell(agent, command, ...)
-	return spawn(agent, "/bin/sh", "-c", command, "/bin/sh", ...)
+	return spawn(agent, '/bin/sh', '-c', command, '/bin/sh', ...)
 end
 
 -----
@@ -3078,34 +3065,34 @@ end
 -- Exitcodes to retry on network failures of rsync.
 --
 local rsync_exitcodes = {
-	[  0] = "ok",
-	[  1] = "die",
-	[  2] = "die",
-	[  3] = "again",
-	[  4] = "die",
-	[  5] = "again",
-	[  6] = "again",
-	[ 10] = "again", 
-	[ 11] = "again",
-	[ 12] = "again", 
-	[ 14] = "again",
-	[ 20] = "again",
-	[ 21] = "again",
-	[ 22] = "again",
-	[ 23] = "ok", -- partial transfers are ok, since Lsyncd has registered the event that 
-	[ 24] = "ok", -- caused the transfer to be partial and will recall rsync.
-	[ 25] = "die",
-	[ 30] = "again",
-	[ 35] = "again",
-	[255] = "again",
+	[  0] = 'ok',
+	[  1] = 'die',
+	[  2] = 'die',
+	[  3] = 'again',
+	[  4] = 'die',
+	[  5] = 'again',
+	[  6] = 'again',
+	[ 10] = 'again', 
+	[ 11] = 'again',
+	[ 12] = 'again', 
+	[ 14] = 'again',
+	[ 20] = 'again',
+	[ 21] = 'again',
+	[ 22] = 'again',
+	[ 23] = 'ok', -- partial transfers are ok, since Lsyncd has registered the event that 
+	[ 24] = 'ok', -- caused the transfer to be partial and will recall rsync.
+	[ 25] = 'die',
+	[ 30] = 'again',
+	[ 35] = 'again',
+	[255] = 'again',
 }
 
 -----
 -- Exitcodes to retry on network failures of rsync.
 --
 local ssh_exitcodes = {
-	[0]   = "ok",
-	[255] = "again",
+	[0]   = 'ok',
+	[255] = 'again',
 }
 
 -----
@@ -3119,7 +3106,7 @@ local default_rsync = {
 		-- gets all events ready for syncing
 		local elist = inlet.getEvents(
 			function(event) 
-				return event.etype ~= "Init" and event.etype ~= "Blanket"
+				return event.etype ~= 'Init' and event.etype ~= 'Blanket'
 			end
 		)
 	
@@ -3130,16 +3117,16 @@ local default_rsync = {
 			if not p then
 				return 
 			end
-			return p:gsub("%?", "\\?"):
-			       gsub("%*", "\\*"):
-			       gsub("%[", "\\["):
-			       gsub("%]", "\\]")
+			return p:gsub('%?', '\\?'):
+			         gsub('%*', '\\*'):
+			         gsub('%[', '\\['):
+			         gsub('%]', '\\]')
 		end
 
 		local paths = elist.getPaths(
 			function(etype, path1, path2) 
-				if etype == "Delete" and string.byte(path1, -1) == 47 then
-					return sub(path1) .. "***", sub(path2)
+				if etype == 'Delete' and string.byte(path1, -1) == 47 then
+					return sub(path1)..'***', sub(path2)
 				else
 					return sub(path1), sub(path2)
 				end
@@ -3165,33 +3152,31 @@ local default_rsync = {
 		-- adds a path to the filter, for rsync this needs
 		-- to have entries for all steps in the path, so the file
 		-- d1/d2/d3/f1 needs filters 
-		-- "d1/", "d1/d2/", "d1/d2/d3/" and "d1/d2/d3/f1"
+		-- 'd1/', 'd1/d2/', 'd1/d2/d3/' and 'd1/d2/d3/f1'
 		for _, path in ipairs(paths) do
 			if path and path ~="" then
 				addToFilter(path)
-				local pp = string.match(path, "^(.*/)[^/]+/?")
+				local pp = string.match(path, '^(.*/)[^/]+/?')
 				while pp do
 					addToFilter(pp)
-					pp = string.match(pp, "^(.*/)[^/]+/?")
+					pp = string.match(pp, '^(.*/)[^/]+/?')
 				end
 			end
 		end
 		
-		local filterS = table.concat(filterI, "\n")
-		local filter0 = table.concat(filterI, "\000")
-		log("Normal", 
-			"Calling rsync with filter-list of new/modified files/dirs\n", 
-			filterS)
+		local filterS = table.concat(filterI, '\n')
+		local filter0 = table.concat(filterI, '\000')
+		log('Normal', 'Calling rsync with filter-list of new/modified files/dirs\n', filterS)
 		local config = inlet.getConfig() 
 		spawn(elist, config.rsyncBinary, 
-			"<", filter0,
+			'<', filter0,
 			config.rsyncOpts,
-			"-r",
-			"--delete",
-			"--force",
-			"--from0",
-			"--include-from=-",
-			"--exclude=*",
+			'-r',
+			'--delete',
+			'--force',
+			'--from0',
+			'--include-from=-',
+			'--exclude=*',
 			config.source, 
 			config.target)
 	end,
@@ -3204,22 +3189,22 @@ local default_rsync = {
 		local inlet = event.inlet;
 		local excludes = inlet.getExcludes();
 		if #excludes == 0 then
-			log("Normal", "recursive startup rsync: ", config.source,
-				" -> ", config.target)
+			log('Normal', 'recursive startup rsync: ', config.source, ' -> ', config.target)
 			spawn(event, config.rsyncBinary, 
-				"--delete",
-				config.rsyncOpts, "-r", 
+				'--delete',
+				config.rsyncOpts,
+				'-r', 
 				config.source, 
 				config.target)
 		else
 			local exS = table.concat(excludes, "\n")
-			log("Normal", "recursive startup rsync: ", config.source,
-				" -> ", config.target," excluding\n", exS)
+			log('Normal', 'recursive startup rsync: ',config.source,
+				' -> ',config.target,' excluding\n',exS)
 			spawn(event, config.rsyncBinary,  
-				"<", exS,
-				"--exclude-from=-",
-				"--delete",
-				config.rsyncOpts, "-r", 
+				'<', exS,
+				'--exclude-from=-',
+				'--delete',
+				config.rsyncOpts, '-r',
 				config.source, 
 				config.target)
 		end
@@ -3230,31 +3215,24 @@ local default_rsync = {
 	--
 	prepare = function(config)
 		if not config.target then
-			error("default.rsync needs 'target' configured", 4)
-		end
-
-		if config.rsyncOps then
-			if config.rsyncOpts ~= "-lts" then
-				error("'rsyncOpts' and 'rsyncOps' provided in config, decide for one.")
-			end
-			config.rsyncOpts = config.rsyncOps
+			error('default.rsync needs "target" configured', 4)
 		end
 
 		-- appends a / to target if not present
-		if string.sub(config.target, -1) ~= "/" then
-			config.target = config.target .. "/"
+		if string.sub(config.target, -1) ~= '/' then
+			config.target = config.target..'/'
 		end
 	end,
 	
 	-----
 	-- The rsync binary called.
 	--
-	rsyncBinary = "/usr/bin/rsync",
+	rsyncBinary = '/usr/bin/rsync',
 
 	-----
 	-- Calls rsync with this default short opts.
 	--
-	rsyncOpts = "-lts",
+	rsyncOpts = '-lts',
 
 	-----
 	-- exit codes for rsync.
@@ -3282,12 +3260,13 @@ local default_rsyncssh = {
 		-- makes move local on host
 		-- if fails deletes the source...
 		if event.etype == 'Move' then
-			log("Normal", "Moving ",event.path," -> ",event2.path)
-			spawn(event, "/usr/bin/ssh", 
-				config.host, "mv",
+			log('Normal', 'Moving ',event.path,' -> ',event2.path)
+			spawn(event, '/usr/bin/ssh', 
+				config.host, 
+				'mv',
 				'\"' .. config.targetdir .. event.path .. '\"', 
 				'\"' .. config.targetdir .. event2.path .. '\"', 
-				"||", "rm", "-rf", 
+				'||', 'rm', '-rf', 
 				'\"' .. config.targetdir .. event.path .. '\"')
 			return
 		end
@@ -3297,7 +3276,7 @@ local default_rsyncssh = {
 		if event.etype == 'Delete' then
 			local elist = inlet.getEvents(
 				function(e)
-					return e.etype == "Delete"
+					return e.etype == 'Delete'
 				end)
 
 			local paths = elist.getPaths(
@@ -3310,17 +3289,17 @@ local default_rsyncssh = {
 				end)
 
 			for _, v in pairs(paths) do
-				if string.match(v, "^%s*/+%s*$") then
-					log("Error", "refusing to `rm -rf /` the target!")
+				if string.match(v, '^%s*/+%s*$') then
+					log('Error', 'refusing to `rm -rf /` the target!')
 					terminate(-1) -- ERRNO
 				end
 			end
 
 			local sPaths = table.concat(paths, "\n")
 			local zPaths = table.concat(paths, config.xargs.delimiter)
-			log("Normal", "Deleting list\n", sPaths)
-			spawn(elist, "/usr/bin/ssh", 
-				"<", zPaths,
+			log('Normal', 'Deleting list\n', sPaths)
+			spawn(elist, '/usr/bin/ssh', 
+				'<', zPaths,
 				config.host, 
 				config.xargs.binary, config.xargs.xparams)
 			return
@@ -3328,11 +3307,12 @@ local default_rsyncssh = {
 
 		-- for everything else spawn a rsync
 		local elist = inlet.getEvents(
-			function(e) 
-				return e.etype ~= "Move" and 
-				       e.etype ~= "Delete" and
-					   e.etype ~= "Init" and
-					   e.etype ~= "Blanket" 
+			function(e)
+				-- TODO use a table
+				return e.etype ~= 'Move' and 
+				       e.etype ~= 'Delete' and
+					   e.etype ~= 'Init' and
+					   e.etype ~= 'Blanket' 
 			end)
 		local paths = elist.getPaths()
 		
@@ -3344,15 +3324,15 @@ local default_rsyncssh = {
 		end
 		local sPaths = table.concat(paths, "\n") 
 		local zPaths = table.concat(paths, "\000")
-		log("Normal", "Rsyncing list\n", sPaths)
+		log('Normal', 'Rsyncing list\n', sPaths)
 		spawn(
 			elist, config.rsyncBinary, 
-			"<", zPaths, 
+			'<', zPaths, 
 			config.rsyncOpts,
-			"--from0",
-			"--files-from=-",
+			'--from0',
+			'--files-from=-',
 			config.source, 
-			config.host .. ":" .. config.targetdir
+			config.host .. ':' .. config.targetdir
 		)
 	end,
 		
@@ -3360,9 +3340,9 @@ local default_rsyncssh = {
 	-- Called when collecting a finished child process
 	--
 	collect = function(agent, exitcode)
-		if not agent.isList and agent.etype == "Init" then
+		if not agent.isList and agent.etype == 'Init' then
 			local rc = rsync_exitcodes[exitcode]
-			if rc == "ok" then
+			if rc == 'ok' then
 				log("Normal", "Startup of '",agent.source,"' finished.")
 			elseif rc == "again" then
 				if settings.insist then
@@ -3606,7 +3586,7 @@ local default_direct = {
 	--
 	prepare = function(config)
 		if not config.target then
-			error("default.direct needs 'target' configured", 4)
+			error('default.direct needs "target".', 4)
 		end
 	end,
 
@@ -3623,12 +3603,12 @@ local default_direct = {
 	-----
 	-- The rsync binary called.
 	--
-	rsyncBinary = "/usr/bin/rsync",
+	rsyncBinary = '/usr/bin/rsync',
 	
 	-----
 	-- For startup sync
 	--
-	rsyncOpts = "-lts",
+	rsyncOpts = '-lts',
 
 	-----
 	-- On many system multiple disk operations just rather slow down
@@ -3653,13 +3633,13 @@ default = {
 		-- in case of moves getEvent returns the origin and dest of the move
 		local event, event2 = inlet.getEvent()
 		local config = inlet.getConfig()
-		local func = config["on".. event.etype]
+		local func = config['on'.. event.etype]
 		if func then
 			func(event, event2)
 		end
 		-- if function didnt change the wait status its not interested
 		-- in this event -> drop it.
-		if event.status == "wait" then
+		if event.status == 'wait' then
 			inlet.discardEvent(event)
 		end
 	end,
