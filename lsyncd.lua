@@ -2041,10 +2041,10 @@ local Fsevents = (function()
 			-- possibly change etype for this iteration only
 			local etyped = etype
 			if etyped == 'Move' then
-				if not relative2 then
+				if not relative then
 					log('Normal', 'Transformed Move to Create for ', sync.config.name)
 					etyped = 'Create'
-				elseif not relative then
+				elseif not relative2 then
 					relative = relative2
 					relative2 = nil
 					log('Normal', 'Transformed Move to Delete for ', sync.config.name)
