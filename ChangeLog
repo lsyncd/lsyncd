@@ -1,27 +1,27 @@
 25-08-2011: 2.0.5
-	fix: Lsyncd will now terminate if it inotify watching exceeds 
+	fix: Lsyncd will now terminate if it inotify watching exceeds
 		its preset limit.
 	fix: rsync error exit code 12 now results in retries.
-	fix: Lsyncd 2.0.5 should now compile better on a bit elder 
+	fix: Lsyncd 2.0.5 should now compile better on a bit elder
 		GNU/Linux versions.
 	fix: examples are now installed in the configured document directory.
 	fix: partial transfers during startup are considered ok. Lsyncd will
 		rework the specified files anyway.
 	change: Layer 1 interface init() now receives an "Init" event instead
 		of an inlet.
-	change: builtin Lua code is now loaded via a c-array. 
+	change: builtin Lua code is now loaded via a c-array.
 		Now more portable and correct memory flags are set.
 	change: Lsyncd will now bail on unknown error codes.
-	enhancement: settings.maxProcesses can now be set as a global limit 
+	enhancement: settings.maxProcesses can now be set as a global limit
 		of childprocesses
 	enhancement: Lsyncd will refuse to start when any startup rsync
-		does not work cleanly and returns "again" unless settings.insist or 
+		does not work cleanly and returns "again" unless settings.insist or
 		--insist is specified, then Lsyncd will keep retrying until it works.
 	enhancement: option "rsyncBinary" determines which rsync Lsyncd calls.
 		 Default is "/usr/bin/rsync"
 	enhancement: fsevents ("inotify for OSX") fixed for Snowleopard.
 		and is available to configure by default.
-	enhancement: settings.inotifyMode: the actualy Modification event 
+	enhancement: settings.inotifyMode: the actualy Modification event
 		Lsyncd reacts to can now be configured. Default is to react on
 		file closing in write mode.
 	enhancement: readdir(path) is available to userscripts, reads the contents
@@ -47,19 +47,19 @@
 	     a symlink, aquire the node stat for the symlink instead from
 		 the linked node.
 	change: leave lua apichecking enabled by default.
-	
+
 
 20-01-2011: 2.0.2
 	fix: exclude rules not terminated with '/' now match a file
 	     or dir named exactly the same not starting with.
 	fix: pass exclude rules to the startup sync
-	fix: when matching exclusion to not add inotify use same 
+	fix: when matching exclusion to not add inotify use same
 	     partial path than on syncs
 	fix: properly close pipes that needed more than one write.
 
 11-01-2011: 2.0.1
 	fix: write pidfile after daemonize()
-	fix: fixed weak tables that allowed  garbage collector to collect 
+	fix: fixed weak tables that allowed  garbage collector to collect
 	     event lists too eraly.
 	improvement: allow multiple arguments as table for rsyncOps
 	change: added OSX fsevents interface, disabled in autoconf by default
@@ -70,7 +70,7 @@
 
 	change:      format of command line arguments changed completly.
 	improvement: the config files format is not LUA instead of XML
-	             allowing a range from easy configuration up until 
+	             allowing a range from easy configuration up until
 				 complete scripts
 	enhancement: difference actions on different kind of events
 	             effents are combined logically.
@@ -82,7 +82,7 @@
 	             the monitor queue is constantly empties as long Lsyncd runs
 	improvement: Lsyncd2 can now retry operations on network failure and
 	             queue events up.
-	improvement: There are now several debugging categories that can be 
+	improvement: There are now several debugging categories that can be
 	             turned on individually.
 	change:      manpage is now written in asciidoc
 	change:      most more complex logic of Lsyncd is now written in Lua.
@@ -92,15 +92,15 @@
 	fix: correctly accept <file-filter/> from config xml
 	fix: correctly close and free the inotify file descriptor in case of restart
 	     due to HUP signal or OVERFLOW condition
-	fix: when delay=0 a bug always called rsync file filter even when in 
-	     directory mode 
+	fix: when delay=0 a bug always called rsync file filter even when in
+	     directory mode
 
 01-09-2010:  1.38
 	enhancement: implemented file filters for singular operations
 	enhancement: added --singular parameter for single file calls
 	fix: fixed --dryrun messages
 	improvement: now restarts on an inotify OVERFLOW message, just like if
-	             being kill -HUPed 
+	             being kill -HUPed
 	internal: printout the actual binary called when --debug specified
 
 05-08-2010:  1.37
@@ -119,7 +119,7 @@
 	changed: man page location, spellings
 
 05-06-2010:  1.33
-	fix: exlude file argument passing to rsync	
+	fix: exlude file argument passing to rsync
 	fix: allow exlude files specified for individual sources
 	fix/enhancement: exlusions will be compared with extended
 	                 path files allowing sub dirs to be excluded.
@@ -127,7 +127,7 @@
 
 05-01-2009:  Release of lsyncd 1.26
 	fix: segfault on multitargets
-	changed meaning of "version" tag in lsyncd.conf.xml 
+	changed meaning of "version" tag in lsyncd.conf.xml
 
 14-12-2008:  Release of lsyncd 1.25
 	fix: mv dir and cp -r working
@@ -140,5 +140,5 @@
 	lots of smaller stuff here and there ...
 	Thanks to all contributers!
 
-05-12-2007:  Release of lsyncd 1.0 
+05-12-2007:  Release of lsyncd 1.0
 
