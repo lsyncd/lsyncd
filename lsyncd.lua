@@ -18,11 +18,10 @@
 --
 if lsyncd_version then
 	-- checks if the runner is being loaded twice
-	lsyncd.log("Error",
-		"You cannot use the lsyncd runner as configuration file!")
+	lsyncd.log('Error', 'You cannot use the lsyncd runner as configuration file!')
 	lsyncd.terminate(-1) -- ERRNO
 end
-lsyncd_version = "2.0.5"
+lsyncd_version = '2.0.5'
 
 -----
 -- Hides the core interface from user scripts
@@ -66,16 +65,16 @@ local Array = (function()
 
 	-- on accessing a nil index.
 	mt.__index = function(t, k)
-		if type(k) ~= "number" then
-			error("Key '"..k.."' invalid for Array", 2)
+		if type(k) ~= 'number' then
+			error('Key "'..k..'" invalid for Array', 2)
 		end
 		return rawget(t, k)
 	end
 
 	-- on assigning a new index.
 	mt.__newindex = function(t, k, v)
-		if type(k) ~= "number" then
-			error("Key '"..k.."' invalid for Array", 2)
+		if type(k) ~= 'number' then
+			error('Key "'..k..'" invalid for Array', 2)
 		end
 		rawset(t, k, v)
 	end
@@ -94,7 +93,7 @@ end)()
 
 -----
 -- The count array objects are tables that error if accessed with a non-number.
--- Additionally they maintain their length as "size" attribute.
+-- Additionally they maintain their length as 'size' attribute.
 -- Lua's # operator does not work on tables which key values are not
 -- strictly linear.
 --
@@ -109,8 +108,8 @@ local CountArray = (function()
 	-----
 	-- on accessing a nil index.
 	mt.__index = function(t, k)
-		if type(k) ~= "number" then
-			error("Key '"..k.."' invalid for CountArray", 2)
+		if type(k) ~= 'number' then
+			error('Key "'..k..'" invalid for CountArray', 2)
 		end
 		return t[k_nt][k]
 	end
@@ -118,8 +117,8 @@ local CountArray = (function()
 	-----
 	-- on assigning a new index.
 	mt.__newindex = function(t, k, v)
-		if type(k) ~= "number" then
-			error("Key '"..k.."' invalid for CountArray", 2)
+		if type(k) ~= 'number' then
+			error('Key "'..k..'" invalid for CountArray', 2)
 		end
 		-- value before
 		local vb = t[k_nt][k]
@@ -180,7 +179,7 @@ Queue = (function()
 	--
 	local function push(list, value)
 		if not value then
-			error("Queue pushing nil value", 2)
+			error('Queue pushing nil value', 2)
 		end
 		local last = list.last + 1
 		list.last = last
@@ -194,7 +193,7 @@ Queue = (function()
 	--
 	local function remove(list, pos)
 		if list[pos] == nil then
-			error("Removing nonexisting item in Queue", 2)
+			error('Removing nonexisting item in Queue', 2)
 		end
 		list[pos] = nil
 
@@ -278,16 +277,16 @@ local function lockGlobals()
 	local t = _G
 	local mt = getmetatable(t) or {}
 	mt.__index = function(t, k)
-		if (k~="_" and string.sub(k, 1, 2) ~= "__") then
-			error("Access of non-existing global '"..k.."'", 2)
+		if (k~='_' and string.sub(k, 1, 2) ~= '__') then
+			error('Access of non-existing global "'..k..'"', 2)
 		else
 			rawget(t, k)
 		end
 	end
 	mt.__newindex = function(t, k, v)
-		if (k~="_" and string.sub(k, 1, 2) ~= "__") then
-			error("Lsyncd does not allow GLOBALS to be created on the fly. " ..
-			      "Declare '" ..k.."' local or declare global on load.", 2)
+		if (k~='_' and string.sub(k, 1, 2) ~= '__') then
+			error('Lsyncd does not allow GLOBALS to be created on the fly. '..
+			      'Declare "'..k..'" local or declare global on load.', 2)
 		else
 			rawset(t, k, v)
 		end
@@ -340,7 +339,7 @@ local Delay = (function()
 			--               collection, nevertheless seperat status for
 			--               insurrance.
 			--
-			status = "wait",
+			status = 'wait',
 
 			-----
 			-- Position in the queue
@@ -362,9 +361,8 @@ local Combiner = (function()
 	-- new delay absorbed by old
 	--
 	local function abso(d1, d2)
-		log("Delay",d2.etype,":",d2.path," absorbed by ",
-					d1.etype,":",d1.path)
-		return "absorb"
+		log('Delay',d2.etype,':',d2.path,' absorbed by ',d1.etype,':',d1.path)
+		return 'absorb'
 	end
 
 	----
@@ -372,31 +370,27 @@ local Combiner = (function()
 	--
 	local function refi(d1, d2)
 		if d2.path:byte(-1) == 47 then
-			log("Delay",d2.etype,":",d2.path," blocked by ",
-						d1.etype,":",d1.path)
-			return "stack"
+			log('Delay',d2.etype,':',d2.path,' blocked by ',d1.etype,':',d1.path)
+			return 'stack'
 		end
-		log("Delay",d2.etype,":",d2.path," replaces ",
-					d1.etype,":",d1.path)
-		return "replace"
+		log('Delay',d2.etype,':',d2.path,' replaces ',d1.etype,':',d1.path)
+		return 'replace'
 	end
 
 	----
 	-- new delay replaces the old one
 	--
 	local function repl(d1, d2)
-		log("Delay",d2.etype,":",d2.path," replaces ",
-					d1.etype,":",d1.path)
-		return "replace"
+		log('Delay',d2.etype,':',d2.path,' replaces ',d1.etype,':',d1.path)
+		return 'replace'
 	end
 
 	----
 	-- delays nullificate each other
 	--
 	local function null(d1, d2)
-		log("Delay",d2.etype,":",d2.path," nullifies ",
-		            d1.etype,":",d1.path)
-		return "remove"
+		log('Delay',d2.etype,':',d2.path,' nullifies ',d1.etype,':',d1.path)
+		return 'remove'
 	end
 
 	-----
@@ -413,23 +407,21 @@ local Combiner = (function()
 	-- combines two delays
 	--
 	local function combine(d1, d2)
-		if d1.etype == "Init" or d1.etype == "Blanket" then
+		if d1.etype == 'Init' or d1.etype == 'Blanket' then
 			-- everything is blocked by init or blanket delays.
 			if d2.path2 then
-				log("Delay", d2.etype,":",d2.path,"->",d2.path2, "blocked by",
-					d1.etype," event")
+				log('Delay',d2.etype,':',d2.path,'->',d2.path2,'blocked by',d1.etype,' event')
 			else
-				log("Delay", d2.etype,":",d2.path, "blocked by",
-					d1.etype," event")
+				log('Delay',d2.etype,':',d2.path,'blocked by',d1.etype,' event')
 			end
-			return "stack"
+			return 'stack'
 		end
 
 		-- Two normal events
-		if d1.etype ~= "Move" and d2.etype ~= "Move" then
+		if d1.etype ~= 'Move' and d2.etype ~= 'Move' then
 			if d1.path == d2.path then
-				if d1.status == "active" then
-					return "stack"
+				if d1.status == 'active' then
+					return 'stack'
 				end
 				return combineNoMove[d1.etype][d2.etype](d1, d2)
 			end
@@ -438,67 +430,63 @@ local Combiner = (function()
 			if d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path) or
 			   d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path)
 			then
-				return "stack"
+				return 'stack'
 			end
 			return nil
 		end
 
 		-- Normal upon a Move
-		if d1.etype == "Move" and d2.etype ~= "Move" then
+		if d1.etype == 'Move' and d2.etype ~= 'Move' then
 			-- stacks the move if the from field could anyway be damaged
 			if d1.path == d2.path or
 			   d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path) or
 			   d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path)
 			then
-				log("Delay",d2.etype,":",d2.path," blocked by",
-				                "Move :",d1.path,"->",d1.path2)
-				return "stack"
+				log('Delay',d2.etype,':',d2.path,' blocked by','Move :',d1.path,'->',d1.path2)
+				return 'stack'
 			end
 
 			--  Event does something with the move destination
 			if d1.path2 == d2.path then
-				if d2.etype == "Delete" or d2.etype == "Create" then
-					if d1.status == "active" then
-						return "stack"
+				if d2.etype == 'Delete' or d2.etype == 'Create' then
+					if d1.status == 'active' then
+						return 'stack'
 					end
-					log("Delay",d2.etype,":",d2.path," turns ",
-				                "Move :",d1.path,"->",d1.path2, " into ",
-								"Delete:",d1.path)
-					d1.etype = "Delete"
+					log('Delay',d2.etype,':',d2.path,' turns ',
+				        'Move :',d1.path,'->',d1.path2,' into ','Delete:',d1.path)
+					d1.etype = 'Delete'
 					d1.path2 = nil
-					return "stack"
+					return 'stack'
 				end
-				-- on "Attrib" or "Modify" simply wait for the move first
-				return "stack"
+				-- on 'Attrib' or 'Modify' simply wait for the move first
+				return 'stack'
 			end
 
 			if d2.path :byte(-1) == 47 and string.starts(d1.path2, d2.path) or
 			   d1.path2:byte(-1) == 47 and string.starts(d2.path,  d1.path2)
 			then
-				log("Delay",d2.etype,":",d2.path," blocked by ",
-					"Move:",d1.path,"->",d1.path2)
-				return "stack"
+				log('Delay',d2.etype,':',d2.path,' blocked by ','Move:',d1.path,'->',d1.path2)
+				return 'stack'
 			end
 			return nil
 		end
 
 		-- Move upon a single event
-		if d1.etype ~= "Move" and d2.etype == "Move" then
+		if d1.etype ~= 'Move' and d2.etype == 'Move' then
 			if d1.path == d2.path or d1.path == d2.path2 or
 			   d1.path :byte(-1) == 47 and string.starts(d2.path,  d1.path) or
 			   d1.path :byte(-1) == 47 and string.starts(d2.path2, d1.path) or
 			   d2.path :byte(-1) == 47 and string.starts(d1.path,  d2.path) or
 			   d2.path2:byte(-1) == 47 and string.starts(d1.path,  d2.path2)
 			then
-				log("Delay","Move:",d2.path,"->",d2.path2,
-					" splits on ",d1.etype,":",d1.path)
-				return "split"
+				log('Delay','Move:',d2.path,'->',d2.path2,' splits on ',d1.etype,':',d1.path)
+				return 'split'
 			end
 			return nil
 		end
 
 		-- Move upon move
-		if d1.etype == "Move" and d2.etype == "Move" then
+		if d1.etype == 'Move' and d2.etype == 'Move' then
 			-- TODO combine moves,
 
 			if d1.path  == d2.path or d1.path  == d2.path2 or
@@ -512,14 +500,14 @@ local Combiner = (function()
 			   d2.path2:byte(-1) == 47 and string.starts(d1.path,  d2.path2) or
 			   d2.path2:byte(-1) == 47 and string.starts(d1.path2, d2.path2)
 			then
-				log("Delay","Move:",d2.path,"->",d1.path2,
-					" splits on Move:",d1.path,"->",d1.path2)
-				return "split"
+				log('Delay','Move:',d2.path,'->',d1.path2,
+					' splits on Move:',d1.path,'->',d1.path2)
+				return 'split'
 			end
 			return nil
 		end
 
-		error("reached impossible position")
+		error('reached impossible state')
 	end
 
 	-- public interface
@@ -550,7 +538,7 @@ local InletFactory = (function()
 	end
 
 	local function getPath(event)
-		if event.move ~= "To" then
+		if event.move ~= 'To' then
 			return e2d[event].path
 		else
 			return e2d[event].path2
@@ -580,9 +568,7 @@ local InletFactory = (function()
 
 		-----
 		-- Returns the type of the event.
-		-- Can be:
-		--    "Attrib", "Create", "Delete",
-		--    "Modify" or "Move",
+		-- Can be: 'Attrib', 'Create', 'Delete', 'Modify' or 'Move',
 		--
 		etype = function(event)
 			return e2d[event].etype
@@ -616,7 +602,7 @@ local InletFactory = (function()
 		-- Includes a trailing slash for dirs.
 		--
 		name = function(event)
-			return string.match(getPath(event), "[^/]+/?$")
+			return string.match(getPath(event), '[^/]+/?$')
 		end,
 
 		-----
@@ -624,7 +610,7 @@ local InletFactory = (function()
 		-- Excludes a trailing slash for dirs.
 		--
 		basename = function(event)
-			return string.match(getPath(event), "([^/]+)/?$")
+			return string.match(getPath(event), '([^/]+)/?$')
 		end,
 
 		-----
@@ -640,7 +626,7 @@ local InletFactory = (function()
 		-- Always includes a trailing slash.
 		--
 		pathdir = function(event)
-			return string.match(getPath(event), "^(.*/)[^/]+/?") or ""
+			return string.match(getPath(event), '^(.*/)[^/]+/?') or ''
 		end,
 
 		-----
@@ -673,7 +659,7 @@ local InletFactory = (function()
 		--
 		sourcePathdir = function(event)
 			return e2s[event].source ..
-				(string.match(getPath(event), "^(.*/)[^/]+/?") or "")
+				(string.match(getPath(event), '^(.*/)[^/]+/?') or '')
 		end,
 
 		------
@@ -689,7 +675,7 @@ local InletFactory = (function()
 		-- Just for user comfort
 		--
 		-- (except here, the lsyncd.runner does not care event about the
-		-- existance of "target", this is up to the scripts.)
+		-- existance of 'target', this is up to the scripts.)
 		--
 		target = function(event)
 			return e2s[event].config.target
@@ -709,7 +695,7 @@ local InletFactory = (function()
 		--
 		targetPathdir = function(event)
 			return e2s[event].config.target ..
-				(string.match(getPath(event), "^(.*/)[^/]+/?") or "")
+				(string.match(getPath(event), '^(.*/)[^/]+/?') or '')
 		end,
 
 		------
@@ -733,7 +719,7 @@ local InletFactory = (function()
 					-- possibly undefined
 					return nil
 				end
-				error("event does not have field '"..field.."'", 2)
+				error('event does not have field "'..field..'"', 2)
 			end
 			return f(event)
 		end
@@ -753,7 +739,7 @@ local InletFactory = (function()
 		getPaths = function(elist, mutator)
 			local dlist = e2d[elist]
 			if not dlist then
-				error("cannot find delay list from event list.")
+				error('cannot find delay list from event list.')
 			end
 			local result = {}
 			local resultn = 1
@@ -780,17 +766,13 @@ local InletFactory = (function()
 	--
 	local eventListMeta = {
 		__index = function(elist, func)
-			if func == "isList" then
-				return true
-			end
+			if func == 'isList' then return true end
 
-			if func == "config" then
-				return e2s[elist].config
-			end
+			if func == 'config' then return e2s[elist].config end
 
 			local f = eventListFuncs[func]
 			if not f then
-				error("event list does not have function '"..func.."'", 2)
+				error('event list does not have function "'..func..'"', 2)
 			end
 
 			return function(...)
@@ -811,7 +793,7 @@ local InletFactory = (function()
 	-- Encapsulates a delay into an event for the user script.
 	--
 	local function d2e(sync, delay)
-		if delay.etype ~= "Move" then
+		if delay.etype ~= 'Move' then
 			if not delay.event then
 				local event = {}
 				delay.event = event
@@ -836,8 +818,8 @@ local InletFactory = (function()
 				e2s[delay.event2] = sync
 
 				-- move events have a field 'move'
-				event.move  = "Fr"
-				event2.move = "To"
+				event.move  = 'Fr'
+				event2.move = 'To'
 			end
 			return delay.event, delay.event2
 		end
@@ -902,9 +884,9 @@ local InletFactory = (function()
 		--
 		discardEvent = function(sync, event)
 			local delay = e2d[event]
-			if delay.status ~= "wait" then
-				log("Error",
-					"Ignored cancel of a non-waiting event of type ",
+			if delay.status ~= 'wait' then
+				log('Error',
+					'Ignored cancel of a non-waiting event of type ',
 					event.etype)
 				return
 			end
@@ -943,12 +925,8 @@ local InletFactory = (function()
 	local inletMeta = {
 		__index = function(inlet, func)
 			local f = inletFuncs[func]
-			if not f then
-				error("inlet does not have function '"..func.."'", 2)
-			end
-			return function(...)
-				return f(inlets[inlet], ...)
-			end
+			if not f then error('inlet does not have function "'..func..'"', 2) end
+			return function(...) return f(inlets[inlet], ...) end
 		end,
 	}
 
@@ -957,7 +935,6 @@ local InletFactory = (function()
 	local function newInlet(sync)
 		-- lua runner controlled variables
 		local inlet = {}
-
 
 		-- sets use access methods
 		setmetatable(inlet, inletMeta)
@@ -1002,26 +979,26 @@ local Excludes = (function()
 	--
 	local function toLuaPattern(p)
 		local o = p
-		p = string.gsub(p, "%%", "%%%%")
-		p = string.gsub(p, "%^", "%%^")
-		p = string.gsub(p, "%$", "%%$")
-		p = string.gsub(p, "%(", "%%(")
-		p = string.gsub(p, "%)", "%%)")
-		p = string.gsub(p, "%.", "%%.")
-		p = string.gsub(p, "%[", "%%[")
-		p = string.gsub(p, "%]", "%%]")
-		p = string.gsub(p, "%+", "%%+")
-		p = string.gsub(p, "%-", "%%-")
-		p = string.gsub(p, "%?", "[^/]")
-		p = string.gsub(p, "%*", "[^/]*")
+		p = string.gsub(p, '%%', '%%%%')
+		p = string.gsub(p, '%^', '%%^')
+		p = string.gsub(p, '%$', '%%$')
+		p = string.gsub(p, '%(', '%%(')
+		p = string.gsub(p, '%)', '%%)')
+		p = string.gsub(p, '%.', '%%.')
+		p = string.gsub(p, '%[', '%%[')
+		p = string.gsub(p, '%]', '%%]')
+		p = string.gsub(p, '%+', '%%+')
+		p = string.gsub(p, '%-', '%%-')
+		p = string.gsub(p, '%?', '[^/]')
+		p = string.gsub(p, '%*', '[^/]*')
 		-- this was a ** before
-		p = string.gsub(p, "%[%^/%]%*%[%^/%]%*", ".*")
-		p = string.gsub(p, "^/", "^/")
-		if p:sub(1,2) ~= "^/" then -- does not begin with "^/"
-			-- all matches should begin with "/".
-			p = "/" .. p;
+		p = string.gsub(p, '%[%^/%]%*%[%^/%]%*', '.*')
+		p = string.gsub(p, '^/', '^/')
+		if p:sub(1,2) ~= '^/' then -- does not begin with '^/'
+			-- all matches should begin with '/'.
+			p = '/'..p;
 		end
-		log("Exclude", "toLuaPattern '",o,"' = '",p,'"')
+		log('Exclude', 'toLuaPattern "',o,'" = "',p,'"')
 		return p
 	end
 
@@ -1043,7 +1020,7 @@ local Excludes = (function()
 	local function remove(self, pattern)
 		if not self.list[pattern] then
 			-- already in the list
-			log("Normal", "Removing not excluded exclude '"..pattern.."'")
+			log('Normal', 'Removing not excluded exclude "'..pattern..'"')
 			return
 		end
 		self.list[pattern] = nil
@@ -1065,16 +1042,14 @@ local Excludes = (function()
 	local function loadFile(self, file)
 		f, err = io.open(file)
 		if not f then
-			log("Error", "Cannot open exclude file '",file,"': ", err)
+			log('Error', 'Cannot open exclude file "',file,'": ', err)
 			terminate(-1) -- ERRNO
 		end
 	    for line in f:lines() do
 			-- lsyncd 2.0 does not support includes
-			if not string.match(line, "%s*+") then
-				local p = string.match(line, "%s*-?%s*(.*)")
-				if p then
-					add(self, p)
-				end
+			if not string.match(line, '%s*+') then
+				local p = string.match(line, '%s*-?%s*(.*)')
+				if p then add(self, p) end
 			end
 		end
 		f:close()
@@ -1087,18 +1062,11 @@ local Excludes = (function()
 		for _, p in pairs(self.list) do
 			if p:byte(-1) == 36 then
 				-- ends with $
-				if path:match(p) then
-					--log("Exclude", "'",path,"' matches '",p,"' (1)")
-					return true
-				end
+				if path:match(p) then return true end
 			else
-				-- end either end with / or $
-				if path:match(p.."/") or path:match(p.."$") then
-					--log("Exclude", "'",path,"' matches '",p,"' (2)")
-					return true
-				end
+				-- ends either end with / or $
+				if path:match(p..'/') or path:match(p..'$') then return true end
 			end
-			--log("Exclude", "'",path,"' NOT matches '",p,"'")
 		end
 		return false
 	end
@@ -1153,14 +1121,14 @@ local Sync = (function()
 	--
 	local function removeDelay(self, delay)
 		if self.delays[delay.dpos] ~= delay then
-			error("Queue is broken, delay not a dpos")
+			error('Queue is broken, delay not a dpos')
 		end
 		Queue.remove(self.delays, delay.dpos)
 
 		-- free all delays blocked by this one.
 		if delay.blocks then
 			for i, vd in pairs(delay.blocks) do
-				vd.status = "wait"
+				vd.status = 'wait'
 			end
 		end
 	end
@@ -1177,7 +1145,7 @@ local Sync = (function()
 
 		-- a sub dir and not concerned about subdirs
 		if self.config.subdirs == false and
-			path:sub(#self.source, -1):match("[^/]+/?")
+			path:sub(#self.source, -1):match('[^/]+/?')
 		then
 			return false
 		end
@@ -1197,25 +1165,24 @@ local Sync = (function()
 		end
 
 		if delay.status then
-			log("Delay", "collected an event")
-			if delay.status ~= "active" then
-				error("collecting a non-active process")
+			log('Delay', 'collected an event')
+			if delay.status ~= 'active' then
+				error('collecting a non-active process')
 			end
 			local rc = self.config.collect(
 				InletFactory.d2e(self, delay),
 				exitcode)
-			if rc == "die" then
-				log("Error", "Critical exitcode.");
+			if rc == 'die' then
+				log('Error', 'Critical exitcode.');
 				terminate(-1) --ERRNO
 			end
-			if rc ~= "again" then
+			if rc ~= 'again' then
 				-- if its active again the collecter restarted the event
 				removeDelay(self, delay)
-				log("Delay", "Finish of ",delay.etype," on ",
-					self.source,delay.path," = ",exitcode)
+				log('Delay', 'Finish of ',delay.etype,' on ',self.source,delay.path,' = ',exitcode)
 			else
 				-- sets the delay on wait again
-				delay.status = "wait"
+				delay.status = 'wait'
 				local alarm = self.config.delay
 				-- delays at least 1 second
 				if alarm < 1 then
@@ -1224,17 +1191,17 @@ local Sync = (function()
 				delay.alarm = now() + alarm
 			end
 		else
-			log("Delay", "collected a list")
+			log('Delay', 'collected a list')
 			local rc = self.config.collect(
 				InletFactory.dl2el(self, delay),
 				exitcode)
-			if rc == "die" then
-				log("Error", "Critical exitcode.");
+			if rc == 'die' then
+				log('Error', 'Critical exitcode.');
 				terminate(-1) --ERRNO
 			end
-			if rc == "again" then
+			if rc == 'again' then
 				-- sets the delay on wait again
-				delay.status = "wait"
+				delay.status = 'wait'
 				local alarm = self.config.delay
 				-- delays at least 1 second
 				if alarm < 1 then
@@ -1243,17 +1210,17 @@ local Sync = (function()
 				alarm = now() + alarm
 				for _, d in ipairs(delay) do
 					d.alarm = alarm
-					d.status = "wait"
+					d.status = 'wait'
 				end
 			end
 			for _, d in ipairs(delay) do
-				if rc ~= "again" then
+				if rc ~= 'again' then
 					removeDelay(self, d)
 				else
-					d.status = "wait"
+					d.status = 'wait'
 				end
 			end
-			log("Delay","Finished list = ",exitcode)
+			log('Delay','Finished list = ',exitcode)
 		end
 		self.processes[pid] = nil
 	end
@@ -1266,7 +1233,7 @@ local Sync = (function()
 	-- but is blocked at most by one, the latest delay.
 	--
 	local function stack(oldDelay, newDelay)
-		newDelay.status = "block"
+		newDelay.status = 'block'
 		if not oldDelay.blocks then
 			oldDelay.blocks = {}
 		end
@@ -1277,14 +1244,13 @@ local Sync = (function()
 	-- Puts an action on the delay stack.
 	--
 	local function delay(self, etype, time, path, path2)
-		log("Function", "delay(",self.config.name,", ",
-			etype,", ",path,", ",path2,")")
+		log('Function', 'delay(',self.config.name,', ',etype,', ',path,', ',path2,')')
 
 		-- exclusion tests
 		if not path2 then
 			-- simple test for single path events
 			if self.excludes:test(path) then
-				log("Exclude", "excluded ",etype," on '",path,"'")
+				log('Exclude', 'excluded ',etype,' on "',path,'"')
 				return
 			end
 		else
@@ -1292,32 +1258,29 @@ local Sync = (function()
 			local ex1 = self.excludes:test(path)
 			local ex2 = self.excludes:test(path2)
 			if ex1 and ex2 then
-				log("Exclude", "excluded '",etype," on '",path,
-					"' -> '",path2,"'")
+				log('Exclude', 'excluded "',etype,' on "',path,'" -> "',path2,'"')
 				return
 			elseif not ex1 and ex2 then
 				-- splits the move if only partly excluded
-				log("Exclude", "excluded destination transformed ",etype,
-					" to Delete ",path)
-				delay(self, "Delete", time, path, nil)
+				log('Exclude', 'excluded destination transformed ',etype,' to Delete ',path)
+				delay(self, 'Delete', time, path, nil)
 				return
 			elseif ex1 and not ex2 then
 				-- splits the move if only partly excluded
-				log("Exclude", "excluded origin transformed ",etype,
-					" to Create.",path2)
-				delay(self, "Create", time, path2, nil)
+				log('Exclude', 'excluded origin transformed ',etype,' to Create.',path2)
+				delay(self, 'Create', time, path2, nil)
 				return
 			end
 		end
 
-		if etype == "Move" and not self.config.onMove then
+		if etype == 'Move' and not self.config.onMove then
 			-- if there is no move action defined,
 			-- split a move as delete/create
 			-- layer 1 scripts which want moves events have to
-			-- set onMove simply to "true"
-			log("Delay", "splitting Move into Delete & Create")
-			delay(self, "Delete", time, path,  nil)
-			delay(self, "Create", time, path2, nil)
+			-- set onMove simply to 'true'
+			log('Delay', 'splitting Move into Delete & Create')
+			delay(self, 'Delete', time, path,  nil)
+			delay(self, 'Create', time, path2, nil)
 			return
 		end
 
@@ -1330,9 +1293,9 @@ local Sync = (function()
 		end
 		-- new delay
 		local nd = Delay.new(etype, alarm, path, path2)
-		if nd.etype == "Init" or nd.etype == "Blanket" then
+		if nd.etype == 'Init' or nd.etype == 'Blanket' then
 			-- always stack blanket events on the last event
-			log("Delay", "Stacking ",nd.etype," event.")
+			log('Delay', 'Stacking ',nd.etype,' event.')
 			if self.delays.size > 0 then
 				stack(self.delays[self.delays.last], nd)
 			end
@@ -1347,34 +1310,34 @@ local Sync = (function()
 			local ac = Combiner.combine(od, nd)
 
 			if ac then
-				if ac == "remove" then
+				if ac == 'remove' then
 					Queue.remove(self.delays, il)
 					return
-				elseif ac == "stack" then
+				elseif ac == 'stack' then
 					stack(od, nd)
 					nd.dpos = Queue.push(self.delays, nd)
 					return
-				elseif ac == "absorb" then
+				elseif ac == 'absorb' then
 					return
-				elseif ac == "replace" then
+				elseif ac == 'replace' then
 					od.etype = nd.etype
 					od.path  = nd.path
 					od.path2 = nd.path2
 					return
-				elseif ac == "split" then
-					delay(self, "Delete", time, path,  nil)
-					delay(self, "Create", time, path2, nil)
+				elseif ac == 'split' then
+					delay(self, 'Delete', time, path,  nil)
+					delay(self, 'Create', time, path2, nil)
 					return
 				else
-					error("unknown result of combine()")
+					error('unknown result of combine()')
 				end
 			end
 			il = il - 1
 		end
 		if nd.path2 then
-			log("Delay", "New ",nd.etype,":",nd.path,"->",nd.path2)
+			log('Delay','New ',nd.etype,':',nd.path,'->',nd.path2)
 		else
-			log("Delay", "New ",nd.etype,":",nd.path)
+			log('Delay','New ',nd.etype,':',nd.path)
 		end
 		-- no block or combo
 		nd.dpos = Queue.push(self.delays, nd)
@@ -1392,9 +1355,7 @@ local Sync = (function()
 		if self.processes:size() < self.config.maxProcesses then
 			-- finds the nearest delay waiting to be spawned
 			for _, d in Queue.qpairs(self.delays) do
-				if d.status == "wait" then
-					return d.alarm 
-				end
+				if d.status == 'wait' then return d.alarm end
 			end
 		end
 
@@ -1410,7 +1371,6 @@ local Sync = (function()
 	local function getDelays(self, test)
 		local dlist = {}
 		local dlistn = 1
-
 		local blocks = {}
 
 		----
@@ -1426,7 +1386,7 @@ local Sync = (function()
 		end
 
 		for i, d in Queue.qpairs(self.delays) do
-			if d.status == "active" or
+			if d.status == 'active' or
 				(test and not test(InletFactory.d2e(self, d)))
 			then
 				getBlocks(d)
@@ -1443,7 +1403,7 @@ local Sync = (function()
 	-- Creates new actions
 	--
 	local function invokeActions(self, timestamp)
-		log("Function", "invokeActions('",self.config.name,"',",timestamp,")")
+		log('Function', 'invokeActions("',self.config.name,'",',timestamp,')')
 		if self.processes:size() >= self.config.maxProcesses then
 			-- no new processes
 			return
@@ -1451,7 +1411,7 @@ local Sync = (function()
 		for _, d in Queue.qpairs(self.delays) do
 			-- if reached the global limit return
 			if settings.maxProcesses and processCount >= settings.maxProcesses then
-				log("Alarm", "at global process limit.")
+				log('Alarm', 'at global process limit.')
 				return
 			end
 			if self.delays.size < self.config.maxDelays then
@@ -1462,9 +1422,9 @@ local Sync = (function()
 					return
 				end
 			end
-			if d.status == "wait" then
+			if d.status == 'wait' then
 				-- found a waiting delay
-				if d.etype ~= "Init" then
+				if d.etype ~= 'Init' then
 					self.config.action(self.inlet)
 				else
 					self.config.init(InletFactory.d2e(self, d))
@@ -1490,7 +1450,7 @@ local Sync = (function()
 					return nil
 				end
 			end
-			if d.status == "wait" then
+			if d.status == 'wait' then
 				-- found a waiting delay
 				return d
 			end
@@ -1502,7 +1462,7 @@ local Sync = (function()
 	-- Used as custom marker.
 	--
 	local function addBlanketDelay(self)
-		local newd = Delay.new("Blanket", true, "")
+		local newd = Delay.new('Blanket', true, '')
 		newd.dpos = Queue.push(self.delays, newd)
 		return newd
 	end
@@ -1512,7 +1472,7 @@ local Sync = (function()
 	-- Used as startup marker to call init asap.
 	--
 	local function addInitDelay(self)
-		local newd = Delay.new("Init", true, "")
+		local newd = Delay.new('Init', true, '')
 		newd.dpos = Queue.push(self.delays, newd)
 		return newd
 	end
@@ -1521,29 +1481,29 @@ local Sync = (function()
 	-- Writes a status report about delays in this sync.
 	--
 	local function statusReport(self, f)
-		local spaces = "                    "
-		f:write(self.config.name," source=",self.source,"\n")
-		f:write("There are ",self.delays.size, " delays\n")
+		local spaces = '                    '
+		f:write(self.config.name,' source=',self.source,'\n')
+		f:write('There are ',self.delays.size, ' delays\n')
 		for i, vd in Queue.qpairs(self.delays) do
 			local st = vd.status
 			f:write(st, string.sub(spaces, 1, 7 - #st))
-			f:write(vd.etype," ")
+			f:write(vd.etype,' ')
 			f:write(vd.path)
 			if (vd.path2) then
-				f:write(" -> ",vd.path2)
+				f:write(' -> ',vd.path2)
 			end
-			f:write("\n")
+			f:write('\n')
 		end
-		f:write("Excluding:\n")
+		f:write('Excluding:\n')
 		local nothing = true
 		for t, p in pairs(self.excludes.list) do
 			nothing = false
-			f:write(t,"\n")
+			f:write(t,'\n')
 		end
 		if nothing then
-			f:write("  nothing.\n")
+			f:write('  nothing.\n')
 		end
-		f:write("\n")
+		f:write('\n')
 	end
 
 	-----
@@ -1577,7 +1537,7 @@ local Sync = (function()
 
 		-- provides a default name if needed
 		if not config.name then
-			config.name = "Sync" .. nextDefaultName
+			config.name = 'Sync'..nextDefaultName
 		end
 		-- increments default nevertheless to cause less confusion
 		-- so name will be the n-th call to sync{}
@@ -1586,12 +1546,12 @@ local Sync = (function()
 		-- loads exclusions
 		if config.exclude then
 			local te = type(config.exclude)
-			if te == "table" then
+			if te == 'table' then
 				s.excludes:addList(config.exclude)
-			elseif te == "string" then
+			elseif te == 'string' then
 				s.excludes:add(config.exclude)
 			else
-				error("type for exclude must be table or string", 2)
+				error('type for exclude must be table or string', 2)
 			end
 		end
 		if config.excludeFrom then
@@ -1657,13 +1617,13 @@ local Syncs = (function()
 		-- first copies from source all
 		-- non-defined non-integer keyed values
 		for k, v in pairs(cs) do
-			if type(k) ~= "number" and cd[k] == nil then
+			if type(k) ~= 'number' and cd[k] == nil then
 				cd[k] = v
 			end
 		end
 		-- first recurses into all integer keyed tables
 		for i, v in ipairs(cs) do
-			if type(v) == "table" then
+			if type(v) == 'table' then
 				inherit(cd, v)
 			end
 		end
@@ -1686,22 +1646,21 @@ local Syncs = (function()
 
 		-- at very first lets the userscript 'prepare' function
 		-- fill out more values.
-		if type(config.prepare) == "function" then
+		if type(config.prepare) == 'function' then
 			-- explicitly gives a writeable copy of config.
 			config.prepare(config)
 		end
 
-		if not config["source"] then
-			local info = debug.getinfo(3, "Sl")
-			log("Error", info.short_src, ":", info.currentline,
-				": source missing from sync.")
+		if not config['source'] then
+			local info = debug.getinfo(3, 'Sl')
+			log('Error', info.short_src,':',info.currentline,': source missing from sync.')
 			terminate(-1) -- ERRNO
 		end
 
 		-- absolute path of source
 		local realsrc = lsyncd.realdir(config.source)
 		if not realsrc then
-			log("Error", "Cannot access source directory: ",config.source)
+			log('Error', 'Cannot access source directory: ',config.source)
 			terminate(-1) -- ERRNO
 		end
 		config._source = config.source
@@ -1711,9 +1670,9 @@ local Syncs = (function()
 		   not config.onCreate and not config.onModify and
 		   not config.onDelete and not config.onMove
 		then
-			local info = debug.getinfo(3, "Sl")
-			log("Error", info.short_src, ":", info.currentline,
-				": no actions specified, use e.g. 'config=default.rsync'.")
+			local info = debug.getinfo(3, 'Sl')
+			log('Error', info.short_src, ':', info.currentline,
+				': no actions specified, use e.g. "config = default.rsync".')
 			terminate(-1) -- ERRNO
 		end
 
@@ -1737,10 +1696,10 @@ local Syncs = (function()
 		-- the monitor to use
 		config.monitor =
 			settings.monitor or config.monitor or Monitors.default()
-		if config.monitor ~= "inotify" and config.monitor ~= "fsevents" then
-			local info = debug.getinfo(3, "Sl")
-			log("Error", info.short_src, ":", info.currentline,
-				": event monitor '",config.monitor,"' unknown.")
+		if config.monitor ~= 'inotify' and config.monitor ~= 'fsevents' then
+			local info = debug.getinfo(3, 'Sl')
+			log('Error',info.short_src,':',info.currentline,
+				': event monitor "',config.monitor,'" unknown.')
 			terminate(-1) -- ERRNO
 		end
 
@@ -1859,20 +1818,18 @@ local Inotify = (function()
 	--                   to this sync.
 	--
 	local function addWatch(path, recurse, raiseSync, raiseTime)
-		log("Function",
-			"Inotify.addWatch(",path,", ",recurse,", ",
-			raiseSync,", ",raiseTime,")")
+		log('Function','Inotify.addWatch(',path,', ',recurse,', ',raiseSync,', ',raiseTime,')')
 
 		if not Syncs.concerns(path) then
-			log("Inotify", "not concerning '",path,"'")
+			log('Inotify', 'not concerning "',path,'"')
 			return
 		end
 
 		-- lets the core registers watch with the kernel
 		local wd = lsyncd.inotify.addwatch(path,
-			(settings and settings.inotifyMode) or "");
+			(settings and settings.inotifyMode) or '');
 		if wd < 0 then
-			log("Inotify","Unable to add watch '",path,"'")
+			log('Inotify','Unable to add watch "',path,'"')
 			return
 		end
 
@@ -1900,21 +1857,15 @@ local Inotify = (function()
 		end
 		for dirname, isdir in pairs(entries) do
 			local pd = path .. dirname
-			if isdir then
-				pd = pd .. "/"
-			end
+			if isdir then pd = pd..'/' end
 
 			-- creates a Create event for entry.
 			if raiseSync then
-				local relative  = splitPath(pd, syncRoots[raiseSync])
-				if relative then
-					raiseSync:delay("Create", raiseTime, relative)
-				end
+				local relative = splitPath(pd, syncRoots[raiseSync])
+				if relative then raiseSync:delay("Create", raiseTime, relative) end
 			end
 			-- adds syncs for subdirs
-			if isdir then
-				addWatch(pd, true, raiseSync, raiseTime)
-			end
+			if isdir then addWatch(pd, true, raiseSync, raiseTime) end
 		end
 	end
 
@@ -1926,7 +1877,7 @@ local Inotify = (function()
 	--
 	local function addSync(sync, rootdir)
 		if syncRoots[sync] then
-			error("duplicate sync in Inotify.addSync()")
+			error('duplicate sync in Inotify.addSync()')
 		end
 		syncRoots[sync] = rootdir
 		addWatch(rootdir, true)
@@ -1944,31 +1895,24 @@ local Inotify = (function()
 	--
 	local function event(etype, wd, isdir, time, filename, wd2, filename2)
 		if isdir then
-			filename = filename .. "/"
-			if filename2 then
-				filename2 = filename2 .. "/"
-			end
+			filename = filename..'/'
+			if filename2 then filename2 = filename2..'/' end
 		end
 
 		if filename2 then
-			log("Inotify", "got event ",etype," ",filename,
-				"(",wd,") to ",filename2,"(",wd2,")")
+			log('Inotify','got event ',etype,' ',filename,'(',wd,') to ',filename2,'(',wd2,')')
 		else
-			log("Inotify","got event ",etype," ",filename,"(",wd,")")
+			log('Inotify','got event ',etype,' ',filename,'(',wd,')')
 		end
 
 		-- looks up the watch descriptor id
 		local path = wdpaths[wd]
-		if path then
-			path = path..filename
-		end
+		if path then path = path..filename end
 
 		local path2 = wd2 and wdpaths[wd2]
-		if path2 and filename2 then
-			path2 = path2..filename2
-		end
+		if path2 and filename2 then path2 = path2..filename2 end
 
-		if not path and path2 and etype =="Move" then
+		if not path and path2 and etype == 'Move' then
 			log("Inotify", "Move from deleted directory ",path2,
 				" becomes Create.")
 			path = path2
@@ -1984,7 +1928,7 @@ local Inotify = (function()
 
 		for sync, root in pairs(syncRoots) do repeat
 			local relative  = splitPath(path, root)
-			local relative2
+			local relative2 = nil
 			if path2 then
 				relative2 = splitPath(path2, root)
 			end
@@ -1997,25 +1941,23 @@ local Inotify = (function()
 			local etyped = etype
 			if etyped == 'Move' then
 				if not relative2 then
-					log("Normal", "Transformed Move to Create for ",
-						sync.config.name)
+					log('Normal', 'Transformed Move to Create for ', sync.config.name)
 					etyped = 'Create'
 				elseif not relative then
 					relative = relative2
 					relative2 = nil
-					log("Normal", "Transformed Move to Delete for ",
-						sync.config.name)
+					log('Normal', 'Transformed Move to Delete for ', sync.config.name)
 					etyped = 'Delete'
 				end
 			end
 			sync:delay(etyped, time, relative, relative2)
 
 			if isdir then
-				if etyped == "Create" then
+				if etyped == 'Create' then
 					addWatch(path, true, sync, time)
-				elseif etyped == "Delete" then
+				elseif etyped == 'Delete' then
 					removeWatch(path, true)
-				elseif etyped == "Move" then
+				elseif etyped == 'Move' then
 					removeWatch(path, false)
 					addWatch(path2, true, sync, time)
 				end
@@ -2027,9 +1969,9 @@ local Inotify = (function()
 	-- Writes a status report about inotifies to a filedescriptor
 	--
 	local function statusReport(f)
-		f:write("Inotify watching ",wdpaths:size()," directories\n")
+		f:write('Inotify watching ',wdpaths:size(),' directories\n')
 		for wd, path in wdpaths:walk() do
-			f:write("  ",wd,": ",path,"\n")
+			f:write('  ',wd,': ',path,'\n')
 		end
 	end
 
@@ -2060,9 +2002,7 @@ local Fsevents = (function()
 	-- @param dir    dir to watch
 	--
 	local function addSync(sync, dir)
-		if syncRoots[sync] then
-			error("duplicate sync in Fanotify.addSync()")
-		end
+		if syncRoots[sync] then error('duplicate sync in Fanotify.addSync()') end
 		syncRoots[sync] = dir
 	end
 
@@ -2076,7 +2016,6 @@ local Fsevents = (function()
 	-- path2:  path of target in case of 'Move'
 	--
 	local function event(etype, isdir, time, path, path2)
-
 		if isdir then
 			path = path..'/'
 			if path2 then path2 = path2..'/' end
@@ -2084,10 +2023,12 @@ local Fsevents = (function()
 
 		log('Fsevents',etype,',',isdir,',',time,',',path,',',path2)
 
-		for _, s in Syncs.iwalk() do repeat
-			local root = s.source
+		for _, sync in Syncs.iwalk() do repeat
+			local root = sync.source
 			if not path:starts(root) then
-				break  -- continue
+				if not path2 or not path2:starts(root) then
+					break  -- continue
+				end
 			end
 			local relative  = splitPath(path, root)
 			local relative2
@@ -2108,7 +2049,7 @@ local Fsevents = (function()
 					etyped = 'Delete'
 				end
 			end
-			s:delay(etyped, time, relative, relative2)
+			sync:delay(etyped, time, relative, relative2)
 		until true end
 	end
 
@@ -2169,33 +2110,33 @@ local functionWriter = (function()
 	-----
 	-- all variables for layer 3
 	transVars = {
-		{ "%^pathname",          "event.pathname"        , 1, },
-		{ "%^pathdir",           "event.pathdir"         , 1, },
-		{ "%^path",              "event.path"            , 1, },
-		{ "%^sourcePathname",    "event.sourcePathname"  , 1, },
-		{ "%^sourcePathdir",     "event.sourcePathdir"   , 1, },
-		{ "%^sourcePath",        "event.sourcePath"      , 1, },
-		{ "%^source",            "event.source"          , 1, },
-		{ "%^targetPathname",    "event.targetPathname"  , 1, },
-		{ "%^targetPathdir",     "event.targetPathdir"   , 1, },
-		{ "%^targetPath",        "event.targetPath"      , 1, },
-		{ "%^target",            "event.target"          , 1, },
-		{ "%^o%.pathname",       "event.pathname"        , 1, },
-		{ "%^o%.path",           "event.path"            , 1, },
-		{ "%^o%.sourcePathname", "event.sourcePathname"  , 1, },
-		{ "%^o%.sourcePathdir",  "event.sourcePathdir"   , 1, },
-		{ "%^o%.sourcePath",     "event.sourcePath"      , 1, },
-		{ "%^o%.targetPathname", "event.targetPathname"  , 1, },
-		{ "%^o%.targetPathdir",  "event.targetPathdir"   , 1, },
-		{ "%^o%.targetPath",     "event.targetPath"      , 1, },
-		{ "%^d%.pathname",       "event2.pathname"       , 2, },
-		{ "%^d%.path",           "event2.path"           , 2, },
-		{ "%^d%.sourcePathname", "event2.sourcePathname" , 2, },
-		{ "%^d%.sourcePathdir",  "event2.sourcePathdir"  , 2, },
-		{ "%^d%.sourcePath",     "event2.sourcePath"     , 2, },
-		{ "%^d%.targetPathname", "event2.targetPathname" , 2, },
-		{ "%^d%.targetPathdir",  "event2.targetPathdir"  , 2, },
-		{ "%^d%.targetPath",     "event2.targetPath"     , 2, },
+		{ '%^pathname',          'event.pathname',        1 },
+		{ '%^pathdir',           'event.pathdir',         1 },
+		{ '%^path',              'event.path',            1 },
+		{ '%^sourcePathname',    'event.sourcePathname',  1 },
+		{ '%^sourcePathdir',     'event.sourcePathdir',   1 },
+		{ '%^sourcePath',        'event.sourcePath',      1 },
+		{ '%^source',            'event.source',          1 },
+		{ '%^targetPathname',    'event.targetPathname',  1 },
+		{ '%^targetPathdir',     'event.targetPathdir',   1 },
+		{ '%^targetPath',        'event.targetPath',      1 },
+		{ '%^target',            'event.target',          1 },
+		{ '%^o%.pathname',       'event.pathname',        1 },
+		{ '%^o%.path',           'event.path',            1 },
+		{ '%^o%.sourcePathname', 'event.sourcePathname',  1 },
+		{ '%^o%.sourcePathdir',  'event.sourcePathdir',   1 },
+		{ '%^o%.sourcePath',     'event.sourcePath',      1 },
+		{ '%^o%.targetPathname', 'event.targetPathname',  1 },
+		{ '%^o%.targetPathdir',  'event.targetPathdir',   1 },
+		{ '%^o%.targetPath',     'event.targetPath',      1 },
+		{ '%^d%.pathname',       'event2.pathname',       2 },
+		{ '%^d%.path',           'event2.path',           2 },
+		{ '%^d%.sourcePathname', 'event2.sourcePathname', 2 },
+		{ '%^d%.sourcePathdir',  'event2.sourcePathdir',  2 },
+		{ '%^d%.sourcePath',     'event2.sourcePath',     2 },
+		{ '%^d%.targetPathname', 'event2.targetPathname', 2 },
+		{ '%^d%.targetPathdir',  'event2.targetPathdir',  2 },
+		{ '%^d%.targetPath',     'event2.targetPath',     2 },
 	}
 
 	-----
@@ -2207,7 +2148,7 @@ local functionWriter = (function()
 	--
 	local function splitStr(str)
 		local args = {}
-		while str ~= "" do
+		while str ~= '' do
 			-- break where argument stops
 			local bp = #str
 			-- in a quote
@@ -2226,7 +2167,7 @@ local functionWriter = (function()
 			arg = string.gsub(arg, '"', '\\"')
 			table.insert(args, arg)
 			str = string.sub(str, bp + 1, -1)
-			str = string.match(str, "^%s*(.-)%s*$")
+			str = string.match(str, '^%s*(.-)%s*$')
 		end
 		return args
 	end
@@ -2252,19 +2193,17 @@ local functionWriter = (function()
 				while ai <= #a do
 					if a[ai][1] then
 						local pre, post =
-							string.match(a[ai][2], "(.*)"..v[1].."(.*)")
+							string.match(a[ai][2], '(.*)"..v[1].."(.*)')
 						if pre then
 							if v[3] > 1 then
 								haveEvent2 = true
 							end
-							if pre ~= "" then
+							if pre ~= '' then
 								table.insert(a, ai, {true, pre})
 								ai = ai + 1
 							end
 							a[ai] = {false, v[2]}
-							if post ~= "" then
-								table.insert(a, ai + 1, {true, post})
-							end
+							if post ~= '' then table.insert(a, ai + 1, {true, post}) end
 						end
 					end
 					ai = ai + 1
@@ -2272,11 +2211,11 @@ local functionWriter = (function()
 			end
 
 			-- concats the argument pieces into a string.
-			local as = ""
+			local as = ''
 			local first = true
 			for _, v in ipairs(a) do
 				if not first then
-					as = as.." .. "
+					as = as..' .. '
 				end
 				if v[1] then
 					as = as..'"'..v[2]..'"'
@@ -2290,17 +2229,18 @@ local functionWriter = (function()
 
 		local ft
 		if not haveEvent2 then
-			ft = "function(event)\n"
+			ft = 'function(event)\n'
 		else
-			ft = "function(event, event2)\n"
+			ft = 'function(event, event2)\n'
 		end
-		ft = ft .. '    log("Normal", "Event " .. event.etype ..\n'
-		ft = ft .. "        [[ spawns action '" .. str .. '\']])\n'
-		ft = ft .. "    spawn(event"
+		ft = ft..
+			"    log('Normal', 'Event ', event.etype, \n"..
+			"        ' spawns action \"".. str.."\"')\n"..
+			"    spawn(event"
 		for _, v in ipairs(args) do
-			ft = ft .. ",\n         " .. v
+			ft = ft..',\n         '..v
 		end
-		ft = ft .. ")\nend"
+		ft = ft..')\nend'
 		return ft
 	end
 
@@ -2333,18 +2273,19 @@ local functionWriter = (function()
 		end
 		local ft
 		if not haveEvent2 then
-			ft = "function(event)\n"
+			ft = 'function(event)\n'
 		else
-			ft = "function(event, event2)\n"
+			ft = 'function(event, event2)\n'
 		end
 		-- TODO do array joining instead
-		ft = ft..'    log("Normal", "Event " .. event.etype ..\n'
-		ft = ft.."        [[ spawns shell '"..lc..'\']])\n'
-		ft = ft.."    spawnShell(event, [["..cmd.. "]]"
+		ft = ft..
+			"    log('Normal', 'Event ',event.etype,\n"..
+			"        ' spawns shell \""..lc.."\"')\n"..
+			"    spawnShell(event, '"..cmd.."'"
 		for _, v in ipairs(args) do
-			ft = ft..",\n         "..v
+			ft = ft..',\n         '..v
 		end
-		ft = ft .. ")\nend"
+		ft = ft..')\nend'
 		return ft
 	end
 
@@ -2352,7 +2293,7 @@ local functionWriter = (function()
 	-- writes a lua function for a layer 3 user script.
 	local function translate(str)
 		-- trim spaces
-		str = string.match(str, "^%s*(.-)%s*$")
+		str = string.match(str, '^%s*(.-)%s*$')
 
 		local ft
 		if string.byte(str, 1, 1) == 47 then
@@ -2364,7 +2305,7 @@ local functionWriter = (function()
 		else
 			 ft = translateShell(str)
 		end
-		log("FWrite","translated [[",str,"]] to \n",ft)
+		log('FWrite','translated "',str,'" to \n',ft)
 		return ft
 	end
 
@@ -2400,13 +2341,13 @@ local StatusFile = (function()
 	-- Called to check if to write a status file.
 	--
 	local function write(timestamp)
-		log("Function", "write(", timestamp, ")")
+		log('Function', 'write(', timestamp, ')')
 
 		-- some logic to not write too often
 		if settings.statusInterval > 0 then
 			-- already waiting
 			if alarm and timestamp < alarm then
-				log("Statusfile", "waiting(",timestamp," < ",alarm,")")
+				log('Statusfile', 'waiting(',timestamp,' < ',alarm,')')
 				return
 			end
 			-- determines when a next write will be possible
@@ -2414,7 +2355,7 @@ local StatusFile = (function()
 				local nextWrite =
 					lastWritten and timestamp + settings.statusInterval
 				if nextWrite and timestamp < nextWrite then
-					log("Statusfile", "setting alarm: ", nextWrite)
+					log('Statusfile', 'setting alarm: ', nextWrite)
 					alarm = nextWrite
 					return
 				end
@@ -2423,17 +2364,16 @@ local StatusFile = (function()
 			alarm = false
 		end
 
-		log("Statusfile", "writing now")
-		local f, err = io.open(settings.statusFile, "w")
+		log('Statusfile', 'writing now')
+		local f, err = io.open(settings.statusFile, 'w')
 		if not f then
-			log("Error", "Cannot open status file '"..settings.statusFile..
-				"' :"..err)
+			log('Error', 'Cannot open status file "'..settings.statusFile..  '" :'..err)
 			return
 		end
-		f:write("Lsyncd status report at ", os.date(), "\n\n")
+		f:write('Lsyncd status report at ',os.date(),'\n\n')
 		for i, s in Syncs.iwalk() do
 			s:statusReport(f)
-			f:write("\n")
+			f:write('\n')
 		end
 
 		Inotify.statusReport(f)
@@ -2505,11 +2445,11 @@ end)()
 -----
 -- Current status of lsyncd.
 --
--- "init"  ... on (re)init
--- "run"   ... normal operation
--- "fade"  ... waits for remaining processes
+-- 'init'  ... on (re)init
+-- 'run'   ... normal operation
+-- 'fade'  ... waits for remaining processes
 --
-local lsyncdStatus = "init"
+local lsyncdStatus = 'init'
 
 ----
 -- the cores interface to the runner
@@ -2521,16 +2461,15 @@ local runner = {}
 -- Logs a backtrace
 --
 function runner.callError(message)
-	log("Error", "IN LUA: ", message)
+	log('Error', 'IN LUA: ', message)
 	-- prints backtrace
 	local level = 2
 	while true do
-		local info = debug.getinfo(level, "Sl")
+		local info = debug.getinfo(level, 'Sl')
 		if not info then
 			terminate(-1) -- ERRNO
 		end
-		log("Error", "Backtrace ", level - 1, " :",
-			info.short_src, ":", info.currentline)
+		log('Error', 'Backtrace ', level - 1, ' :', info.short_src, ":", info.currentline)
 		level = level + 1
 	end
 end
@@ -2565,16 +2504,16 @@ end
 function runner.cycle(timestamp)
 	-- goes through all syncs and spawns more actions
 	-- if possible
-	if lsyncdStatus == "fade" then
+	if lsyncdStatus == 'fade' then
 		if processCount > 0 then
-			log("Normal", "waiting for ",processCount," more child processes.")
+			log('Normal', 'waiting for ',processCount,' more child processes.')
 			return true
 		else
 			return false
 		end
 	end
-	if lsyncdStatus ~= "run" then
-		error("runner.cycle() called while not running!")
+	if lsyncdStatus ~= 'run' then
+		error('runner.cycle() called while not running!')
 	end
 
 	--- only let Syncs invoke actions if not on global limit
@@ -2602,7 +2541,7 @@ function runner.cycle(timestamp)
 end
 
 -----
--- Called by core before anything is "-help" or "--help" is in
+-- Called by core before anything is '-help' or '--help' is in
 -- the arguments.
 --
 function runner.help()
@@ -2689,11 +2628,11 @@ function runner.configure(args, monitors)
 		monitor =
 			{-1, function(monitor)
 				if not monitor then
-					io.stdout:write("This Lsyncd supports these monitors:\n")
+					io.stdout:write('This Lsyncd supports these monitors:\n')
 					for _, v in ipairs(Monitors.list) do
-						io.stdout:write("   ",v,"\n")
+						io.stdout:write('   ',v,'\n')
 					end
-					io.stdout:write("\n");
+					io.stdout:write('\n');
 					lsyncd.terminate(-1); -- ERRNO
 				else
 					clSettings.monitor=monitor
@@ -2710,21 +2649,21 @@ function runner.configure(args, monitors)
 		rsync    =
 			{2, function(src, trg)
 				clSettings.syncs = clSettings.syncs or {}
-				table.insert(clSettings.syncs, {"rsync", src, trg})
+				table.insert(clSettings.syncs, {'rsync', src, trg})
 			end},
 		rsyncssh =
 			{3, function(src, host, tdir)
 				clSettings.syncs = clSettings.syncs or {}
-				table.insert(clSettings.syncs, {"rsyncssh", src, host, tdir})
+				table.insert(clSettings.syncs, {'rsyncssh', src, host, tdir})
 			end},
 		direct =
 			{2, function(src, trg)
 				clSettings.syncs = clSettings.syncs or {}
-				table.insert(clSettings.syncs, {"direct", src, trg})
+				table.insert(clSettings.syncs, {'direct', src, trg})
 			end},
 		version  =
 			{0, function()
-				io.stdout:write("Version: ", lsyncd_version,"\n")
+				io.stdout:write('Version: ',lsyncd_version,'\n')
 				os.exit(0)
 			end}
 	}
@@ -2733,21 +2672,21 @@ function runner.configure(args, monitors)
 	local i = 1
 	while i <= #args do
 		local a = args[i]
-		if a:sub(1, 1) ~= "-" then
+		if a:sub(1, 1) ~= '-' then
 			table.insert(nonopts, args[i])
 		else
-			if a:sub(1, 2) == "--" then
+			if a:sub(1, 2) == '--' then
 				a = a:sub(3)
 			else
 				a = a:sub(2)
 			end
 			local o = options[a]
 			if not o then
-				log("Error","unknown option command line option ", args[i])
+				log('Error','unknown option command line option ', args[i])
 				os.exit(-1) -- ERRNO
 			end
 			if o[1] >= 0 and i + o[1] > #args then
-				log("Error",a," needs ",o[1]," arguments")
+				log('Error',a,' needs ',o[1],' arguments')
 				os.exit(-1) -- ERRNO
 			elseif o[1] < 0 then
 				o[1] = -o[1]
@@ -2770,8 +2709,7 @@ function runner.configure(args, monitors)
 
 	if clSettings.syncs then
 		if #nonopts ~= 0 then
-			log("Error",
-			"There cannot be command line default syncs with a config file.")
+			log('Error', 'There cannot be command line default syncs with a config file.')
 			os.exit(-1) -- ERRNO
 		end
 	else
@@ -2780,7 +2718,7 @@ function runner.configure(args, monitors)
 		elseif #nonopts == 1 then
 			return nonopts[1]
 		else
-			log("Error", "There can only be one config file in command line.")
+			log('Error', 'There can only be one config file in command line.')
 			os.exit(-1) -- ERRNO
 		end
 	end
@@ -2800,10 +2738,10 @@ function runner.initialize(firstTime)
 	-- From this point on, no globals may be created anymore
 	lockGlobals()
 
-	-- copies simple settings with numeric keys to "key=true" settings.
+	-- copies simple settings with numeric keys to 'key=true' settings.
 	for k, v in ipairs(settings) do
 		if settings[v] then
-			log("Error", "Double setting '"..v.."'")
+			log('Error', 'Double setting "'..v..'"')
 			os.exit(-1) -- ERRNO
 		end
 		settings[v]=true
@@ -2811,7 +2749,7 @@ function runner.initialize(firstTime)
 
 	-- all command line settings overwrite config file settings
 	for k, v in pairs(clSettings) do
-		if k ~= "syncs" then
+		if k ~= 'syncs' then
 			settings[k]=v 
 		end
 	end
@@ -2824,37 +2762,30 @@ function runner.initialize(firstTime)
 	-- adds syncs specified by command line.
 	if clSettings.syncs then
 		for _, s in ipairs(clSettings.syncs) do
-			if s[1] == "rsync" then
+			if s[1] == 'rsync' then
 				sync{default.rsync, source=s[2], target=s[3]}
-			elseif s[1] == "rsyncssh" then
+			elseif s[1] == 'rsyncssh' then
 				sync{default.rsyncssh, source=s[2], host=s[3], targetdir=s[4]}
-			elseif s[1] == "direct" then
+			elseif s[1] == 'direct' then
 				sync{default.direct, source=s[2], target=s[3]}
 			end
 		end
 	end
 
 	if settings.nodaemon then
-		lsyncd.configure("nodaemon")
+		lsyncd.configure('nodaemon')
 	end
 	if settings.logfile then
-		lsyncd.configure("logfile", settings.logfile)
+		lsyncd.configure('logfile', settings.logfile)
 	end
 	if settings.logident then
-		lsyncd.configure("logident", settings.logident)
+		lsyncd.configure('logident', settings.logident)
 	end
 	if settings.logfacility then
-		lsyncd.configure("logfacility", settings.logfacility)
+		lsyncd.configure('logfacility', settings.logfacility)
 	end
 	if settings.pidfile then
-		lsyncd.configure("pidfile", settings.pidfile)
-	end
-
-	-- TODO: Remove after deprecation timespan.
-	if settings.statusIntervall ~= nil and settings.statusInterval == nil then
-		log("Warn", 
-		  "The setting 'statusIntervall' has been renamed to 'statusInterval'.")
-		settings.statusInterval = settings.statusIntervall
+		lsyncd.configure('pidfile', settings.pidfile)
 	end
 
 	-----
@@ -2865,18 +2796,17 @@ function runner.initialize(firstTime)
 
 	-- makes sure the user gave Lsyncd anything to do
 	if Syncs.size() == 0 then
-		log("Error", "Nothing to watch!")
-		log("Error", "Use sync(SOURCE, TARGET, BEHAVIOR) in your config file.");
+		log('Error', 'Nothing to watch!')
 		os.exit(-1) -- ERRNO
 	end
 
 	-- from now on use logging as configured instead of stdout/err.
-	lsyncdStatus = "run";
-	lsyncd.configure("running");
+	lsyncdStatus = 'run';
+	lsyncd.configure('running');
 
 	local ufuncs = {
-		"onAttrib", "onCreate", "onDelete",
-		"onModify", "onMove",   "onStartup"
+		'onAttrib', 'onCreate', 'onDelete',
+		'onModify', 'onMove',   'onStartup',
 	}
 
 	-- translates layer 3 scripts
@@ -2886,20 +2816,19 @@ function runner.initialize(firstTime)
 		for _, fn in ipairs(ufuncs) do
 			if type(config[fn]) == 'string' then
 				local ft = functionWriter.translate(config[fn])
-				config[fn] = assert(loadstring("return " .. ft))()
+				config[fn] = assert(loadstring('return '..ft))()
 			end
 		end
 	end
 
 	-- runs through the Syncs created by users
 	for _, s in Syncs.iwalk() do
-		if s.config.monitor == "inotify" then
+		if s.config.monitor == 'inotify' then
 			Inotify.addSync(s, s.source)
-		elseif s.config.monitor == "fsevents" then
+		elseif s.config.monitor == 'fsevents' then
 			Fsevents.addSync(s, s.source)
 		else
-			error("sync "..s.config.name..
-				" has no known event monitor interface.")
+			error('sync '..s.config.name..' has no known event monitor interface.')
 		end
 		-- if the sync has an init function, stacks an init delay
 		-- that will cause the init function to be called.
@@ -2917,7 +2846,7 @@ end
 --         times ... the alarm time (only read if number is 1)
 --
 function runner.getAlarm()
-	if lsyncdStatus ~= "run" then
+	if lsyncdStatus ~= 'run' then
 		return false
 	end
 	local alarm = false
@@ -2926,7 +2855,7 @@ function runner.getAlarm()
 	--
 	local function checkAlarm(a) 
 		if a == nil then
-			error("got nil alarm")
+			error('got nil alarm')
 		end
 		if alarm == true or not a then
 			-- already immediate or no new alarm
@@ -2945,7 +2874,7 @@ function runner.getAlarm()
 			checkAlarm(s:getAlarm())
 		end
 	else
-		log("Alarm", "at global process limit.")
+		log('Alarm', 'at global process limit.')
 	end
 
 	-- checks if a statusfile write has been delayed
@@ -2953,7 +2882,7 @@ function runner.getAlarm()
 	-- checks for an userAlarm
 	checkAlarm(UserAlarms.getAlarm())
 
-	log("Alarm","runner.getAlarm returns: ",alarm)
+	log('Alarm', 'runner.getAlarm returns: ',alarm)
 	return alarm
 end
 
@@ -2976,7 +2905,7 @@ runner.fsEventsEvent = Fsevents.event
 --
 function runner.collector(pid, exitcode)
 	if exitcode ~= 0 then
-		log("Error", "Startup process", pid, " failed")
+		log('Error', 'Startup process',pid,' failed')
 		terminate(-1) -- ERRNO
 	end
 	return 0
@@ -2986,24 +2915,24 @@ end
 -- Called by core when an overflow happened.
 --
 function runner.overflow()
-	log("Normal", "--- OVERFLOW on inotify event queue ---")
-	lsyncdStatus = "fade"
+	log('Normal', '--- OVERFLOW in event queue ---')
+	lsyncdStatus = 'fade'
 end
 
 -----
 -- Called by core on a hup signal.
 --
 function runner.hup()
-	log("Normal", "--- HUP signal, resetting ---")
-	lsyncdStatus = "fade"
+	log('Normal', '--- HUP signal, resetting ---')
+	lsyncdStatus = 'fade'
 end
 
 -----
 -- Called by core on a term signal.
 --
 function runner.term()
-	log("Normal", "--- TERM signal, fading ---")
-	lsyncdStatus = "fade"
+	log('Normal', '--- TERM signal, fading ---')
+	lsyncdStatus = 'fade'
 end
 
 --============================================================================
@@ -3015,8 +2944,8 @@ end
 -- @returns an Inlet to that sync.
 --
 function sync(opts)
-	if lsyncdStatus ~= "init" then
-		error("Sync can only be created on initialization.", 2)
+	if lsyncdStatus ~= 'init' then
+		error('Sync can only be created during initialization.', 2)
 	end
 	return Syncs.add(opts).inlet
 end
@@ -3032,29 +2961,30 @@ end
 -- @param ...     arguments
 --
 function spawn(agent, binary, ...)
-	if agent == nil or type(agent) ~= "table" then
-		error("spawning with an invalid agent", 2)
+	if agent == nil or type(agent) ~= 'table' then
+		error('spawning with an invalid agent', 2)
 	end
-	if lsyncdStatus == "fade" then
-		log("Normal", "ignored spawn processs since status fading")
+	if lsyncdStatus == 'fade' then
+		log('Normal', 'ignored process spawning while fading')
+		return
 	end
-	if type(binary) ~= "string" then
-		error("calling spawn(agent, binary, ...), binary is not a string", 2)
+	if type(binary) ~= 'string' then
+		error('calling spawn(agent, binary, ...), binary is not a string', 2)
 	end
 	local dol = InletFactory.getDelayOrList(agent)
 	if not dol then
-		error("spawning with an unknown agent", 2)
+		error('spawning with an unknown agent', 2)
 	end
 
 	-- checks if spawn is called on already active event
 	if dol.status then
 		if dol.status ~= "wait" then
-			error("Spawn() called on an non-waiting event", 2)
+			error('spawn() called on an non-waiting event', 2)
 		end
 	else -- is a list
 		for _, d in ipairs(dol) do
-			if d.status ~= "wait" and d.status ~= "block" then
-				error("Spawn() called on an non-waiting event list", 2)
+			if d.status ~= 'wait' and d.status ~= 'block' then
+				error('spawn() called on an non-waiting event list', 2)
 			end
 		end
 	end
@@ -3064,18 +2994,18 @@ function spawn(agent, binary, ...)
 	if pid and pid > 0 then
 		processCount = processCount + 1
 		if settings.maxProcesses and processCount > settings.maxProcesses then
-			error("Spawned too much processes!")
+			error('Spawned too much processes!')
 		end
 		local sync = InletFactory.getSync(agent)
 		-- delay or list
 		if dol.status then
 			-- is a delay
-			dol.status = "active"
+			dol.status = 'active'
 			sync.processes[pid] = dol
 		else 
 			-- is a list
 			for _, d in ipairs(dol) do
-				d.status = "active"
+				d.status = 'active'
 			end
 			sync.processes[pid] = dol
 		end
@@ -3086,7 +3016,7 @@ end
 -- Spawns a child process using the default shell.
 --
 function spawnShell(agent, command, ...)
-	return spawn(agent, "/bin/sh", "-c", command, "/bin/sh", ...)
+	return spawn(agent, '/bin/sh', '-c', command, '/bin/sh', ...)
 end
 
 -----
@@ -3135,34 +3065,34 @@ end
 -- Exitcodes to retry on network failures of rsync.
 --
 local rsync_exitcodes = {
-	[  0] = "ok",
-	[  1] = "die",
-	[  2] = "die",
-	[  3] = "again",
-	[  4] = "die",
-	[  5] = "again",
-	[  6] = "again",
-	[ 10] = "again", 
-	[ 11] = "again",
-	[ 12] = "again", 
-	[ 14] = "again",
-	[ 20] = "again",
-	[ 21] = "again",
-	[ 22] = "again",
-	[ 23] = "ok", -- partial transfers are ok, since Lsyncd has registered the event that 
-	[ 24] = "ok", -- caused the transfer to be partial and will recall rsync.
-	[ 25] = "die",
-	[ 30] = "again",
-	[ 35] = "again",
-	[255] = "again",
+	[  0] = 'ok',
+	[  1] = 'die',
+	[  2] = 'die',
+	[  3] = 'again',
+	[  4] = 'die',
+	[  5] = 'again',
+	[  6] = 'again',
+	[ 10] = 'again', 
+	[ 11] = 'again',
+	[ 12] = 'again', 
+	[ 14] = 'again',
+	[ 20] = 'again',
+	[ 21] = 'again',
+	[ 22] = 'again',
+	[ 23] = 'ok', -- partial transfers are ok, since Lsyncd has registered the event that 
+	[ 24] = 'ok', -- caused the transfer to be partial and will recall rsync.
+	[ 25] = 'die',
+	[ 30] = 'again',
+	[ 35] = 'again',
+	[255] = 'again',
 }
 
 -----
 -- Exitcodes to retry on network failures of rsync.
 --
 local ssh_exitcodes = {
-	[0]   = "ok",
-	[255] = "again",
+	[0]   = 'ok',
+	[255] = 'again',
 }
 
 -----
@@ -3176,7 +3106,7 @@ local default_rsync = {
 		-- gets all events ready for syncing
 		local elist = inlet.getEvents(
 			function(event) 
-				return event.etype ~= "Init" and event.etype ~= "Blanket"
+				return event.etype ~= 'Init' and event.etype ~= 'Blanket'
 			end
 		)
 	
@@ -3187,16 +3117,16 @@ local default_rsync = {
 			if not p then
 				return 
 			end
-			return p:gsub("%?", "\\?"):
-			       gsub("%*", "\\*"):
-			       gsub("%[", "\\["):
-			       gsub("%]", "\\]")
+			return p:gsub('%?', '\\?'):
+			         gsub('%*', '\\*'):
+			         gsub('%[', '\\['):
+			         gsub('%]', '\\]')
 		end
 
 		local paths = elist.getPaths(
 			function(etype, path1, path2) 
-				if etype == "Delete" and string.byte(path1, -1) == 47 then
-					return sub(path1) .. "***", sub(path2)
+				if etype == 'Delete' and string.byte(path1, -1) == 47 then
+					return sub(path1)..'***', sub(path2)
 				else
 					return sub(path1), sub(path2)
 				end
@@ -3222,33 +3152,31 @@ local default_rsync = {
 		-- adds a path to the filter, for rsync this needs
 		-- to have entries for all steps in the path, so the file
 		-- d1/d2/d3/f1 needs filters 
-		-- "d1/", "d1/d2/", "d1/d2/d3/" and "d1/d2/d3/f1"
+		-- 'd1/', 'd1/d2/', 'd1/d2/d3/' and 'd1/d2/d3/f1'
 		for _, path in ipairs(paths) do
 			if path and path ~="" then
 				addToFilter(path)
-				local pp = string.match(path, "^(.*/)[^/]+/?")
+				local pp = string.match(path, '^(.*/)[^/]+/?')
 				while pp do
 					addToFilter(pp)
-					pp = string.match(pp, "^(.*/)[^/]+/?")
+					pp = string.match(pp, '^(.*/)[^/]+/?')
 				end
 			end
 		end
 		
-		local filterS = table.concat(filterI, "\n")
-		local filter0 = table.concat(filterI, "\000")
-		log("Normal", 
-			"Calling rsync with filter-list of new/modified files/dirs\n", 
-			filterS)
+		local filterS = table.concat(filterI, '\n')
+		local filter0 = table.concat(filterI, '\000')
+		log('Normal', 'Calling rsync with filter-list of new/modified files/dirs\n', filterS)
 		local config = inlet.getConfig() 
 		spawn(elist, config.rsyncBinary, 
-			"<", filter0,
+			'<', filter0,
 			config.rsyncOpts,
-			"-r",
-			"--delete",
-			"--force",
-			"--from0",
-			"--include-from=-",
-			"--exclude=*",
+			'-r',
+			'--delete',
+			'--force',
+			'--from0',
+			'--include-from=-',
+			'--exclude=*',
 			config.source, 
 			config.target)
 	end,
@@ -3261,22 +3189,22 @@ local default_rsync = {
 		local inlet = event.inlet;
 		local excludes = inlet.getExcludes();
 		if #excludes == 0 then
-			log("Normal", "recursive startup rsync: ", config.source,
-				" -> ", config.target)
+			log('Normal', 'recursive startup rsync: ', config.source, ' -> ', config.target)
 			spawn(event, config.rsyncBinary, 
-				"--delete",
-				config.rsyncOpts, "-r", 
+				'--delete',
+				config.rsyncOpts,
+				'-r', 
 				config.source, 
 				config.target)
 		else
 			local exS = table.concat(excludes, "\n")
-			log("Normal", "recursive startup rsync: ", config.source,
-				" -> ", config.target," excluding\n", exS)
+			log('Normal', 'recursive startup rsync: ',config.source,
+				' -> ',config.target,' excluding\n',exS)
 			spawn(event, config.rsyncBinary,  
-				"<", exS,
-				"--exclude-from=-",
-				"--delete",
-				config.rsyncOpts, "-r", 
+				'<', exS,
+				'--exclude-from=-',
+				'--delete',
+				config.rsyncOpts, '-r',
 				config.source, 
 				config.target)
 		end
@@ -3287,31 +3215,24 @@ local default_rsync = {
 	--
 	prepare = function(config)
 		if not config.target then
-			error("default.rsync needs 'target' configured", 4)
-		end
-
-		if config.rsyncOps then
-			if config.rsyncOpts ~= "-lts" then
-				error("'rsyncOpts' and 'rsyncOps' provided in config, decide for one.")
-			end
-			config.rsyncOpts = config.rsyncOps
+			error('default.rsync needs "target" configured', 4)
 		end
 
 		-- appends a / to target if not present
-		if string.sub(config.target, -1) ~= "/" then
-			config.target = config.target .. "/"
+		if string.sub(config.target, -1) ~= '/' then
+			config.target = config.target..'/'
 		end
 	end,
 	
 	-----
 	-- The rsync binary called.
 	--
-	rsyncBinary = "/usr/bin/rsync",
+	rsyncBinary = '/usr/bin/rsync',
 
 	-----
 	-- Calls rsync with this default short opts.
 	--
-	rsyncOpts = "-lts",
+	rsyncOpts = '-lts',
 
 	-----
 	-- exit codes for rsync.
@@ -3339,12 +3260,13 @@ local default_rsyncssh = {
 		-- makes move local on host
 		-- if fails deletes the source...
 		if event.etype == 'Move' then
-			log("Normal", "Moving ",event.path," -> ",event2.path)
-			spawn(event, "/usr/bin/ssh", 
-				config.host, "mv",
+			log('Normal', 'Moving ',event.path,' -> ',event2.path)
+			spawn(event, '/usr/bin/ssh', 
+				config.host, 
+				'mv',
 				'\"' .. config.targetdir .. event.path .. '\"', 
 				'\"' .. config.targetdir .. event2.path .. '\"', 
-				"||", "rm", "-rf", 
+				'||', 'rm', '-rf', 
 				'\"' .. config.targetdir .. event.path .. '\"')
 			return
 		end
@@ -3354,7 +3276,7 @@ local default_rsyncssh = {
 		if event.etype == 'Delete' then
 			local elist = inlet.getEvents(
 				function(e)
-					return e.etype == "Delete"
+					return e.etype == 'Delete'
 				end)
 
 			local paths = elist.getPaths(
@@ -3367,17 +3289,17 @@ local default_rsyncssh = {
 				end)
 
 			for _, v in pairs(paths) do
-				if string.match(v, "^%s*/+%s*$") then
-					log("Error", "refusing to `rm -rf /` the target!")
+				if string.match(v, '^%s*/+%s*$') then
+					log('Error', 'refusing to `rm -rf /` the target!')
 					terminate(-1) -- ERRNO
 				end
 			end
 
 			local sPaths = table.concat(paths, "\n")
 			local zPaths = table.concat(paths, config.xargs.delimiter)
-			log("Normal", "Deleting list\n", sPaths)
-			spawn(elist, "/usr/bin/ssh", 
-				"<", zPaths,
+			log('Normal', 'Deleting list\n', sPaths)
+			spawn(elist, '/usr/bin/ssh', 
+				'<', zPaths,
 				config.host, 
 				config.xargs.binary, config.xargs.xparams)
 			return
@@ -3385,11 +3307,12 @@ local default_rsyncssh = {
 
 		-- for everything else spawn a rsync
 		local elist = inlet.getEvents(
-			function(e) 
-				return e.etype ~= "Move" and 
-				       e.etype ~= "Delete" and
-					   e.etype ~= "Init" and
-					   e.etype ~= "Blanket" 
+			function(e)
+				-- TODO use a table
+				return e.etype ~= 'Move' and 
+				       e.etype ~= 'Delete' and
+					   e.etype ~= 'Init' and
+					   e.etype ~= 'Blanket' 
 			end)
 		local paths = elist.getPaths()
 		
@@ -3401,15 +3324,15 @@ local default_rsyncssh = {
 		end
 		local sPaths = table.concat(paths, "\n") 
 		local zPaths = table.concat(paths, "\000")
-		log("Normal", "Rsyncing list\n", sPaths)
+		log('Normal', 'Rsyncing list\n', sPaths)
 		spawn(
 			elist, config.rsyncBinary, 
-			"<", zPaths, 
+			'<', zPaths, 
 			config.rsyncOpts,
-			"--from0",
-			"--files-from=-",
+			'--from0',
+			'--files-from=-',
 			config.source, 
-			config.host .. ":" .. config.targetdir
+			config.host .. ':' .. config.targetdir
 		)
 	end,
 		
@@ -3417,9 +3340,9 @@ local default_rsyncssh = {
 	-- Called when collecting a finished child process
 	--
 	collect = function(agent, exitcode)
-		if not agent.isList and agent.etype == "Init" then
+		if not agent.isList and agent.etype == 'Init' then
 			local rc = rsync_exitcodes[exitcode]
-			if rc == "ok" then
+			if rc == 'ok' then
 				log("Normal", "Startup of '",agent.source,"' finished.")
 			elseif rc == "again" then
 				if settings.insist then
@@ -3663,7 +3586,7 @@ local default_direct = {
 	--
 	prepare = function(config)
 		if not config.target then
-			error("default.direct needs 'target' configured", 4)
+			error('default.direct needs "target".', 4)
 		end
 	end,
 
@@ -3680,12 +3603,12 @@ local default_direct = {
 	-----
 	-- The rsync binary called.
 	--
-	rsyncBinary = "/usr/bin/rsync",
+	rsyncBinary = '/usr/bin/rsync',
 	
 	-----
 	-- For startup sync
 	--
-	rsyncOpts = "-lts",
+	rsyncOpts = '-lts',
 
 	-----
 	-- On many system multiple disk operations just rather slow down
@@ -3710,13 +3633,13 @@ default = {
 		-- in case of moves getEvent returns the origin and dest of the move
 		local event, event2 = inlet.getEvent()
 		local config = inlet.getConfig()
-		local func = config["on".. event.etype]
+		local func = config['on'.. event.etype]
 		if func then
 			func(event, event2)
 		end
 		-- if function didnt change the wait status its not interested
 		-- in this event -> drop it.
-		if event.status == "wait" then
+		if event.status == 'wait' then
 			inlet.discardEvent(event)
 		end
 	end,
