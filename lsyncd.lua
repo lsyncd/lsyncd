@@ -9,7 +9,7 @@
 -- It works closely together with the Lsyncd core in lsyncd.c. This means it
 -- cannot be runned directly from the standard lua interpreter.
 --============================================================================
--- require("profiler")
+-- require('profiler')
 -- profiler.start()
 
 -----
@@ -1862,7 +1862,7 @@ local Inotify = (function()
 			-- creates a Create event for entry.
 			if raiseSync then
 				local relative = splitPath(pd, syncRoots[raiseSync])
-				if relative then raiseSync:delay("Create", raiseTime, relative) end
+				if relative then raiseSync:delay('Create', raiseTime, relative) end
 			end
 			-- adds syncs for subdirs
 			if isdir then addWatch(pd, true, raiseSync, raiseTime) end
@@ -1870,10 +1870,10 @@ local Inotify = (function()
 	end
 
 	-----
-	-- adds a Sync to receive events
+	-- Adds a Sync to receive events.
 	--
-	-- @param sync   Object to receive events
-	-- @param rootdir   root dir to watch
+	-- sync:    Object to receive events
+	-- rootdir: root dir to watch
 	--
 	local function addSync(sync, rootdir)
 		if syncRoots[sync] then
@@ -1886,12 +1886,13 @@ local Inotify = (function()
 	-----
 	-- Called when an event has occured.
 	--
-	-- @param etype     "Attrib", "Mofify", "Create", "Delete", "Move")
-	-- @param wd        watch descriptor (matches lsyncd.inotifyadd())
-	-- @param isdir     true if filename is a directory
-	-- @param time      time of event
-	-- @param filename  string filename without path
-	-- @param filename2
+	-- etype:     'Attrib', 'Mofify', 'Create', 'Delete', 'Move'
+	-- wd:        watch descriptor, matches lsyncd.inotifyadd()
+	-- isdir:     true if filename is a directory
+	-- time:      time of event
+	-- filename:  string filename without path
+	-- wd2:       watch descriptor for target if it's a Move
+	-- filename2: string filename without path of Move target
 	--
 	local function event(etype, wd, isdir, time, filename, wd2, filename2)
 		if isdir then
@@ -1913,16 +1914,15 @@ local Inotify = (function()
 		if path2 and filename2 then path2 = path2..filename2 end
 
 		if not path and path2 and etype == 'Move' then
-			log("Inotify", "Move from deleted directory ",path2,
-				" becomes Create.")
+			log('Inotify', 'Move from deleted directory ',path2,' becomes Create.')
 			path = path2
 			path2 = nil
-			etype = "Create"
+			etype = 'Create'
 		end
 
 		if not path then
 			-- this is normal in case of deleted subdirs
-			log("Inotify", "event belongs to unknown watch descriptor.")
+			log('Inotify', 'event belongs to unknown watch descriptor.')
 			return
 		end
 
@@ -1989,6 +1989,7 @@ end)()
 -- All fsevents specific implementation should be enclosed here.
 --
 local Fsevents = (function()
+
 	-----
 	-- A list indexed by sync's containing the root path this
 	-- sync is interested in.
@@ -2469,7 +2470,7 @@ function runner.callError(message)
 		if not info then
 			terminate(-1) -- ERRNO
 		end
-		log('Error', 'Backtrace ', level - 1, ' :', info.short_src, ":", info.currentline)
+		log('Error', 'Backtrace ',level - 1,' :',info.short_src,':',info.currentline)
 		level = level + 1
 	end
 end
@@ -2480,14 +2481,10 @@ end
 --
 function runner.collectProcess(pid, exitcode)
 	processCount = processCount - 1
-	if processCount < 0 then
-		error("negative number of processes!")
-	end
+	if processCount < 0 then error('negative number of processes!') end
 
 	for _, s in Syncs.iwalk() do
-		if s:collect(pid, exitcode) then
-			return
-		end
+		if s:collect(pid, exitcode) then return end
 	end
 end
 
@@ -2978,7 +2975,7 @@ function spawn(agent, binary, ...)
 
 	-- checks if spawn is called on already active event
 	if dol.status then
-		if dol.status ~= "wait" then
+		if dol.status ~= 'wait' then
 			error('spawn() called on an non-waiting event', 2)
 		end
 	else -- is a list
@@ -3154,7 +3151,7 @@ local default_rsync = {
 		-- d1/d2/d3/f1 needs filters 
 		-- 'd1/', 'd1/d2/', 'd1/d2/d3/' and 'd1/d2/d3/f1'
 		for _, path in ipairs(paths) do
-			if path and path ~="" then
+			if path and path ~= '' then
 				addToFilter(path)
 				local pp = string.match(path, '^(.*/)[^/]+/?')
 				while pp do
@@ -3197,7 +3194,7 @@ local default_rsync = {
 				config.source, 
 				config.target)
 		else
-			local exS = table.concat(excludes, "\n")
+			local exS = table.concat(excludes, '\n')
 			log('Normal', 'recursive startup rsync: ',config.source,
 				' -> ',config.target,' excluding\n',exS)
 			spawn(event, config.rsyncBinary,  
@@ -3295,7 +3292,7 @@ local default_rsyncssh = {
 				end
 			end
 
-			local sPaths = table.concat(paths, "\n")
+			local sPaths = table.concat(paths, '\n')
 			local zPaths = table.concat(paths, config.xargs.delimiter)
 			log('Normal', 'Deleting list\n', sPaths)
 			spawn(elist, '/usr/bin/ssh', 
@@ -3322,8 +3319,8 @@ local default_rsyncssh = {
 				paths[k] = string.sub(v, 1, -2)
 			end
 		end
-		local sPaths = table.concat(paths, "\n") 
-		local zPaths = table.concat(paths, "\000")
+		local sPaths = table.concat(paths, '\n') 
+		local zPaths = table.concat(paths, '\000')
 		log('Normal', 'Rsyncing list\n', sPaths)
 		spawn(
 			elist, config.rsyncBinary, 
@@ -3343,52 +3340,45 @@ local default_rsyncssh = {
 		if not agent.isList and agent.etype == 'Init' then
 			local rc = rsync_exitcodes[exitcode]
 			if rc == 'ok' then
-				log("Normal", "Startup of '",agent.source,"' finished.")
-			elseif rc == "again" then
+				log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
+			elseif rc == 'again' then
 				if settings.insist then
-					log("Normal", "Retrying startup of '",agent.source,"'.")
+					log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
 				else
-					log("Error", 
-					"Temporary or permanent failure on startup. Terminating since not insisting.");
+					log('Error', 'Temporary or permanent failure on startup of "',
+					agent.source, '". Terminating since "insist" is not set.');
 					terminate(-1) -- ERRNO
 				end
-			elseif rc == "die" then
-				log("Error", "Failure on startup of '",agent.source,"'.")
+			elseif rc == 'die' then
+				log('Error', 'Failure on startup of "',agent.source,'": ', exitcode)
 			else
-				log("Error", "Unknown exitcode '",exticode,"' with a list")
-				rc = "die"
+				log('Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode)
+				rc = 'die'
 			end
 			return rc
 		end
 
 		if agent.isList then
 			local rc = rsync_exitcodes[exitcode] 
-			if rc == "ok" then
-				log("Normal", "Finished a list = ",exitcode)
-			elseif rc == "again" then
-				log("Normal", "Retrying a list on exitcode = ",exitcode)
-			elseif rc == "die" then
-				log("Error", "Failure on list on exitcode = ",exitcode)
-			else 
-				log("Error", "Unknown exitcode on list = ",exitcode)
-				rc = "die"
+			if     rc == 'ok'    then log('Normal', 'Finished (list): ',exitcode)
+			elseif rc == 'again' then log('Normal', 'Retrying (list): ',exitcode)
+			elseif rc == 'die'   then log('Error',  'Failure (list): ', exitcode)
+			else
+				log('Error', 'Unknown exitcode (list): ',exitcode)
+				rc = 'die'
 			end
 			return rc
 		else
 			local rc = ssh_exitcodes[exitcode] 
-			if rc == "ok" then
-				log("Normal", "Finished ",agent.etype,
-					" on ",agent.sourcePath," = ",exitcode)
-			elseif rc == "again" then
-				log("Normal", "Retrying ",agent.etype,
-					" on ",agent.sourcePath," = ",exitcode)
-			elseif rc == "die" then
-				log("Normal", "Failure ",agent.etype,
-					" on ",agent.sourcePath," = ",exitcode)
+			if rc == 'ok' then
+				log('Normal', 'Finished ',agent.etype,' ',agent.sourcePath,': ',exitcode)
+			elseif rc == 'again' then
+				log('Normal', 'Retrying ',agent.etype,' ',agent.sourcePath,': ',exitcode)
+			elseif rc == 'die' then
+				log('Normal', 'Failure ',agent.etype,' ',agent.sourcePath,': ',exitcode)
 			else
-				log("Error", "Unknown exitcode ",agent.etype,
-					" on ",agent.sourcePath," = ",exitcode)
-				rc = "die"
+				log('Error', 'Unknown exitcode ',agent.etype,' ',agent.sourcePath,': ',exitcode)
+				rc = 'die'
 			end
 			return rc
 		end
@@ -3400,31 +3390,32 @@ local default_rsyncssh = {
 	init = function(event)
 		local config = event.config
 		local inlet = event.inlet
-		local excludes = inlet.getExcludes();
+		local excludes = inlet.getExcludes()
+		local target = config.host .. ':' .. config.targetdir
+
 		if #excludes == 0 then
-			log("Normal", "recursive startup rsync: ", config.source,
-				" -> ", config.host .. ":" .. config.targetdir)
+			log('Normal', 'Recursive startup rsync: ',config.source,' -> ',target)
 			spawn(
 				event, config.rsyncBinary, 
-				"--delete",
-				"-r", 
+				'--delete',
+				'-r', 
 				config.rsyncOpts, 
 				config.source, 
-				config.host .. ":" .. config.targetdir
+				target
 			)
 		else
-			local exS = table.concat(excludes, "\n")
-			log("Normal", "recursive startup rsync: ", config.source,
-				" -> ", config.host .. ":" .. config.targetdir, " excluding\n")
+			local exS = table.concat(excludes, '\n')
+			log('Normal', 'Recursive startup rsync: ',config.source,
+				' -> ',target,' with excludes.')
 			spawn(
 				event, config.rsyncBinary,  
-				"<", exS,
-				"--exclude-from=-",
-				"--delete",
-				"-r",
+				'<', exS,
+				'--exclude-from=-',
+				'--delete',
+				'-r',
 				config.rsyncOpts, 
 				config.source, 
-				config.host .. ":" .. config.targetdir
+				target
 			)
 		end
 	end,
@@ -3433,34 +3424,24 @@ local default_rsyncssh = {
 	-- Checks the configuration.
 	--
 	prepare = function(config)
-		if config.rsyncOps then
-			if config.rsyncOpts ~= "-lts" then
-				error("'rsyncOpts' and 'rsyncOps' provided in config, decide for one.")
-			end
-			config.rsyncOpts = config.rsyncOps
-		end
-		if not config.host then
-			error("default.rsyncssh needs 'host' configured", 4)
-		end
-		if not config.targetdir then
-			error("default.rsyncssh needs 'targetdir' configured", 4)
-		end
+		if not config.host      then error('default.rsyncssh needs "host" configured', 4) end
+		if not config.targetdir then error('default.rsyncssh needs "targetdir" configured', 4) end
 
 		-- appends a slash to the targetdir if missing
-		if string.sub(config.targetdir, -1) ~= "/" then
-			config.targetdir = config.targetdir .. "/"
+		if string.sub(config.targetdir, -1) ~= '/' then
+			config.targetdir = config.targetdir .. '/'
 		end
 	end,
 	
 	-----
 	-- The rsync binary called.
 	--
-	rsyncBinary = "/usr/bin/rsync",
+	rsyncBinary = '/usr/bin/rsync',
 
 	-----
 	-- Calls rsync with this default short opts.
 	--
-	rsyncOpts = "-lts",
+	rsyncOpts = '-lts',
 
 	-----
 	-- allow processes
@@ -3483,7 +3464,11 @@ local default_rsyncssh = {
 	-- available this is simpler than to build filters for rsync for this.
 	-- Default uses '0' as limiter, you might override this for old systems.
 	--
-	xargs = {binary = "/usr/bin/xargs", delimiter = '\000', xparams = {"-0", "rm -rf"}}
+	xargs = {
+		binary = '/usr/bin/xargs',
+		delimiter = '\000',
+		xparams = {'-0', 'rm -rf'}
+	}
 }
 
 -----
@@ -3498,47 +3483,53 @@ local default_direct = {
 		-- gets all events ready for syncing
 		local event, event2 = inlet.getEvent()
 
-		if event.etype == "Create" then
+		if event.etype == 'Create' then
 			if event.isdir then
-				spawn(event,
-					"/bin/mkdir",
-					"-p",
+				spawn(
+					event,
+					'/bin/mkdir',
+					'-p',
 					event.targetPath
 				)
 			else
-				spawn(event, 
-					"/bin/cp", 
-					"-t", 
+				spawn(
+					event, 
+					'/bin/cp',
+					'-t',
 					event.targetPathdir,
 					event.sourcePath 
 				)
 			end
-		elseif event.etype == "Modify" then
+		elseif event.etype == 'Modify' then
 			if event.isdir then
 				error("Do not know how to handle 'Modify' on dirs")
 			end
 			spawn(event, 
-				"/bin/cp", 
-				"-t", 
+				'/bin/cp',
+				'-t',
 				event.targetPathdir,
 				event.sourcePath 
 			)
-		elseif event.etype == "Delete" then
+		elseif event.etype == 'Delete' then
 			local tp = event.targetPath
 			-- extra security check
-			if tp == "" or tp == "/" or not tp then
-				error("Refusing to erase your harddisk")
+			if tp == '' or tp == '/' or not tp then
+				error('Refusing to erase your harddisk!')
 			end
-			spawn(event, "/bin/rm", "-rf", tp)
-		elseif event.etype == "Move" then
+			spawn(event, '/bin/rm', '-rf', tp)
+		elseif event.etype == 'Move' then
 			local tp = event.targetPath
 			-- extra security check
-			if tp == "" or tp == "/" or not tp then
-				error("Refusing to erase your harddisk")
+			if tp == '' or tp == '/' or not tp then
+				error('Refusing to erase your harddisk!')
 			end
-			spawnShell(event, "/bin/mv $1 $2 || /bin/rm -rf $1", event.targetPath, event2.targetPath)
+			spawnShell(
+				event,
+				'/bin/mv $1 $2 || /bin/rm -rf $1',
+				event.targetPath,
+				event2.targetPath)
 		else
-			log("Warn", "ignored an event of type '", event.etype, "'")
+			log('Warn', 'ignored an event of type "',event.etype, '"')
 			inlet.discardEvent(event)
 		end
 	end,
@@ -3549,23 +3540,23 @@ local default_direct = {
 	collect = function(agent, exitcode)
 		local config = agent.config
 		
-		if not agent.isList and agent.etype == "Init" then
+		if not agent.isList and agent.etype == 'Init' then
 			local rc = rsync_exitcodes[exitcode]
-			if rc == "ok" then
-				log("Normal", "Startup of '",agent.source,"' finished.")
-			elseif rc == "again" then
+			if rc == 'ok' then
+				log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
+			elseif rc == 'again' then
 				if settings.insist then
-					log("Normal", "Retrying startup of '",agent.source,"'.")
+					log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
 				else
-					log("Error", 
-					"Temporary or permanent failure on startup. Terminating since not insisting.");
+					log('Error', 'Temporary or permanent failure on startup of "',
+					agent.source, '". Terminating since "insist" is not set.');
 					terminate(-1) -- ERRNO
 				end
-			elseif rc == "die" then
-				log("Error", "Failure on startup of '",agent.source,"'.")
+			elseif rc == 'die' then
+				log('Error', 'Failure on startup of "',agent.source,'": ', exitcode)
 			else
-				log("Error", "Unknown exitcode '",exticode,"' with a list")
-				rc = "die"
+				log('Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode)
+				rc = 'die'
 			end
 			return rc
 		end
@@ -3655,70 +3646,66 @@ default = {
 		if config.exitcodes then
 			rc = config.exitcodes[exitcode]
 		elseif exitcode == 0 then
-			rc = "ok"
+			rc = 'ok'
 		else
-			rc = "die"
+			rc = 'die'
 		end
 
-		if not agent.isList and agent.etype == "Init" then
-			if rc == "ok" then
-				log("Normal", "Startup of '",agent.source,"' finished.")
-				return "ok"
-			elseif rc == "again" then
-				log("Normal", "Retrying startup of '",agent.source,"'.")
+		-- TODO synchronize with similar code before
+		if not agent.isList and agent.etype == 'Init' then
+			if rc == 'ok' then
+				log('Normal', 'Startup of "',agent.source,'" finished.')
+				return 'ok'
+			elseif rc == 'again' then
+				log('Normal', 'Retrying startup of "',agent.source,'".')
 				return "again"
-			elseif rc == "die" then
-				log("Error", "Failure on startup of '",agent.source,"'.")
+			elseif rc == 'die' then
+				log('Error', 'Failure on startup of "',agent.source,'".')
 				terminate(-1) -- ERRNO
 			else
-				log("Error", "Unknown exitcode '",exitcode,"' on startup of '",agent.source,"'.")
-				return "die"
+				log('Error', 'Unknown exitcode "',exitcode,'" on startup of "',agent.source,'".')
+				return 'die'
 			end
 		end
 
 		if agent.isList then
-			if rc == "ok" then
-				log("Normal", "Finished a list = ",exitcode)
-			elseif rc == "again" then
-				log("Normal", "Retrying a list on exitcode = ",exitcode)
-			elseif rc == "die" then
-				log("Error", "Failure with a list on exitcode = ",exitcode)
+			if rc == 'ok'        then log('Normal', 'Finished a list = ',exitcode)
+			elseif rc == 'again' then log('Normal', 'Retrying a list on exitcode = ',exitcode)
+			elseif rc == 'die'   then log('Error', 'Failure with a list on exitcode = ',exitcode)
 			else 
-				log("Error", "Unknown exitcode '",exitcode,"' with a list")
-				rc = "die"
+				log('Error', 'Unknown exitcode "',exitcode,'" with a list')
+				rc = 'die'
 			end
 		else
-			if rc == "ok" then
-				log("Normal", "Retrying ",agent.etype,
-					" on ",agent.sourcePath," = ",exitcode)
-			elseif rc == "again" then
-				log("Normal", "Finished ",agent.etype,
-					" on ",agent.sourcePath," = ",exitcode)
-			elseif rc == "die" then
-				log("Error", "Failure with ",agent.etype,
-					" on ",agent.sourcePath," = ",exitcode)
+			if rc == 'ok' then
+				log('Normal', 'Retrying ',agent.etype,' on ',agent.sourcePath,' = ',exitcode)
+			elseif rc == 'again' then
+				log('Normal', 'Finished ',agent.etype,' on ',agent.sourcePath,' = ',exitcode)
+			elseif rc == 'die' then
+				log('Error', 'Failure with ',agent.etype,' on ',agent.sourcePath,' = ',exitcode)
 			else
-				log("Normal", "Unknown exitcode '",exitcode,"' with ", agent.etype,
-					" on ",agent.sourcePath," = ",exitcode)
-				rc = "die"
+				log('Normal', 'Unknown exitcode "',exitcode,'" with ', agent.etype,
+					' on ',agent.sourcePath,' = ',exitcode)
+				rc = 'die'
 			end
 		end
 		return rc
 	end,
 
 	-----
-	-- called on (re)initalizing of Lsyncd.
+	-- called on (re)initialization of Lsyncd.
 	--
 	init = function(event)
 		local config = event.config
 		local inlet = event.inlet
 		-- user functions
 		-- calls a startup if given by user script.
-		if type(config.onStartup) == "function" then
+		if type(config.onStartup) == 'function' then
 			local startup = config.onStartup(event)
 			-- TODO honor some return codes of startup like "warmstart".
 		end
-		if event.status == "wait" then
+
+		if event.status == 'wait' then
 			-- user script did not spawn anything
 			-- thus the blanket event is deleted again.
 			inlet.discardEvent(event)
