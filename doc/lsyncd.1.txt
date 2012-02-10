@@ -24,7 +24,7 @@ default rync+ssh bevahiour (moves and deletes through ssh):::
 default direct bevahiour (local file operations/rsync):::
 	{nbsp}*lsyncd* ['OPTIONS'] -direct 'SOURCEDIR' 'TARGETDIR' ...
 
-DESCRTIPTION
+DESCRIPTION
 ------------
 Lsyncd(1) watches local directory trees through an event monitor interface
 (inotify, fsevents).  It aggregates and combines events for a few seconds and
