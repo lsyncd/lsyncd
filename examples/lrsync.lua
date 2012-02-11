@@ -5,7 +5,7 @@
 --
 settings = {
 	statusFile = "/tmp/lsyncd.stat",
-	statusIntervall = 1,
+	statusInterval = 1,
 }
 
 sync{
