@@ -11,13 +11,13 @@ cwriteln('****************************************************************')
 
 local tdir, srcdir, trgdir = mktemps()
 
--- makes some startup data 
+-- makes some startup data
 churn(srcdir, 10)
 
-local logs = {'-log', 'Exec'}
+local logs = {'-log', 'Exec' }
 local pid = spawn(
 	'./lsyncd',
-	'-nodaemon', 
+	'-nodaemon',
 	'-direct', srcdir, trgdir,
 	unpack(logs)
 )

@@ -1,28 +1,28 @@
 -- common testing environment
-require("posix")
+require('posix')
 
 -- escape codes to colorize output on terminal
-local c1="\027[47;34m"
-local c0="\027[0m"
+local c1='\027[47;34m'
+local c0='\027[0m'
 
 ---
 -- writes colorized
 --
 function cwriteln(...)
 	io.write(c1, ...)
-	io.write(c0, "\n")
+	io.write(c0, '\n')
 end
 
 -----
 -- initializes the pseudo random generator
--- if environemnt "SEED" is set, use that as seed.
-local seed = os.getenv("SEED") or os.time()
-math.randomseed(seed) 
-cwriteln("random seed: ", seed)
+-- if environemnt 'SEED' is set, use that as seed.
+local seed = os.getenv('SEED') or os.time()
+math.randomseed(seed)
+cwriteln('random seed: ', seed)
 
 -----
 -- creates a tmp directory
--- 
+--
 -- @returns the name of the directory
 --
 function mktempd()
@@ -30,24 +30,24 @@ function mktempd()
 	local s = f:read('*a')
 	f:close()
 	s = s:gsub('[\n\r]+', ' ')
-	s = s:match("^%s*(.-)%s*$")
+	s = s:match('^%s*(.-)%s*$')
 	return s
 end
 
 -----
 -- creates a tmp directory with the
 -- typical lsyncd test architecture
--- 
+--
 -- @returns path of tmpdir
 --          path of srcdir
 --          path of trgdir
 --
 
 function mktemps()
-	local tdir = mktempd().."/"
-	cwriteln("using ", tdir, " as test root")
-	local srcdir = tdir.."src/"
-	local trgdir = tdir.."trg/"
+	local tdir = mktempd()..'/'
+	cwriteln('using ', tdir, ' as test root')
+	local srcdir = tdir..'src/'
+	local trgdir = tdir..'trg/'
 	posix.mkdir(srcdir)
 	posix.mkdir(trgdir)
 	return tdir, srcdir, trgdir
@@ -58,9 +58,9 @@ end
 -- and adds a newline.
 --
 function writefile(filename, text)
-	local f = io.open(filename, "w")
+	local f = io.open(filename, 'w')
 	if not f then
-		cwriteln("Cannot open '"..filename.."' for writing.")
+		cwriteln('Cannot open "'..filename..'" for writing.')
 		return false
 	end
 	f:write(text)
@@ -76,16 +76,16 @@ end
 --
 function spawn(...)
 	args = {...}
-	cwriteln("spawning: ", table.concat(args, " "))
+	cwriteln('spawning: ', table.concat(args, ' '))
 	local pid = posix.fork()
 	if pid < 0 then
-		cwriteln("Error, failed fork!")
+		cwriteln('Error, failed fork!')
 		os.exit(-1)
 	end
 	if pid == 0 then
 		posix.exec(...)
 		-- should not return
-		cwriteln("Error, failed to spawn: ", ...)
+		cwriteln('Error, failed to spawn: ', ...)
 		os.exit(-1);
 	end
 	return pid
@@ -97,9 +97,9 @@ end
 -- @param rootdir ... the directory to make data in
 -- @param n       ... roughly how much data action will done
 --
-function churn(rootdir, n) 
+function churn(rootdir, n)
 	-- all dirs created, indexed by integer and path
-	root = {name=""}
+	root = {name=''}
 	alldirs = {root}
 	dirsWithFileI = {}
 	dirsWithFileD = {}
@@ -110,11 +110,11 @@ function churn(rootdir, n)
 	-- name is internal recursive paramter, keep it nil.
 	--
 	local function dirname(dir, name)
-		name = name or ""
+		name = name or ''
 		if not dir then
 			return name
 		end
-		return dirname(dir.parent, dir.name .. "/" .. name)
+		return dirname(dir.parent, dir.name .. '/' .. name)
 	end
 
 	-----
@@ -133,7 +133,7 @@ function churn(rootdir, n)
 	----
 	-- Picks a random file.
 	--
-	-- Returns 3 values: 
+	-- Returns 3 values:
 	--  * the directory
 	--  * the filename
 	--  * number of files in directory
@@ -158,7 +158,7 @@ function churn(rootdir, n)
 
 		-- picks one file at random
 		local cr = math.random(1, c)
-		local fn 
+		local fn
 		for name, _ in pairs(rdir) do
 			if #name == 2 then
 				-- filenames are 2 chars wide.
@@ -184,7 +184,7 @@ function churn(rootdir, n)
 		if c == 1 then
 			-- if last file from origin dir, it has no files anymore
 			for i, v in ipairs(dirsWithFileI) do
-				if v == dir then 
+				if v == dir then
 					table.remove(dirsWithFileI, i)
 					break
 				end
@@ -194,16 +194,16 @@ function churn(rootdir, n)
 	end
 
 	----
-	-- possible randomized behaviour. 
+	-- possible randomized behaviour.
 	-- just gives it a pause
 	--
 	local function sleep()
-		cwriteln("..zzz..")
+		cwriteln('..zzz..')
 		posix.sleep(1)
 	end
 
 	----
-	-- possible randomized behaviour. 
+	-- possible randomized behaviour.
 	-- creates a directory
 	--
 	local function mkdir()
@@ -214,19 +214,19 @@ function churn(rootdir, n)
 		if not rdir[nn] then
 			local ndir = {
 				name   = nn,
-				parent = rdir, 
+				parent = rdir,
 			}
 			local dn = dirname(ndir)
 			rdir[nn] = dn
 			table.insert(alldirs, ndir)
-			cwriteln("mkdir  "..rootdir..dn)
+			cwriteln('mkdir  '..rootdir..dn)
 			posix.mkdir(rootdir..dn)
 		end
 	end
 
 	----
-	-- possible randomized behaviour. 
-	-- creates a directory
+	-- possible randomized behaviour.
+	-- Creates a file.
 	--
 	local function mkfile()
 		-- chooses a random directory to create it into
@@ -234,8 +234,8 @@ function churn(rootdir, n)
 		-- creates a new random one letter name
 		local nn = 'f'..string.char(96 + math.random(26))
 		local fn = dirname(rdir) .. nn
-		cwriteln("mkfile "..rootdir..fn)
-		local f = io.open(rootdir..fn, "w")
+		cwriteln('mkfile '..rootdir..fn)
+		local f = io.open(rootdir..fn, 'w')
 		if f then
 			for i=1,10 do
 				f:write(string.char(96 + math.random(26)))
@@ -251,14 +251,14 @@ function churn(rootdir, n)
 	end
 
 	----
-	-- possible randomized behaviour. 
-	-- moves a directory
+	-- possible randomized behaviour,
+	-- moves a directory.
 	--
 	local function mvdir()
 		if #alldirs <= 2 then
 			return
 		end
-		-- chooses a random directory to move 
+		-- chooses a random directory to move
 		local odir = pickDir(true)
 		-- chooses a random directory to move to
 		local tdir = pickDir()
@@ -277,7 +277,7 @@ function churn(rootdir, n)
 		end
 		local on = dirname(odir)
 		local tn = dirname(tdir)
-		cwriteln("mvdir  ",rootdir,on," -> ",rootdir,tn,odir.name)
+		cwriteln('mvdir  ',rootdir,on,' -> ',rootdir,tn,odir.name)
 		os.rename(rootdir..on, rootdir..tn..odir.name)
 		odir.parent[odir.name] = nil
 		odir.parent = tdir
@@ -285,8 +285,8 @@ function churn(rootdir, n)
 	end
 
 	----
-	-- possible randomized behaviour. 
-	-- moves a directory
+	-- possible randomized behaviour,
+	-- moves a file.
 	--
 	local function mvfile()
 		local odir, fn, c = pickFile()
@@ -298,7 +298,7 @@ function churn(rootdir, n)
 		local tdir = pickDir()
 		local on = dirname(odir)
 		local tn = dirname(tdir)
-		cwriteln("mvfile ",rootdir,on,fn," -> ",rootdir,tn,fn)
+		cwriteln('mvfile ',rootdir,on,fn,' -> ',rootdir,tn,fn)
 		os.rename(rootdir..on..fn, rootdir..tn..fn)
 		rmFileReference(odir, fn, c)
 
@@ -310,14 +310,14 @@ function churn(rootdir, n)
 	end
 
 	----
-	-- possible randomized behaviour. 
-	-- moves a directory.
+	-- possible randomized behaviour,
+	-- removes a file.
 	--
 	local function rmfile()
 		local dir, fn, c = pickFile()
 		if dir then
 			local dn = dirname(dir)
-			cwriteln("rmfile ",rootdir,dn,fn)
+			cwriteln('rmfile ',rootdir,dn,fn)
 			posix.unlink(rootdir..dn..fn)
 			rmFileReference(dir, fn, c)
 		end
@@ -331,7 +331,7 @@ function churn(rootdir, n)
 		{ 20,   rmfile },
 	}
 
-	cwriteln("making random data")
+	cwriteln('making random data')
 	local ndice = 0
 	for i, d in ipairs(dice) do
 		ndice = ndice + d[1]
@@ -339,7 +339,7 @@ function churn(rootdir, n)
 	end
 
 	for ai=1,n do
-		-- throw a die what to do
+		-- throws a die what to do
 		local acn = math.random(ndice)
 		for i, d in ipairs(dice) do
 			if acn <= d[1] then

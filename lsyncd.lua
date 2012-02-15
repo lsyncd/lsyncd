@@ -1942,13 +1942,13 @@ local Inotify = (function()
 			local etyped = etype
 			if etyped == 'Move' then
 				if not relative2 then
-					log('Normal', 'Transformed Move to Create for ', sync.config.name)
-					etyped = 'Create'
+					log('Normal', 'Transformed Move to Delete for ', sync.config.name)
+					etyped = 'Delete'
 				elseif not relative then
 					relative = relative2
 					relative2 = nil
-					log('Normal', 'Transformed Move to Delete for ', sync.config.name)
-					etyped = 'Delete'
+					log('Normal', 'Transformed Move to Create for ', sync.config.name)
+					etyped = 'Create'
 				end
 			end
 			sync:delay(etyped, time, relative, relative2)
@@ -2042,13 +2042,13 @@ local Fsevents = (function()
 			local etyped = etype
 			if etyped == 'Move' then
 				if not relative2 then
-					log('Normal', 'Transformed Move to Create for ', sync.config.name)
-					etyped = 'Create'
+					log('Normal', 'Transformed Move to Delete for ', sync.config.name)
+					etyped = 'Delete'
 				elseif not relative then
 					relative = relative2
 					relative2 = nil
-					log('Normal', 'Transformed Move to Delete for ', sync.config.name)
-					etyped = 'Delete'
+					log('Normal', 'Transformed Move to Create for ', sync.config.name)
+					etyped = 'Create'
 				end
 			end
 			sync:delay(etyped, time, relative, relative2)

@@ -10,6 +10,8 @@
 	fix: in case of HUP-reset imply insist=true, since startup is known to be
 		configured correctly.
 	fix: a series of typos in comments, manpage etc.
+	fix: moves to and from deleted directories (deleted when Lsyncd gets notified)
+	     were not correctly translated
 	change: complain if any "rsyncOps" is given
 	change: splitted the default configurations in their own files.
 		more cleanly seperated from the Lsyncd runner, and highlights it are just
