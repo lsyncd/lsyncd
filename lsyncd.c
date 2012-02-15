@@ -123,9 +123,8 @@ static long clocks_per_sec;
  * signal handler
  */
 void
-sig_child(int sig)
-{
-	/* nothing */
+sig_child(int sig) {
+	// nothing
 }
 
 /**
@@ -135,12 +134,8 @@ void
 sig_handler(int sig)
 {
 	switch (sig) {
-	case SIGTERM:
-		term = 1;
-		return;
-	case SIGHUP:
-		hup = 1;
-		return;
+	case SIGTERM: term = 1; return;
+	case SIGHUP:  hup  = 1; return;
 	}
 }
 
@@ -183,15 +178,16 @@ check_logcat(const char *name)
 		return 99;
 	}
 	lc = logcats[name[0]-'A'];
-	if (!lc) {
-		return 99;
-	}
+
+	if (!lc) return 99;
+
 	while (lc->name) {
 		if (!strcmp(lc->name, name)) {
 			return lc->priority;
 		}
 		lc++;
 	}
+
 	return 99;
 }
 
@@ -391,14 +387,9 @@ s_strdup(const char *src)
  * write() can manage.
  */
 struct pipemsg {
-	// message to send
-	char *text;
-
-	// length of text
-	int tlen;
-
-	// position in message
-	int pos;
+	char *text;   // message to send
+	int tlen;     // length of text
+	int pos;      // position in message
 };
 
 /**
@@ -477,11 +468,14 @@ non_block_fd(int fd)
 {
 	int flags;
     flags = fcntl(fd, F_GETFL);
+
     if (flags == -1) {
 		logstring("Error", "cannot get status flags!");
 		exit(-1); // ERRNO
 	}
+
 	flags |= O_NONBLOCK;
+
 	if (fcntl(fd, F_SETFL, flags) == -1) {
 		logstring("Error", "cannot set status flags!");
 		exit(-1); // ERRNO
@@ -747,8 +741,8 @@ l_log(lua_State *L)
 					d /= clocks_per_sec;
 					lua_pushfstring(L, "(Timestamp: %f)", d);
 					lua_replace(L, i);
-					break;
 				}
+				break;
 			case LUA_TNIL:
 				lua_pushstring(L, "(nil)");
 				lua_replace(L, i);
@@ -809,7 +803,7 @@ l_exec(lua_State *L)
 		if (lua_istable(L, i)) {
 			int tlen;
 			int it;
-			/* table is now on top of stack */
+			// table is now on top of stack
 			lua_checkstack(L, lua_gettop(L) + lua_objlen(L, i) + 1);
 			lua_pushvalue(L, i);
 			lua_remove(L, i);
@@ -827,7 +821,7 @@ l_exec(lua_State *L)
 		}
 	}
 
-	/* writes a log message, prepares the message only if actually needed. */
+	// writes a log message, prepares the message only if actually needed.
 	if (check_logcat("Exec") <= settings.log_level) {
 		lua_checkstack(L, lua_gettop(L) + argc * 3 + 2);
 		lua_pushvalue(L, 1);
@@ -842,21 +836,21 @@ l_exec(lua_State *L)
 	}
 
 	if (argc >= 2 && !strcmp(luaL_checkstring(L, 2), "<")) {
-		/* pipes something into stdin */
+		// pipes something into stdin
 		if (!lua_isstring(L, 3)) {
 			logstring("Error", "in spawn(), expected a string after pipe '<'");
 			exit(-1); // ERRNO
 		}
 		pipe_text = lua_tolstring(L, 3, &pipe_len);
 		if (strlen(pipe_text) > 0) {
-			/* creates the pipe */
+			// creates the pipe
 			if (pipe(pipefd) == -1) {
 				logstring("Error", "cannot create a pipe!");
 				exit(-1); // ERRNO
 			}
-			/* always close the write end for child processes */
+			// always closes the write end for child processes
 			close_exec_fd(pipefd[1]);
-			/* set the write end on non-blocking */
+			// sets the write end on non-blocking
 			non_block_fd(pipefd[1]);
 		} else {
 			pipe_text = NULL;
@@ -940,7 +934,7 @@ l_realdir(lua_State *L)
 #ifdef __GLIBC__
 	cbuf = realpath(rdir, NULL);
 #else
-#	warning having to use oldstyle realpath()
+#	warning having to use old style realpath()
 	{
 		char *ccbuf = s_calloc(sizeof(char), PATH_MAX);
 		cbuf = realpath(rdir, ccbuf);
@@ -951,19 +945,18 @@ l_realdir(lua_State *L)
 		printlogf(L, "Error", "failure getting absolute path of [%s]", rdir);
 		return 0;
 	}
+
 	{
 		// makes sure its a directory
 	    struct stat st;
 	    if (stat(cbuf, &st)) {
 			printlogf(L, "Error",
-				"cannot get absolute path of dir '%s': %s",
-				rdir, strerror(errno));
+				"cannot get absolute path of dir '%s': %s", rdir, strerror(errno));
 			return 0;
 		}
 	    if (!S_ISDIR(st.st_mode)) {
 			printlogf(L, "Error",
-				"cannot get absolute path of dir '%s': is not a directory",
-				rdir);
+				"cannot get absolute path of dir '%s': is not a directory", rdir);
 			free(cbuf);
 			return 0;
 	    }
@@ -1233,8 +1226,6 @@ l_nonobserve_fd(lua_State *L)
 	return 0;
 }
 
-
-
 static const luaL_reg lsyncdlib[] = {
 		{"configure",     l_configure     },
 		{"exec",          l_exec          },
@@ -1368,7 +1359,7 @@ register_lsyncd(lua_State *L)
 
 	lua_getglobal(L, "lysncd");
 #ifdef LSYNCD_WITH_INOTIFY
-	// TODO what the hack?
+	// TODO why is the here?
 	register_inotify(L);
 	lua_settable(L, -3);
 #endif
@@ -1423,8 +1414,7 @@ daemonize(lua_State *L)
 	pid = fork();
 
 	if (pid < 0) {
-		printlogf(L, "Error",
-			"Failure in daemonize at fork: %s", strerror(errno));
+		printlogf(L, "Error", "Failure in daemonize at fork: %s", strerror(errno));
 		exit(-1); // ERRNO
 	}
 
@@ -1432,15 +1422,13 @@ daemonize(lua_State *L)
 
 	sid = setsid();
 	if (sid < 0) {
-		printlogf(L, "Error",
-			"Failure in daemonize at setsid: %s", strerror(errno));
+		printlogf(L, "Error", "Failure in daemonize at setsid: %s", strerror(errno));
 		exit(-1); // ERRNO
 	}
 
 	// goto root dir
 	if ((chdir("/")) < 0) {
-		printlogf(L, "Error",
-			"Failure in daemonize at chdir(\"/\"): %s", strerror(errno));
+		printlogf(L, "Error", "Failure in daemonize at chdir(\"/\"): %s", strerror(errno));
 		exit(-1); // ERRNO
 	}
 
@@ -1477,9 +1465,7 @@ masterloop(lua_State *L)
 
 		// queries runner about soonest alarm
 		load_runner_func(L, "getAlarm");
-		if (lua_pcall(L, 0, 1, -2)) {
-			exit(-1); // ERRNO
-		}
+		if (lua_pcall(L, 0, 1, -2)) exit(-1); // ERRNO
 
 		if (lua_type(L, -1) == LUA_TBOOLEAN) {
 			have_alarm = false;
@@ -1499,10 +1485,10 @@ masterloop(lua_State *L)
 			// eitherway. since event queues might overflow.
 			logstring("Masterloop", "immediately handling delays.");
 		} else {
-			/* use select() to determine what happens next
-			 * + a new event on an observance
-			 * + an alarm on timeout
-			 * + the return of a child process */
+			// use select() to determine what happens next
+			// + a new event on an observance
+			// + an alarm on timeout
+			// + the return of a child process
 			struct timespec tv;
 
 			if (have_alarm) {
@@ -1515,9 +1501,9 @@ masterloop(lua_State *L)
 			} else {
 				logstring("Masterloop", "going into select (no timeout).");
 			}
-			/* time for Lsyncd to try to put itself to rest into a select(),
-			 * configures timeouts, filedescriptors and signals
-			 * that will wake it */
+			// time for Lsyncd to try to put itself to rest into a select(),
+			// configures timeouts, filedescriptors and signals
+			// that will wake it
 			{
 				fd_set rfds;
 				fd_set wfds;
@@ -1559,13 +1545,12 @@ masterloop(lua_State *L)
 						if (obs->ready && FD_ISSET(obs->fd, &rfds)) {
 							obs->ready(L, obs);
 						}
-						if (hup || term) {
-							break;
-						}
+						if (hup || term) break;
 						if (nonobservances_len > 0 &&
 							nonobservances[nonobservances_len-1] == obs->fd) {
-							/* TODO breaks if more nonobserves */
-							/* ready() nonobserved itself */
+							// TODO breaks if more nonobserves
+							// ready() nonobserved itself
+							// --- what?
 							continue;
 						}
 						if (obs->writey && FD_ISSET(obs->fd, &wfds)) {
@@ -1573,7 +1558,7 @@ masterloop(lua_State *L)
 						}
 					}
 					observance_action = false;
-					/* work through delayed nonobserve_fd() calls */
+					// work through delayed nonobserve_fd() calls
 					for (pi = 0; pi < nonobservances_len; pi++) {
 						nonobserve_fd(nonobservances[pi]);
 					}
@@ -1586,9 +1571,8 @@ masterloop(lua_State *L)
 		while(1) {
 			int status;
 			pid_t pid = waitpid(0, &status, WNOHANG);
-			if (pid <= 0) {
-				break;
-			}
+			if (pid <= 0) break;
+
 			load_runner_func(L, "collectProcess");
 			lua_pushinteger(L, pid);
 			lua_pushinteger(L, WEXITSTATUS(status));
@@ -1639,7 +1623,7 @@ masterloop(lua_State *L)
 }
 
 /**
- * Main
+ * The effective main.
  */
 int
 main1(int argc, char *argv[])
@@ -1683,12 +1667,11 @@ main1(int argc, char *argv[])
 			if (strcmp(argv[i], "-log") && strcmp(argv[i], "--log")) {
 				i++; continue;
 			}
-			if (++i >= argc) {
-				break;
-			}
+
+			if (++i >= argc) break;
+
 			if (!add_logcat(argv[i], LOG_NOTICE)) {
-				printlogf(L, "Error", "'%s' is not a valid logging category",
-					argv[i]);
+				printlogf(L, "Error", "'%s' is not a valid logging category", argv[i]);
 				exit(-1); // ERRNO
 			}
 		}
@@ -1698,7 +1681,7 @@ main1(int argc, char *argv[])
 	register_lsyncd(L);
 
 	if (check_logcat("Debug") <= settings.log_level) {
-		/* printlogf doesnt support %ld :-( */
+		// printlogf doesnt support %ld :-(
 		printf("kernels clocks_per_sec=%ld\n", clocks_per_sec);
 	}
 
@@ -1722,14 +1705,12 @@ main1(int argc, char *argv[])
 #endif
 	}
 	if (lsyncd_runner_file) {
-		/* checks if the runner file exists */
+		// checks if the runner file exists
 		struct stat st;
 		if (stat(lsyncd_runner_file, &st)) {
-			printlogf(L, "Error",
-				"Cannot find Lsyncd Lua-runner at '%s'.", lsyncd_runner_file);
+			printlogf(L, "Error", "Cannot find Lsyncd Lua-runner at '%s'.", lsyncd_runner_file);
 			printlogf(L, "Error", "Maybe specify another place?");
-			printlogf(L, "Error",
-				"%s --runner RUNNER_FILE CONFIG_FILE", argv[0]);
+			printlogf(L, "Error", "%s --runner RUNNER_FILE CONFIG_FILE", argv[0]);
 			exit(-1); // ERRNO
 		}
 		/* loads the runner file */
@@ -1740,25 +1721,23 @@ main1(int argc, char *argv[])
 		}
 	} else {
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
-		/* loads the runner from binary */
-		if (luaL_loadbuffer(L, luac_out, luac_size, "lsyncd.lua"))
-		{
+		// loads the runner from binary
+		if (luaL_loadbuffer(L, luac_out, luac_size, "lsyncd.lua")) {
 			printlogf(L, "Error",
 				"error loading precompiled lsyncd.lua runner: %s",
 				lua_tostring(L, -1));
 			exit(-1); // ERRNO
 		}
 #else
-		/* this should never be possible, security code nevertheless */
-		logstring("Error",
-			"Internal fail: lsyncd_runner is NULL with non-static runner");
+		// safeguard for what never ever should happen.
+		logstring("Error", "Internal fail: lsyncd_runner is NULL with non-static runner");
 		exit(-1); // ERRNO
 #endif
 	}
 
 	{
-		/* place to store the lua runners functions */
-		/* executes the runner defining all its functions */
+		// place to store the lua runners functions
+		// executes the runner defining all its functions
 		if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
 			printlogf(L, "Error",
 				"error preparing '%s': %s",
@@ -1767,16 +1746,14 @@ main1(int argc, char *argv[])
 			exit(-1); // ERRNO
 		}
 		lua_pushlightuserdata(L, (void *)&runner);
-		/* switches the value (result of preparing) and the key &runner */
+		// switches the value (result of preparing) and the key &runner
 		lua_insert(L, 1);
-		/* saves the table of the runners functions in the lua registry */
+		// saves the table of the runners functions in the lua registry
 		lua_settable(L, LUA_REGISTRYINDEX);
 
-		/* saves the error function extra */
-		/* &callError is the key */
-		lua_pushlightuserdata(L, (void *) &callError);
-		/* &runner[callError] the value */
-		lua_pushlightuserdata(L, (void *) &runner);
+		// saves the error function extra
+		lua_pushlightuserdata(L, (void *) &callError); // &callError is the key
+		lua_pushlightuserdata(L, (void *) &runner);    // &runner[callError] the value
 		lua_gettable(L, LUA_REGISTRYINDEX);
 		lua_pushstring(L, "callError");
 		lua_gettable(L, -2);
@@ -1785,7 +1762,7 @@ main1(int argc, char *argv[])
 	}
 
 	{
-		/* asserts version match between runner and core */
+		// asserts version match between runner and core
 		const char *lversion;
 		lua_getglobal(L, "lsyncd_version");
 		lversion = luaL_checkstring(L, -1);
@@ -1800,7 +1777,7 @@ main1(int argc, char *argv[])
 	}
 
 	{
-		/* checks if there is a "-help" or "--help" */
+		// checks if there is a "-help" or "--help"
 		int i;
 		for(i = argp; i < argc; i++) {
 			if (!strcmp(argv[i],"-help") || !strcmp(argv[i],"--help")) {
@@ -1961,9 +1938,7 @@ main(int argc, char *argv[])
 	// gets a kernel parameter
 	clocks_per_sec = sysconf(_SC_CLK_TCK);
 
-	while(!term) {
-		main1(argc, argv);
-	}
+	while(!term) main1(argc, argv);
 	return 0;
 }
 
