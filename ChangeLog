@@ -2,6 +2,8 @@
 	fix: no longer stops syslogging on HUP signals
 	fix: OSX event watcher no longer misses moves into and out of the watch tree
 	fix: not refinding a relative path to the config file in case of HUP.
+	fix: rsync doing error 13 and killing Lsyncd.
+		see http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=659941
 	change: Lsyncd now remembers the absolute path of its config file during HUPs
 
 25-08-2011: 2.0.5

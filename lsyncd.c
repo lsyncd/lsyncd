@@ -479,6 +479,7 @@ close_exec_fd(int fd)
 		logstring("Error", "cannot get descriptor flags!");
 		exit(-1); // ERRNO
 	}
+
 	flags |= FD_CLOEXEC;
 	if (fcntl(fd, F_SETFD, flags) == -1) {
 		logstring("Error", "cannot set descripptor flags!");
@@ -904,6 +905,7 @@ l_exec(lua_State *L)
 			if (!freopen(settings.log_file, "a", stdout)) {
 				printlogf(L, "Error", "cannot redirect stdout to '%s'.", settings.log_file);
 			}
+
 			if (!freopen(settings.log_file, "a", stderr)) {
 				printlogf(L, "Error", "cannot redirect stderr to '%s'.", settings.log_file);
 			}
@@ -1466,8 +1468,8 @@ daemonize(lua_State *L)
 
 	// disconnects stdstreams
 	if (!freopen("/dev/null", "r", stdin) ||
-		!freopen("/dev/null", "r", stdout) ||
-		!freopen("/dev/null", "r", stderr)
+		!freopen("/dev/null", "w", stdout) ||
+		!freopen("/dev/null", "w", stderr)
 	) {
 		printlogf(L, "Error", "Failure in daemonize at freopen(/dev/null, std[in|out|err])");
 	}
