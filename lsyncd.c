@@ -96,6 +96,12 @@ struct settings settings = {
  * True when lsyncd daemonized itself.
  */
 static bool is_daemon = false;
+	
+/**
+ * The config file loaded by Lsyncd.
+ * Global so it is retained during HUPs
+ */
+char * lsyncd_config_file = NULL;
 
 /**
  * False after first time Lsyncd started up.
@@ -148,6 +154,26 @@ sig_handler(int sig)
 	static struct tms _dummy_tms;
 	static struct tms *dummy_tms = &_dummy_tms;
 #endif
+
+/**
+| Returns the absolute path of path.
+| This is a wrapper to various C-Library differences.
+*/
+char *
+get_realpath(const char * rpath) {
+	// uses c-library to get the absolute path
+#ifdef __GLIBC__
+	// in case of GLIBC the task is easy.
+	return realpath(path, NULL);
+#else
+#	warning having to use old style realpath()
+	// otherwise less so and requires PATH_MAX limit.
+	char buf[PATH_MAX];
+	char *asw = realpath(rpath, buf);
+	if (!asw) return NULL;
+	return s_strdup(asw);
+#endif
+}
 
 /*****************************************************************************
  * Logging
@@ -580,7 +606,7 @@ observe_fd(int fd,
 }
 
 /**
- * Makes core no longer watch fd.
+ * Makes the core to no longer watch a filedescriptor.
  */
 extern void
 nonobserve_fd(int fd)
@@ -920,28 +946,17 @@ l_exec(lua_State *L)
 /**
  * Converts a relative directory path to an absolute.
  *
- * @param dir a relative path to directory
- * @return    absolute path of directory
+ * @param dir: a relative path to directory
+ * @return     the absolute path of directory
  */
 static int
 l_realdir(lua_State *L)
 {
 	luaL_Buffer b;
-	char *cbuf;
 	const char *rdir = luaL_checkstring(L, 1);
+	char *adir = get_realpath(rdir);
 
-	// uses c-library to get the absolute path
-#ifdef __GLIBC__
-	cbuf = realpath(rdir, NULL);
-#else
-#	warning having to use old style realpath()
-	{
-		char *ccbuf = s_calloc(sizeof(char), PATH_MAX);
-		cbuf = realpath(rdir, ccbuf);
-		if (!cbuf) free(ccbuf);
-	}
-#endif
-	if (!cbuf) {
+	if (!adir) {
 		printlogf(L, "Error", "failure getting absolute path of [%s]", rdir);
 		return 0;
 	}
@@ -949,25 +964,28 @@ l_realdir(lua_State *L)
 	{
 		// makes sure its a directory
 	    struct stat st;
-	    if (stat(cbuf, &st)) {
+	    if (stat(adir, &st)) {
 			printlogf(L, "Error",
 				"cannot get absolute path of dir '%s': %s", rdir, strerror(errno));
+			free(adir);
 			return 0;
 		}
+
 	    if (!S_ISDIR(st.st_mode)) {
 			printlogf(L, "Error",
 				"cannot get absolute path of dir '%s': is not a directory", rdir);
-			free(cbuf);
+			free(adir);
 			return 0;
 	    }
 	}
 
 	// returns absolute path with a concated '/'
 	luaL_buffinit(L, &b);
-	luaL_addstring(&b, cbuf);
+	luaL_addstring(&b, adir);
 	luaL_addchar(&b, '/');
 	luaL_pushresult(&b);
-	free(cbuf);
+
+	free(adir);
 	return 1;
 }
 
@@ -1083,28 +1101,33 @@ l_configure(lua_State *L)
 		// from this on log to configurated log end instead of
 		// stdout/stderr
 		first_time = false;
-		if (settings.log_syslog || !settings.log_file) {
+
+		if (!settings.nodaemon && !settings.log_file) {
+			settings.log_syslog = true;
 			const char * log_ident = settings.log_ident ? settings.log_ident : "lsyncd";
 			openlog(log_ident, 0, settings.log_facility);
 		}
+
 		if (!settings.nodaemon && !is_daemon) {
-			if (!settings.log_file) settings.log_syslog = true;
 			logstring("Debug", "daemonizing now.");
 			daemonize(L);
 		}
-		if (settings.pidfile) {
-			write_pidfile(L, settings.pidfile);
-		}
+
+		if (settings.pidfile) write_pidfile(L, settings.pidfile);
+
 	} else if (!strcmp(command, "nodaemon")) {
 		settings.nodaemon = true;
+
 	} else if (!strcmp(command, "logfile")) {
 		const char * file = luaL_checkstring(L, 2);
 		if (settings.log_file) free(settings.log_file);
 		settings.log_file = s_strdup(file);
+
 	} else if (!strcmp(command, "pidfile")) {
 		const char * file = luaL_checkstring(L, 2);
 		if (settings.pidfile) free(settings.pidfile);
 		settings.pidfile = s_strdup(file);
+
 	} else if (!strcmp(command, "logfacility")) {
 		if (lua_isstring(L, 2)) {
 			const char * fname = luaL_checkstring(L, 2);
@@ -1123,16 +1146,17 @@ l_configure(lua_State *L)
 			printlogf(L, "Error", "Logging facility must be a number or string");
 			exit(-1); // ERRNO;
 		}
+
 	} else if (!strcmp(command, "logident")) {
 		const char * ident = luaL_checkstring(L, 2);
 		if (settings.log_ident) free(settings.log_ident);
 		settings.log_ident = s_strdup(ident);
+
 	} else {
-		printlogf(L, "Error",
-			"Internal error, unknown parameter in l_configure(%s)",
-			command);
+		printlogf(L, "Error", "Internal error, unknown parameter in l_configure(%s)", command);
 		exit(-1); //ERRNO
 	}
+
 	return 0;
 }
 
@@ -1516,12 +1540,8 @@ masterloop(lua_State *L)
 
 				for(pi = 0; pi < observances_len; pi++) {
 					struct observance *obs = observances + pi;
-					if (obs->ready) {
-						FD_SET(obs->fd, &rfds);
-					}
-					if (obs->writey) {
-						FD_SET(obs->fd, &wfds);
-					}
+					if (obs->ready)  FD_SET(obs->fd, &rfds);
+					if (obs->writey) FD_SET(obs->fd, &wfds);
 				}
 
 				if (!observances_len) {
@@ -1623,7 +1643,8 @@ masterloop(lua_State *L)
 }
 
 /**
- * The effective main.
+ * The effective main for one run.
+ * HUP signals may cause several runs of the one main.
  */
 int
 main1(int argc, char *argv[])
@@ -1633,7 +1654,6 @@ main1(int argc, char *argv[])
 
 	// scripts
 	char * lsyncd_runner_file = NULL;
-	char * lsyncd_config_file = NULL;
 
 	int argp = 1;
 
@@ -1814,34 +1834,43 @@ main1(int argc, char *argv[])
 		if (lua_pcall(L, 2, 1, -3)) {
 			exit(-1); // ERRNO
 		}
-		s = lua_tostring(L, -1);
-		if (s) {
-			lsyncd_config_file = s_strdup(s);
+		if (first_time) {
+			// If not first time, simply retains the config file given
+			s = lua_tostring(L, -1);
+			if (s) lsyncd_config_file = s_strdup(s);
 		}
 		lua_pop(L, 2);
 	}
 
+	// checks existence of the config file
 	if (lsyncd_config_file) {
-		// checks existence of the config file
 		struct stat st;
+
+		// gets the absolute path to the config file
+		// so in case of HUPing the daemon, it finds it again
+		char * apath = get_realpath(lsyncd_config_file);
+		if (!apath) {
+			printlogf(L, "Error", "Cannot find config file at '%s'.", lsyncd_config_file);
+			exit(-1); // ERRNO
+		}
+		free(lsyncd_config_file);
+		lsyncd_config_file = apath;
+		
 		if (stat(lsyncd_config_file, &st)) {
-			printlogf(L, "Error",
-				"Cannot find config file at '%s'.",
-				lsyncd_config_file);
+			printlogf(L, "Error", "Cannot find config file at '%s'.", lsyncd_config_file);
 			exit(-1); // ERRNO
 		}
 
 		// loads and executes the config file
 		if (luaL_loadfile(L, lsyncd_config_file)) {
-			printlogf(L, "Error",
-				"error loading %s: %s",
-				lsyncd_config_file, lua_tostring(L, -1));
+			printlogf(L, "Error", 
+				"error loading %s: %s", lsyncd_config_file, lua_tostring(L, -1));
 			exit(-1); // ERRNO
 		}
+
 		if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
 			printlogf(L, "Error",
-				"error preparing %s: %s",
-				lsyncd_config_file, lua_tostring(L, -1));
+				"error preparing %s: %s", lsyncd_config_file, lua_tostring(L, -1));
 			exit(-1); // ERRNO
 		}
 	}
@@ -1872,9 +1901,7 @@ main1(int argc, char *argv[])
 		 * lua code will set configuration and add watches */
 		load_runner_func(L, "initialize");
 		lua_pushboolean(L, first_time);
-		if (lua_pcall(L, 1, 0, -3)) {
-			exit(-1); // ERRNO
-		}
+		if (lua_pcall(L, 1, 0, -3)) exit(-1); // ERRNO
 		lua_pop(L, 1);
 	}
 
@@ -1907,24 +1934,7 @@ main1(int argc, char *argv[])
 			}
 		}
 	}
-	if (lsyncd_config_file) {
-		free(lsyncd_config_file);
-		lsyncd_config_file = NULL;
-	}
 
-	// resets settings to default.
-	if (settings.log_file) {
-		free(settings.log_file);
-		settings.log_file = NULL;
-	}
-	settings.log_syslog = false;
-	if (settings.log_ident) {
-		free(settings.log_ident);
-		settings.log_ident = NULL;
-	}
-	settings.log_facility = LOG_USER;
-	settings.log_level = LOG_NOTICE;
-	settings.nodaemon = false;
 	lua_close(L);
 	return 0;
 }

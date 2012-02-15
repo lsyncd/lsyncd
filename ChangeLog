@@ -1,3 +1,9 @@
+??-??-????: 2.1.0
+	fix: no longer stops syslogging on HUP signals
+	fix: OSX event watcher no longer misses moves into and out of the watch tree
+	fix: not refinding a relative path to the config file in case of HUP.
+	change: Lsyncd now remembers the absolute path of its config file during HUPs
+
 25-08-2011: 2.0.5
 	fix: Lsyncd will now terminate if it inotify watching exceeds
 		its preset limit.
