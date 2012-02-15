@@ -2747,10 +2747,10 @@ function runner.initialize(firstTime)
 	-- all command line settings overwrite config file settings
 	for k, v in pairs(clSettings) do
 		if k ~= 'syncs' then
-			settings[k]=v 
+			settings[k]=v
 		end
 	end
-	
+
 	-- implicitly force insist to be true on Lsyncd resets.
 	if not firstTime then
 		settings.insist = true
@@ -2850,7 +2850,7 @@ function runner.getAlarm()
 	----
 	-- checks if current nearest alarm or a is earlier
 	--
-	local function checkAlarm(a) 
+	local function checkAlarm(a)
 		if a == nil then
 			error('got nil alarm')
 		end
@@ -2896,7 +2896,7 @@ runner.fsEventsEvent = Fsevents.event
 --
 -- Parameters are pid and exitcode of child process
 --
--- Can return either a new pid if one other child process 
+-- Can return either a new pid if one other child process
 -- has been spawned as replacement (e.g. retry) or 0 if
 -- finished/ok.
 --
@@ -2999,7 +2999,7 @@ function spawn(agent, binary, ...)
 			-- is a delay
 			dol.status = 'active'
 			sync.processes[pid] = dol
-		else 
+		else
 			-- is a list
 			for _, d in ipairs(dol) do
 				d.status = 'active'
@@ -3069,14 +3069,14 @@ local rsync_exitcodes = {
 	[  4] = 'die',
 	[  5] = 'again',
 	[  6] = 'again',
-	[ 10] = 'again', 
+	[ 10] = 'again',
 	[ 11] = 'again',
-	[ 12] = 'again', 
+	[ 12] = 'again',
 	[ 14] = 'again',
 	[ 20] = 'again',
 	[ 21] = 'again',
 	[ 22] = 'again',
-	[ 23] = 'ok', -- partial transfers are ok, since Lsyncd has registered the event that 
+	[ 23] = 'ok', -- partial transfers are ok, since Lsyncd has registered the event that
 	[ 24] = 'ok', -- caused the transfer to be partial and will recall rsync.
 	[ 25] = 'die',
 	[ 30] = 'again',
@@ -3099,20 +3099,20 @@ local default_rsync = {
 	-----
 	-- Spawns rsync for a list of events
 	--
-	action = function(inlet) 
+	action = function(inlet)
 		-- gets all events ready for syncing
 		local elist = inlet.getEvents(
-			function(event) 
+			function(event)
 				return event.etype ~= 'Init' and event.etype ~= 'Blanket'
 			end
 		)
-	
+
 		-----
 		-- replaces filter rule by literals
 		--
-		local function sub(p) 
+		local function sub(p)
 			if not p then
-				return 
+				return
 			end
 			return p:gsub('%?', '\\?'):
 			         gsub('%*', '\\*'):
@@ -3121,24 +3121,24 @@ local default_rsync = {
 		end
 
 		local paths = elist.getPaths(
-			function(etype, path1, path2) 
+			function(etype, path1, path2)
 				if etype == 'Delete' and string.byte(path1, -1) == 47 then
 					return sub(path1)..'***', sub(path2)
 				else
 					return sub(path1), sub(path2)
 				end
 			end)
-		-- stores all filters with integer index	
+		-- stores all filters with integer index
 		-- local filterI = inlet.getExcludes();
 		local filterI = {}
-		-- stores all filters with path index	
+		-- stores all filters with path index
 		local filterP = {}
 
 		-- adds one entry into the filter
 		-- @param path ... path to add
 		-- @param leaf ... true if this the original path
 		--                 false if its a parent
-		local function addToFilter(path) 
+		local function addToFilter(path)
 			if filterP[path] then
 				return
 			end
@@ -3148,7 +3148,7 @@ local default_rsync = {
 
 		-- adds a path to the filter, for rsync this needs
 		-- to have entries for all steps in the path, so the file
-		-- d1/d2/d3/f1 needs filters 
+		-- d1/d2/d3/f1 needs filters
 		-- 'd1/', 'd1/d2/', 'd1/d2/d3/' and 'd1/d2/d3/f1'
 		for _, path in ipairs(paths) do
 			if path and path ~= '' then
@@ -3160,12 +3160,12 @@ local default_rsync = {
 				end
 			end
 		end
-		
+
 		local filterS = table.concat(filterI, '\n')
 		local filter0 = table.concat(filterI, '\000')
 		log('Normal', 'Calling rsync with filter-list of new/modified files/dirs\n', filterS)
-		local config = inlet.getConfig() 
-		spawn(elist, config.rsyncBinary, 
+		local config = inlet.getConfig()
+		spawn(elist, config.rsyncBinary,
 			'<', filter0,
 			config.rsyncOpts,
 			'-r',
@@ -3174,39 +3174,39 @@ local default_rsync = {
 			'--from0',
 			'--include-from=-',
 			'--exclude=*',
-			config.source, 
+			config.source,
 			config.target)
 	end,
 
 	-----
 	-- Spawns the recursive startup sync
-	-- 
+	--
 	init = function(event)
 		local config = event.config;
 		local inlet = event.inlet;
 		local excludes = inlet.getExcludes();
 		if #excludes == 0 then
 			log('Normal', 'recursive startup rsync: ', config.source, ' -> ', config.target)
-			spawn(event, config.rsyncBinary, 
+			spawn(event, config.rsyncBinary,
 				'--delete',
 				config.rsyncOpts,
-				'-r', 
-				config.source, 
+				'-r',
+				config.source,
 				config.target)
 		else
 			local exS = table.concat(excludes, '\n')
 			log('Normal', 'recursive startup rsync: ',config.source,
 				' -> ',config.target,' excluding\n',exS)
-			spawn(event, config.rsyncBinary,  
+			spawn(event, config.rsyncBinary,
 				'<', exS,
 				'--exclude-from=-',
 				'--delete',
 				config.rsyncOpts, '-r',
-				config.source, 
+				config.source,
 				config.target)
 		end
 	end,
-	
+
 	-----
 	-- Checks the configuration.
 	--
@@ -3220,7 +3220,7 @@ local default_rsync = {
 			config.target = config.target..'/'
 		end
 	end,
-	
+
 	-----
 	-- The rsync binary called.
 	--
@@ -3235,7 +3235,7 @@ local default_rsync = {
 	-- exit codes for rsync.
 	--
 	exitcodes = rsync_exitcodes,
-	
+
 	-----
 	-- Default delay
 	--
@@ -3250,24 +3250,24 @@ local default_rsyncssh = {
 	-----
 	-- Spawns rsync for a list of events
 	--
-	action = function(inlet) 
+	action = function(inlet)
 		local event, event2 = inlet.getEvent()
 		local config = inlet.getConfig()
-		
+
 		-- makes move local on host
 		-- if fails deletes the source...
 		if event.etype == 'Move' then
 			log('Normal', 'Moving ',event.path,' -> ',event2.path)
-			spawn(event, '/usr/bin/ssh', 
-				config.host, 
+			spawn(event, '/usr/bin/ssh',
+				config.host,
 				'mv',
-				'\"' .. config.targetdir .. event.path .. '\"', 
-				'\"' .. config.targetdir .. event2.path .. '\"', 
-				'||', 'rm', '-rf', 
+				'\"' .. config.targetdir .. event.path .. '\"',
+				'\"' .. config.targetdir .. event2.path .. '\"',
+				'||', 'rm', '-rf',
 				'\"' .. config.targetdir .. event.path .. '\"')
 			return
 		end
-		
+
 		-- uses ssh to delete files on remote host
 		-- instead of constructing rsync filters
 		if event.etype == 'Delete' then
@@ -3277,7 +3277,7 @@ local default_rsyncssh = {
 				end)
 
 			local paths = elist.getPaths(
-				function(etype, path1, path2) 
+				function(etype, path1, path2)
 					if path2 then
 						return config.targetdir..path1, config.targetdir..path2
 					else
@@ -3295,9 +3295,9 @@ local default_rsyncssh = {
 			local sPaths = table.concat(paths, '\n')
 			local zPaths = table.concat(paths, config.xargs.delimiter)
 			log('Normal', 'Deleting list\n', sPaths)
-			spawn(elist, '/usr/bin/ssh', 
+			spawn(elist, '/usr/bin/ssh',
 				'<', zPaths,
-				config.host, 
+				config.host,
 				config.xargs.binary, config.xargs.xparams)
 			return
 		end
@@ -3306,33 +3306,33 @@ local default_rsyncssh = {
 		local elist = inlet.getEvents(
 			function(e)
 				-- TODO use a table
-				return e.etype ~= 'Move' and 
+				return e.etype ~= 'Move' and
 				       e.etype ~= 'Delete' and
 					   e.etype ~= 'Init' and
-					   e.etype ~= 'Blanket' 
+					   e.etype ~= 'Blanket'
 			end)
 		local paths = elist.getPaths()
-		
+
 		-- removes trailing slashes from dirs.
 		for k, v in ipairs(paths) do
 			if string.byte(v, -1) == 47 then
 				paths[k] = string.sub(v, 1, -2)
 			end
 		end
-		local sPaths = table.concat(paths, '\n') 
+		local sPaths = table.concat(paths, '\n')
 		local zPaths = table.concat(paths, '\000')
 		log('Normal', 'Rsyncing list\n', sPaths)
 		spawn(
-			elist, config.rsyncBinary, 
-			'<', zPaths, 
+			elist, config.rsyncBinary,
+			'<', zPaths,
 			config.rsyncOpts,
 			'--from0',
 			'--files-from=-',
-			config.source, 
+			config.source,
 			config.host .. ':' .. config.targetdir
 		)
 	end,
-		
+
 	-----
 	-- Called when collecting a finished child process
 	--
@@ -3359,7 +3359,7 @@ local default_rsyncssh = {
 		end
 
 		if agent.isList then
-			local rc = rsync_exitcodes[exitcode] 
+			local rc = rsync_exitcodes[exitcode]
 			if     rc == 'ok'    then log('Normal', 'Finished (list): ',exitcode)
 			elseif rc == 'again' then log('Normal', 'Retrying (list): ',exitcode)
 			elseif rc == 'die'   then log('Error',  'Failure (list): ', exitcode)
@@ -3369,7 +3369,7 @@ local default_rsyncssh = {
 			end
 			return rc
 		else
-			local rc = ssh_exitcodes[exitcode] 
+			local rc = ssh_exitcodes[exitcode]
 			if rc == 'ok' then
 				log('Normal', 'Finished ',agent.etype,' ',agent.sourcePath,': ',exitcode)
 			elseif rc == 'again' then
@@ -3386,7 +3386,7 @@ local default_rsyncssh = {
 
 	-----
 	-- Spawns the recursive startup sync
-	-- 
+	--
 	init = function(event)
 		local config = event.config
 		local inlet = event.inlet
@@ -3396,11 +3396,11 @@ local default_rsyncssh = {
 		if #excludes == 0 then
 			log('Normal', 'Recursive startup rsync: ',config.source,' -> ',target)
 			spawn(
-				event, config.rsyncBinary, 
+				event, config.rsyncBinary,
 				'--delete',
-				'-r', 
-				config.rsyncOpts, 
-				config.source, 
+				'-r',
+				config.rsyncOpts,
+				config.source,
 				target
 			)
 		else
@@ -3408,13 +3408,13 @@ local default_rsyncssh = {
 			log('Normal', 'Recursive startup rsync: ',config.source,
 				' -> ',target,' with excludes.')
 			spawn(
-				event, config.rsyncBinary,  
+				event, config.rsyncBinary,
 				'<', exS,
 				'--exclude-from=-',
 				'--delete',
 				'-r',
-				config.rsyncOpts, 
-				config.source, 
+				config.rsyncOpts,
+				config.source,
 				target
 			)
 		end
@@ -3432,7 +3432,7 @@ local default_rsyncssh = {
 			config.targetdir = config.targetdir .. '/'
 		end
 	end,
-	
+
 	-----
 	-- The rsync binary called.
 	--
@@ -3447,20 +3447,20 @@ local default_rsyncssh = {
 	-- allow processes
 	--
 	maxProcesses = 1,
-	
+
 	------
 	-- Let the core not split move events.
 	--
 	onMove = true,
-	
+
 	-----
-	-- Default delay. 
+	-- Default delay.
 	--
 	delay = 15,
 
 	-----
-	-- Delimiter, the binary and the paramters passed to xargs 
-	-- xargs is used to delete multiple remote files, when ssh access is 
+	-- Delimiter, the binary and the paramters passed to xargs
+	-- xargs is used to delete multiple remote files, when ssh access is
 	-- available this is simpler than to build filters for rsync for this.
 	-- Default uses '0' as limiter, you might override this for old systems.
 	--
@@ -3479,7 +3479,7 @@ local default_direct = {
 	-----
 	-- Spawns rsync for a list of events
 	--
-	action = function(inlet) 
+	action = function(inlet)
 		-- gets all events ready for syncing
 		local event, event2 = inlet.getEvent()
 
@@ -3493,22 +3493,22 @@ local default_direct = {
 				)
 			else
 				spawn(
-					event, 
+					event,
 					'/bin/cp',
 					'-t',
 					event.targetPathdir,
-					event.sourcePath 
+					event.sourcePath
 				)
 			end
 		elseif event.etype == 'Modify' then
 			if event.isdir then
 				error("Do not know how to handle 'Modify' on dirs")
 			end
-			spawn(event, 
+			spawn(event,
 				'/bin/cp',
 				'-t',
 				event.targetPathdir,
-				event.sourcePath 
+				event.sourcePath
 			)
 		elseif event.etype == 'Delete' then
 			local tp = event.targetPath
@@ -3533,13 +3533,13 @@ local default_direct = {
 			inlet.discardEvent(event)
 		end
 	end,
-	
+
 	-----
 	-- Called when collecting a finished child process
 	--
 	collect = function(agent, exitcode)
 		local config = agent.config
-		
+
 		if not agent.isList and agent.etype == 'Init' then
 			local rc = rsync_exitcodes[exitcode]
 			if rc == 'ok' then
@@ -3561,17 +3561,17 @@ local default_direct = {
 			return rc
 		end
 
-		-- everything else is just as it is, 
+		-- everything else is just as it is,
 		-- there is no network to retry something.
-		return 
+		return
 	end,
 
 	-----
 	-- Spawns the recursive startup sync
 	-- identical to default rsync.
-	-- 
+	--
 	init = default_rsync.init,
-	
+
 	-----
 	-- Checks the configuration.
 	--
@@ -3585,17 +3585,17 @@ local default_direct = {
 	-- Default delay is very short.
 	--
 	delay = 1,
-	
+
 	------
 	-- Let the core not split move events.
 	--
 	onMove = true,
-	
+
 	-----
 	-- The rsync binary called.
 	--
 	rsyncBinary = '/usr/bin/rsync',
-	
+
 	-----
 	-- For startup sync
 	--
@@ -3612,9 +3612,9 @@ local default_direct = {
 -----
 -- The default table for the user to access.
 -- Provides all the default layer 1 functions.
--- 
+--
 --   TODO make readonly
--- 
+--
 default = {
 
 	-----
@@ -3635,7 +3635,7 @@ default = {
 		end
 	end,
 
-	
+
 	-----
 	-- Default collector.
 	-- Called when collecting a finished child process
@@ -3720,7 +3720,7 @@ default = {
 
 	-----
 	-- Try not to have more than these delays.
-	-- not too large, since total calculation for stacking 
+	-- not too large, since total calculation for stacking
 	-- events is n*log(n) or so..
 	--
 	maxDelays = 1000,
@@ -3729,12 +3729,12 @@ default = {
 	-- a default rsync configuration for easy usage.
 	--
 	rsync = default_rsync,
-	
+
 	-----
 	-- a default rsync configuration with ssh'd move and rm actions
 	--
 	rsyncssh = default_rsyncssh,
-	
+
 	-----
 	-- a default configuration using /bin/cp|rm|mv.
 	--
