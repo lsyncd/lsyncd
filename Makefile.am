@@ -1,7 +1,8 @@
 AUTOMAKE_OPTIONS = foreign
-CFLAGS += -Wall $(LUA_CFLAGS) 
+CFLAGS += -Wall $(LUA_CFLAGS)
 bin_PROGRAMS = lsyncd
-lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua
+lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua default-rsync.lua
+
 if INOTIFY
 lsyncd_SOURCES += inotify.c
 endif
@@ -38,7 +39,7 @@ doc/lsyncd.1: doc/lsyncd.1.xml
 doc/lsyncd.1.xml: doc/lsyncd.1.txt
 	asciidoc -o $@ -b docbook -d manpage $<
 
-CLEANFILES = luac.out luac.c
+CLEANFILES = runner.out defaults.out runner.c defaults.c
 
 if RUNNER
 # installs the runner script
@@ -46,15 +47,22 @@ runnerdir = $(RUNNER_DIR)
 runner_DATA = lsyncd.lua
 else
 # or compiles it into the binary
-lsyncd_LDADD += luac.o
+lsyncd_LDADD += runner.o defaults.o
 
-luac.o: luac.c
+runner.o: runner.c
+default.o: default.c
 
-luac.c: luac.out bin2carray.lua
-	lua ./bin2carray.lua luac.out luac luac.c
+runner.c: runner.out bin2carray.lua
+	lua ./bin2carray.lua $< runner $@
 
-luac.out: lsyncd.lua
-	luac $<
+defaults.c: defaults.out bin2carray.lua
+	lua ./bin2carray.lua $< defaults $@
+
+runner.out: lsyncd.lua
+	luac -o $@ $<
+
+defaults.out: default.lua default-rsync.lua default-rsyncssh.lua default-direct.lua
+	luac -o $@ $^
 
 endif
 

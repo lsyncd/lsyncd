@@ -49,9 +49,12 @@
  * The Lua part of lsyncd if compiled into the binary.
  */
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
-	extern const char luac_out[];
-	extern size_t luac_size;
+	extern const char runner_out[];
+	extern size_t runner_size;
 #endif
+
+extern const char defaults_out[];
+extern size_t defaults_size;
 
 /**
  * Makes sure there is one monitor.
@@ -68,15 +71,19 @@
  * All monitors supported by this Lsyncd.
  */
 static char *monitors[] = {
+
 #ifdef LSYNCD_WITH_INOTIFY
 	"inotify",
 #endif
+
 #ifdef LSYNCD_WITH_FANOTIFY
 	"fanotify",
 #endif
+
 #ifdef LSYNCD_WITH_FSEVENTS
 	"fsevents",
 #endif
+
 	NULL,
 };
 
@@ -96,7 +103,7 @@ struct settings settings = {
  * True when lsyncd daemonized itself.
  */
 static bool is_daemon = false;
-	
+
 /**
  * The config file loaded by Lsyncd.
  * Global so it is retained during HUPs
@@ -1735,7 +1742,8 @@ main1(int argc, char *argv[])
 			printlogf(L, "Error", "%s --runner RUNNER_FILE CONFIG_FILE", argv[0]);
 			exit(-1); // ERRNO
 		}
-		/* loads the runner file */
+
+		// loads the runner file
 		if (luaL_loadfile(L, lsyncd_runner_file)) {
 			printlogf(L, "Error",
 				"error loading '%s': %s", lsyncd_runner_file, lua_tostring(L, -1));
@@ -1744,10 +1752,8 @@ main1(int argc, char *argv[])
 	} else {
 #ifndef LSYNCD_DEFAULT_RUNNER_FILE
 		// loads the runner from binary
-		if (luaL_loadbuffer(L, luac_out, luac_size, "lsyncd.lua")) {
-			printlogf(L, "Error",
-				"error loading precompiled lsyncd.lua runner: %s",
-				lua_tostring(L, -1));
+		if (luaL_loadbuffer(L, runner_out, runner_size, "runner")) {
+			printlogf(L, "Error", "loading precompiled runner: %s", lua_tostring(L, -1));
 			exit(-1); // ERRNO
 		}
 #else
@@ -1761,10 +1767,7 @@ main1(int argc, char *argv[])
 		// place to store the lua runners functions
 		// executes the runner defining all its functions
 		if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-			printlogf(L, "Error",
-				"error preparing '%s': %s",
-				lsyncd_runner_file ? lsyncd_runner_file : "internal runner",
-				lua_tostring(L, -1));
+			printlogf(L, "Error", "preparing runner: %s", lua_tostring(L, -1));
 			exit(-1); // ERRNO
 		}
 		lua_pushlightuserdata(L, (void *)&runner);
@@ -1797,6 +1800,21 @@ main1(int argc, char *argv[])
 		}
 		lua_pop(L, 1);
 	}
+
+	{
+		// loads the defaults from binary
+		if (luaL_loadbuffer(L, defaults_out, defaults_size, "defaults")) {
+			printlogf(L, "Error", "loading defaults: %s", lua_tostring(L, -1));
+			exit(-1); // ERRNO
+		}
+
+		// prepares the defaults
+		if (lua_pcall(L, 0, 0, 0)) {
+			printlogf(L, "Error", "preparing defaults: %s", lua_tostring(L, -1));
+			exit(-1); // ERRNO
+		}
+	}
+
 
 	{
 		// checks if there is a "-help" or "--help"
@@ -1857,7 +1875,7 @@ main1(int argc, char *argv[])
 		}
 		free(lsyncd_config_file);
 		lsyncd_config_file = apath;
-		
+
 		if (stat(lsyncd_config_file, &st)) {
 			printlogf(L, "Error", "Cannot find config file at '%s'.", lsyncd_config_file);
 			exit(-1); // ERRNO
@@ -1865,7 +1883,7 @@ main1(int argc, char *argv[])
 
 		// loads and executes the config file
 		if (luaL_loadfile(L, lsyncd_config_file)) {
-			printlogf(L, "Error", 
+			printlogf(L, "Error",
 				"error loading %s: %s", lsyncd_config_file, lua_tostring(L, -1));
 			exit(-1); // ERRNO
 		}

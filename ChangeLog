@@ -1,9 +1,21 @@
-??-??-????: 2.1.0
+??-??-????: 2.0.6
 	fix: no longer stops syslogging on HUP signals
 	fix: OSX event watcher no longer misses moves into and out of the watch tree
 	fix: not refinding a relative path to the config file in case of HUP.
 	fix: rsync doing error 13 and killing Lsyncd.
 		see http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=659941
+	fix: no event creation during shutdown (might loop before)
+	fix: no logging due to wrong log levels
+	fix: without-inotify compile option now works to compile on OSX
+	fix: in case of HUP-reset imply insist=true, since startup is known to be
+		configured correctly.
+	fix: a series of typos in comments, manpage etc.
+	change: complain if any "rsyncOps" is given
+	change: splitted the default configurations in their own files.
+		more cleanly seperated from the Lsyncd runner, and highlights it are just
+		Layer 1 configurations that happen to be provided by default.
+	change: Beautified the code, no extra spaces at line end, ' instead of ",
+		supposing 100 char width to view,
 	change: Lsyncd now remembers the absolute path of its config file during HUPs
 
 25-08-2011: 2.0.5
