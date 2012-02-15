@@ -1351,7 +1351,7 @@ local Sync = (function()
 			return false
 		end
 
-		-- first checks if more processses could be spawned
+		-- first checks if more processes could be spawned
 		if self.processes:size() < self.config.maxProcesses then
 			-- finds the nearest delay waiting to be spawned
 			for _, d in Queue.qpairs(self.delays) do
@@ -1886,7 +1886,7 @@ local Inotify = (function()
 	-----
 	-- Called when an event has occured.
 	--
-	-- etype:     'Attrib', 'Mofify', 'Create', 'Delete', 'Move'
+	-- etype:     'Attrib', 'Modify', 'Create', 'Delete', 'Move'
 	-- wd:        watch descriptor, matches lsyncd.inotifyadd()
 	-- isdir:     true if filename is a directory
 	-- time:      time of event
@@ -2010,7 +2010,7 @@ local Fsevents = (function()
 	-----
 	-- Called when any event has occured.
 	--
-	-- etype:  'Attrib', 'Mofify', 'Create', 'Delete', 'Move')
+	-- etype:  'Attrib', 'Modify', 'Create', 'Delete', 'Move')
 	-- isdir:  true if filename is a directory
 	-- time:   time of event
 	-- path:   path of file
@@ -3610,7 +3610,7 @@ local default_direct = {
 
 
 -----
--- The default table for the user to accesss.
+-- The default table for the user to access.
 -- Provides all the default layer 1 functions.
 -- 
 --   TODO make readonly
