@@ -1,4 +1,4 @@
-/** 
+/**
  * lsyncd.c   Live (Mirror) Syncing Demon
  *
  * License: GPLv2 (see COPYING) or any later version
@@ -7,9 +7,11 @@
  *
  * -----------------------------------------------------------------------
  *
- * This is the core. It contains as minimal as possible glues 
+ * This is the core. It contains as minimal as possible glues
  * to the operating system needed for lsyncd operation. All high-level
  * logic is coded (when feasable) into lsyncd.lua
+ *
+ * This code assumes you have a 100 character wide display to view it, when tabstop is 4.
  */
 
 #include "lsyncd.h"
@@ -90,38 +92,6 @@ struct settings settings = {
 	.nodaemon = false,
 };
 
-
-/**
- * configurable names for logging facility 
- * to be translated to integer value.
- */
-//struct {
-//	const char * c_name;
-//	int c_val;
-//} facilitynames[] = {
-//	{ "auth",      LOG_AUTH     },
-//	{ "authprive", LOG_AUTHPRIV },
-//	{ "cron",      LOG_CRON     },
-//	{ "daemon",    LOG_DAEMON   },
-//	{ "ftp",       LOG_FTP      },
-//	{ "kern",      LOG_KERN     },
-//	{ "lpr",       LOG_LPR      },
-//	{ "mail",      LOG_MAIL     },
-//	{ "news",      LOG_NEWS     },
-//	{ "syslog",    LOG_SYSLOG   },
-//	{ "user",      LOG_USER     },
-//	{ "uucp",      LOG_UUCP     },
-//	{ "local0",    LOG_LOCAL0   },
-//	{ "local1",    LOG_LOCAL1   },
-//	{ "local2",    LOG_LOCAL2   },
-//	{ "local3",    LOG_LOCAL3   },
-//	{ "local4",    LOG_LOCAL4   },
-//	{ "local5",    LOG_LOCAL5   },
-//	{ "local6",    LOG_LOCAL6   },
-//	{ "local7",    LOG_LOCAL7   },
-//	{ NULL,       -1            },
-//};
-
 /**
  * True when lsyncd daemonized itself.
  */
@@ -129,11 +99,11 @@ static bool is_daemon = false;
 
 /**
  * False after first time Lsyncd started up.
- * 
- * Thus configuration error  messages are written to stdout/stderr only on 
+ *
+ * Thus configuration error  messages are written to stdout/stderr only on
  * first start.
  *
- * All other resets (HUP or inotify OVERFLOW) run with implictly --insist 
+ * All other resets (HUP or inotify OVERFLOW) run with implictly --insist
  * turned on and thus Lsyncd not failing on a not responding target.
  */
 static bool first_time = true;
@@ -147,7 +117,7 @@ volatile sig_atomic_t term = 0;
 /**
  * The kernels clock ticks per second.
  */
-static long clocks_per_sec; 
+static long clocks_per_sec;
 
 /**
  * signal handler
@@ -189,7 +159,7 @@ sig_handler(int sig)
  ****************************************************************************/
 
 /**
- * A logging category 
+ * A logging category
  */
 struct logcat {
 	char *name;
@@ -203,8 +173,7 @@ struct logcat {
 static struct logcat *logcats[26] = {0,};
 
 /**
- * Returns the positive priority if category is configured to be logged.
- * or -1 
+ * Returns the positive priority if category is configured to be logged or -1.
  */
 extern int
 check_logcat(const char *name)
@@ -233,7 +202,7 @@ check_logcat(const char *name)
 static bool
 add_logcat(const char *name, int priority)
 {
-	struct logcat *lc; 
+	struct logcat *lc;
 	if (!strcmp("all", name)) {
 		settings.log_level = 99;
 		return true;
@@ -243,40 +212,38 @@ add_logcat(const char *name, int priority)
 		return true;
 	}
 
-	/* category must start with capital letter */
-	if (name[0] < 'A' || name[0] > 'Z') {
-		return false;
-	}
+	// categories must start with a capital letter.
+	if (name[0] < 'A' || name[0] > 'Z') return false;
+
 	if (!logcats[name[0]-'A']) {
-		/* en empty capital letter */
+		// an empty capital letter
 		lc = logcats[name[0]-'A'] = s_calloc(2, sizeof(struct logcat));
 	} else {
-		/* length of letter list */
-		int ll = 0; 	
-		/* counts list length */
+		int ll = 0; // length of letter list
+		// counts list length
 		for(lc = logcats[name[0]-'A']; lc->name; lc++) {
 			ll++;
 		}
-		/* enlarge list */
-		logcats[name[0]-'A'] = 
-			s_realloc(logcats[name[0]-'A'], (ll + 2) * sizeof(struct logcat)); 
-		/* go to list end */ 
+		// enlarges list
+		logcats[name[0]-'A'] =
+			s_realloc(logcats[name[0]-'A'], (ll + 2) * sizeof(struct logcat));
+		// go to list end
 		for(lc = logcats[name[0]-'A']; lc->name; lc++) {
 			if (!strcmp(name, lc->name)) {
-				/* already there */
+				// already there
 				return true;
 			}
 		}
 	}
 	lc->name = s_strdup(name);
 	lc->priority = priority;
-	/* terminates the list */
+	// terminates the list
 	lc[1].name = NULL;
 	return true;
 }
 
 /**
- * Logs a string. 
+ * Logs a string.
  *
  * Do not call directly, but the macro logstring() in lsyncd.h
  *
@@ -284,12 +251,12 @@ add_logcat(const char *name, int priority)
  * @param cat      the category
  * @param message  the log message
  */
-extern void 
+extern void
 logstring0(int priority, const char *cat, const char *message)
 {
 	if (first_time) {
-		/* lsyncd is in intial configuration.
-		 * thus just print to normal stdout/stderr. */
+		// lsyncd is in intial configuration phase.
+		// thus just print to normal stdout/stderr.
 		if (priority >= LOG_ERR) {
 			fprintf(stderr, "%s: %s\n", cat, message);
 		} else {
@@ -298,10 +265,10 @@ logstring0(int priority, const char *cat, const char *message)
 		return;
 	}
 
-	/* writes on console if not daemon */
+	// writes on console if not daemonized
 	if (!is_daemon) {
 		char ct[255];
-		/* gets current timestamp hour:minute:second */
+		// gets current timestamp hour:minute:second
 		time_t mtime;
 		time(&mtime);
 		strftime(ct, sizeof(ct), "%T", localtime(&mtime));
@@ -309,19 +276,19 @@ logstring0(int priority, const char *cat, const char *message)
 		fprintf(flog, "%s %s: %s\n", ct, cat, message);
 	}
 
-	/* writes to file if configured so */
+	// writes to file if configured so
 	if (settings.log_file) {
 		FILE * flog = fopen(settings.log_file, "a");
-		/* gets current timestamp day-time-year */
+		// gets current timestamp day-time-year
 		char * ct;
 		time_t mtime;
 		time(&mtime);
 		ct = ctime(&mtime);
-	 	/* cuts trailing linefeed */
+	 	// cuts trailing linefeed
  		ct[strlen(ct) - 1] = 0;
 
 		if (flog == NULL) {
-			fprintf(stderr, "Cannot open logfile [%s]!\n", 
+			fprintf(stderr, "Cannot open logfile [%s]!\n",
 				settings.log_file);
 			exit(-1);  // ERRNO
 		}
@@ -329,10 +296,8 @@ logstring0(int priority, const char *cat, const char *message)
 		fclose(flog);
 	}
 
-	/* sends to syslog if configured so */
-	if (settings.log_syslog) {
-		syslog(priority, "%s, %s", cat, message);
-	}
+	// sends to syslog if configured so
+	if (settings.log_syslog) syslog(priority, "%s, %s", cat, message);
 	return;
 }
 
@@ -341,7 +306,7 @@ logstring0(int priority, const char *cat, const char *message)
  * This uses the lua_State for it easy string buffers only.
  */
 extern void
-printlogf0(lua_State *L, 
+printlogf0(lua_State *L,
 	int priority,
 	const char *cat,
 	const char *fmt, ...)
@@ -369,8 +334,8 @@ s_calloc(size_t nmemb, size_t size)
 	void *r = calloc(nmemb, size);
 	if (r == NULL) {
 		logstring0(LOG_ERR, "Error", "Out of memory!");
-		exit(-1); // ERRNO 
-	}	
+		exit(-1); // ERRNO
+	}
 	return r;
 }
 
@@ -426,22 +391,22 @@ s_strdup(const char *src)
  * write() can manage.
  */
 struct pipemsg {
-	/* message to send */
+	// message to send
 	char *text;
 
-	/* length of text */
+	// length of text
 	int tlen;
 
-	/* position in message */
+	// position in message
 	int pos;
 };
 
 /**
- * Called by the core whenever a pipe becomes 
- * writeable again 
+ * Called by the core whenever a pipe becomes
+ * writeable again
  */
-static void 
-pipe_writey(lua_State *L, struct observance *observance) 
+static void
+pipe_writey(lua_State *L, struct observance *observance)
 {
 	int fd = observance->fd;
 	struct pipemsg *pm = (struct pipemsg *) observance->extra;
@@ -457,10 +422,10 @@ pipe_writey(lua_State *L, struct observance *observance)
 }
 
 /**
- * Called when cleaning up a pipe 
+ * Called when cleaning up a pipe
  */
 static void
-pipe_tidy(struct observance *observance) 
+pipe_tidy(struct observance *observance)
 {
 	struct pipemsg *pm = (struct pipemsg *) observance->extra;
 	close(observance->fd);
@@ -534,7 +499,7 @@ write_pidfile(lua_State *L, const char *pidfile) {
 		exit(-1); // ERRNO
 	}
 	fprintf(f, "%i\n", getpid());
-	fclose(f); 
+	fclose(f);
 }
 
 /*****************************************************************************
@@ -568,23 +533,23 @@ static bool observance_action = false;
  * one of read_ready or write_ready may be zero
  */
 extern void
-observe_fd(int fd, 
+observe_fd(int fd,
            void (*ready) (lua_State *, struct observance *),
            void (*writey)(lua_State *, struct observance *),
            void (*tidy)  (struct observance *),
 		   void *extra)
 {
 	int pos;
-	/* looks if the fd is already there as pos or
-	 * stores the position to insert the new fd in pos */
+	// looks if the fd is already there as pos or
+	// stores the position to insert the new fd in pos
 	for(pos = 0; pos < observances_len; pos++) {
 		if (fd <= observances[pos].fd) {
 			break;
 		}
 	}
 	if (pos < observances_len && observances[pos].fd == fd) {
-		/* just update an existing observance */
-		logstring("Masterloop", "updating n fd observance");
+		// just updates an existing observance
+		logstring("Masterloop", "updating fd observance");
 		observances[pos].ready  = ready;
 		observances[pos].writey = writey;
 		observances[pos].tidy   = tidy;
@@ -594,22 +559,22 @@ observe_fd(int fd,
 
 	if (observance_action) {
 		// TODO
-		logstring("Error", 
+		logstring("Error",
 			"internal, New observances in ready/writey handlers not yet supported");
 		exit(-1); // ERRNO
 	}
 
 	if (!tidy) {
-		logstring("Error", 
+		logstring("Error",
 			"internal, tidy() in observe_fd() must not be NULL.");
 		exit(-1); // ERRNO
 	}
 	if (observances_len + 1 > observances_size) {
 		observances_size = observances_len + 1;
-		observances = s_realloc(observances, 
+		observances = s_realloc(observances,
 			observances_size * sizeof(struct observance));
 	}
-	memmove(observances + pos + 1, observances + pos, 
+	memmove(observances + pos + 1, observances + pos,
 	        (observances_len - pos) * (sizeof(struct observance)));
 
 	observances_len++;
@@ -629,38 +594,36 @@ nonobserve_fd(int fd)
 	int pos;
 
 	if (observance_action) {
-		/* this function is called through a ready/writey handler 
-		 * while the core works through the observance list, thus
-		 * it does not alter the list, but stores this actions
-		 * on a stack 
-		 */
+		// this function is called through a ready/writey handler
+		// while the core works through the observance list, thus
+		// it does not alter the list, but stores this actions
+		// on a stack
 		nonobservances_len++;
 		if (nonobservances_len > nonobservances_size) {
 			nonobservances_size = nonobservances_len;
-			nonobservances = s_realloc(nonobservances, 
-				nonobservances_size * sizeof(int));
+			nonobservances = s_realloc(nonobservances, nonobservances_size * sizeof(int));
 		}
 		nonobservances[nonobservances_len - 1] = fd;
 		return;
 	}
 
-	/* looks for the fd */
+	// looks for the fd
 	for(pos = 0; pos < observances_len; pos++) {
 		if (observances[pos].fd == fd) {
 			break;
 		}
 	}
 	if (pos >= observances_len) {
-		logstring("Error", 
+		logstring("Error",
 			"internal fail, not observance file descriptor in nonobserve");
 		exit(-1); //ERRNO
 	}
 
-	/* tidy up the observance */
-	observances[pos].tidy(observances + pos); 
-	
-	/* and moves the list down */
-	memmove(observances + pos, observances + pos + 1, 
+	// tidies up the observance
+	observances[pos].tidy(observances + pos);
+
+	// and moves the list down
+	memmove(observances + pos, observances + pos + 1,
 	        (observances_len - pos) * (sizeof(struct observance)));
 	observances_len--;
 }
@@ -672,25 +635,23 @@ static void
 user_obs_ready(lua_State *L, struct observance *obs)
 {
 	int fd = obs->fd;
-	/* pushes the ready table on table */
+	// pushes the ready table on table
 	lua_pushlightuserdata(L, (void *) user_obs_ready);
 	lua_gettable(L, LUA_REGISTRYINDEX);
-	
-	/* pushes the error handler */
+
+	// pushes the error handler
 	lua_pushlightuserdata(L, (void *) &callError);
 	lua_gettable(L, LUA_REGISTRYINDEX);
 
-	/* pushed the user func */
+	// pushed the user func
 	lua_pushnumber(L, fd);
 	lua_gettable(L, -3);
 
-	/* gives the ufunc the fd */
+	// gives the ufunc the fd
 	lua_pushnumber(L, fd);
 
-	/* calls the user function */
-	if (lua_pcall(L, 1, 0, -3)) {
-		exit(-1); // ERRNO
-	}
+	// calls the user function
+	if (lua_pcall(L, 1, 0, -3)) exit(-1); // ERRNO
 	lua_pop(L, 2);
 }
 
@@ -701,25 +662,23 @@ static void
 user_obs_writey(lua_State *L, struct observance *obs)
 {
 	int fd = obs->fd;
-	/* pushes the writey table on table */
+	// pushes the writey table on table
 	lua_pushlightuserdata(L, (void *) user_obs_writey);
 	lua_gettable(L, LUA_REGISTRYINDEX);
 
-	/* pushes the error handler */
+	// pushes the error handler
 	lua_pushlightuserdata(L, (void *) &callError);
 	lua_gettable(L, LUA_REGISTRYINDEX);
 
-	/* pushed the user func */
+	// pushes the user func
 	lua_pushnumber(L, fd);
 	lua_gettable(L, -3);
 
-	/* gives the ufunc the fd */
+	// gives the user func the fd
 	lua_pushnumber(L, fd);
 
-	/* calls the user function */
-	if (lua_pcall(L, 1, 0, -3)) {
-		exit(-1); // ERRNO
-	}
+	// calls the user function
+	if (lua_pcall(L, 1, 0, -3)) exit(-1); // ERRNO
 	lua_pop(L, 2);
 }
 
@@ -736,8 +695,8 @@ user_obs_tidy(struct observance *obs)
 
 /*****************************************************************************
  * Library calls for lsyncd.lua
- * 
- * These are as minimal as possible glues to the operating system needed for 
+ *
+ * These are as minimal as possible glues to the operating system needed for
  * lsyncd operation.
  ****************************************************************************/
 
@@ -750,28 +709,23 @@ int l_stackdump(lua_State* L);
  * @param loglevel (Lua stack) loglevel of massage
  * @param string   (Lua stack) the string to log
  */
-static int 
+static int
 l_log(lua_State *L)
 {
-	/* log category */
-	const char * cat;
-	/* log message */
-	const char * message;
-	/* log priority */
-	int priority;
+	const char * cat;     // log category
+	const char * message; // log message
+	int priority;         // log priority
 
 	cat = luaL_checkstring(L, 1);
 	priority = check_logcat(cat);
 	/* skips filtered messages */
-	if (priority > settings.log_level) {
-		return 0;
-	}
+	if (priority > settings.log_level) return 0;
 
 	{
 		// replace non string values
 		int i;
 		int top = lua_gettop(L);
-		for (i = 1; i <= top; i++) { 
+		for (i = 1; i <= top; i++) {
 			int t = lua_type(L, i);
 			switch (t) {
 			case LUA_TTABLE:
@@ -788,8 +742,7 @@ l_log(lua_State *L)
 				break;
 			case LUA_TUSERDATA:
 				{
-					clock_t *c = (clock_t *)
-						luaL_checkudata(L, i, "Lsyncd.jiffies");
+					clock_t *c = (clock_t *) luaL_checkudata(L, i, "Lsyncd.jiffies");
 					double d = (*c);
 					d /= clocks_per_sec;
 					lua_pushfstring(L, "(Timestamp: %f)", d);
@@ -804,7 +757,7 @@ l_log(lua_State *L)
 		}
 	}
 
-	/* concates if there is more than one string parameter */
+	// concates if there is more than one string parameter
 	lua_concat(L, lua_gettop(L) - 1);
 
 	message = luaL_checkstring(L, 2);
@@ -813,11 +766,11 @@ l_log(lua_State *L)
 }
 
 /**
- * Returns (on Lua stack) the current kernels 
+ * Returns (on Lua stack) the current kernels
  * clock state (jiffies)
  */
 extern int
-l_now(lua_State *L) 
+l_now(lua_State *L)
 {
 	clock_t *j = lua_newuserdata(L, sizeof(clock_t));
 	luaL_getmetatable(L, "Lsyncd.jiffies");
@@ -829,10 +782,10 @@ l_now(lua_State *L)
 
 /**
  * Executes a subprocess. Does not wait for it to return.
- * 
+ *
  * @param  (Lua stack) Path to binary to call
  * @params (Lua stack) list of string as arguments
- *    or "<" in which case the next argument is a string that will be piped 
+ *    or "<" in which case the next argument is a string that will be piped
  *    on stdin. the arguments will follow that one.
  *
  * @return (Lua stack) the pid on success, 0 on failure.
@@ -840,51 +793,42 @@ l_now(lua_State *L)
 static int
 l_exec(lua_State *L)
 {
-	/* the binary to call */
-	const char *binary = luaL_checkstring(L, 1);
-	/* number of arguments */
-	int argc = lua_gettop(L) - 1;
-	/* the pid spawned */
-	pid_t pid;
-	/* the arguments position in the lua arguments */
-	int li = 1;
+	const char *binary = luaL_checkstring(L, 1); // the binary to call
+	int argc = lua_gettop(L) - 1;                // number of arguments
+	pid_t pid;                                   // the pid spawned
+	int li = 1;                                  // the arguments position in the lua arguments
 
-	/* the pipe to text */
-	char const *pipe_text = NULL;
-	size_t pipe_len = 0;
-	/* the arguments */
-	char const **argv;
-	/* pipe file descriptors */
-	int pipefd[2];
+	char const *pipe_text = NULL; // the pipe to text
+	size_t pipe_len = 0;          // the pipes length
+	char const **argv;            // the arguments
+	int pipefd[2];                // pipe file descriptors
+	int i;
 
-	/* expands tables if there are any */
-	{
-		int i;
-		for(i = 1; i <= lua_gettop(L); i++) {
-			if (lua_istable(L, i)) {
-				int tlen;
-				int it;
-				/* table is now on top of stack */
-				lua_checkstack(L, lua_gettop(L) + lua_objlen(L, i) + 1);
-				lua_pushvalue(L, i);
-				lua_remove(L, i);
-				argc--;
-				tlen = lua_objlen(L, -1);
-				for (it = 1; it <= tlen; it++) {
-					lua_pushinteger(L, it);
-					lua_gettable(L, -2);
-					lua_insert(L,i);
-					i++;
-					argc++;
-				}
-				i--;
-				lua_pop(L, 1);
+	// expands tables if there are any
+	for(i = 1; i <= lua_gettop(L); i++) {
+		if (lua_istable(L, i)) {
+			int tlen;
+			int it;
+			/* table is now on top of stack */
+			lua_checkstack(L, lua_gettop(L) + lua_objlen(L, i) + 1);
+			lua_pushvalue(L, i);
+			lua_remove(L, i);
+			argc--;
+			tlen = lua_objlen(L, -1);
+			for (it = 1; it <= tlen; it++) {
+				lua_pushinteger(L, it);
+				lua_gettable(L, -2);
+				lua_insert(L,i);
+				i++;
+				argc++;
 			}
+			i--;
+			lua_pop(L, 1);
 		}
 	}
+
 	/* writes a log message, prepares the message only if actually needed. */
 	if (check_logcat("Exec") <= settings.log_level) {
-		int i;
 		lua_checkstack(L, lua_gettop(L) + argc * 3 + 2);
 		lua_pushvalue(L, 1);
 		for(i = 1; i <= argc; i++) {
@@ -921,55 +865,46 @@ l_exec(lua_State *L)
 		li += 2;
 	}
 
-	{
-		/* prepares the arguments */
-		int i;
-		argv = s_calloc(argc + 2, sizeof(char *));
-		argv[0] = binary;
-		for(i = 1; i <= argc; i++) {
-			argv[i] = luaL_checkstring(L, i + li);
-		}
-		argv[i] = NULL;
+	// prepares the arguments
+	argv = s_calloc(argc + 2, sizeof(char *));
+	argv[0] = binary;
+	for(i = 1; i <= argc; i++) {
+		argv[i] = luaL_checkstring(L, i + li);
 	}
+	argv[i] = NULL;
 	pid = fork();
 
 	if (pid == 0) {
-		/* replaces stdin for pipes */
-		if (pipe_text) {
-			dup2(pipefd[0], STDIN_FILENO);
-		}
-		// close_exec_fd(pipefd[0]);
-		/* if lsyncd runs as a daemon and has a logfile it will redirect
-		   stdout/stderr of child processes to the logfile. */
+		// replaces stdin for pipes
+		if (pipe_text) dup2(pipefd[0], STDIN_FILENO);
+
+		// if lsyncd runs as a daemon and has a logfile it will redirect
+		// stdout/stderr of child processes to the logfile.
 		if (is_daemon && settings.log_file) {
 			if (!freopen(settings.log_file, "a", stdout)) {
-				printlogf(L, "Error", 
-					"cannot redirect stdout to '%s'.", 
-					settings.log_file);
+				printlogf(L, "Error", "cannot redirect stdout to '%s'.", settings.log_file);
 			}
 			if (!freopen(settings.log_file, "a", stderr)) {
-				printlogf(L, "Error", 
-					"cannot redirect stderr to '%s'.", 
-					settings.log_file);
+				printlogf(L, "Error", "cannot redirect stderr to '%s'.", settings.log_file);
 			}
 		}
 		execv(binary, (char **)argv);
-		/* in a sane world execv does not return! */
+		// in a sane world execv does not return!
 		printlogf(L, "Error", "Failed executing [%s]!", binary);
 		exit(-1); // ERRNO
 	}
 
 	if (pipe_text) {
 		int len;
-		/* first closes read-end of pipe, this is for child process only */
+		// first closes read-end of pipe, this is for child process only
 		close(pipefd[0]);
-		/* start filling the pipe */
+		// starts filling the pipe
 		len = write(pipefd[1], pipe_text, pipe_len);
 		if (len < 0) {
 			logstring("Normal", "immediatly broken pipe.");
 			close(pipefd[1]);
 		} else if (len == pipe_len) {
-			/* usual and best case, the pipe accepted all input -> close */
+			// usual and best case, the pipe accepted all input -> close
 			close(pipefd[1]);
 			logstring("Exec", "one-sweeped pipe");
 		} else {
@@ -990,7 +925,7 @@ l_exec(lua_State *L)
 
 /**
  * Converts a relative directory path to an absolute.
- * 
+ *
  * @param dir a relative path to directory
  * @return    absolute path of directory
  */
@@ -1000,18 +935,16 @@ l_realdir(lua_State *L)
 	luaL_Buffer b;
 	char *cbuf;
 	const char *rdir = luaL_checkstring(L, 1);
-	
-	/* use c-library to get absolute path */
+
+	// uses c-library to get the absolute path
 #ifdef __GLIBC__
 	cbuf = realpath(rdir, NULL);
 #else
-#	warning must use oldstyle realpath() 
+#	warning having to use oldstyle realpath()
 	{
 		char *ccbuf = s_calloc(sizeof(char), PATH_MAX);
 		cbuf = realpath(rdir, ccbuf);
-		if (!cbuf) {
-			free(ccbuf);
-		} 
+		if (!cbuf) free(ccbuf);
 	}
 #endif
 	if (!cbuf) {
@@ -1019,24 +952,24 @@ l_realdir(lua_State *L)
 		return 0;
 	}
 	{
-		/* makes sure its a directory */
+		// makes sure its a directory
 	    struct stat st;
 	    if (stat(cbuf, &st)) {
-			printlogf(L, "Error", 
-				"cannot get absolute path of dir '%s': %s", 
+			printlogf(L, "Error",
+				"cannot get absolute path of dir '%s': %s",
 				rdir, strerror(errno));
 			return 0;
 		}
 	    if (!S_ISDIR(st.st_mode)) {
-			printlogf(L, "Error", 
-				"cannot get absolute path of dir '%s': is not a directory", 
+			printlogf(L, "Error",
+				"cannot get absolute path of dir '%s': is not a directory",
 				rdir);
 			free(cbuf);
 			return 0;
 	    }
 	}
 
-	/* returns absolute path with a concated '/' */
+	// returns absolute path with a concated '/'
 	luaL_buffinit(L, &b);
 	luaL_addstring(&b, cbuf);
 	luaL_addchar(&b, '/');
@@ -1054,24 +987,20 @@ l_stackdump(lua_State* L)
 	int i;
 	int top = lua_gettop(L);
 	printlogf(L, "Debug", "total in stack %d",top);
-	for (i = 1; i <= top; i++) { 
+	for (i = 1; i <= top; i++) {
 		int t = lua_type(L, i);
 		switch (t) {
 		case LUA_TSTRING:
-			printlogf(L, "Debug", "%d string: '%s'", 
-				i, lua_tostring(L, i));
+			printlogf(L, "Debug", "%d string: '%s'", i, lua_tostring(L, i));
 			break;
 		case LUA_TBOOLEAN:
-			printlogf(L, "Debug", "%d boolean %s", 
-				i, lua_toboolean(L, i) ? "true" : "false");
+			printlogf(L, "Debug", "%d boolean %s", i, lua_toboolean(L, i) ? "true" : "false");
 			break;
-		case LUA_TNUMBER: 
-			printlogf(L, "Debug", "%d number: %g", 
-				i, lua_tonumber(L, i));
+		case LUA_TNUMBER:
+			printlogf(L, "Debug", "%d number: %g", i, lua_tonumber(L, i));
 			break;
-		default: 
-			printlogf(L, "Debug", "%d %s", 
-				i, lua_typename(L, t));
+		default:
+			printlogf(L, "Debug", "%d %s", i, lua_typename(L, t));
 			break;
 		}
 	}
@@ -1083,7 +1012,7 @@ l_stackdump(lua_State* L)
  *
  * @param  (Lua stack) absolute path to directory.
  * @return (Lua stack) a table of directory names.
- *                     names are keys, values are boolean 
+ *                     names are keys, values are boolean
  *                     true on dirs.
  */
 static int
@@ -1097,23 +1026,18 @@ l_readdir (lua_State *L)
 		printlogf(L, "Error", "cannot open dir [%s].", dirname);
 		return 0;
 	}
-	
+
 	lua_newtable(L);
 	while (!hup && !term) {
 		struct dirent *de = readdir(d);
 		bool isdir;
-		if (de == NULL) {
-			/* finished */
-			break;
-		}
+		if (de == NULL) break; // finished
 
-		if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) { 
-			/* ignores . and .. */
-			continue;
-		}
+		// ignores . and ..
+		if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) continue;
 
 		if (de->d_type == DT_UNKNOWN) {
-			/* must call stat on some systems :-/ */
+			// must call stat on some systems :-/
 			char *entry = s_malloc(strlen(dirname) + strlen(de->d_name) + 2);
 			struct stat st;
 			strcpy(entry, dirname);
@@ -1123,11 +1047,11 @@ l_readdir (lua_State *L)
 			isdir = S_ISDIR(st.st_mode);
 			free(entry);
 		} else {
-			/* readdir can trusted */
+			// readdir can trusted
 			isdir = de->d_type == DT_DIR;
 		}
 
-		/* adds this entry to the Lua table */
+		// adds this entry to the Lua table
 		lua_pushstring(L, de->d_name);
 		lua_pushboolean(L, isdir);
 		lua_settable(L, -3);
@@ -1138,13 +1062,13 @@ l_readdir (lua_State *L)
 
 /**
  * Terminates lsyncd daemon.
- * 
+ *
  * @param (Lua stack) exitcode for lsyncd.
  *
  * Does not return.
  */
-int 
-l_terminate(lua_State *L) 
+int
+l_terminate(lua_State *L)
 {
 	int exitcode = luaL_checkinteger(L, 1);
 	exit(exitcode);
@@ -1153,29 +1077,25 @@ l_terminate(lua_State *L)
 
 /**
  * Configures core parameters.
- * 
+ *
  * @param (Lua stack) a string for a core configuratoin
- * @param (Lua stack) --differes depending on string. 
+ * @param (Lua stack) --differes depending on string.
  */
-static int 
-l_configure(lua_State *L) 
+static int
+l_configure(lua_State *L)
 {
 	const char * command = luaL_checkstring(L, 1);
 	if (!strcmp(command, "running")) {
-		/* set by runner after first initialize 
-		 * from this on log to configurated log end instead of 
-		 * stdout/stderr */
+		// set by runner after first initialize
+		// from this on log to configurated log end instead of
+		// stdout/stderr
 		first_time = false;
 		if (settings.log_syslog || !settings.log_file) {
-			openlog(settings.log_ident ? settings.log_ident : "lsyncd", 
-				0,
-				settings.log_facility
-			);
+			const char * log_ident = settings.log_ident ? settings.log_ident : "lsyncd";
+			openlog(log_ident, 0, settings.log_facility);
 		}
 		if (!settings.nodaemon && !is_daemon) {
-			if (!settings.log_file) {
-				settings.log_syslog = true;
-			}
+			if (!settings.log_file) settings.log_syslog = true;
 			logstring("Debug", "daemonizing now.");
 			daemonize(L);
 		}
@@ -1186,25 +1106,19 @@ l_configure(lua_State *L)
 		settings.nodaemon = true;
 	} else if (!strcmp(command, "logfile")) {
 		const char * file = luaL_checkstring(L, 2);
-		if (settings.log_file) {
-			free(settings.log_file);
-		}
+		if (settings.log_file) free(settings.log_file);
 		settings.log_file = s_strdup(file);
 	} else if (!strcmp(command, "pidfile")) {
 		const char * file = luaL_checkstring(L, 2);
-		if (settings.pidfile) {
-			free(settings.pidfile);
-		}
+		if (settings.pidfile) free(settings.pidfile);
 		settings.pidfile = s_strdup(file);
 	} else if (!strcmp(command, "logfacility")) {
 		if (lua_isstring(L, 2)) {
 			const char * fname = luaL_checkstring(L, 2);
 			int i;
 			for(i = 0; facilitynames[i].c_name; i++) {
-				if (!strcasecmp(fname, facilitynames[i].c_name)) {
-					break;
-				}
-			} 
+				if (!strcasecmp(fname, facilitynames[i].c_name)) break;
+			}
 			if (!facilitynames[i].c_name) {
 				printlogf(L, "Error", "Logging facility '%s' unknown.", fname);
 				exit(-1); //ERRNO
@@ -1218,13 +1132,11 @@ l_configure(lua_State *L)
 		}
 	} else if (!strcmp(command, "logident")) {
 		const char * ident = luaL_checkstring(L, 2);
-		if (settings.log_ident) {
-			free(settings.log_ident);
-		}
+		if (settings.log_ident) free(settings.log_ident);
 		settings.log_ident = s_strdup(ident);
 	} else {
-		printlogf(L, "Error", 
-			"Internal error, unknown parameter in l_configure(%s)", 
+		printlogf(L, "Error",
+			"Internal error, unknown parameter in l_configure(%s)",
 			command);
 		exit(-1); //ERRNO
 	}
@@ -1234,19 +1146,19 @@ l_configure(lua_State *L)
 /**
  * Allows the user to observe filedescriptors
  *
- * @param (Lua stack) filedescriptor. 
+ * @param (Lua stack) filedescriptor.
  * @param (Lua stack) function to call on ready
  * @param (Lua stack) function to call on writey
  */
-static int 
+static int
 l_observe_fd(lua_State *L)
 {
 	int fd = luaL_checknumber(L, 1);
 	bool ready  = false;
 	bool writey = false;
-	/* Stores the user function in the lua registry.
-	 * It uses the address of the cores ready/write functions 
-	 * for the user as key */
+	// Stores the user function in the lua registry.
+	// It uses the address of the cores ready/write functions
+	// for the user as key
 	if (!lua_isnoneornil(L, 2)) {
 		lua_pushlightuserdata(L, (void *) user_obs_ready);
 		lua_gettable(L, LUA_REGISTRYINDEX);
@@ -1281,8 +1193,8 @@ l_observe_fd(lua_State *L)
 		writey = true;
 	}
 	/* tells the core to watch the fd */
-	observe_fd(fd, 
-	           ready  ? user_obs_ready : NULL, 
+	observe_fd(fd,
+	           ready  ? user_obs_ready : NULL,
 			   writey ? user_obs_writey : NULL,
 			   user_obs_tidy,
 			   NULL);
@@ -1291,14 +1203,14 @@ l_observe_fd(lua_State *L)
 
 /**
  * Removes a user observance
- * @param (Lua stack) filedescriptor. 
+ * @param (Lua stack) filedescriptor.
  */
 extern int
 l_nonobserve_fd(lua_State *L)
 {
 	int fd = luaL_checknumber(L, 1);
 
-	/* removes read func */
+	// removes the read function
 	lua_pushlightuserdata(L, (void *) user_obs_ready);
 	lua_gettable(L, LUA_REGISTRYINDEX);
 	if (!lua_isnil(L, -1)) {
@@ -1307,7 +1219,7 @@ l_nonobserve_fd(lua_State *L)
 		lua_settable(L, -2);
 	}
 	lua_pop(L, 1);
-	
+
 	lua_pushlightuserdata(L, (void *) user_obs_writey);
 	lua_gettable(L, LUA_REGISTRYINDEX);
 	if (!lua_isnil(L, -1)) {
@@ -1340,14 +1252,14 @@ static const luaL_reg lsyncdlib[] = {
 /**
  * Adds two jiffies or a number to a jiffy
  */
-static int 
-l_jiffies_add(lua_State *L) 
+static int
+l_jiffies_add(lua_State *L)
 {
 	clock_t *p1 = (clock_t *) lua_touserdata(L, 1);
 	clock_t *p2 = (clock_t *) lua_touserdata(L, 2);
 	if (p1 && p2) {
 		logstring("Error", "Cannot add to timestamps!");
-		exit(-1); /* ERRNO */
+		exit(-1); // ERRNO
 	}
 	{
 		clock_t a1  = p1 ? *p1 :  luaL_checknumber(L, 1) * clocks_per_sec;
@@ -1355,7 +1267,7 @@ l_jiffies_add(lua_State *L)
 		clock_t *r  = (clock_t *) lua_newuserdata(L, sizeof(clock_t));
 		luaL_getmetatable(L, "Lsyncd.jiffies");
 		lua_setmetatable(L, -2);
-		*r = a1 + a2; 
+		*r = a1 + a2;
 		return 1;
 	}
 }
@@ -1363,33 +1275,33 @@ l_jiffies_add(lua_State *L)
 /**
  * Adds two jiffies or a number to a jiffy
  */
-static int 
-l_jiffies_sub(lua_State *L) 
+static int
+l_jiffies_sub(lua_State *L)
 {
 	clock_t *p1 = (clock_t *) lua_touserdata(L, 1);
 	clock_t *p2 = (clock_t *) lua_touserdata(L, 2);
 	if (p1 && p2) {
-		/* substracting two timestamps result in a timespan in seconds */
+		// substracting two timestamps result in a timespan in seconds
 		clock_t a1  = *p1;
 		clock_t a2  = *p2;
 		lua_pushnumber(L, ((double) (a1 -a2)) / clocks_per_sec);
 		return 1;
 	}
-	/* makes a timestamp earlier by NUMBER seconds */
+	// makes a timestamp earlier by NUMBER seconds
 	clock_t a1  = p1 ? *p1 :  luaL_checknumber(L, 1) * clocks_per_sec;
 	clock_t a2  = p2 ? *p2 :  luaL_checknumber(L, 2) * clocks_per_sec;
 	clock_t *r  = (clock_t *) lua_newuserdata(L, sizeof(clock_t));
 	luaL_getmetatable(L, "Lsyncd.jiffies");
 	lua_setmetatable(L, -2);
-	*r = a1 - a2; 
+	*r = a1 - a2;
 	return 1;
 }
 
 /**
  * Substracts two jiffies or a number to a jiffy
  */
-static int 
-l_jiffies_eq(lua_State *L) 
+static int
+l_jiffies_eq(lua_State *L)
 {
 	clock_t a1 = (*(clock_t *) luaL_checkudata(L, 1, "Lsyncd.jiffies"));
 	clock_t a2 = (*(clock_t *) luaL_checkudata(L, 2, "Lsyncd.jiffies"));
@@ -1400,8 +1312,8 @@ l_jiffies_eq(lua_State *L)
 /**
  * True if jiffy1 before jiffy2
  */
-static int 
-l_jiffies_lt(lua_State *L) 
+static int
+l_jiffies_lt(lua_State *L)
 {
 	clock_t a1 = (*(clock_t *) luaL_checkudata(L, 1, "Lsyncd.jiffies"));
 	clock_t a2 = (*(clock_t *) luaL_checkudata(L, 2, "Lsyncd.jiffies"));
@@ -1412,8 +1324,8 @@ l_jiffies_lt(lua_State *L)
 /**
  * True if jiffy1 before or == jiffy2
  */
-static int 
-l_jiffies_le(lua_State *L) 
+static int
+l_jiffies_le(lua_State *L)
 {
 	clock_t a1 = (*(clock_t *) luaL_checkudata(L, 1, "Lsyncd.jiffies"));
 	clock_t a2 = (*(clock_t *) luaL_checkudata(L, 2, "Lsyncd.jiffies"));
@@ -1426,12 +1338,12 @@ l_jiffies_le(lua_State *L)
  * Registers the lsyncd lib
  */
 void
-register_lsyncd(lua_State *L) 
+register_lsyncd(lua_State *L)
 {
 	luaL_register(L, "lsyncd", lsyncdlib);
 	lua_setglobal(L, "lysncd");
 
-	/* creates the metatable for jiffies userdata */
+	// creates the metatable for jiffies userdata
 	luaL_newmetatable(L, "Lsyncd.jiffies");
 	lua_pushstring(L, "__add");
 	lua_pushcfunction(L, l_jiffies_add);
@@ -1440,22 +1352,23 @@ register_lsyncd(lua_State *L)
 	lua_pushstring(L, "__sub");
 	lua_pushcfunction(L, l_jiffies_sub);
 	lua_settable(L, -3);
-	
+
 	lua_pushstring(L, "__lt");
 	lua_pushcfunction(L, l_jiffies_lt);
 	lua_settable(L, -3);
-	
+
 	lua_pushstring(L, "__le");
 	lua_pushcfunction(L, l_jiffies_le);
 	lua_settable(L, -3);
-	
+
 	lua_pushstring(L, "__eq");
 	lua_pushcfunction(L, l_jiffies_eq);
 	lua_settable(L, -3);
 	lua_pop(L, 1);
-	
+
 	lua_getglobal(L, "lysncd");
 #ifdef LSYNCD_WITH_INOTIFY
+	// TODO what the hack?
 	register_inotify(L);
 	lua_settable(L, -3);
 #endif
@@ -1469,7 +1382,7 @@ register_lsyncd(lua_State *L)
 
 
 /*****************************************************************************
- * Lsyncd Core 
+ * Lsyncd Core
 ****************************************************************************/
 
 /**
@@ -1477,16 +1390,16 @@ register_lsyncd(lua_State *L)
  * Prior it pushed the callError handler.
  */
 extern void
-load_runner_func(lua_State *L, 
+load_runner_func(lua_State *L,
                  const char *name)
 {
 	printlogf(L, "Call", "%s()", name);
-    
-	/* pushes the error handler */
+
+	// pushes the error handler
 	lua_pushlightuserdata(L, (void *) &callError);
 	lua_gettable(L, LUA_REGISTRYINDEX);
-	
-	/* pushes the function */
+
+	// pushes the function
 	lua_pushlightuserdata(L, (void *) &runner);
 	lua_gettable(L, LUA_REGISTRYINDEX);
 	lua_pushstring(L, name);
@@ -1496,10 +1409,10 @@ load_runner_func(lua_State *L,
 
 /**
  * Daemonizes.
- * 
- * Lsyncds own implementation over daemon(0, 0) since 
+ *
+ * Lsyncds own implementation over daemon(0, 0) since
  *  a) OSX keeps bugging about it being deprecated
- *  b) for reason since blindly closing stdin/out/err is unsafe, since 
+ *  b) for reason since blindly closing stdin/out/err is unsafe, since
  *     they might not have existed and actually close the monitors fd!
  */
 static void
@@ -1508,46 +1421,45 @@ daemonize(lua_State *L)
 	pid_t pid, sid;
 
 	pid = fork();
+
 	if (pid < 0) {
-		printlogf(L, "Error", 
+		printlogf(L, "Error",
 			"Failure in daemonize at fork: %s", strerror(errno));
 		exit(-1); // ERRNO
 	}
-	if (pid > 0) {
-		/* return parent to shell */
-		exit(0);
-	}
+
+	if (pid > 0) exit(0); // return parent to shell
+
 	sid = setsid();
 	if (sid < 0) {
-		printlogf(L, "Error", 
+		printlogf(L, "Error",
 			"Failure in daemonize at setsid: %s", strerror(errno));
 		exit(-1); // ERRNO
 	}
 
-	/* goto root dir */
+	// goto root dir
 	if ((chdir("/")) < 0) {
-		printlogf(L, "Error", 
+		printlogf(L, "Error",
 			"Failure in daemonize at chdir(\"/\"): %s", strerror(errno));
 		exit(-1); // ERRNO
 	}
 
-	/* does what clibs daemon(0, 0) cannot do, 
-	 * checks if there were no stdstreams and it might close used fds!  */
+	// does what clibs daemon(0, 0) cannot do,
+	// checks if there were no stdstreams and it might close used fds!
 	if (observances_len && observances->fd < 3) {
-		printlogf(L, "Normal", 
+		printlogf(L, "Normal",
 			"daemonize not closing stdin/out/err, since there seem to none.");
 		return;
 	}
 
-	/* disconnects stdstreams */
+	// disconnects stdstreams
 	if (!freopen("/dev/null", "r", stdin) ||
 		!freopen("/dev/null", "r", stdout) ||
 		!freopen("/dev/null", "r", stderr)
 	) {
-		printlogf(L, "Error", 
-			"Failure in daemonize at freopen(/dev/null, std[in|out|err])");
+		printlogf(L, "Error", "Failure in daemonize at freopen(/dev/null, std[in|out|err])");
 	}
-	
+
 	is_daemon = true;
 }
 
@@ -1559,55 +1471,52 @@ masterloop(lua_State *L)
 {
 	while(true) {
 		bool have_alarm;
-		bool force_alarm;
-		clock_t now = times(dummy_tms);
-		clock_t alarm_time;
+		bool force_alarm   = false;
+		clock_t now        = times(dummy_tms);
+		clock_t alarm_time = 0;
 
-		/* queries runner about soonest alarm  */
-		load_runner_func(L, "getAlarm"); 
+		// queries runner about soonest alarm
+		load_runner_func(L, "getAlarm");
 		if (lua_pcall(L, 0, 1, -2)) {
 			exit(-1); // ERRNO
 		}
-		
+
 		if (lua_type(L, -1) == LUA_TBOOLEAN) {
 			have_alarm = false;
 			force_alarm = lua_toboolean(L, -1);
 		} else {
 			have_alarm = true;
-			alarm_time = 
-				*((clock_t *) luaL_checkudata(L, -1, "Lsyncd.jiffies"));
+			alarm_time = *((clock_t *) luaL_checkudata(L, -1, "Lsyncd.jiffies"));
 		}
 		lua_pop(L, 2);
 
-		if (force_alarm || 
-		    (have_alarm && time_before_eq(alarm_time, now))
-		) {
-			/* there is a delay that wants to be handled already thus instead 
-			 * of reading/writing from observances it jumps directly to 
-			 * handling */
+		if (force_alarm || (have_alarm && time_before_eq(alarm_time, now))) {
+			// there is a delay that wants to be handled already thus instead
+			// of reading/writing from observances it jumps directly to
+			// handling
 
-			// TODO: Actually it might be smarter to handler observances 
+			// TODO: Actually it might be smarter to handler observances
 			// eitherway. since event queues might overflow.
 			logstring("Masterloop", "immediately handling delays.");
 		} else {
 			/* use select() to determine what happens next
 			 * + a new event on an observance
-			 * + an alarm on timeout  
+			 * + an alarm on timeout
 			 * + the return of a child process */
 			struct timespec tv;
 
-			if (have_alarm) { 
+			if (have_alarm) {
 				// TODO use trunc instead of long converstions
 				double d = ((double)(alarm_time - now)) / clocks_per_sec;
 				tv.tv_sec  = d;
 				tv.tv_nsec = ((d - (long) d)) * 1000000000.0;
-				printlogf(L, "Masterloop", 
+				printlogf(L, "Masterloop",
 					"going into select (timeout %f seconds)", d);
 			} else {
 				logstring("Masterloop", "going into select (no timeout).");
 			}
-			/* time for Lsyncd to try to put itself to rest into a select(), 
-			 * configures timeouts, filedescriptors and signals 
+			/* time for Lsyncd to try to put itself to rest into a select(),
+			 * configures timeouts, filedescriptors and signals
 			 * that will wake it */
 			{
 				fd_set rfds;
@@ -1630,17 +1539,17 @@ masterloop(lua_State *L)
 				}
 
 				if (!observances_len) {
-					logstring("Error", 
+					logstring("Error",
 						"Internal fail, no observances, no monitor!");
 					exit(-1);
 				}
-				/* the great select */
+				// the great select, this is the very heart beat
 				pr = pselect(
 					observances[observances_len - 1].fd + 1,
-					&rfds, &wfds, NULL, 
+					&rfds, &wfds, NULL,
 					have_alarm ? &tv : NULL, &sigset);
 				if (pr >= 0) {
-					/* walks through the observances calling ready/writey */
+					// walks through the observances calling ready/writey
 					observance_action = true;
 					for(pi = 0; pi < observances_len; pi++) {
 						struct observance *obs = observances + pi;
@@ -1653,7 +1562,7 @@ masterloop(lua_State *L)
 						if (hup || term) {
 							break;
 						}
-						if (nonobservances_len > 0 && 
+						if (nonobservances_len > 0 &&
 							nonobservances[nonobservances_len-1] == obs->fd) {
 							/* TODO breaks if more nonobserves */
 							/* ready() nonobserved itself */
@@ -1671,25 +1580,25 @@ masterloop(lua_State *L)
 					nonobservances_len = 0;
 				}
 			}
-		} 
-	
-		/* collects zombified child processes */
+		}
+
+		// collects zombified child processes
 		while(1) {
 			int status;
 			pid_t pid = waitpid(0, &status, WNOHANG);
 			if (pid <= 0) {
 				break;
 			}
-			load_runner_func(L, "collectProcess"); 
+			load_runner_func(L, "collectProcess");
 			lua_pushinteger(L, pid);
 			lua_pushinteger(L, WEXITSTATUS(status));
 			if (lua_pcall(L, 2, 0, -4)) {
 				exit(-1); // ERRNO
 			}
 			lua_pop(L, 1);
-		} 
+		}
 
-		/* reacts on signals */
+		// reacts on HUP signal
 		if (hup) {
 			load_runner_func(L, "hup");
 			if (lua_pcall(L, 0, 0, -2)) {
@@ -1699,7 +1608,7 @@ masterloop(lua_State *L)
 			hup = 0;
 		}
 
-		/* reacts on signals */
+		// reacts on TERM signal
 		if (term == 1) {
 			load_runner_func(L, "term");
 			if (lua_pcall(L, 0, 0, -2)) {
@@ -1709,15 +1618,13 @@ masterloop(lua_State *L)
 			term = 2;
 		}
 
-		/* lets the runner do stuff every cycle, 
-		 * like starting new processes, writing the statusfile etc. */
+		// lets the runner do stuff every cycle,
+		// like starting new processes, writing the statusfile etc.
 		load_runner_func(L, "cycle");
 		l_now(L);
-		if (lua_pcall(L, 1, 1, -3)) {
-			exit(-1); // ERRNO
-		}
+		if (lua_pcall(L, 1, 1, -3)) exit(-1); // ERRNO
 		if (!lua_toboolean(L, -1)) {
-			/* cycle told core to break mainloop */
+			// cycle told core to break mainloop
 			lua_pop(L, 2);
 			return;
 		}
@@ -1737,20 +1644,20 @@ masterloop(lua_State *L)
 int
 main1(int argc, char *argv[])
 {
-	/* the Lua interpreter */
+	// the Lua interpreter
 	lua_State* L;
 
-	/* scripts */
+	// scripts
 	char * lsyncd_runner_file = NULL;
 	char * lsyncd_config_file = NULL;
 
 	int argp = 1;
 
-	/* load Lua */
+	// load Lua
 	L = lua_open();
 	luaL_openlibs(L);
 	{
-		/* checks the lua version */
+		// checks the lua version
 		const char *version;
 		int major, minor;
 		lua_getglobal(L, "_VERSION");
@@ -1767,7 +1674,7 @@ main1(int argc, char *argv[])
 	}
 
 	{
-		/* prepares logging early */
+		// prepares logging early
 		int i = 1;
 		add_logcat("Normal", LOG_NOTICE);
 		add_logcat("Warn",   LOG_WARNING);
@@ -1780,14 +1687,14 @@ main1(int argc, char *argv[])
 				break;
 			}
 			if (!add_logcat(argv[i], LOG_NOTICE)) {
-				printlogf(L, "Error", "'%s' is not a valid logging category", 
+				printlogf(L, "Error", "'%s' is not a valid logging category",
 					argv[i]);
 				exit(-1); // ERRNO
 			}
 		}
 	}
 
-	/* registers lsycnd core */
+	// registers lsycnd core
 	register_lsyncd(L);
 
 	if (check_logcat("Debug") <= settings.log_level) {
@@ -1795,18 +1702,15 @@ main1(int argc, char *argv[])
 		printf("kernels clocks_per_sec=%ld\n", clocks_per_sec);
 	}
 
-	/* checks if the user overrode default runner file */ 
+	// checks if the user overrode default runner file
 	if (argp < argc && !strcmp(argv[argp], "--runner")) {
 		if (argp + 1 >= argc) {
-			logstring("Error", 
-				"Lsyncd Lua-runner file missing after --runner.");
+			logstring("Error", "Lsyncd Lua-runner file missing after --runner.");
 #ifdef LSYNCD_DEFAULT_RUNNER_FILE
-			printlogf(L, "Error", 
-				"Using '%s' as default location for runner.",
-				LSYNCD_DEFAULT_RUNNER_FILE);
+			printlogf(L, "Error",
+				"Using '%s' as default location for runner.", LSYNCD_DEFAULT_RUNNER_FILE);
 #else
-			logstring("Error", 
-				"Using a statically included runner as default.");
+			logstring("Error", "Using a statically included runner as default.");
 #endif
 			exit(-1); //ERRNO
 		}
@@ -1821,18 +1725,17 @@ main1(int argc, char *argv[])
 		/* checks if the runner file exists */
 		struct stat st;
 		if (stat(lsyncd_runner_file, &st)) {
-			printlogf(L, "Error", 
+			printlogf(L, "Error",
 				"Cannot find Lsyncd Lua-runner at '%s'.", lsyncd_runner_file);
 			printlogf(L, "Error", "Maybe specify another place?");
-			printlogf(L, "Error", 
+			printlogf(L, "Error",
 				"%s --runner RUNNER_FILE CONFIG_FILE", argv[0]);
 			exit(-1); // ERRNO
 		}
 		/* loads the runner file */
 		if (luaL_loadfile(L, lsyncd_runner_file)) {
-			printlogf(L, "Error", 
-				"error loading '%s': %s", 
-				lsyncd_runner_file, lua_tostring(L, -1));
+			printlogf(L, "Error",
+				"error loading '%s': %s", lsyncd_runner_file, lua_tostring(L, -1));
 			exit(-1); // ERRNO
 		}
 	} else {
@@ -1840,14 +1743,14 @@ main1(int argc, char *argv[])
 		/* loads the runner from binary */
 		if (luaL_loadbuffer(L, luac_out, luac_size, "lsyncd.lua"))
 		{
-			printlogf(L, "Error", 
-				"error loading precompiled lsyncd.lua runner: %s", 
+			printlogf(L, "Error",
+				"error loading precompiled lsyncd.lua runner: %s",
 				lua_tostring(L, -1));
 			exit(-1); // ERRNO
 		}
 #else
 		/* this should never be possible, security code nevertheless */
-		logstring("Error", 
+		logstring("Error",
 			"Internal fail: lsyncd_runner is NULL with non-static runner");
 		exit(-1); // ERRNO
 #endif
@@ -1857,9 +1760,9 @@ main1(int argc, char *argv[])
 		/* place to store the lua runners functions */
 		/* executes the runner defining all its functions */
 		if (lua_pcall(L, 0, LUA_MULTRET, 0)) {
-			printlogf(L, "Error", 
-				"error preparing '%s': %s", 
-				lsyncd_runner_file ? lsyncd_runner_file : "internal runner", 
+			printlogf(L, "Error",
+				"error preparing '%s': %s",
+				lsyncd_runner_file ? lsyncd_runner_file : "internal runner",
 				lua_tostring(L, -1));
 			exit(-1); // ERRNO
 		}
@@ -1912,10 +1815,10 @@ main1(int argc, char *argv[])
 	}
 
 	{
-		/* starts the option parser in lua script */
+		// starts the option parser in lua script
 		int idx = 1;
 		const char *s;
-		/* creates a table with all remaining argv option arguments */
+		// creates a table with all remaining argv option arguments
 		load_runner_func(L, "configure");
 		lua_newtable(L);
 		while(argp < argc) {
@@ -1923,7 +1826,7 @@ main1(int argc, char *argv[])
 			lua_pushstring(L, argv[argp++]);
 			lua_settable(L, -3);
 		}
-		/* creates a table with the cores event monitor interfaces */
+		// creates a table with the cores event monitor interfaces
 		idx = 0;
 		lua_newtable(L);
 		while (monitors[idx]) {
@@ -1938,11 +1841,11 @@ main1(int argc, char *argv[])
 		if (s) {
 			lsyncd_config_file = s_strdup(s);
 		}
-		lua_pop(L, 2); 
+		lua_pop(L, 2);
 	}
 
 	if (lsyncd_config_file) {
-		/* checks existence of the config file */
+		// checks existence of the config file
 		struct stat st;
 		if (stat(lsyncd_config_file, &st)) {
 			printlogf(L, "Error",
@@ -1951,7 +1854,7 @@ main1(int argc, char *argv[])
 			exit(-1); // ERRNO
 		}
 
-		/* loads and executes the config file */
+		// loads and executes the config file
 		if (luaL_loadfile(L, lsyncd_config_file)) {
 			printlogf(L, "Error",
 				"error loading %s: %s",
@@ -1975,20 +1878,20 @@ main1(int argc, char *argv[])
 
 	{
 		/* adds signal handlers *
-		 * listens to SIGCHLD, but blocks it until pselect() 
+		 * listens to SIGCHLD, but blocks it until pselect()
 		 * opens up*/
 		sigset_t set;
 		sigemptyset(&set);
 		sigaddset(&set, SIGCHLD);
 		signal(SIGCHLD, sig_child);
 		sigprocmask(SIG_BLOCK, &set, NULL);
-		
+
 		signal(SIGHUP,  sig_handler);
 		signal(SIGTERM, sig_handler);
 	}
 
 	{
-		/* runs initialitions from runner 
+		/* runs initialitions from runner
 		 * lua code will set configuration and add watches */
 		load_runner_func(L, "initialize");
 		lua_pushboolean(L, first_time);
@@ -2000,9 +1903,9 @@ main1(int argc, char *argv[])
 
 	masterloop(L);
 
-	/* cleanup */
+	// cleanup
 	{
-		/* tidies all observances */
+		// tidies up all observances
 		int i;
 		for(i = 0; i < observances_len; i++) {
 			struct observance *obs = observances + i;
@@ -2013,7 +1916,7 @@ main1(int argc, char *argv[])
 	}
 
 	{
-		/* frees logging categories */
+		// frees logging categories
 		int ci;
 		struct logcat *lc;
 		for(ci = 'A'; ci <= 'Z'; ci++) {
@@ -2032,7 +1935,7 @@ main1(int argc, char *argv[])
 		lsyncd_config_file = NULL;
 	}
 
-	/* resets settings to default. */
+	// resets settings to default.
 	if (settings.log_file) {
 		free(settings.log_file);
 		settings.log_file = NULL;
@@ -2055,7 +1958,7 @@ main1(int argc, char *argv[])
 int
 main(int argc, char *argv[])
 {
-	/* kernel parameters */
+	// gets a kernel parameter
 	clocks_per_sec = sysconf(_SC_CLK_TCK);
 
 	while(!term) {
