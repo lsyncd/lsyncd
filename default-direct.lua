@@ -1,5 +1,5 @@
---==================================================================================================
--- default-rsyncssh.lua
+--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- default-direct.lua
 --
 --    Keeps two directories with /bin/cp, /bin/rm and /bin/mv in sync.
 --    Startup still uses rsync tough.
@@ -7,15 +7,15 @@
 --    A (Layer 1) configuration.
 --
 -- Note:
---    this is infact just configuration using Layer 1 configuration,
+--    this is infact just a configuration using Layer 1 configuration
 --    like any other. It only gets compiled into the binary by default.
 --    You can simply use a modified one, by copying everything into a
---    config file of yours and call it differently.
+--    config file of yours and name it differently.
 --
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---==================================================================================================
+--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 if not default       then error('default not loaded'); end
 if not default.rsync then error('default-direct (currently) needs default.rsync loaded'); end

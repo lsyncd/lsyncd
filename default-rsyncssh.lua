@@ -1,19 +1,19 @@
---==================================================================================================
+--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -- default-rsyncssh.lua
 --
 --    Improved rsync - sync with rsync, but moves and deletes executed over ssh.
 --    A (Layer 1) configuration.
 --
 -- Note:
---    this is infact just configuration using Layer 1 configuration,
+--    this is infact just a configuration using Layer 1 configuration
 --    like any other. It only gets compiled into the binary by default.
 --    You can simply use a modified one, by copying everything into a
---    config file of yours and call it differently.
+--    config file of yours and name it differently.
 --
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---==================================================================================================
+--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 if not default      then error('default not loaded'); end
 if default.rsyncssh then error('default-rsyncssh already loaded'); end

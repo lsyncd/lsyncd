@@ -1,18 +1,17 @@
 /**
  * lsyncd.c   Live (Mirror) Syncing Demon
- *
- * License: GPLv2 (see COPYING) or any later version
- *
- * Authors: Axel Kittenberger <axkibe@gmail.com>
- *
- * -----------------------------------------------------------------------
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * This is the core. It contains as minimal as possible glues
  * to the operating system needed for lsyncd operation. All high-level
  * logic is coded (when feasable) into lsyncd.lua
  *
- * This code assumes you have a 100 character wide display to view it, when tabstop is 4.
- */
+ * This code assumes you have a 100 character wide display to view it (when tabstop is 4)
+ *
+ * License: GPLv2 (see COPYING) or any later version
+ * Authors: Axel Kittenberger <axkibe@gmail.com>
+ *
+ **/
 
 #include "lsyncd.h"
 
