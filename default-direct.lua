@@ -28,6 +28,7 @@ default.direct = {
 	action = function(inlet)
 		-- gets all events ready for syncing
 		local event, event2 = inlet.getEvent()
+		local config = inlet.getConfig()
 
 		if event.etype == 'Create' then
 			if event.isdir then
@@ -57,6 +58,10 @@ default.direct = {
 				event.sourcePath
 			)
 		elseif event.etype == 'Delete' then
+			if not config.delete then
+				inlet.discardEvent(event)
+			end
+
 			local tp = event.targetPath
 			-- extra security check
 			if tp == '' or tp == '/' or not tp then
@@ -69,9 +74,11 @@ default.direct = {
 			if tp == '' or tp == '/' or not tp then
 				error('Refusing to erase your harddisk!')
 			end
+			local command = '/bin/mv $1 $2 || /bin/rm -rf $1'
+			if not config.delete then command = '/bin/mv $1 $2'; end
 			spawnShell(
 				event,
-				'/bin/mv $1 $2 || /bin/rm -rf $1',
+				command,
 				event.targetPath,
 				event2.targetPath)
 		else
@@ -150,6 +157,11 @@ default.direct = {
 	-- For startup sync
 	--
 	rsyncOpts = '-lts',
+
+	-----
+	-- By default do deletes.
+	--
+	delete = true,
 
 	-----
 	-- rsync exit codes

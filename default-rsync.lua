@@ -88,11 +88,13 @@ default.rsync = {
 		local filter0 = table.concat(filterI, '\000')
 		log('Normal', 'Calling rsync with filter-list of new/modified files/dirs\n', filterS)
 		local config = inlet.getConfig()
+		local delete = nil
+		if config.delete then delete = { '--delete', '--ignore-errors' }; end
 		spawn(elist, config.rsyncBinary,
 			'<', filter0,
 			config.rsyncOpts,
 			'-r',
-			'--delete',
+			delete,
 			'--force',
 			'--from0',
 			'--include-from=-',
@@ -105,13 +107,16 @@ default.rsync = {
 	-- Spawns the recursive startup sync
 	--
 	init = function(event)
-		local config = event.config;
-		local inlet = event.inlet;
-		local excludes = inlet.getExcludes();
+		local config = event.config
+		local inlet = event.inlet
+		local excludes = inlet.getExcludes()
+		local delete = nil
+		if config.delete then delete = { '--delete', '--ignore-errors' }; end
+
 		if #excludes == 0 then
 			log('Normal', 'recursive startup rsync: ', config.source, ' -> ', config.target)
 			spawn(event, config.rsyncBinary,
-				'--delete',
+				delete,
 				config.rsyncOpts,
 				'-r',
 				config.source,
@@ -123,8 +128,9 @@ default.rsync = {
 			spawn(event, config.rsyncBinary,
 				'<', exS,
 				'--exclude-from=-',
-				'--delete',
-				config.rsyncOpts, '-r',
+				delete,
+				config.rsyncOpts,
+				'-r',
 				config.source,
 				config.target)
 		end
@@ -151,6 +157,11 @@ default.rsync = {
 	-----
 	-- rsync uses default collect
 	----
+
+	-----
+	-- By default do deletes.
+	--
+	delete = true,
 
 	-----
 	-- The rsync binary to be called.

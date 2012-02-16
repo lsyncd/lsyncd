@@ -831,13 +831,20 @@ l_exec(lua_State *L)
 	int pipefd[2];                // pipe file descriptors
 	int i;
 
-	// expands tables if there are any
+	// expands tables if there are any, removes nils
 	for(i = 1; i <= lua_gettop(L); i++) {
+		if (lua_isnil(L, i)) {
+			lua_remove(L, i);
+			i--;
+			argc--;
+			continue;
+		}
+
 		if (lua_istable(L, i)) {
 			int tlen;
 			int it;
-			// table is now on top of stack
 			lua_checkstack(L, lua_gettop(L) + lua_objlen(L, i) + 1);
+			// move table to top of stack
 			lua_pushvalue(L, i);
 			lua_remove(L, i);
 			argc--;

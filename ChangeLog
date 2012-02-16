@@ -11,7 +11,9 @@
 		configured correctly.
 	fix: a series of typos in comments, manpage etc.
 	fix: moves to and from deleted directories (deleted when Lsyncd gets notified)
-	     were not correctly translated
+		were not correctly translated
+	fix: added --ignore-errors to rsync when deleting files, so it will not miss a delete
+		even when another part of the tree made an IO-error.
 	change: complain if any "rsyncOps" is given
 	change: splitted the default configurations in their own files.
 		more cleanly seperated from the Lsyncd runner, and highlights it are just
@@ -19,6 +21,10 @@
 	change: Beautified the code, no extra spaces at line end, ' instead of ",
 		supposing 100 char width to view,
 	change: Lsyncd now remembers the absolute path of its config file during HUPs
+	enhancement: Defaults not respect a 'delete=false' flag when set as parameter to sync{}
+		default.rsync:    does not add --delete to rsync
+		default.rsyncssh: does not add --delete to rsync, and does not use rm via ssh tunnel
+		default.direct:   does not add --delete to startup rsync and does not use rm
 
 25-08-2011: 2.0.5
 	fix: Lsyncd will now terminate if it inotify watching exceeds

@@ -2962,17 +2962,18 @@ function spawn(agent, binary, ...)
 	if agent == nil or type(agent) ~= 'table' then
 		error('spawning with an invalid agent', 2)
 	end
+
 	if lsyncdStatus == 'fade' then
 		log('Normal', 'ignored process spawning while fading')
 		return
 	end
+
 	if type(binary) ~= 'string' then
 		error('calling spawn(agent, binary, ...), binary is not a string', 2)
 	end
+
 	local dol = InletFactory.getDelayOrList(agent)
-	if not dol then
-		error('spawning with an unknown agent', 2)
-	end
+	if not dol then error('spawning with an unknown agent', 2) end
 
 	-- checks if spawn is called on already active event
 	if dol.status then

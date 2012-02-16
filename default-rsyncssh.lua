@@ -43,6 +43,11 @@ default.rsyncssh = {
 		-- uses ssh to delete files on remote host
 		-- instead of constructing rsync filters
 		if event.etype == 'Delete' then
+			if not config.delete then
+				inlet.discardEvent(event)
+				return
+			end
+
 			local elist = inlet.getEvents(
 				function(e)
 					return e.etype == 'Delete'
@@ -166,12 +171,14 @@ default.rsyncssh = {
 		local inlet = event.inlet
 		local excludes = inlet.getExcludes()
 		local target = config.host .. ':' .. config.targetdir
+		local delete = nil
+		if config.delete then delete = { '--delete', '--ignore-errors' }; end
 
 		if #excludes == 0 then
 			log('Normal', 'Recursive startup rsync: ',config.source,' -> ',target)
 			spawn(
 				event, config.rsyncBinary,
-				'--delete',
+				delete,
 				'-r',
 				config.rsyncOpts,
 				config.source,
@@ -185,7 +192,7 @@ default.rsyncssh = {
 				event, config.rsyncBinary,
 				'<', exS,
 				'--exclude-from=-',
-				'--delete',
+				delete,
 				'-r',
 				config.rsyncOpts,
 				config.source,
@@ -236,10 +243,21 @@ default.rsyncssh = {
 	--
 	delay = 15,
 
+
+	-----
+	-- By default do deletes.
+	--
+	delete = true,
+
 	-----
 	-- rsync exit codes
 	--
 	rsyncExitCodes = default.rsyncExitCodes,
+
+	-----
+	-- ssh exit codes
+	--
+	sshExitCodes = default.sshExitCodes,
 
 	-----
 	-- Delimiter, the binary and the paramters passed to xargs
