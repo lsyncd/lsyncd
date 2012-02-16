@@ -14,6 +14,8 @@
 		were not correctly translated
 	fix: added --ignore-errors to rsync when deleting files, so it will not miss a delete
 		even when another part of the tree made an IO-error.
+	fix: default.direct now not using -p for mkdir since if the dir is not there it should fail
+	fix: default.direct now not using -t for cp since OSX binutils doesn't understand it
 	change: complain if any "rsyncOps" is given
 	change: splitted the default configurations in their own files.
 		more cleanly seperated from the Lsyncd runner, and highlights it are just
