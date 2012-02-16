@@ -34,7 +34,7 @@ default.direct = {
 			if event.isdir then
 				spawn(
 					event,
-					'/bin/mkdir',
+					'/bin/mkdir', '-p',
 					event.targetPath
 				)
 			else

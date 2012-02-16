@@ -1245,6 +1245,21 @@ local Sync = (function()
 	--
 	local function delay(self, etype, time, path, path2)
 		log('Function', 'delay(',self.config.name,', ',etype,', ',path,', ',path2,')')
+		
+		-- TODO
+		local function recurse()  
+			if etype == 'Create' and path:byte(-1) == 47 then
+				local entries = lsyncd.readdir(self.source .. path)
+				if entries then
+					for dirname, isdir in pairs(entries) do
+						local pd = path .. dirname
+						if isdir then pd = pd..'/' end
+						log('Delay', 'Create creates Create on ',pd)
+						delay(self, 'Create', time, pd, nil)
+					end
+				end
+			end
+		end
 
 		-- exclusion tests
 		if not path2 then
@@ -1270,18 +1285,6 @@ local Sync = (function()
 				log('Exclude', 'excluded origin transformed ',etype,' to Create.',path2)
 				delay(self, 'Create', time, path2, nil)
 				return
-			end
-		end
-
-		if etype == 'Create' and path:byte(-1) == 47 then
-			local entries = lsyncd.readdir(self.source .. path)
-			if entries then
-				for dirname, isdir in pairs(entries) do
-					local pd = path .. dirname
-					if isdir then pd = pd..'/' end
-					log('Delay', 'Create creates Create on ',pd)
-					delay(self, 'Create', time, pd, nil)
-				end
 			end
 		end
 
@@ -1312,6 +1315,7 @@ local Sync = (function()
 				stack(self.delays[self.delays.last], nd)
 			end
 			nd.dpos = Queue.push(self.delays, nd)
+			recurse()
 			return
 		end
 
@@ -1324,25 +1328,23 @@ local Sync = (function()
 			if ac then
 				if ac == 'remove' then
 					Queue.remove(self.delays, il)
-					return
 				elseif ac == 'stack' then
 					stack(od, nd)
 					nd.dpos = Queue.push(self.delays, nd)
-					return
 				elseif ac == 'absorb' then
-					return
+					-- nada
 				elseif ac == 'replace' then
 					od.etype = nd.etype
 					od.path  = nd.path
 					od.path2 = nd.path2
-					return
 				elseif ac == 'split' then
 					delay(self, 'Delete', time, path,  nil)
 					delay(self, 'Create', time, path2, nil)
-					return
 				else
 					error('unknown result of combine()')
 				end
+				recurse()
+				return
 			end
 			il = il - 1
 		end
@@ -1353,6 +1355,7 @@ local Sync = (function()
 		end
 		-- no block or combo
 		nd.dpos = Queue.push(self.delays, nd)
+		recurse()
 	end
 
 	-----
