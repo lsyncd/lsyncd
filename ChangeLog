@@ -16,6 +16,7 @@
 		even when another part of the tree made an IO-error.
 	fix: default.direct now not using -p for mkdir since if the dir is not there it should fail
 	fix: default.direct now not using -t for cp since OSX binutils doesn't understand it
+	fix: default.rsync might have missed some files on OSX fsevents when moving directories
 	change: complain if any "rsyncOps" is given
 	change: splitted the default configurations in their own files.
 		more cleanly seperated from the Lsyncd runner, and highlights it are just
