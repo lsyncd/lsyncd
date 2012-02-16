@@ -81,7 +81,7 @@ testfiles();
 cwriteln('ok, removing sources');
 if srcdir:sub(1,4) ~= '/tmp' then
 	-- just to make sure before rm -rf
-	cwriteln('exist before drama, srcdir is '', srcdir, ''');
+	cwriteln('exist before drama, srcdir is "', srcdir, '"');
 	os.exit(1);
 end
 os.execute('rm -rf '..srcdir..'/*');
