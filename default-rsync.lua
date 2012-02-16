@@ -45,9 +45,7 @@ default.rsync = {
 
 		local paths = elist.getPaths(
 			function(etype, path1, path2)
-				if string.byte(path1, -1) == 47 and
-					(etype == 'Delete' or etype == 'Create')
-				then
+				if string.byte(path1, -1) == 47 and etype == 'Delete' then
 					return sub(path1)..'***', sub(path2)
 				else
 					return sub(path1), sub(path2)

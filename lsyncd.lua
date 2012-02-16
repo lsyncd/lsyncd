@@ -1135,8 +1135,7 @@ local Sync = (function()
 	end
 
 	-----
-	-- Returns true if this Sync concerns about
-	-- 'path'
+	-- Returns true if this Sync concerns about 'path'
 	--
 	local function concerns(self, path)
 		-- not concerned if watch rootdir doesnt match
@@ -1271,6 +1270,18 @@ local Sync = (function()
 				log('Exclude', 'excluded origin transformed ',etype,' to Create.',path2)
 				delay(self, 'Create', time, path2, nil)
 				return
+			end
+		end
+
+		if etype == 'Create' and path:byte(-1) == 47 then
+			local entries = lsyncd.readdir(self.source .. path)
+			if entries then
+				for dirname, isdir in pairs(entries) do
+					local pd = path .. dirname
+					if isdir then pd = pd..'/' end
+					log('Delay', 'Create creates Create on ',pd)
+					delay(self, 'Create', time, pd, nil)
+				end
 			end
 		end
 
@@ -1853,18 +1864,18 @@ local Inotify = (function()
 		end
 
 		local entries = lsyncd.readdir(path)
-		if not entries then
-			return
-		end
+		if not entries then return end
+
 		for dirname, isdir in pairs(entries) do
 			local pd = path .. dirname
 			if isdir then pd = pd..'/' end
 
 			-- creates a Create event for entry.
-			if raiseSync then
-				local relative = splitPath(pd, syncRoots[raiseSync])
-				if relative then raiseSync:delay('Create', raiseTime, relative) end
-			end
+-- No longer needed? (TODO)
+--			if raiseSync then
+--				local relative = splitPath(pd, syncRoots[raiseSync])
+--				if relative then raiseSync:delay('Create', raiseTime, relative) end
+--			end
 			-- adds syncs for subdirs
 			if isdir then addWatch(pd, true, raiseSync, raiseTime) end
 		end
