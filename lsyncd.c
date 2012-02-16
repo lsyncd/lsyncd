@@ -1574,13 +1574,14 @@ masterloop(lua_State *L)
 					observance_action = true;
 					for(pi = 0; pi < observances_len; pi++) {
 						struct observance *obs = observances + pi;
-						if (hup || term) {
-							break;
-						}
+						if (hup || term)  break;
+
 						if (obs->ready && FD_ISSET(obs->fd, &rfds)) {
 							obs->ready(L, obs);
 						}
+
 						if (hup || term) break;
+
 						if (nonobservances_len > 0 &&
 							nonobservances[nonobservances_len-1] == obs->fd) {
 							// TODO breaks if more nonobserves
