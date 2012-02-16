@@ -1245,7 +1245,7 @@ local Sync = (function()
 	--
 	local function delay(self, etype, time, path, path2)
 		log('Function', 'delay(',self.config.name,', ',etype,', ',path,', ',path2,')')
-		
+
 		-- TODO
 		local function recurse()  
 			if etype == 'Create' and path:byte(-1) == 47 then
@@ -1828,12 +1828,9 @@ local Inotify = (function()
 	--
 	-- @param path       absolute path of directory to observe
 	-- @param recurse    true if recursing into subdirs
-	-- @param raiseSync  --X --
-	--        raiseTime  if not nil sends create Events for all files/dirs
-	--                   to this sync.
 	--
-	local function addWatch(path, recurse, raiseSync, raiseTime)
-		log('Function','Inotify.addWatch(',path,', ',recurse,', ',raiseSync,', ',raiseTime,')')
+	local function addWatch(path)
+		log('Function','Inotify.addWatch(',path,')')
 
 		if not Syncs.concerns(path) then
 			log('Inotify', 'not concerning "',path,'"')
@@ -1862,9 +1859,6 @@ local Inotify = (function()
 
 		-- registers and adds watches for all subdirectories
 		-- and/or raises create events for all entries
-		if not recurse and not raise then
-			return
-		end
 
 		local entries = lsyncd.readdir(path)
 		if not entries then return end
@@ -1872,15 +1866,8 @@ local Inotify = (function()
 		for dirname, isdir in pairs(entries) do
 			local pd = path .. dirname
 			if isdir then pd = pd..'/' end
-
-			-- creates a Create event for entry.
--- No longer needed? (TODO)
---			if raiseSync then
---				local relative = splitPath(pd, syncRoots[raiseSync])
---				if relative then raiseSync:delay('Create', raiseTime, relative) end
---			end
 			-- adds syncs for subdirs
-			if isdir then addWatch(pd, true, raiseSync, raiseTime) end
+			if isdir then addWatch(pd) end
 		end
 	end
 
@@ -1895,7 +1882,7 @@ local Inotify = (function()
 			error('duplicate sync in Inotify.addSync()')
 		end
 		syncRoots[sync] = rootdir
-		addWatch(rootdir, true)
+		addWatch(rootdir)
 	end
 
 	-----
@@ -1965,18 +1952,19 @@ local Inotify = (function()
 					etyped = 'Create'
 				end
 			end
-			sync:delay(etyped, time, relative, relative2)
 
 			if isdir then
 				if etyped == 'Create' then
-					addWatch(path, true, sync, time)
+					addWatch(path)
 				elseif etyped == 'Delete' then
 					removeWatch(path, true)
 				elseif etyped == 'Move' then
 					removeWatch(path, false)
-					addWatch(path2, true, sync, time)
+					addWatch(path2)
 				end
 			end
+
+			sync:delay(etyped, time, relative, relative2)
 		until true end
 	end
 
