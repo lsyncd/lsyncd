@@ -1,4 +1,4 @@
-156-02-2011: 2.0.6
+16-02-2011: 2.0.6
 	fix: no longer stops syslogging on HUP signals
 	fix: OSX event watcher no longer misses moves into and out of the watch tree
 	fix: not refinding a relative path to the config file in case of HUP.
@@ -24,7 +24,7 @@
 	change: Beautified the code, no extra spaces at line end, ' instead of ",
 		supposing 100 char width to view,
 	change: Lsyncd now remembers the absolute path of its config file during HUPs
-	enhancement: Defaults not respect a 'delete=false' flag when set as parameter to sync{}
+	enhancement: Defaults now respect a 'delete=false' flag when set as parameter to sync{}
 		default.rsync:    does not add --delete to rsync
 		default.rsyncssh: does not add --delete to rsync, and does not use rm via ssh tunnel
 		default.direct:   does not add --delete to startup rsync and does not use rm
