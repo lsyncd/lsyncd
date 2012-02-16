@@ -35,16 +35,15 @@ default.direct = {
 				spawn(
 					event,
 					'/bin/mkdir',
---					'-p',
 					event.targetPath
 				)
 			else
 				spawn(
 					event,
 					'/bin/cp',
-					'-t',
-					event.targetPathdir,
-					event.sourcePath
+					event.sourcePath,
+					-- '-t', not supported on OSX
+					event.targetPathdir
 				)
 			end
 		elseif event.etype == 'Modify' then

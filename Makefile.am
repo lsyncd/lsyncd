@@ -31,7 +31,8 @@ TESTS = \
 	tests/l4rsyncdata.lua
 
 dist_man1_MANS = doc/lsyncd.1
-EXTRA_DIST = doc/lsyncd.1.txt doc/lsyncd.1.xml inotify.c fsevents.c bin2carray.lua
+EXTRA_DIST = doc/lsyncd.1.txt doc/lsyncd.1.xml inotify.c fsevents.c bin2carray.lua \
+	default.lua default-rsync.lua default-rsyncssh.lua default-direct.lua
 
 doc/lsyncd.1: doc/lsyncd.1.xml
 	xsltproc -o $@ -nonet /etc/asciidoc/docbook-xsl/manpage.xsl $<
