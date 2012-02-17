@@ -5,15 +5,15 @@ require("posix")
 dofile("tests/testlib.lua")
 
 cwriteln("****************************************************************");
-cwriteln(" Testing default.rsyncssh with random data activity ");
+cwriteln(" Testing default.rsyncssh with random data activity");
 cwriteln("****************************************************************");
-cwriteln(" (this test needs passwordless ssh localhost access ");
-cwriteln("  for current user)");
+cwriteln("( this test needs passwordless ssh localhost access            )");
+cwriteln("( for current user                                             )");
 
 local tdir, srcdir, trgdir = mktemps()
 
--- makes some startup data 
-churn(srcdir, 10)
+-- makes some startup data
+churn(srcdir, 100)
 
 local logs = {}
 logs =  {"-log", "Delay" }

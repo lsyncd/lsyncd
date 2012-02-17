@@ -1813,12 +1813,9 @@ local Inotify = (function()
 	--
 	local function removeWatch(path, core)
 		local wd = pathwds[path]
-		if not wd then
-			return
-		end
-		if core then
-			lsyncd.inotify.rmwatch(wd)
-		end
+		if not wd then return end
+		if core then lsyncd.inotify.rmwatch(wd) end
+
 		wdpaths[wd] = nil
 		pathwds[path] = nil
 	end
@@ -1837,18 +1834,17 @@ local Inotify = (function()
 			return
 		end
 
-		-- lets the core registers watch with the kernel
-		local wd = lsyncd.inotify.addwatch(path,
-			(settings and settings.inotifyMode) or '');
+		-- registers the watch
+		local inotifyMode = (settings and settings.inotifyMode) or '';
+		local wd = lsyncd.inotify.addwatch(path, inotifyMode);
 		if wd < 0 then
 			log('Inotify','Unable to add watch "',path,'"')
 			return
 		end
 
 		do
-			-- If this wd is registered already the kernel
-			-- reused it for a new dir for a reason - old
-			-- dir is gone.
+			-- If this watch descriptor is registered already
+			-- the kernel reuses it since old dir is gone.
 			local op = wdpaths[wd]
 			if op and op ~= path then
 				pathwds[op] = nil
@@ -1858,16 +1854,10 @@ local Inotify = (function()
 		wdpaths[wd] = path
 
 		-- registers and adds watches for all subdirectories
-		-- and/or raises create events for all entries
-
 		local entries = lsyncd.readdir(path)
 		if not entries then return end
-
 		for dirname, isdir in pairs(entries) do
-			local pd = path .. dirname
-			if isdir then pd = pd..'/' end
-			-- adds syncs for subdirs
-			if isdir then addWatch(pd) end
+			if isdir then addWatch(path .. dirname .. '/') end
 		end
 	end
 
@@ -1878,9 +1868,7 @@ local Inotify = (function()
 	-- rootdir: root dir to watch
 	--
 	local function addSync(sync, rootdir)
-		if syncRoots[sync] then
-			error('duplicate sync in Inotify.addSync()')
-		end
+		if syncRoots[sync] then error('duplicate sync in Inotify.addSync()') end
 		syncRoots[sync] = rootdir
 		addWatch(rootdir)
 	end
