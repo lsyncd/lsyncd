@@ -38,11 +38,11 @@ default.direct = {
 					event.targetPath
 				)
 			else
+				-- 'cp -t', not supported on OSX
 				spawn(
 					event,
 					'/bin/cp',
 					event.sourcePath,
-					-- '-t', not supported on OSX
 					event.targetPathdir
 				)
 			end
@@ -52,9 +52,8 @@ default.direct = {
 			end
 			spawn(event,
 				'/bin/cp',
-				'-t',
-				event.targetPathdir,
 				event.sourcePath
+				event.targetPathdir,
 			)
 		elseif event.etype == 'Delete' then
 			if not config.delete then
