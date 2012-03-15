@@ -52,8 +52,8 @@ default.direct = {
 			end
 			spawn(event,
 				'/bin/cp',
-				event.sourcePath
-				event.targetPathdir,
+				event.sourcePath,
+				event.targetPathdir
 			)
 		elseif event.etype == 'Delete' then
 			if not config.delete then
