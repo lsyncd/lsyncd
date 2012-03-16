@@ -1,5 +1,8 @@
 ??-??-????:
-	fix: defalut.direct, do not use on OSX unrecognized option -t on modify
+	fix: default.direct, do not use on OSX unrecognized option -t on modify
+	fix: default.direct, typo leading to compile error
+	fix: closed a memory leak due to not correct configured weak tables
+	fix: when using settings.inotifyMode = "Modify" events were longer ignored
 
 16-02-2011: 2.0.6
 	fix: no longer stops syslogging on HUP signals
