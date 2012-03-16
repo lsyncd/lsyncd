@@ -1502,6 +1502,10 @@ masterloop(lua_State *L)
 		clock_t now        = times(dummy_tms);
 		clock_t alarm_time = 0;
 
+		// memory usage debugging
+		// lua_gc(L, LUA_GCCOLLECT, 0);
+		// printf("gccount: %d\n", lua_gc(L, LUA_GCCOUNT, 0) * 1024 + lua_gc(L, LUA_GCCOUNTB, 0));
+
 		// queries runner about soonest alarm
 		load_runner_func(L, "getAlarm");
 		if (lua_pcall(L, 0, 1, -2)) exit(-1); // ERRNO

@@ -221,7 +221,7 @@ Queue = (function()
 	end
 
 	-----
-	-- Stateless queue iterator.
+	-- Queue iterator (stateless)
 	--
 	local function iter(list, pos)
 		pos = pos + 1
@@ -235,7 +235,8 @@ Queue = (function()
 	end
 
 	-----
-	-- Stateless reverse queue iterator.
+	-- Reverse queue iterator. (stateless)
+	--
 	local function iterReverse(list, pos)
 		pos = pos - 1
 		while list[pos] == nil and pos >= list.first do
@@ -525,8 +526,8 @@ local InletFactory = (function()
 	-- table to receive the sync of an event or event list
 	local e2s = {}
 	-- dont stop the garbage collector to remove entries.
-	setmetatable(e2d, { __mode = 'k' })
-	setmetatable(e2s, { __mode = 'k' })
+	setmetatable(e2d, { __mode = 'v' })
+	setmetatable(e2s, { __mode = 'kv' })
 
 	-----
 	-- removes the trailing slash from a path
@@ -1815,7 +1816,6 @@ local Inotify = (function()
 		local wd = pathwds[path]
 		if not wd then return end
 		if core then lsyncd.inotify.rmwatch(wd) end
-
 		wdpaths[wd] = nil
 		pathwds[path] = nil
 	end
@@ -1970,7 +1970,7 @@ local Inotify = (function()
 	return {
 		addSync = addSync,
 		event = event,
-		statusReport = statusReport
+		statusReport = statusReport,
 	}
 end)()
 
