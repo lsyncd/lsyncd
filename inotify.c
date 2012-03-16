@@ -225,8 +225,9 @@ handle_event(lua_State *L,
 	} else if (IN_ATTRIB & event->mask) {
 		// just attrib change
 		event_type = ATTRIB;
-	} else if (IN_CLOSE_WRITE & event->mask) {
-		// closed after written something
+	} else if ((IN_CLOSE_WRITE | IN_MODIFY) & event->mask) {
+		// modify, or closed after written something
+		// the event type received depends settings.inotifyMode
 		event_type = MODIFY;
 	} else if (IN_CREATE & event->mask) {
 		// a new file
