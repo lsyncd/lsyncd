@@ -305,12 +305,16 @@ local Delay = (function()
 	--
 	-- @params see below
 	--
-	local function new(etype, alarm, path, path2)
+	local function new(etype, sync, alarm, path, path2)
 		local o = {
 			-----
 			-- Type of event.
 			-- Can be 'Create', 'Modify', 'Attrib', 'Delete' and 'Move'
 			etype = etype,
+
+			------
+			-- Sync this delay belongs to
+			sync = sync,
 
 			-----
 			-- Latest point in time this should be catered for.
@@ -328,7 +332,6 @@ local Delay = (function()
 			------
 			-- only not nil for 'Move's.
 			-- path and file/dirname of a move destination.
-			--
 			path2  = path2,
 
 			------
@@ -340,7 +343,6 @@ local Delay = (function()
 			--               visible as all references should be droped on
 			--               collection, nevertheless seperat status for
 			--               insurrance.
-			--
 			status = 'wait',
 
 			-----
@@ -523,11 +525,8 @@ local InletFactory = (function()
 	-- table to receive the delay of an event.
 	--       or the delay list of an event list.
 	local e2d = {}
-	-- table to receive the sync of an event or event list
-	local e2s = {}
 	-- dont stop the garbage collector to remove entries.
 	setmetatable(e2d, { __mode = 'v' })
-	setmetatable(e2s, { __mode = 'kv' })
 
 	-----
 	-- removes the trailing slash from a path
@@ -558,14 +557,14 @@ local InletFactory = (function()
 		-- TODO give user a readonly version.
 		--
 		config = function(event)
-			return e2s[event].config
+			return e2d[event].sync.config
 		end,
 
 		-----
 		-- Returns the inlet belonging to an event.
 		--
 		inlet = function(event)
-			return e2s[event].inlet
+			return e2d[event].sync.inlet
 		end,
 
 		-----
@@ -644,7 +643,7 @@ local InletFactory = (function()
 		-- All symlinks will have been resolved.
 		--
 		source = function(event)
-			return e2s[event].source
+			return e2d[event].sync.source
 		end,
 
 		------
@@ -652,7 +651,7 @@ local InletFactory = (function()
 		-- Includes a trailing slash for dirs.
 		--
 		sourcePath = function(event)
-			return e2s[event].source .. getPath(event)
+			return e2d[event].sync.source .. getPath(event)
 		end,
 
 		------
@@ -660,7 +659,7 @@ local InletFactory = (function()
 		-- Includes a trailing slash.
 		--
 		sourcePathdir = function(event)
-			return e2s[event].source ..
+			return e2d[event].sync.source ..
 				(string.match(getPath(event), '^(.*/)[^/]+/?') or '')
 		end,
 
@@ -669,7 +668,7 @@ local InletFactory = (function()
 		-- Excludes a trailing slash for dirs.
 		--
 		sourcePathname = function(event)
-			return e2s[event].source .. cutSlash(getPath(event))
+			return e2d[event].sync.source .. cutSlash(getPath(event))
 		end,
 
 		------
@@ -680,7 +679,7 @@ local InletFactory = (function()
 		-- existance of 'target', this is up to the scripts.)
 		--
 		target = function(event)
-			return e2s[event].config.target
+			return e2d[event].sync.config.target
 		end,
 
 		------
@@ -688,7 +687,7 @@ local InletFactory = (function()
 		-- Includes a trailing slash for dirs.
 		--
 		targetPath = function(event)
-			return e2s[event].config.target .. getPath(event)
+			return e2d[event].sync.config.target .. getPath(event)
 		end,
 
 		------
@@ -696,7 +695,7 @@ local InletFactory = (function()
 		-- Includes a trailing slash.
 		--
 		targetPathdir = function(event)
-			return e2s[event].config.target ..
+			return e2d[event].sync.config.target ..
 				(string.match(getPath(event), '^(.*/)[^/]+/?') or '')
 		end,
 
@@ -705,7 +704,7 @@ local InletFactory = (function()
 		-- Excludes a trailing slash for dirs.
 		--
 		targetPathname = function(event)
-			return e2s[event].config.target ..
+			return e2d[event].sync.config.target ..
 				cutSlash(getPath(event))
 		end,
 	}
@@ -733,7 +732,7 @@ local InletFactory = (function()
 	local eventListFuncs = {
 		-----
 		-- Returns a list of paths of all events in list.
-		-- 
+		--
 		-- @param elist -- handle returned by getevents()
 		-- @param mutator -- if not nil called with (etype, path, path2)
 		--                   returns one or two strings to add.
@@ -770,7 +769,7 @@ local InletFactory = (function()
 		__index = function(elist, func)
 			if func == 'isList' then return true end
 
-			if func == 'config' then return e2s[elist].config end
+			if func == 'config' then return e2d[elist].sync.config end
 
 			local f = eventListFuncs[func]
 			if not f then
@@ -801,7 +800,6 @@ local InletFactory = (function()
 				delay.event = event
 				setmetatable(event, eventMeta)
 				e2d[event] = delay
-				e2s[event] = sync
 			end
 			return delay.event
 		else
@@ -816,8 +814,6 @@ local InletFactory = (function()
 				setmetatable(event2, eventMeta)
 				e2d[delay.event]  = delay
 				e2d[delay.event2] = delay
-				e2s[delay.event]  = sync
-				e2s[delay.event2] = sync
 
 				-- move events have a field 'move'
 				event.move  = 'Fr'
@@ -836,7 +832,6 @@ local InletFactory = (function()
 			dlist.elist = elist
 			setmetatable(elist, eventListMeta)
 			e2d[elist] = dlist
-			e2s[elist] = sync
 		end
 		return dlist.elist
 	end
@@ -954,8 +949,8 @@ local InletFactory = (function()
 	-----
 	-- Returns the sync from an event or list
 	--
-	local function getSync(agent)
-		return e2s[agent]
+	local function getSync(event)
+		return e2d[event].sync
 	end
 
 	-----
@@ -1248,7 +1243,7 @@ local Sync = (function()
 		log('Function', 'delay(',self.config.name,', ',etype,', ',path,', ',path2,')')
 
 		-- TODO
-		local function recurse()  
+		local function recurse()
 			if etype == 'Create' and path:byte(-1) == 47 then
 				local entries = lsyncd.readdir(self.source .. path)
 				if entries then
@@ -1308,7 +1303,7 @@ local Sync = (function()
 			alarm = now()
 		end
 		-- new delay
-		local nd = Delay.new(etype, alarm, path, path2)
+		local nd = Delay.new(etype, self, alarm, path, path2)
 		if nd.etype == 'Init' or nd.etype == 'Blanket' then
 			-- always stack blanket events on the last event
 			log('Delay', 'Stacking ',nd.etype,' event.')
@@ -1385,7 +1380,7 @@ local Sync = (function()
 	-- @param test   function to test each delay
 	--
 	local function getDelays(self, test)
-		local dlist = {}
+		local dlist = { sync = self}
 		local dlistn = 1
 		local blocks = {}
 
@@ -1478,7 +1473,7 @@ local Sync = (function()
 	-- Used as custom marker.
 	--
 	local function addBlanketDelay(self)
-		local newd = Delay.new('Blanket', true, '')
+		local newd = Delay.new('Blanket', self, true, '')
 		newd.dpos = Queue.push(self.delays, newd)
 		return newd
 	end
@@ -1488,7 +1483,7 @@ local Sync = (function()
 	-- Used as startup marker to call init asap.
 	--
 	local function addInitDelay(self)
-		local newd = Delay.new('Init', true, '')
+		local newd = Delay.new('Init', self, true, '')
 		newd.dpos = Queue.push(self.delays, newd)
 		return newd
 	end

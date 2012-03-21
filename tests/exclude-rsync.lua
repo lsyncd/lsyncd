@@ -32,7 +32,7 @@ sync {
 }]]);
 
 -- writes all files
-local function writefiles() 
+local function writefiles()
 	posix.mkdir(srcdir .. "d");
 	writefile(srcdir .. "erf", "erf");
 	writefile(srcdir .. "eaf", "erf");
@@ -45,7 +45,7 @@ local function writefiles()
 end
 
 -- test if the filename exists, fails if this is different to expect
-local function testfile(filename, expect) 
+local function testfile(filename, expect)
 	local stat, err = posix.stat(filename)
 	if stat and not expect then
 		cwriteln("failure: ",filename," should be excluded");
@@ -58,7 +58,7 @@ local function testfile(filename, expect)
 end
 
 -- test all files
-local function testfiles() 
+local function testfiles()
 	testfile(trgdir .. "erf", false);
 	testfile(trgdir .. "eaf", false);
 	testfile(trgdir .. "erd", true);
