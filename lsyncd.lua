@@ -2282,8 +2282,8 @@ local functionWriter = (function()
 		-- TODO do array joining instead
 		ft = ft..
 			"    log('Normal', 'Event ',event.etype,\n"..
-			"        ' spawns shell \""..lc.."\"')\n"..
-			"    spawnShell(event, '"..cmd.."'"
+			"        [[ spawns shell \""..lc.."\"]])\n"..
+			"    spawnShell(event, [["..cmd.."]]"
 		for _, v in ipairs(args) do
 			ft = ft..',\n         '..v
 		end
