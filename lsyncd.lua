@@ -522,11 +522,25 @@ end)()
 -- Creates inlets for syncs: the user interface for events.
 --
 local InletFactory = (function()
-	-- table to receive the delay of an event.
-	--       or the delay list of an event list.
+	-----
+	-- table to receive the delay of an event
+	-- or the delay list of an event list.
+	--
+	-- Keys are events and values are delays.
 	local e2d = {}
-	-- dont stop the garbage collector to remove entries.
-	setmetatable(e2d, { __mode = 'v' })
+
+	-----
+	-- table to ensure the uniqueness of every event
+	-- related to a delay.
+	--
+	-- Keys are delay and values are events.
+	local e2d2 = {}
+
+	-----
+	-- allows the garbage collector to remove not refrenced
+	-- events.
+	setmetatable(e2d,  { __mode = 'k' })
+	setmetatable(e2d2, { __mode = 'v' })
 
 	-----
 	-- removes the trailing slash from a path
@@ -782,58 +796,59 @@ local InletFactory = (function()
 		end
 	}
 
-	----
+	-----
 	-- table of all inlets with their syncs
 	--
 	local inlets = {}
 
-	-- dont stop the garbage collector to remove entries.
+	-----
+	-- allows the garbage collector to remove entries.
+	-- TODO check memory use
 	setmetatable(inlets, { __mode = 'v' })
 
 	-----
 	-- Encapsulates a delay into an event for the user script.
 	--
-	local function d2e(sync, delay)
+	local function d2e(delay)
+		-- already created?
+		local eu = e2d2[delay]
+
 		if delay.etype ~= 'Move' then
-			if not delay.event then
-				local event = {}
-				delay.event = event
-				setmetatable(event, eventMeta)
-				e2d[event] = delay
-			end
-			return delay.event
+			if eu then return eu end
+
+			local event = {}
+			setmetatable(event, eventMeta)
+			e2d[event]  = delay
+			e2d2[delay] = event
+			return event
 		else
 			-- moves have 2 events - origin and destination
-			if not delay.event then
-				local event  = {}
-				local event2 = {}
-				delay.event  = event
-				delay.event2 = event2
+			if eu then return eu[1], eu[2] end
 
-				setmetatable(event, eventMeta)
-				setmetatable(event2, eventMeta)
-				e2d[delay.event]  = delay
-				e2d[delay.event2] = delay
-
-				-- move events have a field 'move'
-				event.move  = 'Fr'
-				event2.move = 'To'
-			end
-			return delay.event, delay.event2
+			local event  = { move = 'Fr' }
+			local event2 = { move = 'To' }
+			setmetatable(event, eventMeta)
+			setmetatable(event2, eventMeta)
+			e2d[event]  = delay
+			e2d[event2] = delay
+			e2d2[delay] = { event, event2 }
+			-- move events have a field 'move'
+			return event, event2
 		end
 	end
 
 	-----
 	-- Encapsulates a delay list into an event list for the user script.
 	--
-	local function dl2el(sync, dlist)
-		if not dlist.elist then
-			local elist = {}
-			dlist.elist = elist
-			setmetatable(elist, eventListMeta)
-			e2d[elist] = dlist
-		end
-		return dlist.elist
+	local function dl2el(dlist)
+		local eu = e2d2[dlist]
+		if eu then return eu end
+
+		local elist = {}
+		setmetatable(elist, eventListMeta)
+		e2d[elist] = dlist
+		e2d2[dlist] = elist
+		return elist
 	end
 
 	-----
@@ -873,7 +888,7 @@ local InletFactory = (function()
 		-- and is blocked by everything.
 		--
 		createBlanketEvent = function(sync)
-			return d2e(sync, sync:addBlanketDelay())
+			return d2e(sync:addBlanketDelay())
 		end,
 
 		-----
@@ -894,7 +909,7 @@ local InletFactory = (function()
 		-- Gets the next not blocked event from queue.
 		--
 		getEvent = function(sync)
-			return d2e(sync, sync:getNextDelay(now()))
+			return d2e(sync:getNextDelay(now()))
 		end,
 
 		-----
@@ -904,7 +919,7 @@ local InletFactory = (function()
 		--
 		getEvents = function(sync, test)
 			local dlist = sync:getDelays(test)
-			return dl2el(sync, dlist)
+			return dl2el(dlist)
 		end,
 
 		-----
@@ -1166,7 +1181,7 @@ local Sync = (function()
 				error('collecting a non-active process')
 			end
 			local rc = self.config.collect(
-				InletFactory.d2e(self, delay),
+				InletFactory.d2e(delay),
 				exitcode)
 			if rc == 'die' then
 				log('Error', 'Critical exitcode.');
@@ -1189,7 +1204,7 @@ local Sync = (function()
 		else
 			log('Delay', 'collected a list')
 			local rc = self.config.collect(
-				InletFactory.dl2el(self, delay),
+				InletFactory.dl2el(delay),
 				exitcode)
 			if rc == 'die' then
 				log('Error', 'Critical exitcode.');
@@ -1398,7 +1413,7 @@ local Sync = (function()
 
 		for i, d in Queue.qpairs(self.delays) do
 			if d.status == 'active' or
-				(test and not test(InletFactory.d2e(self, d)))
+				(test and not test(InletFactory.d2e(d)))
 			then
 				getBlocks(d)
 			elseif not blocks[d] then
@@ -1438,7 +1453,7 @@ local Sync = (function()
 				if d.etype ~= 'Init' then
 					self.config.action(self.inlet)
 				else
-					self.config.init(InletFactory.d2e(self, d))
+					self.config.init(InletFactory.d2e(d))
 				end
 				if self.processes:size() >= self.config.maxProcesses then
 					-- no further processes
