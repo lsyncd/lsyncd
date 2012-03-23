@@ -3,6 +3,7 @@
 	fix: default.direct, typo leading to compile error
 	fix: closed a memory leak due to not correct configured weak tables
 	fix: when using settings.inotifyMode = "Modify" events were longer ignored
+	fix: layer 3 function generator was messed up.
 
 16-02-2011: 2.0.6
 	fix: no longer stops syslogging on HUP signals
