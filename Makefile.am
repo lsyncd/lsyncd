@@ -51,7 +51,7 @@ else
 lsyncd_LDADD += runner.o defaults.o
 
 runner.o: runner.c
-default.o: default.c
+defaults.o: defaults.c
 
 runner.c: runner.out bin2carray.lua
 	lua ./bin2carray.lua $< runner $@
