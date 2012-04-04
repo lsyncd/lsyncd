@@ -1,9 +1,12 @@
 ??-??-????:
+	fix: closed a memory leak due to not correct configured weak tables
 	fix: default.direct, do not use on OSX unrecognized option -t on modify
 	fix: default.direct, typo leading to compile error
-	fix: closed a memory leak due to not correct configured weak tables
 	fix: when using settings.inotifyMode = "Modify" events were longer ignored
 	fix: layer 3 function generator was messed up.
+	change: now uses a2x to generate the manpage (thus more compatible across distros)
+	change: removed --with-default-runner since it was broken, and will be replaced by something
+	        more generic in future
 
 16-02-2011: 2.0.6
 	fix: no longer stops syslogging on HUP signals
