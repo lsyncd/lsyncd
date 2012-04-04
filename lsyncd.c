@@ -47,10 +47,8 @@
 /**
  * The Lua part of lsyncd if compiled into the binary.
  */
-#ifndef LSYNCD_DEFAULT_RUNNER_FILE
-	extern const char runner_out[];
-	extern size_t runner_size;
-#endif
+extern const char runner_out[];
+extern size_t runner_size;
 
 extern const char defaults_out[];
 extern size_t defaults_size;
@@ -1729,21 +1727,13 @@ main1(int argc, char *argv[])
 	if (argp < argc && !strcmp(argv[argp], "--runner")) {
 		if (argp + 1 >= argc) {
 			logstring("Error", "Lsyncd Lua-runner file missing after --runner.");
-#ifdef LSYNCD_DEFAULT_RUNNER_FILE
-			printlogf(L, "Error",
-				"Using '%s' as default location for runner.", LSYNCD_DEFAULT_RUNNER_FILE);
-#else
 			logstring("Error", "Using a statically included runner as default.");
-#endif
 			exit(-1); //ERRNO
 		}
 		lsyncd_runner_file = argv[argp + 1];
 		argp += 2;
-	} else {
-#ifdef LSYNCD_DEFAULT_RUNNER_FILE
-		lsyncd_runner_file = LSYNCD_DEFAULT_RUNNER_FILE;
-#endif
 	}
+
 	if (lsyncd_runner_file) {
 		// checks if the runner file exists
 		struct stat st;
@@ -1761,17 +1751,11 @@ main1(int argc, char *argv[])
 			exit(-1); // ERRNO
 		}
 	} else {
-#ifndef LSYNCD_DEFAULT_RUNNER_FILE
 		// loads the runner from binary
 		if (luaL_loadbuffer(L, runner_out, runner_size, "runner")) {
 			printlogf(L, "Error", "loading precompiled runner: %s", lua_tostring(L, -1));
 			exit(-1); // ERRNO
 		}
-#else
-		// safeguard for what never ever should happen.
-		logstring("Error", "Internal fail: lsyncd_runner is NULL with non-static runner");
-		exit(-1); // ERRNO
-#endif
 	}
 
 	{

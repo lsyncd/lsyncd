@@ -34,20 +34,12 @@ dist_man1_MANS = doc/lsyncd.1
 EXTRA_DIST = doc/lsyncd.1.txt doc/lsyncd.1.xml inotify.c fsevents.c bin2carray.lua \
 	default.lua default-rsync.lua default-rsyncssh.lua default-direct.lua
 
-doc/lsyncd.1: doc/lsyncd.1.xml
-	xsltproc -o $@ -nonet /etc/asciidoc/docbook-xsl/manpage.xsl $<
-
-doc/lsyncd.1.xml: doc/lsyncd.1.txt
-	asciidoc -o $@ -b docbook -d manpage $<
+doc/lsyncd.1: doc/lsyncd.1.txt
+	a2x --format=manpage $<
 
 CLEANFILES = runner.out defaults.out runner.c defaults.c
 
-if RUNNER
-# installs the runner script
-runnerdir = $(RUNNER_DIR)
-runner_DATA = lsyncd.lua
-else
-# or compiles it into the binary
+# compiles the runner and the defaults into the binary
 lsyncd_LDADD += runner.o defaults.o
 
 runner.o: runner.c
@@ -64,6 +56,4 @@ runner.out: lsyncd.lua
 
 defaults.out: default.lua default-rsync.lua default-rsyncssh.lua default-direct.lua
 	luac -o $@ $^
-
-endif
 

@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 #AC_PREREQ(2.60)
-AC_INIT(lsyncd, 2.0.6, axkibe@gmail.com)
+AC_INIT(lsyncd, 2.0.7, axkibe@gmail.com)
 AC_CONFIG_SRCDIR([lsyncd.c])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
@@ -25,21 +25,6 @@ PKG_CHECK_MODULES([LUA], [lua >= 5.1.3])
 AC_CHECK_HEADERS([sys/inotify.h])
 
 ###
-# --with-runner option
-AC_ARG_WITH([runner],
-[  --with-runner=<dir>     Specify directory where lsyncds part written in Lua will be placed.
-                          If missing it will be compiled into the binary])
-if test "x${with_runner}" != x; then
-	AC_DEFINE_UNQUOTED(LSYNCD_DEFAULT_RUNNER_FILE, "${with_runner}/lsyncd.lua", "descr")
-	AC_SUBST(RUNNER_DIR, "${with_runner}")
-fi
-AM_CONDITIONAL([RUNNER],  [test x${with_runner} != x])
-
-## NOTE:
-## With this release Lsyncd can yet only do with inotify.
-## enabling fsevents and disabling inotify is thus commented out.
-
-###
 # --without-inotify option
 AC_ARG_WITH([inotify],
 [  --without-inotify       Do not use Linux inotify event interface. On by default.],
@@ -53,7 +38,7 @@ fi
 AM_CONDITIONAL([INOTIFY], [test x${with_inotify} != xno])
 
 ###
-# --with-fsevents 
+# --with-fsevents
 # disabled per default, experimental, works only with OS X 10.5/10.6
 AC_ARG_WITH([fsevents],
 [  --with-fsevents         Uses MacOS (10.5) /dev/fsevents. EXPERIMENTAL!
@@ -62,7 +47,7 @@ if test "x${with_fsevents}" == xyes; then
 	echo "compiling with fsevents. WARNING experimental!"
 	AC_DEFINE(LSYNCD_WITH_FSEVENTS,,"descr")
 fi
-AM_CONDITIONAL([FSEVENTS], 
+AM_CONDITIONAL([FSEVENTS],
 	[test x${with_fsevents} != x -a xno${with_fsevents} != xno])
 
 # Checks for typedefs, structures, and compiler characteristics.
