@@ -414,9 +414,9 @@ local Combiner = (function()
 		if d1.etype == 'Init' or d1.etype == 'Blanket' then
 			-- everything is blocked by init or blanket delays.
 			if d2.path2 then
-				log('Delay',d2.etype,':',d2.path,'->',d2.path2,'blocked by',d1.etype,' event')
+				log('Delay',d2.etype,':',d2.path,'->',d2.path2,' blocked by ',d1.etype,' event')
 			else
-				log('Delay',d2.etype,':',d2.path,'blocked by',d1.etype,' event')
+				log('Delay',d2.etype,':',d2.path,' blocked by ',d1.etype,' event')
 			end
 			return 'stack'
 		end
@@ -446,7 +446,7 @@ local Combiner = (function()
 			   d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path) or
 			   d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path)
 			then
-				log('Delay',d2.etype,':',d2.path,' blocked by','Move :',d1.path,'->',d1.path2)
+				log('Delay',d2.etype,':',d2.path,' blocked by ','Move :',d1.path,'->',d1.path2)
 				return 'stack'
 			end
 
