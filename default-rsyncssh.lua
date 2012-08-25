@@ -1,4 +1,4 @@
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
 -- default-rsyncssh.lua
 --
 --    Improved rsync - sync with rsync, but moves and deletes executed over ssh.
@@ -13,16 +13,23 @@
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
 
-if not default      then error('default not loaded'); end
-if default.rsyncssh then error('default-rsyncssh already loaded'); end
+if not default then
+	error('default not loaded');
+end
+
+if default.rsyncssh then
+	error('default-rsyncssh already loaded');
+end
 
 default.rsyncssh = {
-	-----
+
+	--
 	-- Spawns rsync for a list of events
 	--
 	action = function(inlet)
+
 		local event, event2 = inlet.getEvent()
 		local config = inlet.getConfig()
 
@@ -42,7 +49,9 @@ default.rsyncssh = {
 
 		-- uses ssh to delete files on remote host
 		-- instead of constructing rsync filters
+
 		if event.etype == 'Delete' then
+
 			if not config.delete then
 				inlet.discardEvent(event)
 				return
@@ -51,7 +60,8 @@ default.rsyncssh = {
 			local elist = inlet.getEvents(
 				function(e)
 					return e.etype == 'Delete'
-				end)
+				end
+			)
 
 			local paths = elist.getPaths(
 				function(etype, path1, path2)
@@ -60,7 +70,8 @@ default.rsyncssh = {
 					else
 						return config.targetdir..path1
 					end
-				end)
+				end
+			)
 
 			for _, v in pairs(paths) do
 				if string.match(v, '^%s*/+%s*$') then
@@ -69,13 +80,26 @@ default.rsyncssh = {
 				end
 			end
 
-			local sPaths = table.concat(paths, '\n')
-			local zPaths = table.concat(paths, config.xargs.delimiter)
-			log('Normal', 'Deleting list\n', sPaths)
-			spawn(elist, '/usr/bin/ssh',
-				'<', zPaths,
+			log('Normal', 'Deleting list\n', table.concat(paths, '\n'))
+
+			local params = {}
+
+			if config.port then
+				params[#params + 1] = 'p'
+				params[#params + 1] = config.port
+			end
+
+			spawn(
+				elist,
+				config.ssh.binary,
+				'<', table.concat(paths, config.xargs.delimiter),
+				params,
+				config.ssh._xparams
 				config.host,
-				config.xargs.binary, config.xargs.xparams)
+				config.xargs.binary,
+				config.xargs._xparams
+			)
+
 			return
 		end
 
@@ -87,7 +111,9 @@ default.rsyncssh = {
 				       e.etype ~= 'Delete' and
 					   e.etype ~= 'Init' and
 					   e.etype ~= 'Blanket'
-			end)
+			end
+		)
+
 		local paths = elist.getPaths()
 
 		-- removes trailing slashes from dirs.
@@ -96,11 +122,14 @@ default.rsyncssh = {
 				paths[k] = string.sub(v, 1, -2)
 			end
 		end
+
 		local sPaths = table.concat(paths, '\n')
 		local zPaths = table.concat(paths, '\000')
 		log('Normal', 'Rsyncing list\n', sPaths)
+
 		spawn(
-			elist, config.rsyncBinary,
+			elist,
+			config.rsyncBinary,
 			'<', zPaths,
 			config.rsyncOpts,
 			'--from0',
@@ -114,10 +143,13 @@ default.rsyncssh = {
 	-- Called when collecting a finished child process
 	--
 	collect = function(agent, exitcode)
+
 		local config = agent.config
 
 		if not agent.isList and agent.etype == 'Init' then
+
 			local rc = config.rsyncExitCodes[exitcode]
+
 			if rc == 'ok' then
 				log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
 			elseif rc == 'again' then
@@ -134,21 +166,32 @@ default.rsyncssh = {
 				log('Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode)
 				rc = 'die'
 			end
+
 			return rc
+
 		end
 
 		if agent.isList then
+
 			local rc = config.rsyncExitCodes[exitcode]
-			if     rc == 'ok'    then log('Normal', 'Finished (list): ',exitcode)
-			elseif rc == 'again' then log('Normal', 'Retrying (list): ',exitcode)
-			elseif rc == 'die'   then log('Error',  'Failure (list): ', exitcode)
+
+			if rc == 'ok' then
+				log('Normal', 'Finished (list): ',exitcode)
+			elseif rc == 'again' then
+				log('Normal', 'Retrying (list): ',exitcode)
+			elseif rc == 'die' then
+				log('Error',  'Failure (list): ', exitcode)
 			else
 				log('Error', 'Unknown exitcode (list): ',exitcode)
 				rc = 'die'
 			end
+
 			return rc
+
 		else
+
 			local rc = config.sshExitCodes[exitcode]
+
 			if rc == 'ok' then
 				log('Normal', 'Finished ',agent.etype,' ',agent.sourcePath,': ',exitcode)
 			elseif rc == 'again' then
@@ -159,20 +202,27 @@ default.rsyncssh = {
 				log('Error', 'Unknown exitcode ',agent.etype,' ',agent.sourcePath,': ',exitcode)
 				rc = 'die'
 			end
+
 			return rc
+
 		end
+
 	end,
 
-	-----
-	-- Spawns the recursive startup sync
+	--
+	-- spawns the recursive startup sync
 	--
 	init = function(event)
-		local config = event.config
-		local inlet = event.inlet
+
+		local config   = event.config
+		local inlet    = event.inlet
 		local excludes = inlet.getExcludes()
-		local target = config.host .. ':' .. config.targetdir
-		local delete = nil
-		if config.delete then delete = { '--delete', '--ignore-errors' }; end
+		local target   = config.host .. ':' .. config.targetdir
+		local delete   = nil
+
+		if config.delete then
+			delete = { '--delete', '--ignore-errors' };
+		end
 
 		if #excludes == 0 then
 			log('Normal', 'Recursive startup rsync: ',config.source,' -> ',target)
@@ -201,8 +251,8 @@ default.rsyncssh = {
 		end
 	end,
 
-	-----
-	-- Checks the configuration.
+	--
+	-- checks the configuration.
 	--
 	prepare = function(config)
 		if not config.host      then error('default.rsyncssh needs "host" configured', 4) end
@@ -218,56 +268,86 @@ default.rsyncssh = {
 		end
 	end,
 
-	-----
-	-- The rsync binary called.
+	--
+	-- the rsync binary called
 	--
 	rsyncBinary = '/usr/bin/rsync',
 
-	-----
-	-- Calls rsync with this default short opts.
+	--
+	-- calls rsync with this default short opts
 	--
 	rsyncOpts = '-lts',
 
-	-----
+	--
 	-- allow processes
 	--
 	maxProcesses = 1,
 
-	------
-	-- Let the core not split move events.
+	--
+	-- The core should not split move events
 	--
 	onMove = true,
 
-	-----
-	-- Default delay.
+	--
+	-- default delay
 	--
 	delay = 15,
 
 
-	-----
-	-- By default do deletes.
+	--
+	-- by default do deletes
 	--
 	delete = true,
 
-	-----
+	--
 	-- rsync exit codes
 	--
 	rsyncExitCodes = default.rsyncExitCodes,
 
-	-----
+	--
 	-- ssh exit codes
 	--
 	sshExitCodes = default.sshExitCodes,
 
-	-----
-	-- Delimiter, the binary and the paramters passed to xargs
+	--
+	-- xargs calls configuration
+	--
 	-- xargs is used to delete multiple remote files, when ssh access is
 	-- available this is simpler than to build filters for rsync for this.
-	-- Default uses '0' as limiter, you might override this for old systems.
 	--
 	xargs = {
+
+		--
+		-- the binary called (on target host)
 		binary = '/usr/bin/xargs',
+
+		--
+		-- delimiter, uses null by default, you might want to override this for older
+		-- by for example '\n'
 		delimiter = '\000',
-		xparams = {'-0', 'rm -rf'}
+
+		--
+		-- extra parameters
+		_xparams = {'-0', 'rm -rf'}
+	},
+
+	--
+	-- ssh calls configuration
+	--
+	-- ssh is used to move and delete files on the target host
+	--
+	ssh = {
+		--
+		-- the binary called
+		binary = '/usr/bin/ssh',
+
+		--
+		-- if set connect to this port
+		port = nil
+
+		--
+		-- extra parameters
+		_xparams = {}
 	}
+
 }
