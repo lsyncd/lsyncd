@@ -1,8 +1,8 @@
 -----
 -- User configuration file for lsyncd.
--- 
+--
 -- While this example does not do anything it shows
--- how user custom alarms can be now. It will log 
+-- how user custom alarms can be now. It will log
 -- "Beep!" every 5 seconds.
 --
 settings.nodaemon = true

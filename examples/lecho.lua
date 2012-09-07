@@ -1,7 +1,7 @@
 -----
 -- User configuration file for lsyncd.
--- 
--- This example uses local bash commands to keep two local 
+--
+-- This example uses local bash commands to keep two local
 -- directory trees in sync.
 --
 
@@ -11,7 +11,7 @@
 echo = {
 	maxProcesses = 1,
 	delay = 1,
-	onStartup = "/bin/echo telling about ^source", 
+	onStartup = "/bin/echo telling about ^source",
 	onAttrib  = "/bin/echo attrib ^pathname",
 	onCreate  = "/bin/echo create ^pathname",
 	onDelete  = "/bin/echo delete ^pathname",

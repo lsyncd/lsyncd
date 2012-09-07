@@ -1,6 +1,6 @@
 ----
 -- Lsyncd user-script that creates a "magic" image converter directory.
--- 
+--
 -- This configuration will automatically convert all images that are placed
 -- in the directory 'magicdir' all resulting images are placed in the same
 -- directory!
@@ -50,7 +50,7 @@ convert = {
 					if cmd ~= ""  then
 						cmd = cmd .. " && "
 					end
-					cmd = cmd.. 
+					cmd = cmd..
 						'/usr/bin/convert "'..
 						event.source..p..'" "'..
 						event.source..base..'.'..k..
@@ -61,7 +61,7 @@ convert = {
 			spawnShell(event, cmd)
 			return
 		end
-		
+
 		-- deletes all formats if you delete one
 		if event.etype == "Delete" then
 			-- builds one bash command
@@ -99,8 +99,8 @@ convert = {
 		local inlet = event.inlet
 
 		if event.etype == "Create" or
-		   event.etype == "Modify" or 
-		   event.etype == "Delete" 
+		   event.etype == "Modify" or
+		   event.etype == "Delete"
 		then
 			for k, _ in pairs(formats) do
 				inlet.rmExclude(base..'.'..k)

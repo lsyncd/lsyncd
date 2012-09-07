@@ -1,7 +1,7 @@
 -----
 -- An Lsyncd+IRC-Bot Config
 --
--- Logs into an IRC channel and tells there everything that happens in the 
+-- Logs into an IRC channel and tells there everything that happens in the
 -- watched directory tree.
 --
 -- The challenge coding Lsyncd configs taking use of TCP sockets is
@@ -10,7 +10,7 @@
 -- no longer spawning processes (this example doesnt do any, but maybe you
 -- might want to do that as well), blocking is just bad.
 --
--- This demo codes just minimal IRC functionality. 
+-- This demo codes just minimal IRC functionality.
 -- it does not respond to anything else than IRC PING messages.
 --
 -- There is no flood control, if a lot happens the IRC server will disconnect
@@ -55,7 +55,7 @@ local function ircWritey(fd)
 end
 
 ----
--- Called when there is data on the socket 
+-- Called when there is data on the socket
 local function ircReady(socket)
 	local l, err, ircRBuf = ircSocket:receive("*l", ircRBuf)
 	if not l then
@@ -88,7 +88,7 @@ function writeIRC(...)
 		log("Error", "IRC connection failed: ", err)
 		terminate(-1)
 	end
-	
+
 	--- logs what has been send, without the linefeed.
 	if (ircWBuf:sub(s, s) == "\n") then
 		log("Normal", "ircout:", ircWBuf:sub(1, s - 1))
@@ -133,8 +133,8 @@ local function action(inlet)
 end
 
 -- Watch a directory, and use a second for delay to aggregate events a little.
-sync{source = "src", 
-     action = action, 
+sync{source = "src",
+     action = action,
 	 delay  = 1,
 	 onMove = true}
 

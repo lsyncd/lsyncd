@@ -9,8 +9,8 @@ settings = {
 }
 
 sync{
-	default.rsync, 
-	source="src", 
-	target="trg", 
+	default.rsync,
+	source="src",
+	target="trg",
 }
 

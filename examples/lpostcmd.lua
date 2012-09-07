@@ -26,12 +26,12 @@ local rsyncpostcmd = {
 			-- triggering an error if not.
 			local isPostcmd = rawget(event, "isPostcmd")
 			if event.isPostcmd then
-				spawn(event, "/usr/bin/ssh", 
+				spawn(event, "/usr/bin/ssh",
 					config.host, config.postcmd)
         		return
 			else
             	-- this is the startup, forwards it to default routine.
-            	return default.rsync.action(inlet) 
+            	return default.rsync.action(inlet)
         	end
 			error("this should never be reached")
 		end
@@ -78,7 +78,7 @@ local rsyncpostcmd = {
 
 
 sync {
-	rsyncpostcmd, 
+	rsyncpostcmd,
 	source = "src",
 	host = "beetle",
 	targetdir = "/path/to/trg",
