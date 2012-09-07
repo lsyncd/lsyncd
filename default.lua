@@ -52,21 +52,53 @@ default = {
 				log('Normal', 'Startup of "',agent.source,'" finished.')
 				return 'ok'
 			elseif rc == 'again' then
-				log('Normal', 'Retrying startup of "',agent.source,'".')
-				return "again"
+				if settings.insist then
+					log(
+						'Normal',
+						'Retrying startup of "',
+						agent.source,
+						'": ',
+						exitcode
+					)
+
+					return 'again'
+				else
+					log(
+						'Error',
+						'Temporary or permanent failure on startup of "',
+						agent.source,
+						'". Terminating since "insist" is not set.'
+					)
+					terminate(-1) -- ERRNO
+				end
 			elseif rc == 'die' then
-				log('Error', 'Failure on startup of "',agent.source,'".')
+				log(
+					'Error',
+					'Failure on startup of "',
+					agent.source,
+					'".'
+				)
 				terminate(-1) -- ERRNO
 			else
-				log('Error', 'Unknown exitcode "',exitcode,'" on startup of "',agent.source,'".')
+				log(
+					'Error',
+					'Unknown exitcode "',
+					exitcode,
+					'" on startup of "',
+					agent.source,
+					'".'
+				)
 				return 'die'
 			end
 		end
 
 		if agent.isList then
-			if rc == 'ok'        then log('Normal', 'Finished a list = ',exitcode)
-			elseif rc == 'again' then log('Normal', 'Retrying a list on exitcode = ',exitcode)
-			elseif rc == 'die'   then log('Error', 'Failure with a list on exitcode = ',exitcode)
+			if rc == 'ok' then
+				log('Normal', 'Finished a list = ',exitcode)
+			elseif rc == 'again' then
+				log('Normal', 'Retrying a list on exitcode = ',exitcode)
+			elseif rc == 'die' then
+				log('Error', 'Failure with a list on exitcode = ',exitcode)
 			else
 				log('Error', 'Unknown exitcode "',exitcode,'" with a list')
 				rc = 'die'
@@ -84,6 +116,7 @@ default = {
 				rc = 'die'
 			end
 		end
+
 		return rc
 	end,
 
