@@ -94,7 +94,7 @@ default.rsyncssh = {
 				config.ssh.binary,
 				'<', table.concat(paths, config.xargs.delimiter),
 				params,
-				config.ssh._xparams
+				config.ssh._xparams,
 				config.host,
 				config.xargs.binary,
 				config.xargs._xparams
@@ -343,7 +343,7 @@ default.rsyncssh = {
 
 		--
 		-- if set connect to this port
-		port = nil
+		port = nil,
 
 		--
 		-- extra parameters
