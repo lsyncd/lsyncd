@@ -841,12 +841,12 @@ l_exec(lua_State *L)
 		if (lua_istable(L, i)) {
 			int tlen;
 			int it;
-			lua_checkstack(L, lua_gettop(L) + lua_objlen(L, i) + 1);
+			lua_checkstack(L, lua_gettop(L) + lua_rawlen(L, i) + 1);
 			// move table to top of stack
 			lua_pushvalue(L, i);
 			lua_remove(L, i);
 			argc--;
-			tlen = lua_objlen(L, -1);
+			tlen = lua_rawlen(L, -1);
 			for (it = 1; it <= tlen; it++) {
 				lua_pushinteger(L, it);
 				lua_gettable(L, -2);
@@ -1263,7 +1263,7 @@ l_nonobserve_fd(lua_State *L)
 	return 0;
 }
 
-static const luaL_reg lsyncdlib[] = {
+static const luaL_Reg lsyncdlib[] = {
 		{"configure",     l_configure     },
 		{"exec",          l_exec          },
 		{"log",           l_log           },
@@ -1368,7 +1368,7 @@ l_jiffies_le(lua_State *L)
 void
 register_lsyncd(lua_State *L)
 {
-	luaL_register(L, "lsyncd", lsyncdlib);
+	luaL_newlib(L, lsyncdlib);
 	lua_setglobal(L, "lysncd");
 
 	// creates the metatable for jiffies userdata
@@ -1394,13 +1394,12 @@ register_lsyncd(lua_State *L)
 	lua_settable(L, -3);
 	lua_pop(L, 1);
 
-	lua_getglobal(L, "lysncd");
 #ifdef LSYNCD_WITH_INOTIFY
-	// TODO why is the here?
+	lua_getglobal(L, "lysncd");
 	register_inotify(L);
-	lua_settable(L, -3);
-#endif
+	lua_setfield(L, -2, "inotify")
 	lua_pop(L, 1);
+#endif
 	if (lua_gettop(L)) {
 		logstring("Error", "internal, stack not empty in lsyncd_register()");
 		exit(-1); // ERRNO
@@ -1676,7 +1675,7 @@ main1(int argc, char *argv[])
 	int argp = 1;
 
 	// load Lua
-	L = lua_open();
+	L = luaL_newstate();
 	luaL_openlibs(L);
 	{
 		// checks the lua version
