@@ -39,6 +39,10 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#if LUA_VERSION_NUM < 502
+#   define luaL_newlib(L,l) luaL_register(L,NULL,l)
+#endif
+
 /*-----------------------------------------------------------------------------
  * Event types.
  */
