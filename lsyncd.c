@@ -57,6 +57,10 @@ extern size_t defaults_size;
 /* lua_rawlen: Not entirely correct, but should work anyway */
 #	define lua_rawlen lua_objlen
 #	define luaL_newlib(L,l) luaL_register(L,NULL,l)
+#elif LUA_VERSION_NUM < 501
+#   warning Lua 5.0 support is entirely untested!
+#   define lua_Reg lua_reg
+#   define luaL_newstate lua_open
 #endif
 
 /**
