@@ -1263,7 +1263,7 @@ l_nonobserve_fd(lua_State *L)
 	return 0;
 }
 
-static const luaL_reg lsyncdlib[] = {
+static const luaL_Reg lsyncdlib[] = {
 		{"configure",     l_configure     },
 		{"exec",          l_exec          },
 		{"log",           l_log           },
@@ -1676,7 +1676,7 @@ main1(int argc, char *argv[])
 	int argp = 1;
 
 	// load Lua
-	L = lua_open();
+	L = luaL_newstate();
 	luaL_openlibs(L);
 	{
 		// checks the lua version

@@ -129,7 +129,7 @@ l_rmwatch(lua_State *L)
 /**
  * Cores inotify functions.
  */
-static const luaL_reg linotfylib[] = {
+static const luaL_Reg linotfylib[] = {
 		{"addwatch",   l_addwatch   },
 		{"rmwatch",    l_rmwatch    },
 		{NULL, NULL}

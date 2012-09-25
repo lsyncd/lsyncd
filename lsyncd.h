@@ -16,6 +16,8 @@
 #define _XOPEN_SOURCE 700
 #define _DARWIN_C_SOURCE 1
 
+#define LUA_COMPAT_ALL
+
 // includes needed for headerfile
 #include "config.h"
 
