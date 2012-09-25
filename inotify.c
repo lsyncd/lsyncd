@@ -39,6 +39,10 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#if LUA_VERSION_NUM < 502
+#   define luaL_newlib(L,l) luaL_register(L,NULL,l)
+#endif
+
 /*-----------------------------------------------------------------------------
  * Event types.
  */
@@ -352,7 +356,7 @@ extern void
 register_inotify(lua_State *L)
 {
 	lua_pushstring(L, "inotify");
-	luaL_register(L, "inotify", linotfylib);
+	luaL_newlib(L, linotfylib);
 }
 
 /**

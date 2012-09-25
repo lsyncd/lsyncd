@@ -53,6 +53,16 @@ extern size_t runner_size;
 extern const char defaults_out[];
 extern size_t defaults_size;
 
+#if LUA_VERSION_NUM < 502
+/* lua_rawlen: Not entirely correct, but should work anyway */
+#	define lua_rawlen lua_objlen
+#	define luaL_newlib(L,l) luaL_register(L,NULL,l)
+#elif LUA_VERSION_NUM < 501
+#   warning Lua 5.0 support is entirely untested!
+#   define lua_Reg lua_reg
+#   define luaL_newstate lua_open
+#endif
+
 /**
  * Makes sure there is one monitor.
  */
@@ -841,12 +851,12 @@ l_exec(lua_State *L)
 		if (lua_istable(L, i)) {
 			int tlen;
 			int it;
-			lua_checkstack(L, lua_gettop(L) + lua_objlen(L, i) + 1);
+			lua_checkstack(L, lua_gettop(L) + lua_rawlen(L, i) + 1);
 			// move table to top of stack
 			lua_pushvalue(L, i);
 			lua_remove(L, i);
 			argc--;
-			tlen = lua_objlen(L, -1);
+			tlen = lua_rawlen(L, -1);
 			for (it = 1; it <= tlen; it++) {
 				lua_pushinteger(L, it);
 				lua_gettable(L, -2);
@@ -1368,7 +1378,7 @@ l_jiffies_le(lua_State *L)
 void
 register_lsyncd(lua_State *L)
 {
-	luaL_register(L, "lsyncd", lsyncdlib);
+	luaL_newlib(L, lsyncdlib);
 	lua_setglobal(L, "lysncd");
 
 	// creates the metatable for jiffies userdata
