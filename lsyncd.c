@@ -1394,13 +1394,13 @@ register_lsyncd(lua_State *L)
 	lua_settable(L, -3);
 	lua_pop(L, 1);
 
-	lua_getglobal(L, "lsyncd");
 #ifdef LSYNCD_WITH_INOTIFY
-	// TODO why is the here?
+	lua_getglobal(L, "lsyncd");
 	register_inotify(L);
-	lua_settable(L, -3);
-#endif
+	lua_setfield(L, -2, "inotify");
 	lua_pop(L, 1);
+#endif
+
 	if (lua_gettop(L)) {
 		logstring("Error", "internal, stack not empty in lsyncd_register()");
 		exit(-1); // ERRNO
