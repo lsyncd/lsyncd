@@ -94,10 +94,10 @@ default.rsyncssh = {
 				config.ssh.binary,
 				'<', table.concat(paths, config.xargs.delimiter),
 				params,
-				config.ssh._xparams,
+				config.ssh._extra,
 				config.host,
 				config.xargs.binary,
-				config.xargs._xparams
+				config.xargs._extra
 			)
 
 			return
@@ -255,8 +255,14 @@ default.rsyncssh = {
 	-- checks the configuration.
 	--
 	prepare = function(config)
-		if not config.host      then error('default.rsyncssh needs "host" configured', 4) end
-		if not config.targetdir then error('default.rsyncssh needs "targetdir" configured', 4) end
+
+		if not config.host then
+			error('default.rsyncssh needs "host" configured', 4)
+		end
+
+		if not config.targetdir then
+			error('default.rsyncssh needs "targetdir" configured', 4)
+		end
 
 		if config.rsyncOps then
 			error('did you mean rsyncOpts with "t"?', 4)
@@ -328,7 +334,7 @@ default.rsyncssh = {
 
 		--
 		-- extra parameters
-		_xparams = {'-0', 'rm -rf'}
+		_extra = { '-0', 'rm -rf' }
 	},
 
 	--
@@ -347,7 +353,7 @@ default.rsyncssh = {
 
 		--
 		-- extra parameters
-		_xparams = {}
+		_extra = { }
 	}
 
 }
