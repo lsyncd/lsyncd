@@ -9,6 +9,7 @@
 -- Note:
 --    this is infact just a configuration using Layer 1 configuration
 --    like any other. It only gets compiled into the binary by default.
+--
 --    You can simply use a modified one, by copying everything into a
 --    config file of yours and name it differently.
 --
@@ -17,12 +18,21 @@
 --
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-if not default       then error('default not loaded'); end
-if not default.rsync then error('default-direct (currently) needs default.rsync loaded'); end
-if default.direct    then error('default-direct already loaded'); end
+if not default then
+	error('default not loaded')
+end
+
+if not default.rsync then
+	error('default-direct (currently) needs default.rsync loaded')
+end
+
+if default.direct then
+	error('default-direct already loaded')
+end
 
 default.direct = {
-	-----
+
+	--
 	-- Spawns rsync for a list of events
 	--
 	action = function(inlet)
@@ -149,12 +159,7 @@ default.direct = {
 	-----
 	-- The rsync binary called.
 	--
-	rsyncBinary = '/usr/bin/rsync',
-
-	-----
-	-- For startup sync
-	--
-	rsyncOpts = '-lts',
+	rsync = default.rsync.rsync,
 
 	-----
 	-- By default do deletes.
