@@ -68,6 +68,27 @@ else
 	fi
 fi
 
+_LIBS="${LIBS}"
+LIBS="${LUA_LIBS}"
+
+AC_MSG_CHECKING([whether Lua library was compiled with compat support])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([
+			#define LUA_COMPAT_ALL
+			#include <lauxlib.h>
+		],[luaL_register(0,0,0);])],
+	[lua_compat_support=yes],
+	[lua_compat_support=no]
+)
+AC_MSG_RESULT([${lua_compat_support}])
+
+if test "x${lua_compat_support}" = xno ; then
+	AC_MSG_ERROR([Lua library needs to be compiled with compat support])
+fi
+
+LIBS="${_LIBS}"
+unset _LIBS
+
 AX_SUBST_L([LUA_CFLAGS], [LUA_LIBS], [LUA], [LUAC])
 
 
