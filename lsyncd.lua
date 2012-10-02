@@ -466,9 +466,9 @@ local Combiner = ( function( )
 
 		log(
 			'Delay',
-			d2.etype,':',d2.path,
+			d2.etype, ':', d2.path,
 			' replaces ',
-			d1.etype,':',d1.path
+			d1.etype, ':', d1.path
 		)
 
 		return 'replace'
@@ -482,9 +482,9 @@ local Combiner = ( function( )
 
 		log(
 			'Delay',
-			d2.etype,':',d2.path,
+			d2.etype, ':', d2.path,
 			' replaces ',
-			d1.etype,':',d1.path
+			d1.etype, ':', d1.path
 		)
 
 		return 'replace'
@@ -547,6 +547,7 @@ local Combiner = ( function( )
 	local function combine( d1, d2 )
 
 		if d1.etype == 'Init' or d1.etype == 'Blanket' then
+
 			-- everything is blocked by init or blanket delays.
 			if d2.path2 then
 				log(
@@ -586,6 +587,7 @@ local Combiner = ( function( )
 			end
 
 			return nil
+
 		end
 
 		-- non-move event on a move.
@@ -606,6 +608,7 @@ local Combiner = ( function( )
 			end
 
 			--  the event does something with the move destination
+
 			if d1.path2 == d2.path then
 
 				if d2.etype == 'Delete' or d2.etype == 'Create' then
@@ -628,7 +631,8 @@ local Combiner = ( function( )
 					return 'stack'
 				end
 
-				-- on 'Attrib' or 'Modify' simply let the move go first
+				-- on 'Attrib' or 'Modify' simply stack on moves
+
 				return 'stack'
 			end
 
@@ -668,7 +672,9 @@ local Combiner = ( function( )
 			return nil
 		end
 
+		--
 		-- a move event upon a move event
+		--
 		if d1.etype == 'Move' and d2.etype == 'Move' then
 			-- TODO combine moves,
 
@@ -683,11 +689,16 @@ local Combiner = ( function( )
 			   d2.path2:byte(-1) == 47 and string.starts(d1.path,  d2.path2) or
 			   d2.path2:byte(-1) == 47 and string.starts(d1.path2, d2.path2)
 			then
-				log('Delay',
+				log(
+					'Delay',
 					'Move:', d2.path, '->', d1.path2,
-					' splits on Move:',d1.path,'->',d1.path2)
+					' splits on Move:',
+					d1.path, '->', d1.path2
+				)
+
 				return 'split'
 			end
+
 			return nil
 		end
 
@@ -696,35 +707,41 @@ local Combiner = ( function( )
 
 	-- public interface
 	return { combine = combine }
+
 end )( )
 
------
+--
 -- Creates inlets for syncs: the user interface for events.
 --
-local InletFactory = (function()
-	-----
-	-- table to receive the delay of an event
+local InletFactory = ( function( )
+
+	--
+	-- Table to receive the delay of an event
 	-- or the delay list of an event list.
 	--
 	-- Keys are events and values are delays.
-	local e2d = {}
+	--
+	local e2d = { }
 
-	-----
-	-- table to ensure the uniqueness of every event
+	--
+	-- Table to ensure the uniqueness of every event
 	-- related to a delay.
 	--
 	-- Keys are delay and values are events.
-	local e2d2 = {}
+	--
+	local e2d2 = { }
 
-	-----
-	-- allows the garbage collector to remove not refrenced
+	--
+	-- Allows the garbage collector to remove not refrenced
 	-- events.
-	setmetatable(e2d,  { __mode = 'k' })
-	setmetatable(e2d2, { __mode = 'v' })
+	--
+	setmetatable( e2d,  { __mode = 'k' } )
+	setmetatable( e2d2, { __mode = 'v' } )
 
-	-----
-	-- removes the trailing slash from a path
-	local function cutSlash(path)
+	--
+	-- Removes the trailing slash from a path.
+	--
+	local function cutSlash( path )
 		if string.byte(path, -1) == 47 then
 			return string.sub(path, 1, -2)
 		else
@@ -732,425 +749,490 @@ local InletFactory = (function()
 		end
 	end
 
-	local function getPath(event)
+	--
+	-- Gets the path of an event.
+	--
+	local function getPath( event )
 		if event.move ~= 'To' then
-			return e2d[event].path
+			return e2d[ event ].path
 		else
-			return e2d[event].path2
+			return e2d[ event ].path2
 		end
 	end
 
-	-----
+	--
 	-- Interface for user scripts to get event fields.
 	--
 	local eventFields = {
-		-----
+
+		--
 		-- Returns a copy of the configuration as called by sync.
 		-- But including all inherited data and default values.
 		--
 		-- TODO give user a readonly version.
 		--
-		config = function(event)
-			return e2d[event].sync.config
+		config = function( event )
+			return e2d[ event ].sync.config
 		end,
 
 		-----
 		-- Returns the inlet belonging to an event.
 		--
-		inlet = function(event)
-			return e2d[event].sync.inlet
+		inlet = function( event )
+			return e2d[ event ].sync.inlet
 		end,
 
-		-----
+		--
 		-- Returns the type of the event.
+		--
 		-- Can be: 'Attrib', 'Create', 'Delete', 'Modify' or 'Move',
 		--
-		etype = function(event)
-			return e2d[event].etype
+		etype = function( event )
+			return e2d[ event ].etype
 		end,
 
-		-----
-		-- Tells this isn't a list.
 		--
-		isList = function()
+		-- Events are not lists.
+		--
+		isList = function( )
 			return false
 		end,
 
-		-----
-		-- Return the status of the event.
+		--
+		-- Returns the status of the event.
+		--
 		-- Can be:
 		--    'wait', 'active', 'block'.
 		--
-		status = function(event)
-			return e2d[event].status
+		status = function( event )
+			return e2d[ event ].status
 		end,
 
-		-----
-		-- Returns true if event relates to a directory.
 		--
-		isdir = function(event)
-			return string.byte(getPath(event), -1) == 47
+		-- Returns true if event relates to a directory
+		--
+		isdir = function( event )
+			return string.byte( getPath( event ), -1 ) == 47
 		end,
 
-		-----
+		--
 		-- Returns the name of the file/dir.
+		--
 		-- Includes a trailing slash for dirs.
 		--
-		name = function(event)
-			return string.match(getPath(event), '[^/]+/?$')
+		name = function( event )
+			return string.match( getPath( event ), '[^/]+/?$' )
 		end,
 
-		-----
-		-- Returns the name of the file/dir.
-		-- Excludes a trailing slash for dirs.
 		--
-		basename = function(event)
-			return string.match(getPath(event), '([^/]+)/?$')
+		-- Returns the name of the file/dir
+		-- excluding a trailing slash for dirs.
+		--
+		basename = function( event )
+			return string.match( getPath( event ), '([^/]+)/?$')
 		end,
 
-		-----
+		---
 		-- Returns the file/dir relative to watch root
-		-- Includes a trailing slash for dirs.
+		-- including a trailing slash for dirs.
 		--
-		path = function(event)
-			return getPath(event)
+		path = function( event )
+			return getPath( event )
 		end,
 
-		-----
+		--
 		-- Returns the directory of the file/dir relative to watch root
 		-- Always includes a trailing slash.
 		--
-		pathdir = function(event)
-			return string.match(getPath(event), '^(.*/)[^/]+/?') or ''
+		pathdir = function( event )
+			return string.match( getPath( event ), '^(.*/)[^/]+/?' ) or ''
 		end,
 
-		-----
+		--
 		-- Returns the file/dir relativ to watch root
-		-- Excludes a trailing slash for dirs.
+		-- excluding a trailing slash for dirs.
 		--
-		pathname = function(event)
-			return cutSlash(getPath(event))
+		pathname = function( event )
+			return cutSlash( getPath( event ) )
 		end,
 
-		------
+		---
 		-- Returns the absolute path of the watch root.
-		-- All symlinks will have been resolved.
+		-- All symlinks are resolved.
 		--
-		source = function(event)
-			return e2d[event].sync.source
+		source = function( event )
+			return e2d[ event ].sync.source
 		end,
 
-		------
-		-- Returns the absolute path of the file/dir.
-		-- Includes a trailing slash for dirs.
 		--
-		sourcePath = function(event)
-			return e2d[event].sync.source .. getPath(event)
+		-- Returns the absolute path of the file/dir
+		-- including a trailing slash for dirs.
+		--
+		sourcePath = function( event )
+			return e2d[ event ].sync.source .. getPath( event )
 		end,
 
-		------
-		-- Returns the absolute dir of the file/dir.
-		-- Includes a trailing slash.
 		--
-		sourcePathdir = function(event)
+		-- Returns the absolute dir of the file/dir
+		-- including a trailing slash.
+		--
+		sourcePathdir = function( event )
 			return e2d[event].sync.source ..
-				(string.match(getPath(event), '^(.*/)[^/]+/?') or '')
+				( string.match( getPath( event ), '^(.*/)[^/]+/?' ) or '' )
 		end,
 
 		------
-		-- Returns the absolute path of the file/dir.
-		-- Excludes a trailing slash for dirs.
+		-- Returns the absolute path of the file/dir
+		-- excluding a trailing slash for dirs.
 		--
-		sourcePathname = function(event)
-			return e2d[event].sync.source .. cutSlash(getPath(event))
+		sourcePathname = function( event )
+			return e2d[ event ].sync.source .. cutSlash( getPath( event ) )
 		end,
 
-		------
-		-- Returns the target.
-		-- Just for user comfort
 		--
-		-- (except here, the lsyncd.runner does not care event about the
-		-- existance of 'target', this is up to the scripts.)
+		-- Returns the configured target
 		--
-		target = function(event)
-			return e2d[event].sync.config.target
+		target = function( event )
+			return e2d[ event ].sync.config.target
 		end,
 
-		------
-		-- Returns the relative dir/file appended to the target.
-		-- Includes a trailing slash for dirs.
 		--
-		targetPath = function(event)
-			return e2d[event].sync.config.target .. getPath(event)
+		-- Returns the relative dir/file appended to the target
+		-- including a trailing slash for dirs.
+		--
+		targetPath = function( event )
+			return e2d[ event ].sync.config.target .. getPath( event )
 		end,
 
-		------
-		-- Returns the dir of the dir/file appended to the target.
-		-- Includes a trailing slash.
 		--
-		targetPathdir = function(event)
-			return e2d[event].sync.config.target ..
-				(string.match(getPath(event), '^(.*/)[^/]+/?') or '')
+		-- Returns the dir of the dir/file appended to the target
+		-- including a trailing slash.
+		--
+		targetPathdir = function( event )
+			return e2d[ event ].sync.config.target ..
+				( string.match( getPath( event ), '^(.*/)[^/]+/?' ) or '' )
 		end,
 
-		------
-		-- Returns the relative dir/file appended to the target.
-		-- Excludes a trailing slash for dirs.
 		--
-		targetPathname = function(event)
-			return e2d[event].sync.config.target ..
-				cutSlash(getPath(event))
+		-- Returns the relative dir/file appended to the target
+		-- excluding a trailing slash for dirs.
+		--
+		targetPathname = function( event )
+			return e2d[ event ].sync.config.target ..
+				cutSlash( getPath( event ) )
 		end,
 	}
 
-	-----
+	--
 	-- Retrievs event fields for the user script.
 	--
 	local eventMeta = {
-		__index = function(event, field)
-			local f = eventFields[field]
+
+		__index = function( event, field )
+			local f = eventFields[ field ]
 			if not f then
 				if field == 'move' then
 					-- possibly undefined
 					return nil
 				end
-				error('event does not have field "'..field..'"', 2)
+				error( 'event does not have field "'..field..'"', 2 )
 			end
-			return f(event)
+			return f( event )
 		end
+
 	}
 
-	-----
-	-- Interface for user scripts to get event fields.
+	--
+	-- Interface for user scripts to get list fields.
 	--
 	local eventListFuncs = {
-		-----
+
+		--
 		-- Returns a list of paths of all events in list.
 		--
 		-- @param elist -- handle returned by getevents()
 		-- @param mutator -- if not nil called with (etype, path, path2)
 		--                   returns one or two strings to add.
 		--
-		getPaths = function(elist, mutator)
+		getPaths = function( elist, mutator )
+
 			local dlist = e2d[elist]
+
 			if not dlist then
-				error('cannot find delay list from event list.')
+				error( 'cannot find delay list from event list.' )
 			end
-			local result = {}
+
+			local result  = { }
 			local resultn = 1
-			for k, d in ipairs(dlist) do
+
+			for k, d in ipairs( dlist ) do
+
 				local s1, s2
+
 				if mutator then
-					s1, s2 = mutator(d.etype, d.path, d.path2)
+					s1, s2 = mutator( d.etype, d.path, d.path2 )
 				else
 					s1, s2 = d.path, d.path2
 				end
-				result[resultn] = s1
+
+				result[ resultn ] = s1
 				resultn = resultn + 1
+
 				if s2 then
-					result[resultn] = s2
+					result[ resultn ] = s2
 					resultn = resultn + 1
 				end
 			end
+
 			return result
+
 		end
 	}
 
-	-----
-	-- Retrievs event list fields for the user script.
+	--
+	-- Retrievs event list fields for the user script
 	--
 	local eventListMeta = {
-		__index = function(elist, func)
-			if func == 'isList' then return true end
 
-			if func == 'config' then return e2d[elist].sync.config end
+		__index = function( elist, func )
 
-			local f = eventListFuncs[func]
+			if func == 'isList' then
+				return true
+			end
+
+			if func == 'config' then
+				return e2d[ elist ].sync.config
+			end
+
+			local f = eventListFuncs[ func ]
+
 			if not f then
-				error('event list does not have function "'..func..'"', 2)
+				error(
+					'event list does not have function "' .. func .. '"',
+					2
+				)
 			end
 
-			return function(...)
-				return f(elist, ...)
+			return function( ... )
+				return f( elist, ... )
 			end
+
 		end
+
 	}
 
-	-----
-	-- table of all inlets with their syncs
 	--
-	local inlets = {}
+	-- Table of all inlets with their syncs.
+	--
+	local inlets = { }
 
-	-----
-	-- allows the garbage collector to remove entries.
-	-- TODO check memory use
-	setmetatable(inlets, { __mode = 'v' })
+	--
+	-- Allows the garbage collector to remove entries.
+	--
+	setmetatable( inlets, { __mode = 'v' } )
 
-	-----
+	--
 	-- Encapsulates a delay into an event for the user script.
 	--
-	local function d2e(delay)
+	local function d2e( delay )
+
 		-- already created?
 		local eu = e2d2[delay]
 
 		if delay.etype ~= 'Move' then
-			if eu then return eu end
 
-			local event = {}
-			setmetatable(event, eventMeta)
-			e2d[event]  = delay
-			e2d2[delay] = event
+			if eu then
+				return eu
+			end
+
+			local event = { }
+			setmetatable( event, eventMeta )
+			e2d[ event ]  = delay
+			e2d2[ delay ] = event
+
 			return event
+
 		else
 			-- moves have 2 events - origin and destination
-			if eu then return eu[1], eu[2] end
+			if eu then
+				return eu[1], eu[2]
+			end
 
 			local event  = { move = 'Fr' }
 			local event2 = { move = 'To' }
-			setmetatable(event, eventMeta)
-			setmetatable(event2, eventMeta)
-			e2d[event]  = delay
-			e2d[event2] = delay
-			e2d2[delay] = { event, event2 }
+
+			setmetatable( event,  eventMeta )
+			setmetatable( event2, eventMeta )
+
+			e2d[ event ]  = delay
+			e2d[ event2 ] = delay
+
+			e2d2[ delay ] = { event, event2 }
+
 			-- move events have a field 'move'
 			return event, event2
+
 		end
 	end
 
-	-----
+	--
 	-- Encapsulates a delay list into an event list for the user script.
 	--
-	local function dl2el(dlist)
-		local eu = e2d2[dlist]
-		if eu then return eu end
+	local function dl2el( dlist )
 
-		local elist = {}
-		setmetatable(elist, eventListMeta)
-		e2d[elist] = dlist
-		e2d2[dlist] = elist
+		local eu = e2d2[ dlist ]
+
+		if eu then
+			return eu
+		end
+
+		local elist = { }
+
+		setmetatable( elist, eventListMeta )
+
+		e2d [ elist ] = dlist
+		e2d2[ dlist ] = elist
+
 		return elist
+
 	end
 
-	-----
+	--
 	-- The functions the inlet provides.
 	--
 	local inletFuncs = {
-		-----
-		-- adds an exclude.
+
 		--
-		addExclude = function(sync, pattern)
-			sync:addExclude(pattern)
+		-- Adds an exclude.
+		--
+		addExclude = function( sync, pattern )
+			sync:addExclude( pattern )
 		end,
 
-		-----
-		-- removes an exclude.
 		--
-		rmExclude = function(sync, pattern)
-			sync:rmExclude(pattern)
+		-- Removes an exclude.
+		--
+		rmExclude = function( sync, pattern )
+			sync:rmExclude( pattern )
 		end,
 
-		-----
-		-- gets the list of excludes in their original rsynlike patterns form.
 		--
-		getExcludes = function(sync)
+		-- Gets the list of excludes in their original rsynlike patterns form.
+		--
+		getExcludes = function( sync )
+
 			-- creates a copy
-			local e = {}
+			local e = { }
 			local en = 1;
-			for k, _ in pairs(sync.excludes.list) do
-				e[en] = k;
+
+			for k, _ in pairs( sync.excludes.list ) do
+				e[ en ] = k;
 				en = en + 1;
 			end
+
 			return e;
 		end,
 
-		-----
+		--
 		-- Creates a blanketEvent that blocks everything
 		-- and is blocked by everything.
 		--
-		createBlanketEvent = function(sync)
-			return d2e(sync:addBlanketDelay())
+		createBlanketEvent = function( sync )
+			return d2e( sync:addBlanketDelay( ) )
 		end,
 
-		-----
+		--
 		-- Discards a waiting event.
 		--
-		discardEvent = function(sync, event)
-			local delay = e2d[event]
+		discardEvent = function( sync, event )
+			local delay = e2d[ event ]
 			if delay.status ~= 'wait' then
-				log('Error',
+				log(
+					'Error',
 					'Ignored cancel of a non-waiting event of type ',
-					event.etype)
+					event.etype
+				)
 				return
 			end
-			sync:removeDelay(delay)
+			sync:removeDelay( delay )
 		end,
 
-		-----
+		--
 		-- Gets the next not blocked event from queue.
 		--
-		getEvent = function(sync)
-			return d2e(sync:getNextDelay(now()))
+		getEvent = function( sync )
+			return d2e( sync:getNextDelay( now( ) ) )
 		end,
 
-		-----
+		--
 		-- Gets all events that are not blocked by active events.
 		--
 		-- @param if not nil a function to test each delay
 		--
-		getEvents = function(sync, test)
-			local dlist = sync:getDelays(test)
-			return dl2el(dlist)
+		getEvents = function( sync, test )
+			local dlist = sync:getDelays( test )
+			return dl2el( dlist )
 		end,
 
-		-----
+		--
 		-- Returns the configuration table specified by sync{}
 		--
-		getConfig = function(sync)
+		getConfig = function( sync )
 			-- TODO gives a readonly handler only.
 			return sync.config
 		end,
 	}
 
-	-----
+	--
 	-- Forwards access to inlet functions.
 	--
 	local inletMeta = {
-		__index = function(inlet, func)
-			local f = inletFuncs[func]
-			if not f then error('inlet does not have function "'..func..'"', 2) end
-			return function(...) return f(inlets[inlet], ...) end
+		__index = function( inlet, func )
+			local f = inletFuncs[ func ]
+			if not f then
+				error(
+					'inlet does not have function "'..func..'"',
+					2
+				)
+			end
+
+			return function( ... )
+				return f( inlets[ inlet ], ... )
+			end
 		end,
 	}
 
-	-----
-	-- Creates a new inlet for Sync
-	local function newInlet(sync)
-		-- lua runner controlled variables
-		local inlet = {}
+	--
+	-- Creates a new inlet for Sync.
+	--
+	local function newInlet( sync )
+
+		-- Lsyncd runner controlled variables
+		local inlet = { }
 
 		-- sets use access methods
-		setmetatable(inlet, inletMeta)
-		inlets[inlet] = sync
+		setmetatable( inlet, inletMeta )
+		inlets[ inlet ] = sync
 		return inlet
 	end
 
-	-----
+	--
 	-- Returns the delay from a event.
 	--
-	local function getDelayOrList(event)
-		return e2d[event]
+	local function getDelayOrList( event )
+		return e2d[ event ]
 	end
 
-	-----
+	--
 	-- Returns the sync from an event or list
 	--
-	local function getSync(event)
-		return e2d[event].sync
+	local function getSync( event )
+		return e2d[ event ].sync
 	end
 
-	-----
-	-- public interface.
-	-- this one is split, one for user one for runner.
+	--
+	-- Public interface.
+	--
 	return {
 		getDelayOrList = getDelayOrList,
 		d2e            = d2e,
@@ -1158,64 +1240,85 @@ local InletFactory = (function()
 		getSync        = getSync,
 		newInlet       = newInlet,
 	}
-end)()
+
+end )( )
 
 
------
+--
 -- A set of exclude patterns
 --
-local Excludes = (function()
+local Excludes = ( function( )
 
-	-----
-	-- Turns a rsync like file pattern to a lua pattern.
 	--
-	local function toLuaPattern(p)
+	-- Turns a rsync like file pattern to a lua pattern.
+	-- ( at best it can )
+	--
+	local function toLuaPattern( p )
 		local o = p
-		p = string.gsub(p, '%%', '%%%%')
-		p = string.gsub(p, '%^', '%%^')
-		p = string.gsub(p, '%$', '%%$')
-		p = string.gsub(p, '%(', '%%(')
-		p = string.gsub(p, '%)', '%%)')
-		p = string.gsub(p, '%.', '%%.')
-		p = string.gsub(p, '%[', '%%[')
-		p = string.gsub(p, '%]', '%%]')
-		p = string.gsub(p, '%+', '%%+')
-		p = string.gsub(p, '%-', '%%-')
-		p = string.gsub(p, '%?', '[^/]')
-		p = string.gsub(p, '%*', '[^/]*')
+		p = string.gsub( p, '%%', '%%%%'  )
+		p = string.gsub( p, '%^', '%%^'   )
+		p = string.gsub( p, '%$', '%%$'   )
+		p = string.gsub( p, '%(', '%%('   )
+		p = string.gsub( p, '%)', '%%)'   )
+		p = string.gsub( p, '%.', '%%.'   )
+		p = string.gsub( p, '%[', '%%['   )
+		p = string.gsub( p, '%]', '%%]'   )
+		p = string.gsub( p, '%+', '%%+'   )
+		p = string.gsub( p, '%-', '%%-'   )
+		p = string.gsub( p, '%?', '[^/]'  )
+		p = string.gsub( p, '%*', '[^/]*' )
 		-- this was a ** before
-		p = string.gsub(p, '%[%^/%]%*%[%^/%]%*', '.*')
-		p = string.gsub(p, '^/', '^/')
-		if p:sub(1,2) ~= '^/' then -- does not begin with '^/'
-			-- all matches should begin with '/'.
-			p = '/'..p;
+		p = string.gsub( p, '%[%^/%]%*%[%^/%]%*', '.*' )
+		p = string.gsub( p, '^/', '^/'    )
+
+		if p:sub( 1, 2 ) ~= '^/' then
+			-- if does not begin with '^/'
+			-- then all matches should begin with '/'.
+			p = '/' .. p;
 		end
-		log('Exclude', 'toLuaPattern "',o,'" = "',p,'"')
+
+		log(
+			'Exclude',
+			'toLuaPattern "',
+			o, '" = "', p, '"'
+		)
+
 		return p
 	end
 
-	-----
-	-- Adds a pattern to exclude.
 	--
-	local function add(self, pattern)
-		if self.list[pattern] then
+	-- Adds a pattern to exclude
+	--
+	local function add( self, pattern )
+
+		if self.list[ pattern ] then
 			-- already in the list
 			return
 		end
-		local lp = toLuaPattern(pattern)
-		self.list[pattern] = lp
+
+		local lp = toLuaPattern( pattern )
+		self.list[ pattern ] = lp
+
 	end
 
-	-----
+	--
 	-- Removes a pattern to exclude.
 	--
-	local function remove(self, pattern)
-		if not self.list[pattern] then
-			-- already in the list
-			log('Normal', 'Removing not excluded exclude "'..pattern..'"')
+	local function remove( self, pattern )
+
+		if not self.list[ pattern ] then
+			-- already in the list?
+
+			log(
+				'Normal',
+				'Removing not excluded exclude "' .. pattern .. '"'
+			)
+
 			return
 		end
+
 		self.list[pattern] = nil
+
 	end
 
 
@@ -1228,47 +1331,76 @@ local Excludes = (function()
 		end
 	end
 
-	-----
-	-- loads excludes from a file
 	--
-	local function loadFile(self, file)
-		f, err = io.open(file)
+	-- Loads the excludes from a file
+	--
+	local function loadFile( self, file )
+
+		f, err = io.open( file )
+
 		if not f then
-			log('Error', 'Cannot open exclude file "',file,'": ', err)
+			log(
+				'Error',
+				'Cannot open exclude file "', file,'": ',
+				err
+			)
+
 			terminate(-1) -- ERRNO
 		end
+
 	    for line in f:lines() do
+
 			-- lsyncd 2.0 does not support includes
+
 			if not string.match(line, '%s*+') then
-				local p = string.match(line, '%s*-?%s*(.*)')
-				if p then add(self, p) end
+				local p = string.match(
+					line, '%s*-?%s*(.*)'
+				)
+				if p then
+					add(self, p)
+				end
 			end
 		end
-		f:close()
+
+		f:close( )
 	end
 
-	-----
+	--
 	-- Tests if 'path' is excluded.
 	--
-	local function test(self, path)
-		for _, p in pairs(self.list) do
-			if p:byte(-1) == 36 then
+	local function test( self, path )
+
+		for _, p in pairs( self.list ) do
+
+			if p:byte( -1 ) == 36 then
 				-- ends with $
-				if path:match(p) then return true end
+
+				if path:match( p ) then
+					return true
+				end
+
 			else
+
 				-- ends either end with / or $
-				if path:match(p..'/') or path:match(p..'$') then return true end
+				if path:match(p .. '/') or path:match(p .. '$') then
+					return true
+				end
+
 			end
 		end
+
 		return false
+
 	end
 
-	-----
+
+	--
 	-- Cretes a new exclude set
 	--
-	local function new()
+	local function new( )
+
 		return {
-			list = {},
+			list = { },
 
 			-- functions
 			add      = add,
@@ -1277,12 +1409,14 @@ local Excludes = (function()
 			remove   = remove,
 			test     = test,
 		}
+
 	end
 
-	-----
+	--
 	-- Public interface
+	--
 	return { new = new }
-end)()
+end )( )
 
 -----
 -- Holds information about one observed directory inclusively subdirs.
