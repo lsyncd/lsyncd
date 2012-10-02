@@ -20,6 +20,16 @@ PKG_CHECK_MODULES([LUA], [lua >= 5.1.3])
 ])
 ])
 
+AC_PATH_PROGS([LUA], [lua5.1 lua51 lua], [no])
+if test x${LUA} = xno ; then
+	AC_MSG_ERROR([Program 'lua' is required])
+fi
+
+AC_PATH_PROGS([LUAC], [luac5.1 luac51 luac], [no])
+if test x${LUAC} = xno ; then
+	AC_MSG_ERROR([Program 'luac' is required])
+fi
+
 ###
 # Checks for header files.
 AC_CHECK_HEADERS([sys/inotify.h])
