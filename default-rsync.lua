@@ -15,8 +15,13 @@
 --
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-if not default   then error('default not loaded'); end
-if default.rsync then error('default-rsync already loaded'); end
+if not default then
+	error('default not loaded')
+end
+
+if default.rsync then
+	error('default-rsync already loaded')
+end
 
 default.rsync = {
 	-----
@@ -52,7 +57,7 @@ default.rsync = {
 				end
 			end)
 		-- stores all filters with integer index
-		-- local filterI = inlet.getExcludes();
+		-- local filterI = inlet.getExcludes()
 		local filterI = {}
 		-- stores all filters with path index
 		local filterP = {}
@@ -89,10 +94,15 @@ default.rsync = {
 		log('Normal', 'Calling rsync with filter-list of new/modified files/dirs\n', filterS)
 		local config = inlet.getConfig()
 		local delete = nil
-		if config.delete then delete = { '--delete', '--ignore-errors' }; end
-		spawn(elist, config.rsyncBinary,
+
+		if config.delete then
+			delete = { '--delete', '--ignore-errors' }
+		end
+
+
+		spawn(elist, config.rsync.binary,
 			'<', filter0,
-			config.rsyncOpts,
+			config.rsync._computed,
 			'-r',
 			delete,
 			'--force',
@@ -111,13 +121,16 @@ default.rsync = {
 		local inlet = event.inlet
 		local excludes = inlet.getExcludes()
 		local delete = nil
-		if config.delete then delete = { '--delete', '--ignore-errors' }; end
+
+		if config.delete then
+			delete = { '--delete', '--ignore-errors' }
+		end
 
 		if #excludes == 0 then
 			log('Normal', 'recursive startup rsync: ', config.source, ' -> ', config.target)
-			spawn(event, config.rsyncBinary,
+			spawn(event, config.rsync.binary,
 				delete,
-				config.rsyncOpts,
+				config.rsync._computed,
 				'-r',
 				config.source,
 				config.target)
@@ -125,11 +138,11 @@ default.rsync = {
 			local exS = table.concat(excludes, '\n')
 			log('Normal', 'recursive startup rsync: ',config.source,
 				' -> ',config.target,' excluding\n',exS)
-			spawn(event, config.rsyncBinary,
+			spawn(event, config.rsync.binary,
 				'<', exS,
 				'--exclude-from=-',
 				delete,
-				config.rsyncOpts,
+				config.rsync._computed,
 				'-r',
 				config.source,
 				config.target)
@@ -145,8 +158,76 @@ default.rsync = {
 		end
 
 		if config.rsyncOps then
-			error('did you mean rsyncOpts with "t"?', 4)
+			error('"rsyncOps" is outdated please use the new rsync = { ... } syntax.', 4)
 		end
+
+		if config.rsyncOpts and config.rsync._extra then
+			error(
+				'"rsyncOpts" is outdated in favor of the new rsync = { ... } syntax\n"' +
+				'for which you provided the _extra attribute as well.\n"' +
+				'Please remove rsyncOpts from your config.',
+				4
+			)
+		end
+
+		if config.rsyncOpts then
+			log(
+				'Warn',
+				'"rsyncOpts" is outdated. Please use the new rsync = { ... } syntax."',
+				event.etype, '"'
+			)
+
+			config.rsync._extra = config.rsyncOpts
+
+			config.rsyncOpts = nil
+		end
+
+		if config.rsyncBinary and config.rsync.binary then
+			error(
+				'"rsyncBinary is outdated in favor of the new rsync = { ... } syntax\n"'+
+				'for which you provided the binary attribute as well.\n"' +
+				"Please remove rsyncBinary from your config.'",
+				4
+			)
+		end
+
+		if config.rsyncBinary then
+			log(
+				'Warn',
+				'"rsyncBinary" is outdated. Please use the new rsync = { ... } syntax."',
+				event.etype, '"'
+			)
+
+			config.rsync.binary = config.rsyncBinary
+
+			config.rsyncOpts = nil
+		end
+
+		-- checks if the _computed argument does not exist already
+		if config.rsync._computed then
+			error(
+				'please do not use the internal rsync._computed parameter',
+				4
+			)
+		end
+
+		-- computes the rsync arguments into one list
+		local rsync = config.rsync;
+		rsync._computed = { true }
+		local computed = rsync._computed
+		local shorts = { '-' }
+
+		if config.rsync._extra then
+			for k, v in ipairs( config.rsync._extra ) do
+				computed[k + 1] = v
+			end
+		end
+
+		if rsync.links then shorts[ #shorts ] = 'l'; end
+		if rsync.times then shorts[ #shorts ] = 't'; end
+		if rsync.protectArgs then  shorts[ #shorts ] = 's'; end
+
+		computed[1] = table.concat(shorts, '')
 
 		-- appends a / to target if not present
 		if string.sub(config.target, -1) ~= '/' then
@@ -164,14 +245,15 @@ default.rsync = {
 	delete = true,
 
 	-----
-	-- The rsync binary to be called.
-	--
-	rsyncBinary = '/usr/bin/rsync',
-
-	-----
 	-- Calls rsync with this default short opts.
 	--
-	rsyncOpts = '-lts',
+	rsync = {
+		-- The rsync binary to be called.
+		binary = '/usr/bin/rsync',
+		links = true,
+		times = true,
+		protectArgs = true
+	},
 
 	-----
 	-- Exit codes for rsync.

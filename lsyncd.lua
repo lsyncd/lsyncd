@@ -13,9 +13,9 @@
 -- require('profiler')
 -- profiler.start()
 
------
+--
 -- A security measurement.
--- Core will exit if version ids mismatch.
+-- The core will exit if version ids mismatch.
 --
 if lsyncd_version then
 	-- checks if the runner is being loaded twice
@@ -24,391 +24,501 @@ if lsyncd_version then
 end
 lsyncd_version = '2.0.7'
 
------
--- Hides the core interface from user scripts
+--
+-- Hides the core interface from user scripts.
 --
 local _l = lsyncd
 lsyncd = nil
 local lsyncd = _l
 _l = nil
 
------
+--
 -- Shortcuts (which user is supposed to be able to use them as well)
 --
 log       = lsyncd.log
 terminate = lsyncd.terminate
 now       = lsyncd.now
 readdir   = lsyncd.readdir
--- just to safe from userscripts changing this.
+
+--
+-- Coping globals to ensure userscripts don't change this.
+--
 local log       = log
 local terminate = terminate
 local now       = now
 
-------
+--
 -- Predeclarations
 --
 local Monitors
 
------
+--
 -- Global: total number of processess running
+--
 local processCount = 0
 
 --============================================================================
 -- Lsyncd Prototypes
 --============================================================================
 
------
--- The array objects are tables that error if accessed with a non-number.
 --
-local Array = (function()
+-- Array tables error if accessed with a non-number.
+--
+local Array = ( function( )
+
 	-- Metatable
-	local mt = {}
+	local mt = { }
 
 	-- on accessing a nil index.
-	mt.__index = function(t, k)
+	mt.__index = function( t, k )
 		if type(k) ~= 'number' then
-			error('Key "'..k..'" invalid for Array', 2)
+			error( 'Key "'..k..'" invalid for Array', 2 )
 		end
-		return rawget(t, k)
+		return rawget( t, k )
 	end
 
 	-- on assigning a new index.
-	mt.__newindex = function(t, k, v)
-		if type(k) ~= 'number' then
-			error('Key "'..k..'" invalid for Array', 2)
+	mt.__newindex = function( t, k, v )
+		if type( k ) ~= 'number' then
+			error( 'Key "'..k..'" invalid for Array', 2 )
 		end
-		rawset(t, k, v)
+		rawset( t, k, v )
 	end
 
 	-- creates a new object
-	local function new()
-		local o = {}
-		setmetatable(o, mt)
+	local function new( )
+		local o = { }
+		setmetatable( o, mt )
 		return o
 	end
 
 	-- objects public interface
-	return {new = new}
-end)()
+	return { new = new }
+
+end )( )
 
 
------
--- The count array objects are tables that error if accessed with a non-number.
--- Additionally they maintain their length as 'size' attribute.
--- Lua's # operator does not work on tables which key values are not
+--
+-- Count array tables error if accessed with a non-number.
+--
+-- Additionally they maintain their length as 'size' attribute,
+-- since Lua's # operator does not work on tables whose key values are not
 -- strictly linear.
 --
-local CountArray = (function()
+local CountArray = ( function( )
+
+	--
 	-- Metatable
-	local mt = {}
+	--
+	local mt = { }
 
-	-----
-	-- key to native table
-	local k_nt = {}
+	--
+	-- Key to native table
+	--
+	local k_nt = { }
 
-	-----
-	-- on accessing a nil index.
-	mt.__index = function(t, k)
-		if type(k) ~= 'number' then
-			error('Key "'..k..'" invalid for CountArray', 2)
+	--
+	-- On accessing a nil index.
+	--
+	mt.__index = function( t, k )
+		if type( k ) ~= 'number' then
+			error( 'Key "'..k..'" invalid for CountArray', 2 )
 		end
-		return t[k_nt][k]
+		return t[ k_nt ][ k ]
 	end
 
-	-----
-	-- on assigning a new index.
-	mt.__newindex = function(t, k, v)
+	--
+	-- On assigning a new index.
+	--
+	mt.__newindex = function( t, k, v )
+
 		if type(k) ~= 'number' then
-			error('Key "'..k..'" invalid for CountArray', 2)
+			error( 'Key "'..k..'" invalid for CountArray', 2 )
 		end
+
 		-- value before
-		local vb = t[k_nt][k]
+		local vb = t[ k_nt ][ k ]
 		if v and not vb then
 			t._size = t._size + 1
 		elseif not v and vb then
 			t._size = t._size - 1
 		end
-		t[k_nt][k] = v
+		t[ k_nt ][ k ] = v
 	end
 
-	-----
+	--
 	-- Walks through all entries in any order.
 	--
-	local function walk(self)
-		return pairs(self[k_nt])
+	local function walk( self )
+		return pairs( self[ k_nt ] )
 	end
 
-	-----
-	-- returns the count
 	--
-	local function size(self)
+	-- Returns the count
+	--
+	local function size( self )
 		return self._size
 	end
 
-	-----
-	-- creates a new count array
 	--
-	local function new()
+	-- Creates a new count array
+	--
+	local function new( )
+
 		-- k_nt is native table, private for this object.
-		local o = {_size = 0, walk = walk, size = size, [k_nt] = {} }
+		local o = {
+			_size = 0,
+			walk = walk,
+			size = size,
+			[k_nt] = { }
+		}
+
 		setmetatable(o, mt)
 		return o
 	end
 
-	-----
-	-- public interface
 	--
-	return {new = new}
-end)()
+	-- Public interface
+	--
+	return { new = new }
+end )( )
 
------
--- Queue
---   optimized for pushing on the right and poping on the left.
 --
+-- A queue is optimized for pushing on the right and poping on the left.
 --
-Queue = (function()
-	-----
+Queue = ( function( )
+
+	--
 	-- Creates a new queue.
 	--
-	local function new()
-		return { first = 1, last = 0, size = 0};
+	local function new( )
+		return {
+			first = 1,
+			last  = 0,
+			size  = 0
+		};
 	end
 
-	-----
+	--
 	-- Pushes a value on the queue.
 	-- Returns the last value
 	--
-	local function push(list, value)
+	local function push( list, value )
+
 		if not value then
 			error('Queue pushing nil value', 2)
 		end
+
 		local last = list.last + 1
 		list.last = last
-		list[last] = value
+		list[ last ] = value
 		list.size = list.size + 1
 		return last
 	end
 
-	-----
-	-- Removes item at pos from Queue.
 	--
-	local function remove(list, pos)
-		if list[pos] == nil then
+	-- Removes an item at pos from the Queue.
+	--
+	local function remove( list, pos )
+
+		if list[ pos ] == nil then
 			error('Removing nonexisting item in Queue', 2)
 		end
-		list[pos] = nil
 
-		-- if removing first element, move list on.
+		list[ pos ] = nil
+
+		-- if removing first or last element,
+		-- the queue limits are adjusted.
 		if pos == list.first then
+
 			local last = list.last
-			while list[pos] == nil and pos <= list.last do
+
+			while list[ pos ] == nil and pos <= list.last do
 				pos = pos + 1
 			end
+
 			list.first = pos
+
 		elseif pos == list.last then
-			while list[pos] == nil and pos >= list.first do
+
+			while list[ pos ] == nil and pos >= list.first do
 				pos = pos - 1
 			end
+
 			list.last = pos
+
 		end
 
-		-- reset indizies if list is empty
+		-- reset the indizies if the queue is empty
 		if list.last < list.first then
 			list.first = 1
 			list.last  = 0
 		end
+
 		list.size = list.size - 1
 	end
 
-	-----
+	--
 	-- Queue iterator (stateless)
 	--
-	local function iter(list, pos)
+	local function iter( list, pos )
+
 		pos = pos + 1
-		while list[pos] == nil and pos <= list.last do
+
+		while list[ pos ] == nil and pos <= list.last do
 			pos = pos + 1
 		end
+
 		if pos > list.last then
 			return nil
 		end
-		return pos, list[pos]
+
+		return pos, list[ pos ]
 	end
 
-	-----
-	-- Reverse queue iterator. (stateless)
 	--
-	local function iterReverse(list, pos)
+	-- Reverse queue iterator (stateless)
+	--
+	local function iterReverse( list, pos )
+
 		pos = pos - 1
+
 		while list[pos] == nil and pos >= list.first do
 			pos = pos - 1
 		end
+
 		if pos < list.first then
 			return nil
 		end
-		return pos, list[pos]
+
+		return pos, list[ pos ]
 	end
 
-	-----
-	-- Iteraters through the queue
-	-- returning all non-nil pos-value entries
 	--
-	local function qpairs(list)
+	-- Iteraters through the queue
+	-- returning all non-nil pos-value entries.
+	--
+	local function qpairs( list )
 		return iter, list, list.first - 1
 	end
 
-	-----
-	-- Iteraters backwards through the queue
-	-- returning all non-nil pos-value entries
 	--
-	local function qpairsReverse(list)
+	-- Iteraters backwards through the queue
+	-- returning all non-nil pos-value entries.
+	--
+	local function qpairsReverse( list )
 		return iterReverse, list, list.last + 1
 	end
 
-	return {new = new,
-			push = push,
-			remove = remove,
-			qpairs = qpairs,
-			qpairsReverse = qpairsReverse}
-end)()
+	return {
+		new = new,
+		push = push,
+		remove = remove,
+		qpairs = qpairs,
+		qpairsReverse = qpairsReverse
+	}
+end )( )
 
------
--- Locks globals,
--- no more globals can be created
 --
-local function lockGlobals()
+-- Locks globals,
+-- No more globals can be created after this
+--
+local function lockGlobals( )
+
 	local t = _G
-	local mt = getmetatable(t) or {}
-	mt.__index = function(t, k)
-		if (k~='_' and string.sub(k, 1, 2) ~= '__') then
-			error('Access of non-existing global "'..k..'"', 2)
+	local mt = getmetatable( t ) or { }
+
+	-- TODO try to remove the underscore exceptions
+	mt.__index = function( t, k )
+		if k ~= '_' and string.sub(k, 1, 2) ~= '__' then
+			error( 'Access of non-existing global "'..k..'"', 2 )
 		else
-			rawget(t, k)
+			rawget( t, k )
 		end
 	end
-	mt.__newindex = function(t, k, v)
-		if (k~='_' and string.sub(k, 1, 2) ~= '__') then
+
+	mt.__newindex = function( t, k, v )
+		if k ~= '_' and string.sub( k, 1, 2 ) ~= '__' then
 			error('Lsyncd does not allow GLOBALS to be created on the fly. '..
 			      'Declare "'..k..'" local or declare global on load.', 2)
 		else
-			rawset(t, k, v)
+			rawset( t, k, v )
 		end
 	end
-	setmetatable(t, mt)
+
+	setmetatable( t, mt )
 end
 
------
--- Holds information about a delayed event of one Sync.
 --
-local Delay = (function()
-	-----
+-- Holds the information about a delayed event for one Sync.
+--
+local Delay = ( function( )
+
+	--
 	-- Creates a new delay.
 	--
-	-- @params see below
+	-- Params see below.
 	--
-	local function new(etype, sync, alarm, path, path2)
+	local function new( etype, sync, alarm, path, path2 )
+
 		local o = {
-			-----
+			--
 			-- Type of event.
 			-- Can be 'Create', 'Modify', 'Attrib', 'Delete' and 'Move'
+			--
 			etype = etype,
 
-			------
-			-- Sync this delay belongs to
+			--
+			-- the Sync this delay belongs to
+			--
 			sync = sync,
 
-			-----
+			--
 			-- Latest point in time this should be catered for.
 			-- This value is in kernel ticks, return of the C's
 			-- times(NULL) call.
 			alarm = alarm,
 
-			-----
-			-- path and filename or dirname of the delay relative
+			--
+			-- Path and filename or dirname of the delay relative
 			-- to the syncs root.
+			--
 			-- for the directories it contains a trailing slash
 			--
-			path  = path,
+			path = path,
 
-			------
-			-- only not nil for 'Move's.
-			-- path and file/dirname of a move destination.
+			--
+			-- Used only for Moves.
+			-- Path and file/dirname of a move destination.
+			--
 			path2  = path2,
 
-			------
+			--
 			-- Status of the event. Valid stati are:
+			--
 			-- 'wait'    ... the event is ready to be handled.
+			--
 			-- 'active'  ... there is process running catering for this event.
+			--
 			-- 'blocked' ... this event waits for another to be handled first.
+			--
 			-- 'done'    ... event has been collected. This should never be
 			--               visible as all references should be droped on
-			--               collection, nevertheless seperat status for
-			--               insurrance.
+			--               collection, nevertheless the seperate status is
+			--               used as insurrance everything is running correctly.
 			status = 'wait',
 
-			-----
+			--
 			-- Position in the queue
+			--
 			dpos = -1,
 		}
+
 		return o
 	end
 
-	-- public interface
-	return {new = new}
-end)()
+	--
+	-- Public interface
+	--
+	return { new = new }
 
------
--- combines delays
+end )( )
+
 --
-local Combiner = (function()
+-- Combines delays
+--
+local Combiner = ( function( )
 
-	----
-	-- new delay absorbed by old
 	--
-	local function abso(d1, d2)
-		log('Delay',d2.etype,':',d2.path,' absorbed by ',d1.etype,':',d1.path)
+	-- The new delay is absorbed by an older one.
+	--
+	local function abso( d1, d2 )
+
+		log(
+			'Delay',
+			d2.etype, ':',d2.path,
+			' absorbed by ',
+			d1.etype,':',d1.path
+		)
+
 		return 'absorb'
+
 	end
 
-	----
-	-- new delay replaces the old one if it is a file
 	--
-	local function refi(d1, d2)
-		if d2.path:byte(-1) == 47 then
-			log('Delay',d2.etype,':',d2.path,' blocked by ',d1.etype,':',d1.path)
+	-- The new delay replaces the old one if it's a file
+	--
+	local function refi( d1, d2 )
+
+		-- but a directory blocks
+		if d2.path:byte( -1 ) == 47 then
+
+			log(
+				'Delay',
+				d2.etype,':',d2.path,
+				' blocked by ',
+				d1.etype,':',d1.path
+			)
+
 			return 'stack'
+
 		end
-		log('Delay',d2.etype,':',d2.path,' replaces ',d1.etype,':',d1.path)
+
+		log(
+			'Delay',
+			d2.etype,':',d2.path,
+			' replaces ',
+			d1.etype,':',d1.path
+		)
+
 		return 'replace'
+
 	end
 
-	----
-	-- new delay replaces the old one
 	--
-	local function repl(d1, d2)
-		log('Delay',d2.etype,':',d2.path,' replaces ',d1.etype,':',d1.path)
+	-- The new delay replaces an older one.
+	--
+	local function repl( d1, d2 )
+
+		log(
+			'Delay',
+			d2.etype,':',d2.path,
+			' replaces ',
+			d1.etype,':',d1.path
+		)
+
 		return 'replace'
+
 	end
 
-	----
-	-- delays nullificate each other
 	--
-	local function null(d1, d2)
-		log('Delay',d2.etype,':',d2.path,' nullifies ',d1.etype,':',d1.path)
+	-- Two delays nullificate each other.
+	--
+	local function null( d1, d2 )
+
+		log(
+			'Delay',
+			d2.etype,':',d2.path,
+			' nullifies ',
+			d1.etype,':',d1.path
+		)
+
 		return 'remove'
+
 	end
 
 	-----
 	-- Table how to combine events that dont involve a move.
 	--
 	local combineNoMove = {
-		Attrib = {Attrib=abso, Modify=repl, Create=repl, Delete=repl },
-		Modify = {Attrib=abso, Modify=abso, Create=repl, Delete=repl },
-		Create = {Attrib=abso, Modify=abso, Create=abso, Delete=repl },
-		Delete = {Attrib=abso, Modify=abso, Create=refi, Delete=abso },
+		Attrib = { Attrib = abso, Modify = repl, Create = repl, Delete = repl },
+		Modify = { Attrib = abso, Modify = abso, Create = repl, Delete = repl },
+		Create = { Attrib = abso, Modify = abso, Create = abso, Delete = repl },
+		Delete = { Attrib = abso, Modify = abso, Create = refi, Delete = abso },
 	}
 
-	------
-	-- combines two delays
+	--
+	-- Combines two delays
 	--
 	local function combine(d1, d2)
 		if d1.etype == 'Init' or d1.etype == 'Blanket' then
