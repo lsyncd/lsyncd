@@ -5,10 +5,16 @@ AC_INIT(lsyncd, 2.0.7, axkibe@gmail.com)
 AC_CONFIG_SRCDIR([lsyncd.c])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
+
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
+
+AC_PATH_PROG([A2X], [a2x], [no])
+if test x${A2X} = xno ; then
+	AC_MSG_ERROR([Program 'a2x' (package asciidoc) is required])
+fi
 
 ###
 # Checks for lua

@@ -35,7 +35,7 @@ EXTRA_DIST = doc/lsyncd.1.txt inotify.c fsevents.c bin2carray.lua \
 	default.lua default-rsync.lua default-rsyncssh.lua default-direct.lua
 
 doc/lsyncd.1: doc/lsyncd.1.txt
-	a2x --format=manpage $<
+	$(A2X) --format=manpage $<
 
 CLEANFILES = runner.out defaults.out runner.c defaults.c
 
