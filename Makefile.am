@@ -46,14 +46,14 @@ runner.o: runner.c
 defaults.o: defaults.c
 
 runner.c: runner.out bin2carray.lua
-	lua ./bin2carray.lua $< runner $@
+	$(LUA) ./bin2carray.lua $< runner $@
 
 defaults.c: defaults.out bin2carray.lua
-	lua ./bin2carray.lua $< defaults $@
+	$(LUA) ./bin2carray.lua $< defaults $@
 
 runner.out: lsyncd.lua
-	luac -o $@ $<
+	$(LUAC) -o $@ $<
 
 defaults.out: default.lua default-rsync.lua default-rsyncssh.lua default-direct.lua
-	luac -o $@ $^
+	$(LUAC) -o $@ $^
 
