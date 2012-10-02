@@ -507,85 +507,148 @@ local Combiner = ( function( )
 
 	end
 
-	-----
-	-- Table how to combine events that dont involve a move.
+	--
+	-- Table on how to combine events that dont involve a move.
 	--
 	local combineNoMove = {
-		Attrib = { Attrib = abso, Modify = repl, Create = repl, Delete = repl },
-		Modify = { Attrib = abso, Modify = abso, Create = repl, Delete = repl },
-		Create = { Attrib = abso, Modify = abso, Create = abso, Delete = repl },
-		Delete = { Attrib = abso, Modify = abso, Create = refi, Delete = abso },
+
+		Attrib = {
+			Attrib = abso,
+			Modify = repl,
+			Create = repl,
+			Delete = repl
+		},
+
+		Modify = {
+			Attrib = abso,
+			Modify = abso,
+			Create = repl,
+			Delete = repl
+		},
+
+		Create = {
+			Attrib = abso,
+			Modify = abso,
+			Create = abso,
+			Delete = repl
+		},
+
+		Delete = {
+			Attrib = abso,
+			Modify = abso,
+			Create = refi,
+			Delete = abso
+		},
 	}
 
 	--
 	-- Combines two delays
 	--
-	local function combine(d1, d2)
+	local function combine( d1, d2 )
+
 		if d1.etype == 'Init' or d1.etype == 'Blanket' then
 			-- everything is blocked by init or blanket delays.
 			if d2.path2 then
-				log('Delay',d2.etype,':',d2.path,'->',d2.path2,' blocked by ',d1.etype,' event')
+				log(
+					'Delay',
+					d2.etype,':',d2.path,'->',d2.path2,
+					' blocked by ',
+					d1.etype,' event'
+				)
 			else
-				log('Delay',d2.etype,':',d2.path,' blocked by ',d1.etype,' event')
+				log(
+					'Delay',
+					d2.etype,':',d2.path,
+					' blocked by ',
+					d1.etype,' event'
+				)
 			end
+
 			return 'stack'
 		end
 
-		-- Two normal events
+		-- two normal events
 		if d1.etype ~= 'Move' and d2.etype ~= 'Move' then
+
 			if d1.path == d2.path then
 				if d1.status == 'active' then
 					return 'stack'
 				end
-				return combineNoMove[d1.etype][d2.etype](d1, d2)
+
+				return combineNoMove[ d1.etype ][ d2.etype ]( d1, d2 )
 			end
 
-			-- blocks events if one is a parent directory of another
+			-- if one is a parent directory of another, events are blocking
 			if d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path) or
 			   d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path)
 			then
 				return 'stack'
 			end
+
 			return nil
 		end
 
-		-- Normal upon a Move
+		-- non-move event on a move.
 		if d1.etype == 'Move' and d2.etype ~= 'Move' then
-			-- stacks the move if the from field could anyway be damaged
+			-- if the from field could be damaged the events are stacked
 			if d1.path == d2.path or
 			   d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path) or
 			   d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path)
 			then
-				log('Delay',d2.etype,':',d2.path,' blocked by ','Move :',d1.path,'->',d1.path2)
+				log(
+					'Delay',
+					d2.etype, ':', d2.path,
+					' blocked by ',
+					'Move :', d1.path,'->', d1.path2
+				)
+
 				return 'stack'
 			end
 
-			--  Event does something with the move destination
+			--  the event does something with the move destination
 			if d1.path2 == d2.path then
+
 				if d2.etype == 'Delete' or d2.etype == 'Create' then
+
 					if d1.status == 'active' then
 						return 'stack'
 					end
-					log('Delay',d2.etype,':',d2.path,' turns ',
-				        'Move :',d1.path,'->',d1.path2,' into ','Delete:',d1.path)
+
+					log(
+						'Delay',
+						d2.etype, ':', d2.path,
+						' turns ',
+				        'Move :', d1.path, '->', d1.path2,
+						' into ',
+						'Delete:', d1.path
+					)
 					d1.etype = 'Delete'
 					d1.path2 = nil
+
 					return 'stack'
 				end
-				-- on 'Attrib' or 'Modify' simply wait for the move first
+
+				-- on 'Attrib' or 'Modify' simply let the move go first
 				return 'stack'
 			end
 
 			if d2.path :byte(-1) == 47 and string.starts(d1.path2, d2.path) or
 			   d1.path2:byte(-1) == 47 and string.starts(d2.path,  d1.path2)
 			then
-				log('Delay',d2.etype,':',d2.path,' blocked by ','Move:',d1.path,'->',d1.path2)
+				log(
+					'Delay'
+					,d2.etype, ':', d2.path,
+					' blocked by ',
+					'Move:', d1.path, '->', d1.path2
+				)
+
 				return 'stack'
 			end
+
 			return nil
 		end
 
-		-- Move upon a single event
+		-- a move upon a non-move event
 		if d1.etype ~= 'Move' and d2.etype == 'Move' then
 			if d1.path == d2.path or d1.path == d2.path2 or
 			   d1.path :byte(-1) == 47 and string.starts(d2.path,  d1.path) or
@@ -593,13 +656,19 @@ local Combiner = ( function( )
 			   d2.path :byte(-1) == 47 and string.starts(d1.path,  d2.path) or
 			   d2.path2:byte(-1) == 47 and string.starts(d1.path,  d2.path2)
 			then
-				log('Delay','Move:',d2.path,'->',d2.path2,' splits on ',d1.etype,':',d1.path)
+				log(
+					'Delay',
+					'Move:', d2.path, '->', d2.path2,
+					' splits on ',
+					d1.etype, ':', d1.path
+				)
 				return 'split'
 			end
+
 			return nil
 		end
 
-		-- Move upon move
+		-- a move event upon a move event
 		if d1.etype == 'Move' and d2.etype == 'Move' then
 			-- TODO combine moves,
 
@@ -614,19 +683,20 @@ local Combiner = ( function( )
 			   d2.path2:byte(-1) == 47 and string.starts(d1.path,  d2.path2) or
 			   d2.path2:byte(-1) == 47 and string.starts(d1.path2, d2.path2)
 			then
-				log('Delay','Move:',d2.path,'->',d1.path2,
+				log('Delay',
+					'Move:', d2.path, '->', d1.path2,
 					' splits on Move:',d1.path,'->',d1.path2)
 				return 'split'
 			end
 			return nil
 		end
 
-		error('reached impossible state')
+		error( 'reached impossible state' )
 	end
 
 	-- public interface
-	return {combine = combine}
-end)()
+	return { combine = combine }
+end )( )
 
 -----
 -- Creates inlets for syncs: the user interface for events.
