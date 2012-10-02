@@ -37,7 +37,7 @@ EXTRA_DIST = doc/lsyncd.1.txt inotify.c fsevents.c bin2carray.lua \
 doc/lsyncd.1: doc/lsyncd.1.txt
 	a2x --format=manpage $<
 
-CLEANFILES = runner.out defaults.out runner.c defaults.c
+CLEANFILES = runner.out defaults.out runner.c defaults.c doc/lsyncd.1
 
 # compiles the runner and the defaults into the binary
 lsyncd_LDADD += runner.o defaults.o
