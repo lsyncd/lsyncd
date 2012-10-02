@@ -1368,39 +1368,37 @@ l_jiffies_le(lua_State *L)
 void
 register_lsyncd(lua_State *L)
 {
-	luaL_register(L, "lsyncd", lsyncdlib);
-	lua_setglobal(L, "lysncd");
+	luaL_register(L, LSYNCD_LIBNAME, lsyncdlib);
+	lua_setglobal(L, LSYNCD_LIBNAME);
 
 	// creates the metatable for jiffies userdata
 	luaL_newmetatable(L, "Lsyncd.jiffies");
-	lua_pushstring(L, "__add");
+	int mt = lua_gettop(L);
+
 	lua_pushcfunction(L, l_jiffies_add);
-	lua_settable(L, -3);
+	lua_setfield(L, mt, "__add");
 
-	lua_pushstring(L, "__sub");
 	lua_pushcfunction(L, l_jiffies_sub);
-	lua_settable(L, -3);
+	lua_setfield(L, mt, "__sub");
 
-	lua_pushstring(L, "__lt");
 	lua_pushcfunction(L, l_jiffies_lt);
-	lua_settable(L, -3);
+	lua_setfield(L, mt, "__lt");
 
-	lua_pushstring(L, "__le");
 	lua_pushcfunction(L, l_jiffies_le);
-	lua_settable(L, -3);
+	lua_setfield(L, mt, "__le");
 
-	lua_pushstring(L, "__eq");
 	lua_pushcfunction(L, l_jiffies_eq);
-	lua_settable(L, -3);
-	lua_pop(L, 1);
+	lua_setfield(L, mt, "__eq");
 
-	lua_getglobal(L, "lysncd");
+	lua_pop(L, 1); // pop(mt)
+
 #ifdef LSYNCD_WITH_INOTIFY
-	// TODO why is the here?
+	lua_getglobal(L, LSYNCD_LIBNAME);
 	register_inotify(L);
-	lua_settable(L, -3);
-#endif
+	lua_setfield(L, -2, LSYNCD_INOTIFYLIBNAME);
 	lua_pop(L, 1);
+#endif
+
 	if (lua_gettop(L)) {
 		logstring("Error", "internal, stack not empty in lsyncd_register()");
 		exit(-1); // ERRNO

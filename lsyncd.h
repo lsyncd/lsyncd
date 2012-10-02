@@ -28,6 +28,9 @@
 #define LUA_USE_APICHECK 1
 #include <lua.h>
 
+#define LSYNCD_LIBNAME "lsyncd"
+#define LSYNCD_INOTIFYLIBNAME "inotify"
+
 /**
  * Lsyncd runtime configuration
  */
