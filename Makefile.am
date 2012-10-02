@@ -1,4 +1,5 @@
-AUTOMAKE_OPTIONS = foreign
+ACLOCAL_AMFLAGS = -I m4
+
 CFLAGS += -Wall $(LUA_CFLAGS)
 bin_PROGRAMS = lsyncd
 lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua default-rsync.lua
