@@ -21,24 +21,55 @@ if test x${A2X} = xno ; then
 fi
 
 ###
-# Checks for lua
-PKG_CHECK_MODULES([LUA], [lua5.1  >= 5.1.3],,[
-PKG_CHECK_MODULES([LUA], [lua51   >= 5.1.3],,[
-PKG_CHECK_MODULES([LUA], [lua-5.1 >= 5.1.3],,[
-PKG_CHECK_MODULES([LUA], [lua >= 5.1.3])
-])
-])
-])
+# Checks for Lua
 
-AC_PATH_PROGS([LUA], [lua5.1 lua51 lua], [no])
-if test x${LUA} = xno ; then
-	AC_MSG_ERROR([Program 'lua' is required])
+# Try versioned Lua 5.2 first
+PKG_CHECK_MODULES([LUA52], [lua5.2],,[
+	PKG_CHECK_MODULES([LUA52], [lua52],,[
+		PKG_CHECK_MODULES([LUA52], [lua-5.2],,[:])
+	])
+])
+AC_PATH_PROGS([LUA52], [lua5.2 lua52], [no])
+AC_PATH_PROGS([LUAC52], [luac5.2 luac52], [no])
+
+if test -z "${LUA52_PKG_ERRORS}" -a "${LUA52}" != no -a "${LUAC52}" != no ; then
+	LUA_VERSION="5.2"
+	LUA_CFLAGS="${LUA52_CFLAGS}"
+	LUA_LIBS="${LUA52_LIBS}"
+	LUA="${LUA52}"
+	LUAC="${LUAC52}"
+else
+	# Fall back to versioned Lua 5.1
+	PKG_CHECK_MODULES([LUA51], [lua5.1  >= 5.1.3],,[
+		PKG_CHECK_MODULES([LUA51], [lua51   >= 5.1.3],,[
+			PKG_CHECK_MODULES([LUA51], [lua-5.1 >= 5.1.3],,[:])
+		])
+	])
+	AC_PATH_PROGS([LUA51], [lua5.1 lua51], [no])
+	AC_PATH_PROGS([LUAC51], [luac5.1 luac51], [no])
+
+	if test -z "${LUA51_PKG_ERRORS}" -a "${LUA51}" != no -a "${LUAC51}" != no ; then
+		LUA_VERSION="5.1"
+		LUA_CFLAGS="${LUA51_CFLAGS}"
+		LUA_LIBS="${LUA51_LIBS}"
+		LUA="${LUA51}"
+		LUAC="${LUAC51}"
+	else
+		# Try any Lua now
+		PKG_CHECK_MODULES([LUA], [lua >= 5.1.3],,[:])
+		AC_PATH_PROG([LUA], [lua], [no])
+		AC_PATH_PROG([LUAC], [luac], [no])
+
+		if test -z "${LUA_PKG_ERRORS}" -a "${LUA}" != no -a "${LUAC}" != no ; then
+			LUA_VERSION="(unknown version)"
+		else
+			AC_MSG_ERROR([Need a Lua toolchain with matching versions ('lua' library and 'lua' and 'luac' programs)])
+		fi
+	fi
 fi
 
-AC_PATH_PROGS([LUAC], [luac5.1 luac51 luac], [no])
-if test x${LUAC} = xno ; then
-	AC_MSG_ERROR([Program 'luac' is required])
-fi
+AX_SUBST_L([LUA_CFLAGS], [LUA_LIBS], [LUA], [LUAC])
+
 
 ###
 # Checks for header files.
@@ -75,4 +106,7 @@ AM_CONDITIONAL([FSEVENTS],
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 
-
+AC_MSG_NOTICE([
+Summary:
+	Using Lua ${LUA_VERSION}
+])
