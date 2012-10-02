@@ -69,7 +69,11 @@ else
 fi
 
 _LIBS="${LIBS}"
-LIBS="${LUA_LIBS}"
+_CFLAGS="${CFLAGS}"
+_CPPFLAGS="${CPPFLAGS}"
+LIBS="${LIBS} ${LUA_LIBS}"
+CFLAGS="${CFLAGS} ${LUA_CFLAGS}"
+CPPFLAGS="${CPPFLAGS} ${LUA_CFLAGS}"
 
 AC_MSG_CHECKING([whether Lua library was compiled with compat support])
 AC_LINK_IFELSE(
@@ -87,7 +91,9 @@ if test "x${lua_compat_support}" = xno ; then
 fi
 
 LIBS="${_LIBS}"
-unset _LIBS
+CFLAGS="${_CFLAGS}"
+CPPFLAGS="${_CPPFLAGS}"
+unset _LIBS _CFLAGS _CPPFLAGS
 
 AX_SUBST_L([LUA_CFLAGS], [LUA_LIBS], [LUA], [LUAC])
 
