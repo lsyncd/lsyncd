@@ -219,15 +219,27 @@ default.rsync = {
 
 		if config.rsync._extra then
 			for k, v in ipairs( config.rsync._extra ) do
-				computed[k + 1] = v
+				computed[ k + 1 ] = v
 			end
 		end
 
-		if rsync.links then shorts[ #shorts ] = 'l'; end
-		if rsync.times then shorts[ #shorts ] = 't'; end
-		if rsync.protectArgs then  shorts[ #shorts ] = 's'; end
+		if rsync.links then
+			shorts[ #shorts + 1 ] = 'l'
+		end
 
-		computed[1] = table.concat(shorts, '')
+		if rsync.times then
+			shorts[ #shorts + 1 ] = 't'
+		end
+
+		if rsync.protectArgs then
+			shorts[ #shorts + 1 ] = 's'
+		end
+
+		if #shorts ~= 1 then
+			computed[ 1 ] = table.concat( shorts, '' )
+		else
+			computed[ 1 ] = { }
+		end
 
 		-- appends a / to target if not present
 		if string.sub(config.target, -1) ~= '/' then
