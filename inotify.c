@@ -351,7 +351,7 @@ inotify_ready(lua_State *L, struct observance *obs)
 extern void
 register_inotify(lua_State *L)
 {
-	luaL_register(L, "inotify", linotfylib);
+	luaL_register(L, LSYNCD_INOTIFYLIBNAME, linotfylib);
 }
 
 /**

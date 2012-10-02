@@ -1368,8 +1368,8 @@ l_jiffies_le(lua_State *L)
 void
 register_lsyncd(lua_State *L)
 {
-	luaL_register(L, "lsyncd", lsyncdlib);
-	lua_setglobal(L, "lsyncd");
+	luaL_register(L, LSYNCD_LIBNAME, lsyncdlib);
+	lua_setglobal(L, LSYNCD_LIBNAME);
 
 	// creates the metatable for jiffies userdata
 	luaL_newmetatable(L, "Lsyncd.jiffies");
@@ -1393,9 +1393,9 @@ register_lsyncd(lua_State *L)
 	lua_pop(L, 1); // pop(mt)
 
 #ifdef LSYNCD_WITH_INOTIFY
-	lua_getglobal(L, "lsyncd");
+	lua_getglobal(L, LSYNCD_LIBNAME);
 	register_inotify(L);
-	lua_setfield(L, -2, "inotify");
+	lua_setfield(L, -2, LSYNCD_INOTIFYLIBNAME);
 	lua_pop(L, 1);
 #endif
 
