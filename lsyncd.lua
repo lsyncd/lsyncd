@@ -5,6 +5,8 @@
 -- It works closely together with the Lsyncd core in lsyncd.c. This means it
 -- cannot be runned directly from the standard lua interpreter.
 --
+-- This code assumes your editor is at least 100 chars wide.
+--
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
@@ -18,10 +20,16 @@
 -- The core will exit if version ids mismatch.
 --
 if lsyncd_version then
-	-- checks if the runner is being loaded twice
-	lsyncd.log('Error', 'You cannot use the lsyncd runner as configuration file!')
-	lsyncd.terminate(-1) -- ERRNO
+
+	-- ensures the runner is not being loaded twice
+	lsyncd.log(
+		'Error',
+		'You cannot use the lsyncd runner as configuration file!'
+	)
+
+	lsyncd.terminate( -1 )
 end
+
 lsyncd_version = '2.0.7'
 
 --
@@ -1352,7 +1360,7 @@ local Excludes = ( function( )
 				err
 			)
 
-			terminate(-1) -- ERRNO
+			terminate( -1 )
 		end
 
 	    for line in f:lines() do
@@ -1521,7 +1529,7 @@ local Sync = ( function( )
 
 			if rc == 'die' then
 				log( 'Error', 'Critical exitcode.' );
-				terminate( -1 ) --ERRNO
+				terminate( -1 )
 			end
 
 			if rc ~= 'again' then
@@ -1562,7 +1570,7 @@ local Sync = ( function( )
 
 			if rc == 'die' then
 				log( 'Error', 'Critical exitcode.' );
-				terminate( -1 ) --ERRNO
+				terminate( -1 )
 			end
 
 			if rc == 'again' then
@@ -2188,7 +2196,7 @@ local Syncs = ( function( )
 				info.short_src,':',
 				info.currentline,': source missing from sync.'
 			)
-			terminate( -1 ) -- ERRNO
+			terminate( -1 )
 		end
 
 		-- absolute path of source
@@ -2200,7 +2208,7 @@ local Syncs = ( function( )
 				'Cannot access source directory: ',
 				config.source
 			)
-			terminate( -1 ) -- ERRNO
+			terminate( -1 )
 		end
 
 		config._source = config.source
@@ -2222,7 +2230,7 @@ local Syncs = ( function( )
 				': no actions specified, use e.g. "config = default.rsync".'
 			)
 
-			terminate( -1 ) -- ERRNO
+			terminate( -1 )
 		end
 
 		-- loads a default value for an option if not existent
@@ -2265,7 +2273,7 @@ local Syncs = ( function( )
 				'" unknown.'
 			)
 
-			terminate( -1 ) -- ERRNO
+			terminate( -1 )
 		end
 
 		--- creates the new sync
@@ -3257,7 +3265,7 @@ function runner.callError( message )
 		local info = debug.getinfo( level, 'Sl' )
 
 		if not info then
-			terminate( -1 ) -- ERRNO
+			terminate( -1 )
 		end
 
 		log(
@@ -3403,7 +3411,7 @@ SEE:
 --  -monitor NAME       Uses operating systems event montior NAME
 --                      (inotify/fanotify/fsevents)
 
-	os.exit(-1) -- ERRNO
+	os.exit( -1 )
 end
 
 
@@ -3427,12 +3435,15 @@ function runner.configure( args, monitors )
 	-- a list of all valid options
 	--
 	-- first paramter is the number of parameters an option takes
-	-- if < 0 the function checks existance -- TODO what?
+	-- if < 0 the called function has to check the presence of
+	-- optional arguments.
 	--
 	-- second paramter is the function to call
 	--
 	local options = {
+
 		-- log is handled by core already.
+
 		delay =
 			{
 				1,
@@ -3455,7 +3466,7 @@ function runner.configure( args, monitors )
 				nil
 			},
 
-		logfile  =
+		logfile =
 			{
 				1,
 				function( file )
@@ -3468,14 +3479,16 @@ function runner.configure( args, monitors )
 				-1,
 				function( monitor )
 					if not monitor then
-						io.stdout:write('This Lsyncd supports these monitors:\n')
+						io.stdout:write( 'This Lsyncd supports these monitors:\n' )
 						for _, v in ipairs(Monitors.list) do
 							io.stdout:write('   ',v,'\n')
 						end
-						io.stdout:write('\n');
-						lsyncd.terminate(-1); -- ERRNO
+
+						io.stdout:write('\n')
+
+						lsyncd.terminate(-1)
 					else
-						clSettings.monitor=monitor
+						clSettings.monitor = monitor
 					end
 				end
 			},
@@ -3488,7 +3501,7 @@ function runner.configure( args, monitors )
 				end
 			},
 
-		pidfile   =
+		pidfile =
 			{
 				1,
 				function( file )
@@ -3532,7 +3545,7 @@ function runner.configure( args, monitors )
 				end
 			},
 
-		version  =
+		version =
 			{
 				0,
 				function( )
@@ -3543,12 +3556,13 @@ function runner.configure( args, monitors )
 	}
 
 	-- non-opts is filled with all args that were no part dash options
+
 	local nonopts = { }
-	local i = 
-	1
+
+	local i = 1
 	while i <= #args do
 
-		local a = args[i]
+		local a = args[ i ]
 
 		if a:sub( 1, 1 ) ~= '-' then
 			table.insert( nonopts, args[ i ] )
@@ -3562,57 +3576,82 @@ function runner.configure( args, monitors )
 			local o = options[ a ]
 
 			if not o then
-				log('Error','unknown option command line option ', args[i])
-				os.exit(-1) -- ERRNO
+				log(
+					'Error',
+					'unknown option command line option ',
+					args[i]
+				)
+				os.exit( -1 )
 			end
 
-			if o[1] >= 0 and i + o[1] > #args then
-				log('Error',a,' needs ',o[1],' arguments')
-				os.exit(-1) -- ERRNO
+			if o[ 1 ] >= 0 and i + o[ 1 ] > #args then
+				log( 'Error', a ,' needs ', o[ 1 ],' arguments' )
+				os.exit( -1 )
 			elseif o[1] < 0 then
-				o[1] = -o[1]
+				o[ 1 ] = -o[ 1 ]
 			end
-			if o[2] then
-				if o[1] == 0 then
-					o[2]()
-				elseif o[1] == 1 then
-					o[2](args[i + 1])
-				elseif o[1] == 2 then
-					o[2](args[i + 1], args[i + 2])
-				elseif o[1] == 3 then
-					o[2](args[i + 1], args[i + 2], args[i + 3])
+
+			if o[ 2 ] then
+				if o[ 1 ] == 0 then
+					o[ 2 ]( )
+				elseif o[ 1 ] == 1 then
+					o[ 2 ]( args[i + 1] )
+				elseif o[ 1 ] == 2 then
+					o[ 2 ]( args[i + 1], args[i + 2] )
+				elseif o[ 1 ] == 3 then
+					o[ 2 ]( args[i + 1], args[i + 2], args[i + 3] )
 				end
 			end
 			i = i + o[1]
 		end
 		i = i + 1
+
 	end
 
 	if clSettings.syncs then
+
 		if #nonopts ~= 0 then
-			log('Error', 'There cannot be command line default syncs with a config file.')
-			os.exit(-1) -- ERRNO
+			log(
+				'Error',
+				'There cannot be command line syncs and config file together.'
+			)
+			os.exit( -1 )
 		end
+
 	else
+
 		if #nonopts == 0 then
-			runner.help(args[0])
+
+			runner.help( args[ 0 ] )
+
 		elseif #nonopts == 1 then
-			return nonopts[1]
+
+			return nonopts[ 1 ]
+
 		else
-			log('Error', 'There can only be one config file in command line.')
-			os.exit(-1) -- ERRNO
+
+			-- TODO make this possible
+			log(
+				'Error',
+				'There can only be one config file in command line.'
+			)
+			os.exit( -1 )
+
 		end
+
 	end
 end
 
 
-----
+--
 -- Called from core on init or restart after user configuration.
 --
--- @firstTime true the first time Lsyncd startup, false on resets
--- due to HUP signal or monitor queue OVERFLOW.
+-- firstTime:
+--    true when Lsyncd startups the first time,
+--    false on resets, due to HUP signal or monitor queue overflow.
 --
-function runner.initialize(firstTime)
+function runner.initialize( firstTime )
+
 	-- creates settings if user didnt
 	settings = settings or {}
 
@@ -3620,74 +3659,109 @@ function runner.initialize(firstTime)
 	lockGlobals()
 
 	-- copies simple settings with numeric keys to 'key=true' settings.
-	for k, v in ipairs(settings) do
-		if settings[v] then
-			log('Error', 'Double setting "'..v..'"')
-			os.exit(-1) -- ERRNO
+	for k, v in ipairs( settings ) do
+
+		if settings[ v ] then
+			log(
+				'Error',
+				'Double setting "' .. v.. '"'
+			)
+			os.exit( -1 )
 		end
-		settings[v]=true
+
+		settings[ v ]= true
 	end
 
 	-- all command line settings overwrite config file settings
-	for k, v in pairs(clSettings) do
+
+	for k, v in pairs( clSettings ) do
+
 		if k ~= 'syncs' then
-			settings[k]=v
+			settings[ k ] = v
 		end
+
 	end
 
-	-- implicitly force insist to be true on Lsyncd resets.
+	-- implicitly force 'insist' on Lsyncd resets.
 	if not firstTime then
 		settings.insist = true
 	end
 
 	-- adds syncs specified by command line.
 	if clSettings.syncs then
-		for _, s in ipairs(clSettings.syncs) do
+
+		for _, s in ipairs( clSettings.syncs ) do
+
 			if s[1] == 'rsync' then
-				sync{default.rsync, source=s[2], target=s[3]}
+				sync{
+					default.rsync,
+					source = s[ 2 ],
+					target = s[ 3 ]
+				}
 			elseif s[1] == 'rsyncssh' then
-				sync{default.rsyncssh, source=s[2], host=s[3], targetdir=s[4]}
+				sync{
+					default.rsyncssh,
+					source = s[ 2 ],
+					host   = s[ 3 ],
+					targetdir=s[ 4 ]
+				}
 			elseif s[1] == 'direct' then
-				sync{default.direct, source=s[2], target=s[3]}
+				sync{ default.direct, source=s[2], target=s[3]}
 			end
+
 		end
+
 	end
 
 	if settings.nodaemon then
 		lsyncd.configure('nodaemon')
 	end
+
 	if settings.logfile then
 		lsyncd.configure('logfile', settings.logfile)
 	end
+
 	if settings.logident then
 		lsyncd.configure('logident', settings.logident)
 	end
+
 	if settings.logfacility then
 		lsyncd.configure('logfacility', settings.logfacility)
 	end
+
 	if settings.pidfile then
 		lsyncd.configure('pidfile', settings.pidfile)
 	end
 
-	-----
-	-- transfers some defaults to settings
+	--
+	-- Transfers some defaults to settings
+	--
 	if settings.statusInterval == nil then
 		settings.statusInterval = default.statusInterval
 	end
 
 	-- makes sure the user gave Lsyncd anything to do
 	if Syncs.size() == 0 then
-		log('Error', 'Nothing to watch!')
-		os.exit(-1) -- ERRNO
+
+		log(
+			'Error',
+			'Nothing to watch!'
+		)
+
+		os.exit( -1 )
 	end
 
 	-- from now on use logging as configured instead of stdout/err.
 	lsyncdStatus = 'run';
-	lsyncd.configure('running');
+	lsyncd.configure( 'running' );
 
 	local ufuncs = {
-		'onAttrib', 'onCreate', 'onDelete',
-		'onModify', 'onMove',   'onStartup',
+		'onAttrib',
+		'onCreate',
+		'onDelete',
+		'onModify',
+		'onMove',
+		'onStartup',
 	}
 
 	-- translates layer 3 scripts
@@ -3703,247 +3777,365 @@ function runner.initialize(firstTime)
 	end
 
 	-- runs through the Syncs created by users
-	for _, s in Syncs.iwalk() do
+	for _, s in Syncs.iwalk( ) do
 		if s.config.monitor == 'inotify' then
-			Inotify.addSync(s, s.source)
+			Inotify.addSync( s, s.source )
 		elseif s.config.monitor == 'fsevents' then
-			Fsevents.addSync(s, s.source)
+			Fsevents.addSync( s, s.source )
 		else
-			error('sync '..s.config.name..' has no known event monitor interface.')
+			error(
+				'sync ' ..
+				s.config.name ..
+				' has no known event monitor interface.'
+			)
 		end
-		-- if the sync has an init function, stacks an init delay
-		-- that will cause the init function to be called.
+
+		-- if the sync has an init function, the init delay
+		-- is stacked which causes the init function to be called.
 		if s.config.init then
-			s:addInitDelay()
+			s:addInitDelay( )
 		end
 	end
+
 end
 
-----
--- Called by core to query soonest alarm.
+--
+-- Called by core to query the soonest alarm.
 --
 -- @return false ... no alarm, core can in untimed sleep, or
 --         true  ... immediate action
 --         times ... the alarm time (only read if number is 1)
 --
-function runner.getAlarm()
+function runner.getAlarm( )
+
 	if lsyncdStatus ~= 'run' then
 		return false
 	end
+
 	local alarm = false
-	----
-	-- checks if current nearest alarm or a is earlier
+
 	--
-	local function checkAlarm(a)
+	-- Checks if 'a' is sooner than the 'alarm' up-value.
+	--
+	local function checkAlarm( a )
+
 		if a == nil then
 			error('got nil alarm')
 		end
+
 		if alarm == true or not a then
-			-- already immediate or no new alarm
+			-- 'alarm' is already immediate or
+			-- a not a new alarm
 			return
 		end
-		-- returns the ealier time
+
+		-- sets 'alarm' to a if a is sooner
 		if not alarm or a < alarm then
 			alarm = a
 		end
+
 	end
 
-	-- checks all syncs for their earliest alarm
+	--
+	-- checks all syncs for their earliest alarm,
 	-- but only if the global process limit is not yet reached.
-	if not settings.maxProcesses or processCount < settings.maxProcesses then
-		for _, s in Syncs.iwalk() do
-			checkAlarm(s:getAlarm())
+	--
+	if
+		not settings.maxProcesses or
+		processCount < settings.maxProcesses
+	then
+		for _, s in Syncs.iwalk( ) do
+			checkAlarm( s:getAlarm ( ))
 		end
 	else
-		log('Alarm', 'at global process limit.')
+		log(
+			'Alarm',
+			'at global process limit.'
+		)
 	end
 
 	-- checks if a statusfile write has been delayed
-	checkAlarm(StatusFile.getAlarm())
-	-- checks for an userAlarm
-	checkAlarm(UserAlarms.getAlarm())
+	checkAlarm( StatusFile.getAlarm( ) )
 
-	log('Alarm', 'runner.getAlarm returns: ',alarm)
+	-- checks for an userAlarm
+	checkAlarm( UserAlarms.getAlarm( ) )
+
+	log(
+		'Alarm',
+		'runner.getAlarm returns: ',
+		alarm
+	)
+
 	return alarm
+
 end
 
 
------
--- Called when an inotify event arrived.
--- Simply forwards it directly to the object.
+--
+-- Called when an file system monitor events arrive
 --
 runner.inotifyEvent = Inotify.event
 runner.fsEventsEvent = Fsevents.event
 
------
+--
 -- Collector for every child process that finished in startup phase
 --
--- Parameters are pid and exitcode of child process
---
--- Can return either a new pid if one other child process
--- has been spawned as replacement (e.g. retry) or 0 if
--- finished/ok.
---
-function runner.collector(pid, exitcode)
+function runner.collector(
+	pid,       -- pid of the child process
+	exitcode   -- exitcode of the child process
+)
 	if exitcode ~= 0 then
 		log('Error', 'Startup process',pid,' failed')
-		terminate(-1) -- ERRNO
+		terminate( -1 )
 	end
+
 	return 0
 end
 
------
+--
 -- Called by core when an overflow happened.
 --
-function runner.overflow()
-	log('Normal', '--- OVERFLOW in event queue ---')
+function runner.overflow( )
+
+	log(
+		'Normal',
+		'--- OVERFLOW in event queue ---'
+	)
+
 	lsyncdStatus = 'fade'
+
 end
 
------
+--
 -- Called by core on a hup signal.
 --
-function runner.hup()
-	log('Normal', '--- HUP signal, resetting ---')
+function runner.hup( )
+
+	log(
+		'Normal',
+		'--- HUP signal, resetting ---'
+	)
+
 	lsyncdStatus = 'fade'
+
 end
 
------
+--
 -- Called by core on a term signal.
 --
-function runner.term()
-	log('Normal', '--- TERM signal, fading ---')
+function runner.term( )
+
+	log(
+		'Normal',
+		'--- TERM signal, fading ---'
+	)
+
 	lsyncdStatus = 'fade'
+
 end
 
 --============================================================================
--- Lsyncd user interface
+-- Lsyncd runner's user interface
 --============================================================================
 
------
--- Main utility to create new observations.
--- @returns an Inlet to that sync.
 --
-function sync(opts)
+-- Main utility to create new observations.
+--
+-- Returns an Inlet to that sync.
+--
+function sync( opts )
+
 	if lsyncdStatus ~= 'init' then
-		error('Sync can only be created during initialization.', 2)
+		error(
+			'Sync can only be created during initialization.',
+			2
+		)
 	end
-	return Syncs.add(opts).inlet
+
+	return Syncs.add( opts ).inlet
+
 end
 
 
------
+--
 -- Spawns a new child process.
 --
--- @param agent   the reason why a process is spawned.
---                normally this is a delay/event of a sync.
---                it will mark the related files as blocked.
--- @param binary  binary to call
--- @param ...     arguments
---
-function spawn(agent, binary, ...)
-	if agent == nil or type(agent) ~= 'table' then
-		error('spawning with an invalid agent', 2)
+function spawn(
+	agent,  -- the reason why a process is spawned.
+	        -- a delay or delay list for a sync
+	        -- it will mark the related files as blocked.
+	binary, -- binary to call
+	...     -- arguments
+)
+	if
+		agent == nil or
+		type( agent ) ~= 'table'
+	then
+		error(
+			'spawning with an invalid agent',
+			2
+		)
 	end
 
 	if lsyncdStatus == 'fade' then
-		log('Normal', 'ignored process spawning while fading')
+		log(
+			'Normal',
+			'ignored process spawning while fading'
+		)
 		return
 	end
 
-	if type(binary) ~= 'string' then
-		error('calling spawn(agent, binary, ...), binary is not a string', 2)
+	if type( binary ) ~= 'string' then
+		error(
+			'calling spawn(agent, binary, ...): binary is not a string',
+			2
+		)
 	end
 
-	local dol = InletFactory.getDelayOrList(agent)
-	if not dol then error('spawning with an unknown agent', 2) end
+	local dol = InletFactory.getDelayOrList( agent )
 
-	-- checks if spawn is called on already active event
+	if not dol then
+		error(
+			'spawning with an unknown agent',
+			2
+		)
+	end
+
+	--
+	-- checks if a spawn is called on an already active event
+	--
 	if dol.status then
+
+		-- is an event
+
 		if dol.status ~= 'wait' then
 			error('spawn() called on an non-waiting event', 2)
 		end
-	else -- is a list
+
+	else
+		-- is a list
+
 		for _, d in ipairs(dol) do
 			if d.status ~= 'wait' and d.status ~= 'block' then
 				error('spawn() called on an non-waiting event list', 2)
 			end
 		end
+
 	end
 
-	local pid = lsyncd.exec(binary, ...)
+	--
+	-- tries to spawn the process
+	--
+	local pid = lsyncd.exec( binary, ... )
 
 	if pid and pid > 0 then
+
 		processCount = processCount + 1
-		if settings.maxProcesses and processCount > settings.maxProcesses then
-			error('Spawned too much processes!')
+		if
+			settings.maxProcesses and
+			processCount > settings.maxProcesses
+		then
+			error( 'Spawned too much processes!' )
 		end
-		local sync = InletFactory.getSync(agent)
+
+		local sync = InletFactory.getSync( agent )
+
 		-- delay or list
 		if dol.status then
+
 			-- is a delay
 			dol.status = 'active'
-			sync.processes[pid] = dol
+			sync.processes[ pid ] = dol
+
 		else
+
 			-- is a list
-			for _, d in ipairs(dol) do
+			for _, d in ipairs( dol ) do
 				d.status = 'active'
 			end
-			sync.processes[pid] = dol
+			sync.processes[ pid ] = dol
+
 		end
+
 	end
 end
 
------
+--
 -- Spawns a child process using the default shell.
 --
-function spawnShell(agent, command, ...)
-	return spawn(agent, '/bin/sh', '-c', command, '/bin/sh', ...)
+function spawnShell(
+	agent,     -- the delay(list) to spawn the command for
+	command,   -- the shell command
+	...        -- additonal arguments
+)
+	return spawn(
+		agent,
+		'/bin/sh',
+		'-c',
+		command,
+		'/bin/sh',
+		...
+	)
 end
 
 -----
 -- Observes a filedescriptor
 --
-function observefd(fd, ready, writey)
-	return lsyncd.observe_fd(fd, ready, writey)
+function observefd(
+	fd,     -- file descriptor
+	ready,  -- called when fd is ready to be read
+	writey  -- called when fd is ready to be written
+)
+	return lsyncd.observe_fd(
+		fd,
+		ready,
+		writey
+	)
 end
 
------
--- Nonobserves a filedescriptor
 --
-function nonobservefd(fd)
-	return lsyncd.nonobserve_fd(fd)
+-- Stops observeing a filedescriptor
+--
+function nonobservefd(
+	fd      -- file descriptor
+)
+	return lsyncd.nonobserve_fd( fd )
 end
 
------
+--
 -- Calls func at timestamp.
+--
 -- Use now() to receive current timestamp
--- add seconds with '+' to it)
+-- add seconds with '+' to it
 --
 alarm = UserAlarms.alarm
 
------
+--
 -- Comfort routine also for user.
 -- Returns true if 'String' starts with 'Start'
 --
-function string.starts(String,Start)
-	return string.sub(String,1,#Start)==Start
+function string.starts( String, Start )
+
+	return string.sub( String, 1, #Start )==Start
+
 end
 
------
+--
 -- Comfort routine also for user.
 -- Returns true if 'String' ends with 'End'
 --
-function string.ends(String,End)
-	return End=='' or string.sub(String,-#End)==End
+function string.ends( String, End )
+
+	return End == '' or string.sub( String, -#End ) == End
+
 end
 
------
--- provides a default empty settings table.
 --
-settings = {}
+-- Provides a default empty settings table.
+--
+settings = { }
 
------
+--
 -- Returns the core the runners function interface.
 --
 return runner
