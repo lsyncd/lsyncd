@@ -92,7 +92,9 @@ local Array = ( function( )
 		return o
 	end
 
-	-- objects public interface
+	--
+	-- Public interface
+	--
 	return { new = new }
 
 end )( )
@@ -176,6 +178,7 @@ local CountArray = ( function( )
 		setmetatable(o, mt)
 		return o
 	end
+
 
 	--
 	-- Public interface
@@ -416,6 +419,7 @@ local Delay = ( function( )
 
 		return o
 	end
+
 
 	--
 	-- Public interface
@@ -705,7 +709,10 @@ local Combiner = ( function( )
 		error( 'reached impossible state' )
 	end
 
-	-- public interface
+
+	--
+	-- Public interface
+	--
 	return { combine = combine }
 
 end )( )
@@ -1416,115 +1423,150 @@ local Excludes = ( function( )
 	-- Public interface
 	--
 	return { new = new }
+
 end )( )
 
------
+--
 -- Holds information about one observed directory inclusively subdirs.
 --
-local Sync = (function()
-	-----
+local Sync = ( function( )
+
+	--
 	-- Syncs that have no name specified by the user script
 	-- get an incremental default name 'Sync[X]'
 	--
 	local nextDefaultName = 1
 
-	-----
+	--
 	-- Adds an exclude.
 	--
-	local function addExclude(self, pattern)
-		return self.excludes:add(pattern)
+	local function addExclude( self, pattern )
+
+		return self.excludes:add( pattern )
+
 	end
 
-	-----
+	--
 	-- Removes an exclude.
 	--
-	local function rmExclude(self, pattern)
-		return self.excludes:remove(pattern)
+	local function rmExclude( self, pattern )
+
+		return self.excludes:remove( pattern )
+
 	end
 
-	-----
+	--
 	-- Removes a delay.
 	--
-	local function removeDelay(self, delay)
-		if self.delays[delay.dpos] ~= delay then
-			error('Queue is broken, delay not a dpos')
+	local function removeDelay( self, delay )
+		if self.delays[ delay.dpos ] ~= delay then
+			error( 'Queue is broken, delay not a dpos' )
 		end
-		Queue.remove(self.delays, delay.dpos)
+
+		Queue.remove( self.delays, delay.dpos )
 
 		-- free all delays blocked by this one.
 		if delay.blocks then
-			for i, vd in pairs(delay.blocks) do
+			for i, vd in pairs( delay.blocks ) do
 				vd.status = 'wait'
 			end
 		end
 	end
 
-	-----
+	--
 	-- Returns true if this Sync concerns about 'path'
 	--
-	local function concerns(self, path)
+	local function concerns( self, path )
+
 		-- not concerned if watch rootdir doesnt match
-		if not path:starts(self.source) then
+		if not path:starts( self.source ) then
 			return false
 		end
 
 		-- a sub dir and not concerned about subdirs
 		if self.config.subdirs == false and
-			path:sub(#self.source, -1):match('[^/]+/?')
+			path:sub( #self.source, -1 ):match( '[^/]+/?' )
 		then
 			return false
 		end
 
 		-- concerned if not excluded
-		return not self.excludes:test(path:sub(#self.source))
+		return not self.excludes:test( path:sub( #self.source ) )
 	end
 
-	-----
+	--
 	-- Collects a child process
 	--
-	local function collect(self, pid, exitcode)
-		local delay = self.processes[pid]
+	local function collect( self, pid, exitcode )
+
+		local delay = self.processes[ pid ]
+
 		if not delay then
 			-- not a child of this sync.
 			return
 		end
 
 		if delay.status then
-			log('Delay', 'collected an event')
+
+			log( 'Delay', 'collected an event' )
+
 			if delay.status ~= 'active' then
 				error('collecting a non-active process')
 			end
+
 			local rc = self.config.collect(
-				InletFactory.d2e(delay),
-				exitcode)
+				InletFactory.d2e( delay ),
+				exitcode
+			)
+
 			if rc == 'die' then
-				log('Error', 'Critical exitcode.');
-				terminate(-1) --ERRNO
+				log( 'Error', 'Critical exitcode.' );
+				terminate( -1 ) --ERRNO
 			end
+
 			if rc ~= 'again' then
 				-- if its active again the collecter restarted the event
-				removeDelay(self, delay)
-				log('Delay', 'Finish of ',delay.etype,' on ',self.source,delay.path,' = ',exitcode)
+				removeDelay( self, delay )
+				log(
+					'Delay',
+					'Finish of ',
+					delay.etype,
+					' on ',
+					self.source,delay.path,
+					' = ',
+					exitcode
+				)
 			else
 				-- sets the delay on wait again
 				delay.status = 'wait'
+
 				local alarm = self.config.delay
+
 				-- delays at least 1 second
 				if alarm < 1 then
 					alarm = 1
 				end
-				delay.alarm = now() + alarm
+
+				delay.alarm = now( ) + alarm
 			end
 		else
-			log('Delay', 'collected a list')
+			log(
+				'Delay',
+				'collected a list'
+			)
+
 			local rc = self.config.collect(
-				InletFactory.dl2el(delay),
-				exitcode)
+				InletFactory.dl2el( delay ),
+				exitcode
+			)
+
 			if rc == 'die' then
-				log('Error', 'Critical exitcode.');
-				terminate(-1) --ERRNO
+				log( 'Error', 'Critical exitcode.' );
+				terminate( -1 ) --ERRNO
 			end
+
 			if rc == 'again' then
+
 				-- sets the delay on wait again
 				delay.status = 'wait'
 				local alarm = self.config.delay
@@ -1532,96 +1574,181 @@ local Sync = (function()
 				if alarm < 1 then
 					alarm = 1
 				end
+
 				alarm = now() + alarm
-				for _, d in ipairs(delay) do
+
+				for _, d in ipairs( delay ) do
 					d.alarm = alarm
 					d.status = 'wait'
 				end
 			end
-			for _, d in ipairs(delay) do
+
+			for _, d in ipairs( delay ) do
 				if rc ~= 'again' then
-					removeDelay(self, d)
+					removeDelay( self, d )
 				else
 					d.status = 'wait'
 				end
 			end
-			log('Delay','Finished list = ',exitcode)
+
+			log( 'Delay','Finished list = ',exitcode )
 		end
-		self.processes[pid] = nil
+
+		self.processes[ pid ] = nil
 	end
 
-	-----
+	--
 	-- Stacks a newDelay on the oldDelay,
 	-- the oldDelay blocks the new Delay.
 	--
 	-- A delay can block 'n' other delays,
 	-- but is blocked at most by one, the latest delay.
 	--
-	local function stack(oldDelay, newDelay)
+	local function stack( oldDelay, newDelay )
+
 		newDelay.status = 'block'
+
 		if not oldDelay.blocks then
-			oldDelay.blocks = {}
+			oldDelay.blocks = { }
 		end
-		table.insert(oldDelay.blocks, newDelay)
+
+		table.insert( oldDelay.blocks, newDelay )
 	end
 
-	-----
+	--
 	-- Puts an action on the delay stack.
 	--
-	local function delay(self, etype, time, path, path2)
-		log('Function', 'delay(',self.config.name,', ',etype,', ',path,', ',path2,')')
+	local function delay( self, etype, time, path, path2 )
+
+		log(
+			'Function',
+			'delay(',
+				self.config.name, ', ',
+				etype, ', ',
+				path, ', ',
+				path2,
+			')'
+		)
 
 		-- TODO
-		local function recurse()
-			if etype == 'Create' and path:byte(-1) == 47 then
-				local entries = lsyncd.readdir(self.source .. path)
+		local function recurse( )
+
+			if etype == 'Create' and path:byte( -1 ) == 47 then
+				local entries = lsyncd.readdir( self.source .. path )
+
 				if entries then
+
 					for dirname, isdir in pairs(entries) do
+
 						local pd = path .. dirname
-						if isdir then pd = pd..'/' end
-						log('Delay', 'Create creates Create on ',pd)
-						delay(self, 'Create', time, pd, nil)
+
+						if isdir then
+							pd = pd..'/'
+						end
+
+						log(
+							'Delay',
+							'Create creates Create on ',
+							pd
+						)
+						delay( self, 'Create', time, pd, nil )
+
 					end
+
 				end
+
 			end
+
 		end
 
 		-- exclusion tests
 		if not path2 then
 			-- simple test for single path events
 			if self.excludes:test(path) then
-				log('Exclude', 'excluded ',etype,' on "',path,'"')
+				log(
+					'Exclude',
+					'excluded ',
+					etype,
+					' on "',
+					path,
+					'"'
+				)
 				return
 			end
 		else
 			-- for double paths (move) it might result into a split
-			local ex1 = self.excludes:test(path)
-			local ex2 = self.excludes:test(path2)
+			local ex1 = self.excludes:test( path  )
+			local ex2 = self.excludes:test( path2 )
+
 			if ex1 and ex2 then
-				log('Exclude', 'excluded "',etype,' on "',path,'" -> "',path2,'"')
+
+				log(
+					'Exclude',
+					'excluded "',
+					etype,
+					' on "',
+					path,
+					'" -> "',
+					path2,
+					'"'
+				)
+
 				return
+
 			elseif not ex1 and ex2 then
+
 				-- splits the move if only partly excluded
-				log('Exclude', 'excluded destination transformed ',etype,' to Delete ',path)
-				delay(self, 'Delete', time, path, nil)
+				log(
+					'Exclude',
+					'excluded destination transformed ',
+					etype,
+					' to Delete ',
+					path
+				)
+
+				delay(
+					self,
+					'Delete',
+					time,
+					path,
+					nil
+				)
+
 				return
+
 			elseif ex1 and not ex2 then
 				-- splits the move if only partly excluded
-				log('Exclude', 'excluded origin transformed ',etype,' to Create.',path2)
-				delay(self, 'Create', time, path2, nil)
+				log(
+					'Exclude',
+					'excluded origin transformed ',
+					etype,
+					' to Create.',
+					path2
+				)
+
+				delay(
+					self,
+					'Create',
+					time,
+					path2,
+					nil
+				)
+
 				return
 			end
 		end
 
 		if etype == 'Move' and not self.config.onMove then
+
 			-- if there is no move action defined,
 			-- split a move as delete/create
 			-- layer 1 scripts which want moves events have to
 			-- set onMove simply to 'true'
-			log('Delay', 'splitting Move into Delete & Create')
-			delay(self, 'Delete', time, path,  nil)
-			delay(self, 'Create', time, path2, nil)
+			log( 'Delay', 'splitting Move into Delete & Create' )
+			delay( self, 'Delete', time, path,  nil )
+			delay( self, 'Create', time, path2, nil )
 			return
+
 		end
 
 		-- creates the new action
@@ -1629,33 +1756,42 @@ local Sync = (function()
 		if time and self.config.delay then
 			alarm = time + self.config.delay
 		else
-			alarm = now()
+			alarm = now( )
 		end
+
 		-- new delay
-		local nd = Delay.new(etype, self, alarm, path, path2)
+		local nd = Delay.new(
+			etype,
+			self,
+			alarm,
+			path,
+			path2
+		)
+
 		if nd.etype == 'Init' or nd.etype == 'Blanket' then
 			-- always stack blanket events on the last event
 			log('Delay', 'Stacking ',nd.etype,' event.')
 			if self.delays.size > 0 then
-				stack(self.delays[self.delays.last], nd)
+				stack( self.delays[ self.delays.last ], nd )
 			end
-			nd.dpos = Queue.push(self.delays, nd)
-			recurse()
+			nd.dpos = Queue.push( self.delays, nd )
+			recurse( )
 			return
 		end
 
 		-- detects blocks and combos by working from back until
 		-- front through the fifo
-		for il, od in Queue.qpairsReverse(self.delays) do
+		for il, od in Queue.qpairsReverse( self.delays ) do
+
 			-- asks Combiner what to do
-			local ac = Combiner.combine(od, nd)
+			local ac = Combiner.combine( od, nd )
 
 			if ac then
 				if ac == 'remove' then
-					Queue.remove(self.delays, il)
+					Queue.remove( self.delays, il )
 				elseif ac == 'stack' then
-					stack(od, nd)
-					nd.dpos = Queue.push(self.delays, nd)
+					stack( od, nd )
+					nd.dpos = Queue.push( self.delays, nd )
 				elseif ac == 'absorb' then
 					-- nada
 				elseif ac == 'replace' then
@@ -1663,75 +1799,81 @@ local Sync = (function()
 					od.path  = nd.path
 					od.path2 = nd.path2
 				elseif ac == 'split' then
-					delay(self, 'Delete', time, path,  nil)
-					delay(self, 'Create', time, path2, nil)
+					delay( self, 'Delete', time, path,  nil )
+					delay( self, 'Create', time, path2, nil )
 				else
-					error('unknown result of combine()')
+					error( 'unknown result of combine()' )
 				end
-				recurse()
+				recurse( )
 				return
 			end
+
 			il = il - 1
 		end
+
 		if nd.path2 then
-			log('Delay','New ',nd.etype,':',nd.path,'->',nd.path2)
+			log( 'Delay','New ',nd.etype,':',nd.path,'->',nd.path2 )
 		else
-			log('Delay','New ',nd.etype,':',nd.path)
+			log( 'Delay','New ',nd.etype,':',nd.path )
 		end
+
 		-- no block or combo
-		nd.dpos = Queue.push(self.delays, nd)
-		recurse()
+		nd.dpos = Queue.push( self.delays, nd )
+		recurse( )
 	end
 
-	-----
-	-- Returns the nearest alarm for this Sync.
 	--
-	local function getAlarm(self)
-		if self.processes:size() >= self.config.maxProcesses then
+	-- Returns the soonest alarm for this Sync.
+	--
+	local function getAlarm( self )
+
+		if self.processes:size( ) >= self.config.maxProcesses then
 			return false
 		end
 
 		-- first checks if more processes could be spawned
-		if self.processes:size() < self.config.maxProcesses then
+		if self.processes:size( ) < self.config.maxProcesses then
+
 			-- finds the nearest delay waiting to be spawned
-			for _, d in Queue.qpairs(self.delays) do
+			for _, d in Queue.qpairs( self.delays ) do
 				if d.status == 'wait' then return d.alarm end
 			end
+
 		end
 
 		-- nothing to spawn
 		return false
 	end
 
-	-----
+	--
 	-- Gets all delays that are not blocked by active delays.
 	--
 	-- @param test   function to test each delay
 	--
-	local function getDelays(self, test)
-		local dlist = { sync = self}
+	local function getDelays( self, test )
+		local dlist  = { sync = self}
 		local dlistn = 1
-		local blocks = {}
+		local blocks = { }
 
-		----
+		--
 		-- inheritly transfers all blocks from delay
 		--
-		local function getBlocks(delay)
-			blocks[delay] = true
+		local function getBlocks( delay )
+			blocks[ delay ] = true
 			if delay.blocks then
-				for i, d in ipairs(delay.blocks) do
-					getBlocks(d)
+				for i, d in ipairs( delay.blocks ) do
+					getBlocks( d )
 				end
 			end
 		end
 
-		for i, d in Queue.qpairs(self.delays) do
+		for i, d in Queue.qpairs( self.delays ) do
 			if d.status == 'active' or
-				(test and not test(InletFactory.d2e(d)))
+				( test and not test( InletFactory.d2e( d ) ) )
 			then
-				getBlocks(d)
-			elseif not blocks[d] then
-				dlist[dlistn] = d
+				getBlocks( d )
+			elseif not blocks[ d ] then
+				dlist[ dlistn ] = d
 				dlistn = dlistn + 1
 			end
 		end
@@ -1739,21 +1881,34 @@ local Sync = (function()
 		return dlist
 	end
 
-	-----
+	--
 	-- Creates new actions
 	--
-	local function invokeActions(self, timestamp)
-		log('Function', 'invokeActions("',self.config.name,'",',timestamp,')')
-		if self.processes:size() >= self.config.maxProcesses then
+	local function invokeActions( self, timestamp )
+
+		log(
+			'Function',
+			'invokeActions("',
+			self.config.name,
+			'",',
+			timestamp,
+			')'
+		)
+
+		if self.processes:size( ) >= self.config.maxProcesses then
 			-- no new processes
 			return
 		end
-		for _, d in Queue.qpairs(self.delays) do
+
+		for _, d in Queue.qpairs( self.delays ) do
 			-- if reached the global limit return
-			if settings.maxProcesses and processCount >= settings.maxProcesses then
+			if settings.maxProcesses and
+				processCount >= settings.maxProcesses
+			then
 				log('Alarm', 'at global process limit.')
 				return
 			end
+
 			if self.delays.size < self.config.maxDelays then
 				-- time constrains are only concerned if not maxed
 				-- the delay FIFO already.
@@ -1762,14 +1917,15 @@ local Sync = (function()
 					return
 				end
 			end
+
 			if d.status == 'wait' then
 				-- found a waiting delay
 				if d.etype ~= 'Init' then
-					self.config.action(self.inlet)
+					self.config.action( self.inlet )
 				else
-					self.config.init(InletFactory.d2e(d))
+					self.config.init( InletFactory.d2e( d ) )
 				end
-				if self.processes:size() >= self.config.maxProcesses then
+				if self.processes:size( ) >= self.config.maxProcesses then
 					-- no further processes
 					return
 				end
@@ -1777,11 +1933,13 @@ local Sync = (function()
 		end
 	end
 
-	-----
+	--
 	-- Gets the next event to be processed.
 	--
-	local function getNextDelay(self, timestamp)
-		for i, d in Queue.qpairs(self.delays) do
+	local function getNextDelay( self, timestamp )
+
+		for i, d in Queue.qpairs( self.delays ) do
+
 			if self.delays.size < self.config.maxDelays then
 				-- time constrains are only concerned if not maxed
 				-- the delay FIFO already.
@@ -1790,75 +1948,89 @@ local Sync = (function()
 					return nil
 				end
 			end
+
 			if d.status == 'wait' then
 				-- found a waiting delay
 				return d
 			end
 		end
+
 	end
 
 	------
 	-- Adds and returns a blanket delay thats blocks all.
 	-- Used as custom marker.
 	--
-	local function addBlanketDelay(self)
-		local newd = Delay.new('Blanket', self, true, '')
-		newd.dpos = Queue.push(self.delays, newd)
+	local function addBlanketDelay( self )
+		local newd = Delay.new( 'Blanket', self, true, '' )
+		newd.dpos = Queue.push( self.delays, newd )
 		return newd
 	end
 
-	------
+	--
 	-- Adds and returns a blanket delay thats blocks all.
 	-- Used as startup marker to call init asap.
 	--
-	local function addInitDelay(self)
-		local newd = Delay.new('Init', self, true, '')
-		newd.dpos = Queue.push(self.delays, newd)
+	local function addInitDelay( self )
+		local newd = Delay.new( 'Init', self, true, '' )
+		newd.dpos = Queue.push( self.delays, newd )
 		return newd
 	end
 
-	-----
+	--
 	-- Writes a status report about delays in this sync.
 	--
-	local function statusReport(self, f)
+	local function statusReport( self, f )
+
 		local spaces = '                    '
-		f:write(self.config.name,' source=',self.source,'\n')
-		f:write('There are ',self.delays.size, ' delays\n')
-		for i, vd in Queue.qpairs(self.delays) do
+
+		f:write( self.config.name, ' source=', self.source, '\n' )
+		f:write( 'There are ', self.delays.size, ' delays\n')
+
+		for i, vd in Queue.qpairs( self.delays ) do
 			local st = vd.status
-			f:write(st, string.sub(spaces, 1, 7 - #st))
-			f:write(vd.etype,' ')
-			f:write(vd.path)
-			if (vd.path2) then
-				f:write(' -> ',vd.path2)
+			f:write( st, string.sub( spaces, 1, 7 - #st ) )
+			f:write( vd.etype, ' ' )
+			f:write( vd.path )
+
+			if vd.path2 then
+				f:write( ' -> ',vd.path2 )
 			end
+
 			f:write('\n')
+
 		end
-		f:write('Excluding:\n')
+
+		f:write( 'Excluding:\n' )
+
 		local nothing = true
-		for t, p in pairs(self.excludes.list) do
+
+		for t, p in pairs( self.excludes.list ) do
 			nothing = false
-			f:write(t,'\n')
+			f:write( t,'\n' )
 		end
 		if nothing then
 			f:write('  nothing.\n')
 		end
-		f:write('\n')
+
+		f:write( '\n' )
 	end
 
-	-----
+	--
 	-- Creates a new Sync
 	--
-	local function new(config)
+	local function new( config )
 		local s = {
 			-- fields
+
 			config = config,
-			delays = Queue.new(),
+			delays = Queue.new( ),
 			source = config.source,
-			processes = CountArray.new(),
-			excludes = Excludes.new(),
+			processes = CountArray.new( ),
+			excludes = Excludes.new( ),
 
 			-- functions
+
 			addBlanketDelay = addBlanketDelay,
 			addExclude      = addExclude,
 			addInitDelay    = addInitDelay,
@@ -1873,111 +2045,129 @@ local Sync = (function()
 			rmExclude       = rmExclude,
 			statusReport    = statusReport,
 		}
-		s.inlet = InletFactory.newInlet(s)
+
+		s.inlet = InletFactory.newInlet( s )
 
 		-- provides a default name if needed
 		if not config.name then
-			config.name = 'Sync'..nextDefaultName
+			config.name = 'Sync' .. nextDefaultName
 		end
-		-- increments default nevertheless to cause less confusion
-		-- so name will be the n-th call to sync{}
+
+		-- increments defaults if a config name was given or not
+		-- so Sync{n} will be the n-th call to sync{}
 		nextDefaultName = nextDefaultName + 1
 
 		-- loads exclusions
 		if config.exclude then
-			local te = type(config.exclude)
+
+			local te = type( config.exclude )
+
 			if te == 'table' then
-				s.excludes:addList(config.exclude)
+				s.excludes:addList( config.exclude )
 			elseif te == 'string' then
-				s.excludes:add(config.exclude)
+				s.excludes:add( config.exclude )
 			else
-				error('type for exclude must be table or string', 2)
+				error( 'type for exclude must be table or string', 2 )
 			end
 		end
+
 		if config.excludeFrom then
-			s.excludes:loadFile(config.excludeFrom)
+			s.excludes:loadFile( config.excludeFrom )
 		end
 
 		return s
 	end
 
-	-----
-	-- public interface
 	--
-	return {new = new}
-end)()
+	-- Public interface
+	--
+	return { new = new }
+
+end )( )
 
 
------
+--
 -- Syncs - a singleton
 --
--- It maintains all configured directories to be synced.
+-- Syncs maintains all configured syncs.
 --
-local Syncs = (function()
-	-----
+local Syncs = ( function( )
+
+	--
 	-- the list of all syncs
 	--
-	local list = Array.new()
+	local list = Array.new( )
 
-	-----
+	--
 	-- The round robin pointer. In case of global limited maxProcesses
 	-- gives every sync equal chances to spawn the next process.
 	--
 	local round = 1
 
-	-----
+	--
 	-- The cycle() sheduler goes into the next round of roundrobin.
-	local function nextRound()
+	--
+	local function nextRound( )
+
 		round = round + 1;
+
 		if round > #list then
 			round = 1
 		end
+
 		return round
 	end
 
-	-----
+	--
 	-- Returns the round
-	local function getRound()
+	--
+	local function getRound( )
 		return round
 	end
 
-	-----
+	--
 	-- Returns sync at listpos i
-	local function get(i)
-		return list[i];
+	--
+	local function get( i )
+		return list[ i ];
 	end
 
-	-----
+	--
 	-- Inheritly copies all non integer keys from
-	-- copy source (cs) to copy destination (cd).
+	-- table copy source ( cs ) to
+	-- table copy destination ( cd ).
 	--
-	-- all entries with integer keys are treated as new sources to copy
+	-- All entries with integer keys are treated as new sources to copy
 	--
-	local function inherit(cd, cs)
+	local function inherit( cd, cs )
+
 		-- first copies from source all
 		-- non-defined non-integer keyed values
-		for k, v in pairs(cs) do
-			if type(k) ~= 'number' and cd[k] == nil then
-				cd[k] = v
+		for k, v in pairs( cs ) do
+			if type( k ) ~= 'number' and cd[ k ] == nil then
+				cd[ k ] = v
 			end
 		end
+
 		-- first recurses into all integer keyed tables
-		for i, v in ipairs(cs) do
-			if type(v) == 'table' then
-				inherit(cd, v)
+		for i, v in ipairs( cs ) do
+			if type( v ) == 'table' then
+				inherit( cd, v )
 			end
 		end
+
 	end
 
-	-----
+	--
 	-- Adds a new sync (directory-tree to observe).
 	--
-	local function add(config)
+	local function add( config )
+
 		-- Creates a new config table and inherit all keys/values
 		-- from integer keyed tables
 		local uconfig = config
-		config = {}
-		inherit(config, uconfig)
+		config = { }
+		inherit( config, uconfig )
 
 		-- Lets settings or commandline override delay values.
 		if settings then
@@ -1986,40 +2176,60 @@ local Syncs = (function()
 
 		-- at very first lets the userscript 'prepare' function
 		-- fill out more values.
-		if type(config.prepare) == 'function' then
+		if type( config.prepare ) == 'function' then
 			-- explicitly gives a writeable copy of config.
-			config.prepare(config)
+			config.prepare( config )
 		end
 
-		if not config['source'] then
-			local info = debug.getinfo(3, 'Sl')
-			log('Error', info.short_src,':',info.currentline,': source missing from sync.')
-			terminate(-1) -- ERRNO
+		if not config[ 'source' ] then
+			local info = debug.getinfo( 3, 'Sl' )
+			log(
+				'Error',
+				info.short_src,':',
+				info.currentline,': source missing from sync.'
+			)
+			terminate( -1 ) -- ERRNO
 		end
 
 		-- absolute path of source
-		local realsrc = lsyncd.realdir(config.source)
+		local realsrc = lsyncd.realdir( config.source )
+
 		if not realsrc then
-			log('Error', 'Cannot access source directory: ',config.source)
-			terminate(-1) -- ERRNO
+			log(
+				'Error',
+				'Cannot access source directory: ',
+				config.source
+			)
+			terminate( -1 ) -- ERRNO
 		end
+
 		config._source = config.source
 		config.source = realsrc
 
-		if not config.action   and not config.onAttrib and
-		   not config.onCreate and not config.onModify and
-		   not config.onDelete and not config.onMove
+		if
+			not config.action   and
+			not config.onAttrib and
+			not config.onCreate and
+			not config.onModify and
+			not config.onDelete and
+			not config.onMove
 		then
-			local info = debug.getinfo(3, 'Sl')
-			log('Error', info.short_src, ':', info.currentline,
-				': no actions specified, use e.g. "config = default.rsync".')
-			terminate(-1) -- ERRNO
+			local info = debug.getinfo( 3, 'Sl' )
+			log(
+				'Error',
+				info.short_src, ':',
+				info.currentline,
+				': no actions specified, use e.g. "config = default.rsync".'
+			)
+
+			terminate( -1 ) -- ERRNO
 		end
 
 		-- loads a default value for an option if not existent
 		if not settings then
 			settings = {}
 		end
+
 		local defaultValues = {
 			'action',
 			'collect',
@@ -2027,55 +2237,73 @@ local Syncs = (function()
 			'maxDelays',
 			'maxProcesses',
 		}
-		for _, dn in pairs(defaultValues) do
-			if config[dn] == nil then
-				config[dn] = settings[dn] or default[dn]
+
+		for _, dn in pairs( defaultValues ) do
+			if config[ dn ] == nil then
+				config[ dn ] = settings[ dn ] or default[ dn ]
 			end
 		end
 
 		-- the monitor to use
 		config.monitor =
-			settings.monitor or config.monitor or Monitors.default()
-		if config.monitor ~= 'inotify' and config.monitor ~= 'fsevents' then
-			local info = debug.getinfo(3, 'Sl')
-			log('Error',info.short_src,':',info.currentline,
-				': event monitor "',config.monitor,'" unknown.')
-			terminate(-1) -- ERRNO
+			settings.monitor or
+			config.monitor or
+			Monitors.default( )
+
+		if
+			config.monitor ~= 'inotify' and
+			config.monitor ~= 'fsevents'
+		then
+			local info = debug.getinfo( 3, 'Sl' )
+
+			log(
+				'Error',
+				info.short_src, ':',
+				info.currentline,
+				': event monitor "',
+				config.monitor,
+				'" unknown.'
+			)
+
+			terminate( -1 ) -- ERRNO
 		end
 
 		--- creates the new sync
-		local s = Sync.new(config)
-		table.insert(list, s)
+		local s = Sync.new( config )
+		table.insert( list, s )
 		return s
 	end
 
-	-----
+	--
 	-- Allows a for-loop to walk through all syncs.
 	--
-	local function iwalk()
-		return ipairs(list)
+	local function iwalk( )
+		return ipairs( list )
 	end
 
-	-----
+	--
 	-- Returns the number of syncs.
 	--
-	local size = function()
+	local size = function( )
 		return #list
 	end
 
-	------
+	--
 	-- Tests if any sync is interested in a path.
 	--
-	local function concerns(path)
-		for _, s in ipairs(list) do
-			if s:concerns(path) then
+	local function concerns( path )
+		for _, s in ipairs( list ) do
+			if s:concerns( path ) then
 				return true
 			end
 		end
+
 		return false
 	end
 
-	-- public interface
+	--
+	-- Public interface
+	--
 	return {
 		add = add,
 		get = get,
@@ -2085,63 +2313,74 @@ local Syncs = (function()
 		nextRound = nextRound,
 		size = size
 	}
-end)()
+end )( )
 
 
------
--- Utility function, returns the relative part of absolute path if it
+--
+-- Utility function,
+-- Returns the relative part of absolute path if it
 -- begins with root
 --
-local function splitPath(path, root)
+local function splitPath( path, root )
+
 	local rlen = #root
-	local sp = string.sub(path, 1, rlen)
+	local sp = string.sub( path, 1, rlen )
 
 	if sp == root then
-		return string.sub(path, rlen, -1)
+		return string.sub( path, rlen, -1 )
 	else
 		return nil
 	end
 end
 
------
--- Interface to inotify, watches recursively subdirs and
--- sends events.
 --
--- All inotify specific implementation should be enclosed here.
+-- Interface to inotify.
 --
-local Inotify = (function()
+-- watches recursively subdirs and sends events.
+--
+-- All inotify specific implementation is enclosed here.
+--
+local Inotify = ( function( )
 
-	-----
-	-- A list indexed by inotifies watch descriptor yielding the
-	-- directories absolute paths.
 	--
-	local wdpaths = CountArray.new()
-
-	-----
-	-- The same vice versa, all watch descriptors by its
-	-- absolute path.
+	-- A list indexed by inotify watch descriptors yielding
+	-- the directories absolute paths.
 	--
-	local pathwds = {}
+	local wdpaths = CountArray.new( )
 
-	-----
-	-- A list indexed by sync's containing the root path this
-	-- sync is interested in.
 	--
-	local syncRoots = {}
+	-- The same vice versa,
+	-- all watch descriptors by their absolute paths.
+	--
+	local pathwds = { }
 
-	-----
+	--
+	-- A list indexed by syncs containing yielding
+	-- the root paths the syncs are interested in.
+	--
+	local syncRoots = { }
+
+	--
 	-- Stops watching a directory
 	--
-	-- @param path    absolute path to unwatch
-	-- @param core    if false not actually send the unwatch to the kernel
-	--                (used in moves which reuse the watch)
+	-- path ... absolute path to unwatch
+	-- core ... if false not actually send the unwatch to the kernel
+	--          (used in moves which reuse the watch)
 	--
-	local function removeWatch(path, core)
-		local wd = pathwds[path]
-		if not wd then return end
-		if core then lsyncd.inotify.rmwatch(wd) end
-		wdpaths[wd] = nil
-		pathwds[path] = nil
+	local function removeWatch( path, core )
+
+		local wd = pathwds[ path ]
+
+		if not wd then
+			return
+		end
+
+		if core then
+			lsyncd.inotify.rmwatch( wd )
+		end
+
+		wdpaths[ wd   ] = nil
+		pathwds[ path ] = nil
 	end
 
 	-----
@@ -2159,93 +2398,138 @@ local Inotify = (function()
 		end
 
 		-- registers the watch
-		local inotifyMode = (settings and settings.inotifyMode) or '';
-		local wd = lsyncd.inotify.addwatch(path, inotifyMode);
+		local inotifyMode = ( settings and settings.inotifyMode ) or '';
+		local wd = lsyncd.inotify.addwatch( path, inotifyMode) ;
+
 		if wd < 0 then
-			log('Inotify','Unable to add watch "',path,'"')
+			log( 'Inotify','Unable to add watch "', path, '"' )
 			return
 		end
 
 		do
 			-- If this watch descriptor is registered already
 			-- the kernel reuses it since old dir is gone.
-			local op = wdpaths[wd]
+			local op = wdpaths[ wd ]
 			if op and op ~= path then
-				pathwds[op] = nil
+				pathwds[ op ] = nil
 			end
 		end
-		pathwds[path] = wd
-		wdpaths[wd] = path
+
+		pathwds[ path ] = wd
+		wdpaths[ wd   ] = path
 
 		-- registers and adds watches for all subdirectories
-		local entries = lsyncd.readdir(path)
-		if not entries then return end
-		for dirname, isdir in pairs(entries) do
-			if isdir then addWatch(path .. dirname .. '/') end
+		local entries = lsyncd.readdir( path )
+
+		if not entries then
+			return
+		end
+
+		for dirname, isdir in pairs( entries ) do
+			if isdir then
+				addWatch( path .. dirname .. '/' )
+			end
 		end
 	end
 
-	-----
+	--
 	-- Adds a Sync to receive events.
 	--
 	-- sync:    Object to receive events
 	-- rootdir: root dir to watch
 	--
-	local function addSync(sync, rootdir)
-		if syncRoots[sync] then error('duplicate sync in Inotify.addSync()') end
-		syncRoots[sync] = rootdir
-		addWatch(rootdir)
+	local function addSync( sync, rootdir )
+		if syncRoots[ sync ] then
+			error( 'duplicate sync in Inotify.addSync()' )
+		end
+		syncRoots[ sync ] = rootdir
+		addWatch( rootdir )
 	end
 
-	-----
+	--
 	-- Called when an event has occured.
 	--
-	-- etype:     'Attrib', 'Modify', 'Create', 'Delete', 'Move'
-	-- wd:        watch descriptor, matches lsyncd.inotifyadd()
-	-- isdir:     true if filename is a directory
-	-- time:      time of event
-	-- filename:  string filename without path
-	-- wd2:       watch descriptor for target if it's a Move
-	-- filename2: string filename without path of Move target
-	--
-	local function event(etype, wd, isdir, time, filename, wd2, filename2)
+	local function event(
+		etype,     -- 'Attrib', 'Modify', 'Create', 'Delete', 'Move'
+		wd,        --  watch descriptor, matches lsyncd.inotifyadd()
+		isdir,     --  true if filename is a directory
+		time,      --  time of event
+		filename,  --  string filename without path
+		wd2,       --  watch descriptor for target if it's a Move
+		filename2  --  string filename without path of Move target
+	)
 		if isdir then
-			filename = filename..'/'
-			if filename2 then filename2 = filename2..'/' end
+			filename = filename .. '/'
+
+			if filename2 then
+				filename2 = filename2 .. '/'
+			end
 		end
 
 		if filename2 then
-			log('Inotify','got event ',etype,' ',filename,'(',wd,') to ',filename2,'(',wd2,')')
+			log(
+				'Inotify',
+				'got event ',
+				etype,
+				' ',
+				filename,
+				'(', wd, ') to ',
+				filename2,
+				'(', wd2 ,')'
+			)
 		else
-			log('Inotify','got event ',etype,' ',filename,'(',wd,')')
+			log(
+				'Inotify',
+				'got event ',
+				etype,
+				' ',
+				filename,
+				'(', wd, ')'
+			)
 		end
 
 		-- looks up the watch descriptor id
-		local path = wdpaths[wd]
-		if path then path = path..filename end
+		local path = wdpaths[ wd ]
+		if path then
+			path = path..filename
+		end
 
-		local path2 = wd2 and wdpaths[wd2]
-		if path2 and filename2 then path2 = path2..filename2 end
+		local path2 = wd2 and wdpaths[ wd2 ]
+
+		if path2 and filename2 then
+			path2 = path2..filename2
+		end
 
 		if not path and path2 and etype == 'Move' then
-			log('Inotify', 'Move from deleted directory ',path2,' becomes Create.')
-			path = path2
+			log(
+				'Inotify',
+				'Move from deleted directory ',
+				path2,
+				' becomes Create.'
+			)
+			path  = path2
 			path2 = nil
 			etype = 'Create'
 		end
 
 		if not path then
 			-- this is normal in case of deleted subdirs
-			log('Inotify', 'event belongs to unknown watch descriptor.')
+			log(
+				'Inotify',
+				'event belongs to unknown watch descriptor.'
+			)
 			return
 		end
 
-		for sync, root in pairs(syncRoots) do repeat
-			local relative  = splitPath(path, root)
+		for sync, root in pairs( syncRoots ) do repeat
+
+			local relative  = splitPath( path, root )
 			local relative2 = nil
+
 			if path2 then
-				relative2 = splitPath(path2, root)
+				relative2 = splitPath( path2, root )
 			end
+
 			if not relative and not relative2 then
 				-- sync is not interested in this dir
 				break -- continue
@@ -2253,103 +2537,144 @@ local Inotify = (function()
 
 			-- makes a copy of etype to possibly change it
 			local etyped = etype
+
 			if etyped == 'Move' then
 				if not relative2 then
-					log('Normal', 'Transformed Move to Delete for ', sync.config.name)
+					log(
+						'Normal',
+						'Transformed Move to Delete for ',
+						sync.config.name
+					)
 					etyped = 'Delete'
 				elseif not relative then
 					relative = relative2
 					relative2 = nil
-					log('Normal', 'Transformed Move to Create for ', sync.config.name)
+					log(
+						'Normal',
+						'Transformed Move to Create for ',
+						sync.config.name
+					)
 					etyped = 'Create'
 				end
 			end
 
 			if isdir then
 				if etyped == 'Create' then
-					addWatch(path)
+					addWatch( path )
 				elseif etyped == 'Delete' then
-					removeWatch(path, true)
+					removeWatch( path, true )
 				elseif etyped == 'Move' then
-					removeWatch(path, false)
-					addWatch(path2)
+					removeWatch( path, false )
+					addWatch( path2 )
 				end
 			end
 
-			sync:delay(etyped, time, relative, relative2)
+			sync:delay( etyped, time, relative, relative2 )
+
 		until true end
 	end
 
-	-----
-	-- Writes a status report about inotifies to a filedescriptor
 	--
-	local function statusReport(f)
-		f:write('Inotify watching ',wdpaths:size(),' directories\n')
-		for wd, path in wdpaths:walk() do
-			f:write('  ',wd,': ',path,'\n')
+	-- Writes a status report about inotify to a file descriptor
+	--
+	local function statusReport( f )
+
+		f:write( 'Inotify watching ', wdpaths:size(), ' directories\n' )
+
+		for wd, path in wdpaths:walk( ) do
+			f:write( '  ', wd, ': ', path, '\n' )
 		end
 	end
 
-	-- public interface
+
+	--
+	-- Public interface.
+	--
 	return {
 		addSync = addSync,
 		event = event,
 		statusReport = statusReport,
 	}
-end)()
 
-----
--- Interface to OSX /dev/fsevents, watches the whole filesystems
---
--- All fsevents specific implementation should be enclosed here.
---
-local Fsevents = (function()
+end)( )
 
-	-----
-	-- A list indexed by sync's containing the root path this
-	-- sync is interested in.
+--
+-- Interface to OSX /dev/fsevents
+--
+-- This watches all the filesystems at once,
+-- but needs root access.
+--
+-- All fsevents specific implementation are enclosed here.
+--
+local Fsevents = ( function( )
+
+
 	--
-	local syncRoots = {}
+	-- A list indexed by syncs yielding
+	-- the root path the sync is interested in.
+	--
+	local syncRoots = { }
 
-	-----
-	-- adds a Sync to receive events
+
+	--
+	-- Adds a Sync to receive events.
 	--
 	-- @param sync   Object to receive events
 	-- @param dir    dir to watch
 	--
-	local function addSync(sync, dir)
-		if syncRoots[sync] then error('duplicate sync in Fanotify.addSync()') end
-		syncRoots[sync] = dir
-	end
+	local function addSync( sync, dir )
 
-	-----
-	-- Called when any event has occured.
-	--
-	-- etype:  'Attrib', 'Modify', 'Create', 'Delete', 'Move')
-	-- isdir:  true if filename is a directory
-	-- time:   time of event
-	-- path:   path of file
-	-- path2:  path of target in case of 'Move'
-	--
-	local function event(etype, isdir, time, path, path2)
-		if isdir then
-			path = path..'/'
-			if path2 then path2 = path2..'/' end
+		if syncRoots[ sync ] then
+			error( 'duplicate sync in Fanotify.addSync()' )
 		end
 
-		log('Fsevents',etype,',',isdir,',',time,',',path,',',path2)
+		syncRoots[ sync ] = dir
+
+	end
+
+	--
+	-- Called when an event has occured.
+	--
+	local function event(
+		etype,  --  'Attrib', 'Modify', 'Create', 'Delete', 'Move'
+		isdir,  --  true if filename is a directory
+		time,   --  time of event
+		path,   --  path of file
+		path2   --  path of target in case of 'Move'
+	)
+		if isdir then
+			path = path .. '/'
+
+			if path2 then
+				path2 = path2 .. '/'
+			end
+		end
+
+		log(
+			'Fsevents',
+			etype, ',',
+			isdir, ',',
+			time,  ',',
+			path,  ',',
+			path2
+		)
 
 		for _, sync in Syncs.iwalk() do repeat
+
 			local root = sync.source
-			if not path:starts(root) then
-				if not path2 or not path2:starts(root) then
+
+			-- TODO combine ifs
+			if not path:starts( root ) then
+				if not path2 or not path2:starts( root ) then
 					break  -- continue
 				end
 			end
-			local relative  = splitPath(path, root)
+
+			local relative  = splitPath( path, root )
+
 			local relative2
 			if path2 then
-				relative2 = splitPath(path2, root)
+				relative2 = splitPath( path2, root )
 			end
 
 			-- possibly change etype for this iteration only
@@ -2365,66 +2690,82 @@ local Fsevents = (function()
 					etyped = 'Create'
 				end
 			end
-			sync:delay(etyped, time, relative, relative2)
+
+			sync:delay( etyped, time, relative, relative2 )
+
 		until true end
+
 	end
 
-	-----
-	-- Writes a status report about inotifies to a filedescriptor
+
 	--
-	local function statusReport(f)
+	-- Writes a status report about fsevents to a filedescriptor.
+	--
+	local function statusReport( f )
 		-- TODO
 	end
 
-	-- public interface
+	--
+	-- Public interface
+	--
 	return {
-		addSync = addSync,
-		event = event,
+		addSync      = addSync,
+		event        = event,
 		statusReport = statusReport
 	}
-end)()
+end )( )
 
------
+
+--
 -- Holds information about the event monitor capabilities
 -- of the core.
 --
-Monitors = (function()
+Monitors = ( function( )
 
-	-----
+
+	--
 	-- The cores monitor list
 	--
-	local list = {}
+	local list = { }
 
-	-----
+
+	--
 	-- The default event monitor.
 	--
-	local function default()
-		return list[1]
+	local function default( )
+		return list[ 1 ]
 	end
 
-	-----
-	-- initializes with info received from core
+
 	--
-	local function initialize(clist)
-		for k, v in ipairs(clist) do
-			list[k] = v
+	-- Initializes with info received from core
+	--
+	local function initialize( clist )
+		for k, v in ipairs( clist ) do
+			list[ k ] = v
 		end
 	end
 
-	-- public interface
-	return { default = default,
-			 list = list,
-	         initialize = initialize
+
+	--
+	-- Public interface
+	--
+	return {
+		default = default,
+		list = list,
+		initialize = initialize
 	}
-end)()
 
-------
--- Writes functions for the user for layer 3 configuration.
+end)( )
+
 --
-local functionWriter = (function()
+-- Writes functions for the user for layer 3 configurations.
+--
+local functionWriter = ( function( )
 
-	-----
-	-- all variables for layer 3
+	--
+	-- All variables known to layer 3 configs.
+	--
 	transVars = {
 		{ '%^pathname',          'event.pathname',        1 },
 		{ '%^pathdir',           'event.pathdir',         1 },
@@ -2455,23 +2796,27 @@ local functionWriter = (function()
 		{ '%^d%.targetPath',     'event2.targetPath',     2 },
 	}
 
-	-----
-	-- Splits a user string into its arguments
 	--
-	-- @param a string where parameters are seperated by spaces.
+	-- Splits a user string into its arguments.
+	-- Returns a table of arguments
 	--
-	-- @return a table of arguments
-	--
-	local function splitStr(str)
-		local args = {}
+	local function splitStr(
+		str -- a string where parameters are seperated by spaces.
+	)
+		local args = { }
+
 		while str ~= '' do
+
 			-- break where argument stops
 			local bp = #str
+
 			-- in a quote
 			local inQuote = false
+
 			-- tests characters to be space and not within quotes
-			for i=1,#str do
-				local c = string.sub(str, i, i)
+			for i=1, #str do
+				local c = string.sub( str, i, i )
+
 				if c == '"' then
 					inQuote = not inQuote
 				elseif c == ' ' and not inQuote then
@@ -2479,47 +2824,60 @@ local functionWriter = (function()
 					break
 				end
 			end
-			local arg = string.sub(str, 1, bp)
-			arg = string.gsub(arg, '"', '\\"')
-			table.insert(args, arg)
-			str = string.sub(str, bp + 1, -1)
-			str = string.match(str, '^%s*(.-)%s*$')
+
+			local arg = string.sub( str, 1, bp )
+			arg = string.gsub( arg, '"', '\\"' )
+			table.insert( args, arg )
+			str = string.sub( str, bp + 1, -1 )
+			str = string.match( str, '^%s*(.-)%s*$' )
+
 		end
+
 		return args
 	end
 
-	-----
+
+	--
 	-- Translates a call to a binary to a lua function.
+	-- TODO this has a little too blocking.
 	--
-	-- TODO this has a little too much coding blocks.
-	--
-	local function translateBinary(str)
+	local function translateBinary( str )
+
 		-- splits the string
-		local args = splitStr(str)
+		local args = splitStr( str )
 
 		-- true if there is a second event
 		local haveEvent2 = false
 
-		for ia, iv in ipairs(args) do
+		for ia, iv in ipairs( args ) do
+
 			-- a list of arguments this arg is being split into
-			local a = {{true, iv}}
+			local a = { { true, iv } }
+
 			-- goes through all translates
-			for _, v in ipairs(transVars) do
+			for _, v in ipairs( transVars ) do
 				local ai = 1
 				while ai <= #a do
-					if a[ai][1] then
+					if a[ ai ][ 1 ] then
 						local pre, post =
-							string.match(a[ai][2], '(.*)"..v[1].."(.*)')
+							string.match( a[ ai ][ 2 ], '(.*)"..v[1].."(.*)' )
+
 						if pre then
+
 							if v[3] > 1 then
 								haveEvent2 = true
 							end
+
 							if pre ~= '' then
-								table.insert(a, ai, {true, pre})
+								table.insert( a, ai, { true, pre } )
 								ai = ai + 1
 							end
-							a[ai] = {false, v[2]}
-							if post ~= '' then table.insert(a, ai + 1, {true, post}) end
+
+							a[ ai ] = { false, v[ 2 ] }
+
+							if post ~= '' then
+								table.insert( a, ai + 1, { true, post } )
+							end
 						end
 					end
 					ai = ai + 1
@@ -2529,18 +2887,23 @@ local functionWriter = (function()
 			-- concats the argument pieces into a string.
 			local as = ''
 			local first = true
-			for _, v in ipairs(a) do
+
+			for _, v in ipairs( a ) do
+
 				if not first then
 					as = as..' .. '
 				end
-				if v[1] then
-					as = as..'"'..v[2]..'"'
+
+				if v[ 1 ] then
+					as = as .. '"' .. v[ 2 ] .. '"'
 				else
-					as = as..v[2]
+					as = as .. v[ 2 ]
 				end
+
 				first = false
 			end
-			args[ia] = as
+
+			args[ ia ] = as
 		end
 
 		local ft
@@ -2549,217 +2912,324 @@ local functionWriter = (function()
 		else
 			ft = 'function(event, event2)\n'
 		end
-		ft = ft..
-			"    log('Normal', 'Event ', event.etype, \n"..
-			"        ' spawns action \"".. str.."\"')\n"..
+
+		ft = ft ..
+			"    log('Normal', 'Event ', event.etype, \n" ..
+			"        ' spawns action \"".. str.."\"')\n" ..
 			"    spawn(event"
-		for _, v in ipairs(args) do
-			ft = ft..',\n         '..v
+
+		for _, v in ipairs( args ) do
+			ft = ft .. ',\n         ' .. v
 		end
-		ft = ft..')\nend'
+
+		ft = ft .. ')\nend'
 		return ft
+
 	end
 
-	-----
+
+	--
 	-- Translates a call using a shell to a lua function
 	--
-	local function translateShell(str)
+	local function translateShell( str )
+
 		local argn = 1
-		local args = {}
+		local args = { }
 		local cmd = str
 		local lc = str
+
 		-- true if there is a second event
 		local haveEvent2 = false
 
-		for _, v in ipairs(transVars) do
+		for _, v in ipairs( transVars ) do
+
 			local occur = false
-			cmd = string.gsub(cmd, v[1],
-				function()
+
+			cmd = string.gsub(
+				cmd,
+				v[ 1 ],
+				function( )
 					occur = true
-					return '"$'..argn..'"'
-				end)
-			lc = string.gsub(lc, v[1], ']]..'..v[2]..'..[[')
+					return '"$' .. argn .. '"'
+				end
+			)
+
+			lc = string.gsub(
+				lc,
+				v[1],
+				']]..' .. v[2] .. '..[['
+			)
+
 			if occur then
 				argn = argn + 1
-				table.insert(args, v[2])
-				if v[3] > 1 then
+				table.insert( args, v[ 2 ] )
+
+				if v[ 3 ] > 1 then
 					haveEvent2 = true
 				end
 			end
+
 		end
+
 		local ft
 		if not haveEvent2 then
 			ft = 'function(event)\n'
 		else
 			ft = 'function(event, event2)\n'
 		end
+
 		-- TODO do array joining instead
 		ft = ft..
 			"    log('Normal', 'Event ',event.etype,\n"..
 			"        [[ spawns shell \""..lc.."\"]])\n"..
 			"    spawnShell(event, [["..cmd.."]]"
-		for _, v in ipairs(args) do
+
+		for _, v in ipairs( args ) do
 			ft = ft..',\n         '..v
 		end
-		ft = ft..')\nend'
+
+		ft = ft .. ')\nend'
+
 		return ft
+
 	end
 
-	-----
-	-- writes a lua function for a layer 3 user script.
-	local function translate(str)
+	--
+	-- Writes a lua function for a layer 3 user script.
+	--
+	local function translate( str )
 		-- trim spaces
-		str = string.match(str, '^%s*(.-)%s*$')
+		str = string.match( str, '^%s*(.-)%s*$' )
 
 		local ft
-		if string.byte(str, 1, 1) == 47 then
+		if string.byte( str, 1, 1 ) == 47 then
 			-- starts with /
-			 ft = translateBinary(str)
-		elseif string.byte(str, 1, 1) == 94 then
+			 ft = translateBinary( str )
+		elseif string.byte( str, 1, 1 ) == 94 then
 			-- starts with ^
-			 ft = translateShell(str:sub(2, -1))
+			 ft = translateShell( str:sub( 2, -1 ) )
 		else
-			 ft = translateShell(str)
+			 ft = translateShell( str )
 		end
-		log('FWrite','translated "',str,'" to \n',ft)
+
+		log(
+			'FWrite',
+			'translated "',
+			str,
+			'" to \n',
+			ft
+		)
+
 		return ft
 	end
 
-	-----
-	-- public interface
+
 	--
-	return {translate = translate}
-end)()
+	-- Public interface.
+	--
+	return { translate = translate }
 
 
-----
+end )( )
+
+
+
+--
 -- Writes a status report file at most every [statusintervall] seconds.
 --
---
-local StatusFile = (function()
+local StatusFile = ( function( )
 
-	-----
+
+	--
 	-- Timestamp when the status file has been written.
+	--
 	local lastWritten = false
 
-	-----
-	-- Timestamp when a status file should be written
+
+	--
+	-- Timestamp when a status file should be written.
+	--
 	local alarm = false
 
-	-----
-	-- Returns when the status file should be written
+
+	--
+	-- Returns the alarm when the status file should be written-
 	--
 	local function getAlarm()
 		return alarm
 	end
 
-	-----
+
+	--
 	-- Called to check if to write a status file.
 	--
-	local function write(timestamp)
-		log('Function', 'write(', timestamp, ')')
+	local function write( timestamp )
 
-		-- some logic to not write too often
+		log(
+			'Function',
+			'write(',
+			timestamp,
+			')'
+		)
+
+		-- takes care not write too often
+
 		if settings.statusInterval > 0 then
-			-- already waiting
+
+			-- already waiting?
 			if alarm and timestamp < alarm then
-				log('Statusfile', 'waiting(',timestamp,' < ',alarm,')')
+				log(
+					'Statusfile',
+					'waiting(',
+					timestamp,
+					' < ',
+					alarm,
+					')'
+				)
 				return
 			end
+
 			-- determines when a next write will be possible
 			if not alarm then
 				local nextWrite =
 					lastWritten and timestamp + settings.statusInterval
+
 				if nextWrite and timestamp < nextWrite then
-					log('Statusfile', 'setting alarm: ', nextWrite)
+					log(
+						'Statusfile',
+						'setting alarm: ',
+						nextWrite
+					)
 					alarm = nextWrite
+
 					return
 				end
 			end
+
 			lastWritten = timestamp
 			alarm = false
 		end
 
-		log('Statusfile', 'writing now')
-		local f, err = io.open(settings.statusFile, 'w')
+		log( 'Statusfile', 'writing now' )
+
+		local f, err = io.open( settings.statusFile, 'w' )
+
 		if not f then
-			log('Error', 'Cannot open status file "'..settings.statusFile..  '" :'..err)
+			log(
+				'Error',
+				'Cannot open status file "' ..
+					settings.statusFile ..
+					'" :' ..
+					err
+			)
 			return
 		end
-		f:write('Lsyncd status report at ',os.date(),'\n\n')
-		for i, s in Syncs.iwalk() do
-			s:statusReport(f)
-			f:write('\n')
+
+		f:write( 'Lsyncd status report at ', os.date( ), '\n\n' )
+
+		for i, s in Syncs.iwalk( ) do
+			s:statusReport( f )
+			f:write( '\n' )
 		end
 
-		Inotify.statusReport(f)
-		f:close()
+		Inotify.statusReport( f )
+		f:close( )
 	end
 
-	-- public interface
-	return {write = write, getAlarm = getAlarm}
-end)()
 
-------
--- Lets the userscript make its own alarms.
+	--
+	-- Public interface
+	--
+	return {
+		write = write,
+		getAlarm = getAlarm
+	}
+
+end )( )
+
+
 --
-local UserAlarms = (function()
-	local alarms = {}
+-- Lets userscripts make their own alarms.
+--
+local UserAlarms = ( function( )
 
-	-----
+	local alarms = { }
+
+
+	--
 	-- Calls the user function at timestamp.
 	--
-	local function alarm(timestamp, func, extra)
+	local function alarm( timestamp, func, extra )
+
 		local idx
-		for k, v in ipairs(alarms) do
+		for k, v in ipairs( alarms ) do
 			if timestamp < v.timestamp then
 				idx = k
 				break
 			end
 		end
-		local a = {timestamp = timestamp,
-		           func = func,
-		           extra = extra}
+
+		local a = {
+			timestamp = timestamp,
+			func = func,
+			extra = extra
+		}
+
 		if idx then
-			table.insert(alarms, idx, a)
+			table.insert( alarms, idx, a )
 		else
-			table.insert(alarms, a)
+			table.insert( alarms, a )
 		end
+
 	end
 
-	----
-	-- Retrieves the nearest alarm.
+
 	--
-	local function getAlarm()
+	-- Retrieves the soonest alarm.
+	--
+	local function getAlarm( )
+
 		if #alarms == 0 then
 			return false
 		else
 			return alarms[1].timestamp
 		end
+
 	end
 
-	-----
+
+	--
 	-- Calls user alarms.
 	--
-	local function invoke(timestamp)
-		while #alarms > 0 and alarms[1].timestamp <= timestamp do
-			alarms[1].func(alarms[1].timestamp, alarms[1].extra)
-			table.remove(alarms, 1)
+	local function invoke( timestamp )
+		while
+			#alarms > 0 and
+			alarms[ 1 ].timestamp <= timestamp
+		do
+			alarms[ 1 ].func( alarms[ 1 ].timestamp, alarms[ 1 ].extra )
+			table.remove( alarms, 1 )
 		end
 	end
 
-	-- public interface
-	return { alarm    = alarm,
-			 getAlarm = getAlarm,
-			 invoke   = invoke }
-end)()
+
+	--
+	-- Public interface
+	--
+	return {
+		alarm    = alarm,
+		getAlarm = getAlarm,
+		invoke   = invoke
+	}
+
+
+end )( )
 
 --============================================================================
--- lsyncd runner plugs. These functions will be called from core.
+-- Lsyncd runner's plugs. These functions are called from core.
 --============================================================================
 
------
--- Current status of lsyncd.
+--
+-- Current status of Lsyncd.
 --
 -- 'init'  ... on (re)init
 -- 'run'   ... normal operation
@@ -2767,96 +3237,131 @@ end)()
 --
 local lsyncdStatus = 'init'
 
-----
--- the cores interface to the runner
 --
-local runner = {}
+-- The cores interface to the runner.
+--
+local runner = { }
 
------
--- Called from core whenever lua code failed.
+--
+-- Called from core whenever Lua code failed.
+--
 -- Logs a backtrace
 --
-function runner.callError(message)
-	log('Error', 'IN LUA: ', message)
+function runner.callError( message )
+	log('Error', 'in Lua: ', message )
+
 	-- prints backtrace
 	local level = 2
 	while true do
-		local info = debug.getinfo(level, 'Sl')
+
+		local info = debug.getinfo( level, 'Sl' )
+
 		if not info then
-			terminate(-1) -- ERRNO
+			terminate( -1 ) -- ERRNO
 		end
-		log('Error', 'Backtrace ',level - 1,' :',info.short_src,':',info.currentline)
+
+		log(
+			'Error',
+			'Backtrace ',
+			level - 1, ' :',
+			info.short_src, ':',
+			info.currentline
+		)
+
 		level = level + 1
 	end
 end
 
------
--- Called from code whenever a child process finished and
--- zombie process was collected by core.
+
 --
-function runner.collectProcess(pid, exitcode)
+-- Called from core whenever a child process has finished and
+-- the zombie process was collected by core.
+--
+function runner.collectProcess( pid, exitcode )
+
 	processCount = processCount - 1
-	if processCount < 0 then error('negative number of processes!') end
+
+	if processCount < 0 then
+		error( 'negative number of processes!' )
+	end
 
 	for _, s in Syncs.iwalk() do
 		if s:collect(pid, exitcode) then return end
 	end
+
 end
 
------
+--
 -- Called from core everytime a masterloop cycle runs through.
+--
 -- This happens in case of
 --   * an expired alarm.
 --   * a returned child process.
 --   * received filesystem events.
 --   * received a HUP or TERM signal.
 --
--- @param timestamp   the current kernel time (in jiffies)
---
-function runner.cycle(timestamp)
-	-- goes through all syncs and spawns more actions
-	-- if possible
+function runner.cycle(
+	timestamp   -- the current kernel time (in jiffies)
+)
+
 	if lsyncdStatus == 'fade' then
 		if processCount > 0 then
-			log('Normal', 'waiting for ',processCount,' more child processes.')
+			log(
+				'Normal',
+				'waiting for ',
+				processCount,
+				' more child processes.'
+			)
 			return true
 		else
 			return false
 		end
 	end
+
 	if lsyncdStatus ~= 'run' then
-		error('runner.cycle() called while not running!')
+		error( 'runner.cycle() called while not running!' )
 	end
 
-	--- only let Syncs invoke actions if not on global limit
-	if not settings.maxProcesses or processCount < settings.maxProcesses then
-		local start = Syncs.getRound()
+	--
+	-- goes through all syncs and spawns more actions
+	-- if possibly. But only let Syncs invoke actions if
+	-- not at global limit
+	--
+	if
+		not settings.maxProcesses or
+		processCount < settings.maxProcesses
+	then
+		local start = Syncs.getRound( )
 		local ir = start
+
 		repeat
-			local s = Syncs.get(ir)
-			s:invokeActions(timestamp)
+			local s = Syncs.get( ir )
+			s:invokeActions( timestamp )
 			ir = ir + 1
-			if ir > Syncs.size() then
+
+			if ir > Syncs.size( ) then
 				ir = 1
 			end
+
 		until ir == start
-		Syncs.nextRound()
+
+		Syncs.nextRound( )
 	end
 
-	UserAlarms.invoke(timestamp)
+	UserAlarms.invoke( timestamp )
 
 	if settings.statusFile then
-		StatusFile.write(timestamp)
+		StatusFile.write( timestamp )
 	end
 
 	return true
 end
 
------
--- Called by core before anything is '-help' or '--help' is in
+--
+-- Called by core if '-help' or '--help' is in
 -- the arguments.
 --
-function runner.help()
+function runner.help( )
 	io.stdout:write(
 [[
 
@@ -2902,101 +3407,165 @@ SEE:
 end
 
 
------
--- settings specified by command line.
 --
-local clSettings = {}
+-- Settings specified by command line.
+--
+local clSettings = { }
 
------
+--
 -- Called from core to parse the command line arguments
--- @returns a string as user script to load.
---          or simply 'true' if running with rsync bevaiour
--- terminates on invalid arguments
 --
-function runner.configure(args, monitors)
-	Monitors.initialize(monitors)
+-- returns a string as user script to load.
+--    or simply 'true' if running with rsync bevaiour
+--
+-- terminates on invalid arguments.
+--
+function runner.configure( args, monitors )
 
-	-- a list of all valid --options
-	-- first paramter is number of options
-	--       if < 0 the function checks existance
-	-- second paramter is function to call when in args
+	Monitors.initialize (monitors )
+
+	-- a list of all valid options
+	--
+	-- first paramter is the number of parameters an option takes
+	-- if < 0 the function checks existance -- TODO what?
+	--
+	-- second paramter is the function to call
 	--
 	local options = {
 		-- log is handled by core already.
-		delay    =
-			{1, function(secs)
-				clSettings.delay = secs
-			end},
-		insist   =
-			{0, function()
-				clSettings.insist = true
-			end},
-		log      =
-			{1, nil},
-		logfile  =
-			{1, function(file)
-				clSettings.logfile = file
-			end},
-		monitor =
-			{-1, function(monitor)
-				if not monitor then
-					io.stdout:write('This Lsyncd supports these monitors:\n')
-					for _, v in ipairs(Monitors.list) do
-						io.stdout:write('   ',v,'\n')
-					end
-					io.stdout:write('\n');
-					lsyncd.terminate(-1); -- ERRNO
-				else
-					clSettings.monitor=monitor
+		delay =
+			{
+				1,
+				function( secs )
+					clSettings.delay = secs
 				end
-			end},
+			},
+
+		insist =
+			{
+				0,
+				function( )
+					clSettings.insist = true
+				end
+			},
+
+		log =
+			{
+				1,
+				nil
+			},
+
+		logfile  =
+			{
+				1,
+				function( file )
+					clSettings.logfile = file
+				end
+			},
+
+		monitor =
+			{
+				-1,
+				function( monitor )
+					if not monitor then
+						io.stdout:write('This Lsyncd supports these monitors:\n')
+						for _, v in ipairs(Monitors.list) do
+							io.stdout:write('   ',v,'\n')
+						end
+						io.stdout:write('\n');
+						lsyncd.terminate(-1); -- ERRNO
+					else
+						clSettings.monitor=monitor
+					end
+				end
+			},
+
 		nodaemon =
-			{0, function()
-				clSettings.nodaemon = true
-			end},
+			{
+				0,
+				function( )
+					clSettings.nodaemon = true
+				end
+			},
+
 		pidfile   =
-			{1, function(file)
-				clSettings.pidfile=file
-			end},
+			{
+				1,
+				function( file )
+					clSettings.pidfile=file
+				end
+			},
+
 		rsync    =
-			{2, function(src, trg)
-				clSettings.syncs = clSettings.syncs or {}
-				table.insert(clSettings.syncs, {'rsync', src, trg})
-			end},
+			{
+				2,
+				function( src, trg )
+					clSettings.syncs = clSettings.syncs or { }
+					table.insert(
+						clSettings.syncs,
+						{ 'rsync', src, trg }
+					)
+				end
+			},
+
 		rsyncssh =
-			{3, function(src, host, tdir)
-				clSettings.syncs = clSettings.syncs or {}
-				table.insert(clSettings.syncs, {'rsyncssh', src, host, tdir})
-			end},
+			{
+				3,
+				function( src, host, tdir )
+					clSettings.syncs = clSettings.syncs or { }
+					table.insert(
+						clSettings.syncs,
+						{ 'rsyncssh', src, host, tdir }
+					)
+				end
+			},
+
 		direct =
-			{2, function(src, trg)
-				clSettings.syncs = clSettings.syncs or {}
-				table.insert(clSettings.syncs, {'direct', src, trg})
-			end},
+			{
+				2,
+				function( src, trg )
+					clSettings.syncs = clSettings.syncs or { }
+					table.insert(
+						clSettings.syncs,
+						{ 'direct', src, trg }
+					)
+				end
+			},
+
 		version  =
-			{0, function()
-				io.stdout:write('Version: ',lsyncd_version,'\n')
-				os.exit(0)
-			end}
+			{
+				0,
+				function( )
+					io.stdout:write( 'Version: ', lsyncd_version, '\n' )
+					os.exit( 0 )
+				end
+			}
 	}
-	-- nonopts is filled with all args that were no part dash options
-	local nonopts = {}
-	local i = 1
+
+	-- non-opts is filled with all args that were no part dash options
+	local nonopts = { }
+	local i = 
+	1
 	while i <= #args do
+
 		local a = args[i]
-		if a:sub(1, 1) ~= '-' then
-			table.insert(nonopts, args[i])
+
+		if a:sub( 1, 1 ) ~= '-' then
+			table.insert( nonopts, args[ i ] )
 		else
-			if a:sub(1, 2) == '--' then
-				a = a:sub(3)
+			if a:sub( 1, 2 ) == '--' then
+				a = a:sub( 3 )
 			else
-				a = a:sub(2)
+				a = a:sub( 2 )
 			end
-			local o = options[a]
+
+			local o = options[ a ]
+
 			if not o then
 				log('Error','unknown option command line option ', args[i])
 				os.exit(-1) -- ERRNO
 			end
+
 			if o[1] >= 0 and i + o[1] > #args then
 				log('Error',a,' needs ',o[1],' arguments')
 				os.exit(-1) -- ERRNO
