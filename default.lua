@@ -8,7 +8,9 @@
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --============================================================================
 
-if default then error('default already loaded'); end
+if default then
+	error('default already loaded')
+end
 
 default = {
 	-----
