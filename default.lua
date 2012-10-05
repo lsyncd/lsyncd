@@ -38,8 +38,10 @@ default = {
 	-- Called when collecting a finished child process
 	--
 	collect = function(agent, exitcode)
+
 		local config = agent.config
 		local rc
+
 		if config.exitcodes then
 			rc = config.exitcodes[exitcode]
 		elseif exitcode == 0 then
@@ -71,7 +73,8 @@ default = {
 						agent.source,
 						'". Terminating since "insist" is not set.'
 					)
-					terminate(-1) -- ERRNO
+
+					terminate( -1 )
 				end
 			elseif rc == 'die' then
 				log(
@@ -80,7 +83,8 @@ default = {
 					agent.source,
 					'".'
 				)
-				terminate(-1) -- ERRNO
+
+				terminate( -1 )
 			else
 				log(
 					'Error',
@@ -96,13 +100,29 @@ default = {
 
 		if agent.isList then
 			if rc == 'ok' then
-				log('Normal', 'Finished a list = ',exitcode)
+				log(
+					'Normal',
+					'Finished a list after exitcode: ',
+					exitcode
+				)
 			elseif rc == 'again' then
-				log('Normal', 'Retrying a list on exitcode = ',exitcode)
+				log(
+					'Normal',
+					'Retrying a list after exitcode = ',
+					exitcode
+				)
 			elseif rc == 'die' then
-				log('Error', 'Failure with a list on exitcode = ',exitcode)
+				log(
+					'Error',
+					'Failure with a list width exitcode = ',
+					exitcode
+				)
 			else
-				log('Error', 'Unknown exitcode "',exitcode,'" with a list')
+				log(
+					'Error',
+					'Unknown exitcode "',exitcode,'" with a list'
+				)
+
 				rc = 'die'
 			end
 		else
@@ -164,34 +184,58 @@ default = {
 	-- Exitcodes of rsync and what to do.
 	--
 	rsyncExitCodes = {
-		[  0] = 'ok',
-		[  1] = 'die',
-		[  2] = 'die',
-		[  3] = 'again',
-		[  4] = 'die',
-		[  5] = 'again',
-		[  6] = 'again',
-		[ 10] = 'again',
-		[ 11] = 'again',
-		[ 12] = 'again',
-		[ 14] = 'again',
-		[ 20] = 'again',
-		[ 21] = 'again',
-		[ 22] = 'again',
-		[ 23] = 'ok', -- partial transfers are ok, since Lsyncd has registered the event that
-		[ 24] = 'ok', -- caused the transfer to be partial and will recall rsync.
-		[ 25] = 'die',
-		[ 30] = 'again',
-		[ 35] = 'again',
-		[255] = 'again',
+
+		--
+		-- if another config provides the same table
+		-- this will not be inherited (merged) into that one
+		--
+		-- if it does not, integer keys are to be copied
+		-- verbatim
+		--
+		_merge  = false,
+		_verbatim = true,
+
+		[   0 ] = 'ok',
+		[   1 ] = 'die',
+		[   2 ] = 'die',
+		[   3 ] = 'again',
+		[   4 ] = 'die',
+		[   5 ] = 'again',
+		[   6 ] = 'again',
+		[  10 ] = 'again',
+		[  11 ] = 'again',
+		[  12 ] = 'again',
+		[  14 ] = 'again',
+		[  20 ] = 'again',
+		[  21 ] = 'again',
+		[  22 ] = 'again',
+		-- partial transfers are ok, since Lsyncd has registered the event that
+		-- caused the transfer to be partial and will recall rsync.
+		[  23 ] = 'ok',
+		[  24 ] = 'ok',
+		[  25 ] = 'die',
+		[  30 ] = 'again',
+		[  35 ] = 'again',
+		[ 255 ] = 'again',
 	},
 
 	-----
 	-- Exitcodes of ssh and what to do.
 	--
 	sshExitCodes = {
-		[0]   = 'ok',
-		[255] = 'again',
+
+		--
+		-- if another config provides the same table
+		-- this will not be inherited (merged) into that one
+		--
+		-- if it does not, integer keys are to be copied
+		-- verbatim
+		--
+		_merge = false,
+		_verbatim = true,
+
+		[   0 ] = 'ok',
+		[ 255 ] = 'again',
 	},
 
 	-----

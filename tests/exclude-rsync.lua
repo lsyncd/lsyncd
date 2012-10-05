@@ -73,7 +73,7 @@ end
 cwriteln("testing startup excludes");
 writefiles();
 cwriteln("starting Lsyncd");
-local pid = spawn("./lsyncd", cfgfile);
+local pid = spawn("./lsyncd", cfgfile, '-log', 'all');
 cwriteln("waiting for Lsyncd to start");
 posix.sleep(3)
 cwriteln("testing excludes after startup");

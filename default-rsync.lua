@@ -15,15 +15,19 @@
 --
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
 if not default then
-	error('default not loaded')
+	error( 'default not loaded' )
 end
+
 
 if default.rsync then
-	error('default-rsync already loaded')
+	error( 'default-rsync already loaded' )
 end
 
+
 default.rsync = { }
+local rsync = default.rsync
 
 --
 -- Spawns rsync for a list of events
@@ -31,7 +35,7 @@ default.rsync = { }
 -- Exlcusions are already handled by not having
 -- events for them.
 --
-default.rsync.action = function( inlet )
+rsync.action = function( inlet )
 
 	--
 	-- gets all events ready for syncing
@@ -51,10 +55,10 @@ default.rsync.action = function( inlet )
 		end
 
 		return p:
-			gsub('%?', '\\?'):
-			gsub('%*', '\\*'):
-			gsub('%[', '\\['):
-			gsub('%]', '\\]')
+			gsub( '%?', '\\?' ):
+			gsub( '%*', '\\*' ):
+			gsub( '%[', '\\[' ):
+			gsub( '%]', '\\]' )
 	end
 
 	--
@@ -153,10 +157,11 @@ default.rsync.action = function( inlet )
 
 end
 
+
 --
 -- Spawns the recursive startup sync
 --
-init = function(event)
+rsync.init = function(event)
 
 	local config = event.config
 	local inlet = event.inlet
@@ -216,10 +221,11 @@ init = function(event)
 	end
 end
 
+
 --
 -- Prepares and checks a syncs configuration on startup.
 --
-default.rsync.prepare = function( config )
+rsync.prepare = function( config )
 
 	if not config.target then
 		error(
@@ -317,19 +323,22 @@ default.rsync.prepare = function( config )
 	end
 end
 
+
 --
 -- rsync uses default collect
 --
 
+
 --
 -- By default do deletes.
 --
-default.rsync.delete = true
+rsync.delete = true
+
 
 --
 -- Calls rsync with this default options
 --
-default.rsync.rsync = {
+rsync.rsync = {
 	-- The rsync binary to be called.
 	binary       = '/usr/bin/rsync',
 	links        = true,
@@ -337,12 +346,13 @@ default.rsync.rsync = {
 	protectArgs  = true
 }
 
+
 --
 -- Exit codes for rsync.
 --
-default.rsync.exitcodes = default.rsyncExitCodes
+rsync.exitcodes = default.rsyncExitCodes
 
 --
 -- Default delay
 --
-default.rsync.delay = 15
+rsync.delay = 15

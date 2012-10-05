@@ -30,7 +30,7 @@ if lsyncd_version then
 	lsyncd.terminate( -1 )
 end
 
-lsyncd_version = '2.0.7'
+lsyncd_version = '2.1.0-beta'
 
 --
 -- Hides the core interface from user scripts.
@@ -1630,12 +1630,12 @@ local Sync = ( function( )
 
 		log(
 			'Function',
-			'delay(',
+			'delay( ',
 				self.config.name, ', ',
 				etype, ', ',
 				path, ', ',
 				path2,
-			')'
+			' )'
 		)
 
 		-- TODO
@@ -1777,14 +1777,24 @@ local Sync = ( function( )
 		)
 
 		if nd.etype == 'Init' or nd.etype == 'Blanket' then
-			-- always stack blanket events on the last event
-			log('Delay', 'Stacking ',nd.etype,' event.')
+
+			-- always stack init or blanket events on the last event
+			log(
+				'Delay',
+				'Stacking ',
+				nd.etype,
+				' event.'
+			)
+
 			if self.delays.size > 0 then
 				stack( self.delays[ self.delays.last ], nd )
 			end
+
 			nd.dpos = Queue.push( self.delays, nd )
 			recurse( )
+
 			return
+
 		end
 
 		-- detects blocks and combos by working from back until
@@ -1896,11 +1906,10 @@ local Sync = ( function( )
 
 		log(
 			'Function',
-			'invokeActions("',
-			self.config.name,
-			'",',
-			timestamp,
-			')'
+			'invokeActions( "',
+				self.config.name, '", ',
+				timestamp,
+			' )'
 		)
 
 		if self.processes:size( ) >= self.config.maxProcesses then
@@ -1909,6 +1918,7 @@ local Sync = ( function( )
 		end
 
 		for _, d in Queue.qpairs( self.delays ) do
+
 			-- if reached the global limit return
 			if settings.maxProcesses and
 				processCount >= settings.maxProcesses
@@ -1927,12 +1937,14 @@ local Sync = ( function( )
 			end
 
 			if d.status == 'wait' then
+
 				-- found a waiting delay
 				if d.etype ~= 'Init' then
 					self.config.action( self.inlet )
 				else
 					self.config.init( InletFactory.d2e( d ) )
 				end
+
 				if self.processes:size( ) >= self.config.maxProcesses then
 					-- no further processes
 					return
@@ -1980,8 +1992,11 @@ local Sync = ( function( )
 	-- Used as startup marker to call init asap.
 	--
 	local function addInitDelay( self )
+
 		local newd = Delay.new( 'Init', self, true, '' )
+
 		newd.dpos = Queue.push( self.delays, newd )
+
 		return newd
 	end
 
@@ -2113,7 +2128,7 @@ local Syncs = ( function( )
 	local round = 1
 
 	--
-	-- The cycle() sheduler goes into the next round of roundrobin.
+	-- The cycle( ) sheduler goes into the next round of roundrobin.
 	--
 	local function nextRound( )
 
@@ -2141,30 +2156,84 @@ local Syncs = ( function( )
 	end
 
 	--
-	-- Inheritly copies all non integer keys from
-	-- table copy source ( cs ) to
-	-- table copy destination ( cd ).
+	-- Helper function for inherit
+	-- defined below
 	--
-	-- All entries with integer keys are treated as new sources to copy
+	local inheritKV
+
+	--
+	-- Recurvely inherits a source table to a destionation table
+	-- copying all keys from source.
+	--
+	-- table copy source ( cs )
+	-- table copy destination ( cd )
+	--
+	-- All entries with integer keys are inherited as additional
+	-- sources for non-verbatim tables
 	--
 	local function inherit( cd, cs )
 
-		-- first copies from source all
-		-- non-defined non-integer keyed values
+		--
+		-- First copies all entries with non-integer keys
+		-- tables are merged, already present keys are not
+		-- overwritten
+		--
+		-- For verbatim tables integer keys are treated like
+		-- non integer keys
+		--
 		for k, v in pairs( cs ) do
-			if type( k ) ~= 'number' and cd[ k ] == nil then
-				cd[ k ] = v
+			if type( k ) ~= 'number' or cs._verbatim == true then
+				inheritKV( cd, k, v )
 			end
 		end
 
-		-- first recurses into all integer keyed tables
-		for i, v in ipairs( cs ) do
-			if type( v ) == 'table' then
-				inherit( cd, v )
+		--
+		-- recursevely inherits all integer keyed tables
+		-- ( for non-verbatim tables )
+		--
+		if cs._verbatim ~= true then
+
+			local n = nil
+			for k, v in ipairs( cs ) do
+				n = k
+				if type( v ) == 'table' then
+					inherit( cd, v )
+				else
+					cd[ #cd + 1 ] = v
+				end
 			end
+
+		end
+	end
+
+	--
+	-- Helper to inherit. Inherits one key.
+	--
+	inheritKV = function( cd, k, v )
+
+		local dtype = type( cd [ k ] )
+
+		if type( v ) == 'table' then
+
+			if dtype == 'nil' then
+
+				cd[ k ] = { }
+				inherit( cd[ k ], v )
+
+			elseif dtype == 'table' and v._merge ~= false then
+
+				inherit( cd[ k ], v )
+
+			end
+
+		elseif dtype == 'nil' then
+
+			cd[ k ] = v
+
 		end
 
 	end
+
 
 	--
 	-- Adds a new sync (directory-tree to observe).
@@ -2175,7 +2244,7 @@ local Syncs = ( function( )
 		-- from integer keyed tables
 		local uconfig = config
 		config = { }
-		inherit( config, uconfig )
+		inherit( config, uconfig, false )
 
 		-- Lets settings or commandline override delay values.
 		if settings then
@@ -2227,7 +2296,7 @@ local Syncs = ( function( )
 				'Error',
 				info.short_src, ':',
 				info.currentline,
-				': no actions specified, use e.g. "config = default.rsync".'
+				': no actions specified.'
 			)
 
 			terminate( -1 )
@@ -2391,14 +2460,21 @@ local Inotify = ( function( )
 		pathwds[ path ] = nil
 	end
 
-	-----
+
+	--
 	-- Adds watches for a directory (optionally) including all subdirectories.
 	--
 	-- @param path       absolute path of directory to observe
 	-- @param recurse    true if recursing into subdirs
 	--
 	local function addWatch(path)
-		log('Function','Inotify.addWatch(',path,')')
+
+		log(
+			'Function',
+			'Inotify.addWatch( ',
+				path,
+			' )'
+		)
 
 		if not Syncs.concerns(path) then
 			log('Inotify', 'not concerning "',path,'"')
@@ -3075,9 +3151,9 @@ local StatusFile = ( function( )
 
 		log(
 			'Function',
-			'write(',
-			timestamp,
-			')'
+			'write( ',
+				timestamp,
+			' )'
 		)
 
 		-- takes care not write too often
@@ -3313,20 +3389,25 @@ function runner.cycle(
 )
 
 	if lsyncdStatus == 'fade' then
+
 		if processCount > 0 then
+
 			log(
 				'Normal',
 				'waiting for ',
 				processCount,
 				' more child processes.'
 			)
+
 			return true
 		else
+
 			return false
 		end
 	end
 
 	if lsyncdStatus ~= 'run' then
+
 		error( 'runner.cycle() called while not running!' )
 	end
 
@@ -3340,17 +3421,19 @@ function runner.cycle(
 		processCount < settings.maxProcesses
 	then
 		local start = Syncs.getRound( )
+
 		local ir = start
 
 		repeat
+
 			local s = Syncs.get( ir )
 			s:invokeActions( timestamp )
 			ir = ir + 1
 
 			if ir > Syncs.size( ) then
+
 				ir = 1
 			end
-
 		until ir == start
 
 		Syncs.nextRound( )
@@ -3652,13 +3735,19 @@ end
 --
 function runner.initialize( firstTime )
 
+	--
 	-- creates settings if user didnt
+	--
 	settings = settings or {}
 
+	--
 	-- From this point on, no globals may be created anymore
-	lockGlobals()
+	--
+	lockGlobals( )
 
-	-- copies simple settings with numeric keys to 'key=true' settings.
+	--
+	-- copies simple settings with numeric keys to 'key = true' settings.
+	--
 	for k, v in ipairs( settings ) do
 
 		if settings[ v ] then
@@ -3714,23 +3803,23 @@ function runner.initialize( firstTime )
 	end
 
 	if settings.nodaemon then
-		lsyncd.configure('nodaemon')
+		lsyncd.configure( 'nodaemon' )
 	end
 
 	if settings.logfile then
-		lsyncd.configure('logfile', settings.logfile)
+		lsyncd.configure( 'logfile', settings.logfile )
 	end
 
 	if settings.logident then
-		lsyncd.configure('logident', settings.logident)
+		lsyncd.configure( 'logident', settings.logident )
 	end
 
 	if settings.logfacility then
-		lsyncd.configure('logfacility', settings.logfacility)
+		lsyncd.configure( 'logfacility', settings.logfacility )
 	end
 
 	if settings.pidfile then
-		lsyncd.configure('pidfile', settings.pidfile)
+		lsyncd.configure( 'pidfile', settings.pidfile )
 	end
 
 	--
@@ -3753,6 +3842,7 @@ function runner.initialize( firstTime )
 
 	-- from now on use logging as configured instead of stdout/err.
 	lsyncdStatus = 'run';
+
 	lsyncd.configure( 'running' );
 
 	local ufuncs = {
@@ -3766,34 +3856,49 @@ function runner.initialize( firstTime )
 
 	-- translates layer 3 scripts
 	for _, s in Syncs.iwalk() do
+
 		-- checks if any user functions is a layer 3 string.
 		local config = s.config
+
 		for _, fn in ipairs(ufuncs) do
+
 			if type(config[fn]) == 'string' then
+
 				local ft = functionWriter.translate(config[fn])
 				config[fn] = assert(loadstring('return '..ft))()
+
 			end
+
 		end
 	end
 
 	-- runs through the Syncs created by users
 	for _, s in Syncs.iwalk( ) do
+
 		if s.config.monitor == 'inotify' then
+
 			Inotify.addSync( s, s.source )
+
 		elseif s.config.monitor == 'fsevents' then
+
 			Fsevents.addSync( s, s.source )
+
 		else
+
 			error(
 				'sync ' ..
 				s.config.name ..
 				' has no known event monitor interface.'
 			)
+
 		end
 
 		-- if the sync has an init function, the init delay
 		-- is stacked which causes the init function to be called.
 		if s.config.init then
+
 			s:addInitDelay( )
+
 		end
 	end
 
