@@ -16,344 +16,340 @@
 --
 
 if not default then
-	error('default not loaded');
+	error( 'default not loaded' );
+end
+
+if not default.rsync then
+	error( 'default.rsync not loaded' );
 end
 
 if default.rsyncssh then
-	error('default-rsyncssh already loaded');
+	error( 'default-rsyncssh already loaded' );
 end
 
-default.rsyncssh = {
+--
+-- rsyncssh extends default.rsync
+--
+local rsyncssh = { default.rsync }
+default.rsyncssh = rsyncssh
 
-	--
-	-- Spawns rsync for a list of events
-	--
-	action = function(inlet)
+--
+-- used to ensure there aren't typos in the keys
+--
+rsyncssh.checkgauge = {
 
-		local event, event2 = inlet.getEvent()
-		local config = inlet.getConfig()
+	-- unsets the inherited value of from default.rsync
+	target     =  false,
+	onMove     =  true,
 
-		-- makes move local on host
-		-- if fails deletes the source...
-		if event.etype == 'Move' then
-			log('Normal', 'Moving ',event.path,' -> ',event2.path)
-			spawn(event, '/usr/bin/ssh',
-				config.host,
-				'mv',
-				'\"' .. config.targetdir .. event.path .. '\"',
-				'\"' .. config.targetdir .. event2.path .. '\"',
-				'||', 'rm', '-rf',
-				'\"' .. config.targetdir .. event.path .. '\"')
+	-- rsyncssh users host and targetdir
+	host       =  true,
+	targetdir  =  true,
+
+	-- ssh settings
+	ssh = {
+		binary  =  true,
+		port    =  true,
+		_extra  =  true
+	},
+
+	-- xargs settings
+	xargs = {
+		binary    = true,
+		delimiter = true,
+		_extra    = true
+	}
+}
+
+--
+-- Spawns rsync for a list of events
+--
+rsyncssh.action = function( inlet )
+
+	local event, event2 = inlet.getEvent()
+	local config = inlet.getConfig()
+
+	-- makes move local on target host
+	-- if the move fails, it deletes the source
+	if event.etype == 'Move' then
+		log('Normal', 'Moving ',event.path,' -> ',event2.path)
+
+		spawn(
+			event,
+			config.ssh.binary,
+--			config.ssh._computed, TODO XXX
+			config.host,
+			'mv',
+			'\"' .. config.targetdir .. event.path .. '\"',
+			'\"' .. config.targetdir .. event2.path .. '\"',
+			'||', 'rm', '-rf',
+			'\"' .. config.targetdir .. event.path .. '\"')
+		return
+	end
+
+	-- uses ssh to delete files on remote host
+	-- instead of constructing rsync filters
+
+	if event.etype == 'Delete' then
+		if not config.delete then
+			inlet.discardEvent(event)
 			return
 		end
 
-		-- uses ssh to delete files on remote host
-		-- instead of constructing rsync filters
-
-		if event.etype == 'Delete' then
-
-			if not config.delete then
-				inlet.discardEvent(event)
-				return
-			end
-
-			local elist = inlet.getEvents(
-				function(e)
-					return e.etype == 'Delete'
-				end
-			)
-
-			local paths = elist.getPaths(
-				function(etype, path1, path2)
-					if path2 then
-						return config.targetdir..path1, config.targetdir..path2
-					else
-						return config.targetdir..path1
-					end
-				end
-			)
-
-			for _, v in pairs(paths) do
-				if string.match(v, '^%s*/+%s*$') then
-					log('Error', 'refusing to `rm -rf /` the target!')
-					terminate(-1) -- ERRNO
-				end
-			end
-
-			log('Normal', 'Deleting list\n', table.concat(paths, '\n'))
-
-			local params = {}
-
-			if config.port then
-				params[#params + 1] = 'p'
-				params[#params + 1] = config.port
-			end
-
-			spawn(
-				elist,
-				config.ssh.binary,
-				'<', table.concat(paths, config.xargs.delimiter),
-				params,
-				config.ssh._extra,
-				config.host,
-				config.xargs.binary,
-				config.xargs._extra
-			)
-
-			return
-		end
-
-		-- for everything else spawn a rsync
+		-- gets all other deletes ready to be
+		-- executed
 		local elist = inlet.getEvents(
-			function(e)
-				-- TODO use a table
-				return e.etype ~= 'Move' and
-				       e.etype ~= 'Delete' and
-					   e.etype ~= 'Init' and
-					   e.etype ~= 'Blanket'
+			function( e )
+				return e.etype == 'Delete'
 			end
 		)
 
-		local paths = elist.getPaths()
+		-- returns the paths of the delete list
+		local paths = elist.getPaths(
+			function( etype, path1, path2 )
+				if path2 then
+					return config.targetdir..path1, config.targetdir..path2
+				else
+					return config.targetdir..path1
+				end
+			end
+		)
 
-		-- removes trailing slashes from dirs.
-		for k, v in ipairs(paths) do
-			if string.byte(v, -1) == 47 then
-				paths[k] = string.sub(v, 1, -2)
+		-- ensures none of the paths is '/'
+		for _, v in pairs( paths ) do
+			if string.match(v, '^%s*/+%s*$') then
+				log('Error', 'refusing to `rm -rf /` the target!')
+				terminate(-1) -- ERRNO
 			end
 		end
 
-		local sPaths = table.concat(paths, '\n')
-		local zPaths = table.concat(paths, '\000')
-		log('Normal', 'Rsyncing list\n', sPaths)
+		log(
+			'Normal',
+			'Deleting list\n',
+			table.concat( paths, '\n' )
+		)
+
+		local params = { }
 
 		spawn(
 			elist,
-			config.rsyncBinary,
-			'<', zPaths,
-			config.rsyncOpts,
-			'--from0',
-			'--files-from=-',
-			config.source,
-			config.host .. ':' .. config.targetdir
+			config.ssh.binary,
+			'<', table.concat(paths, config.xargs.delimiter),
+			params,
+			-- config.ssh._computed, TODO XXX
+			config.host,
+			config.xargs.binary,
+			config.xargs._extra
 		)
-	end,
 
-	-----
-	-- Called when collecting a finished child process
+		return
+	end
+
 	--
-	collect = function(agent, exitcode)
+	-- for everything else a rsync is spawned
+	--
+	local elist = inlet.getEvents(
+		function(e)
+			-- TODO use a table
+			return e.etype ~= 'Move' and
+			       e.etype ~= 'Delete' and
+				   e.etype ~= 'Init' and
+				   e.etype ~= 'Blanket'
+		end
+	)
 
-		local config = agent.config
+	local paths = elist.getPaths( )
 
-		if not agent.isList and agent.etype == 'Init' then
-
-			local rc = config.rsyncExitCodes[exitcode]
-
-			if rc == 'ok' then
-				log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
-			elseif rc == 'again' then
-				if settings.insist then
-					log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
-				else
-					log('Error', 'Temporary or permanent failure on startup of "',
-					agent.source, '". Terminating since "insist" is not set.');
-					terminate(-1) -- ERRNO
-				end
-			elseif rc == 'die' then
-				log('Error', 'Failure on startup of "',agent.source,'": ', exitcode)
-			else
-				log('Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode)
-				rc = 'die'
-			end
-
-			return rc
-
+	--
+	-- removes trailing slashes from dirs.
+	--
+	for k, v in ipairs( paths ) do
+		if string.byte(v, -1) == 47 then
+			paths[k] = string.sub(v, 1, -2)
 		end
 
-		if agent.isList then
+	end
 
-			local rc = config.rsyncExitCodes[exitcode]
+	local sPaths = table.concat(paths, '\n')
+	local zPaths = table.concat(paths, '\000')
 
-			if rc == 'ok' then
-				log('Normal', 'Finished (list): ',exitcode)
-			elseif rc == 'again' then
-				log('Normal', 'Retrying (list): ',exitcode)
-			elseif rc == 'die' then
-				log('Error',  'Failure (list): ', exitcode)
+	log('Normal', 'Rsyncing list\n', sPaths)
+
+	spawn(
+		elist,
+		config.rsync.binary,
+		'<', zPaths,
+		config.rsync._computed,
+		'--from0',
+		'--files-from=-',
+		config.source,
+		config.host .. ':' .. config.targetdir
+	)
+end
+
+-----
+-- Called when collecting a finished child process
+--
+rsyncssh.collect = function( agent, exitcode )
+
+	local config = agent.config
+
+	if not agent.isList and agent.etype == 'Init' then
+		local rc = config.rsyncExitCodes[exitcode]
+
+		if rc == 'ok' then
+			log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
+		elseif rc == 'again' then
+			if settings.insist then
+				log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
 			else
-				log('Error', 'Unknown exitcode (list): ',exitcode)
-				rc = 'die'
+				log('Error', 'Temporary or permanent failure on startup of "',
+				agent.source, '". Terminating since "insist" is not set.');
+				terminate(-1) -- ERRNO
 			end
 
-			return rc
-
+		elseif rc == 'die' then
+			log('Error', 'Failure on startup of "',agent.source,'": ', exitcode)
 		else
-
-			local rc = config.sshExitCodes[exitcode]
-
-			if rc == 'ok' then
-				log('Normal', 'Finished ',agent.etype,' ',agent.sourcePath,': ',exitcode)
-			elseif rc == 'again' then
-				log('Normal', 'Retrying ',agent.etype,' ',agent.sourcePath,': ',exitcode)
-			elseif rc == 'die' then
-				log('Normal', 'Failure ',agent.etype,' ',agent.sourcePath,': ',exitcode)
-			else
-				log('Error', 'Unknown exitcode ',agent.etype,' ',agent.sourcePath,': ',exitcode)
-				rc = 'die'
-			end
-
-			return rc
-
+			log('Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode)
+			rc = 'die'
 		end
 
-	end,
+		return rc
 
-	--
-	-- spawns the recursive startup sync
-	--
-	init = function(event)
+	end
 
-		local config   = event.config
-		local inlet    = event.inlet
-		local excludes = inlet.getExcludes()
-		local target   = config.host .. ':' .. config.targetdir
-		local delete   = nil
-
-		if config.delete then
-			delete = { '--delete', '--ignore-errors' };
-		end
-
-		if #excludes == 0 then
-			log('Normal', 'Recursive startup rsync: ',config.source,' -> ',target)
-			spawn(
-				event, config.rsyncBinary,
-				delete,
-				'-r',
-				config.rsyncOpts,
-				config.source,
-				target
-			)
+	if agent.isList then
+		local rc = config.rsyncExitCodes[exitcode]
+		if rc == 'ok' then
+			log('Normal', 'Finished (list): ',exitcode)
+		elseif rc == 'again' then
+			log('Normal', 'Retrying (list): ',exitcode)
+		elseif rc == 'die' then
+			log('Error',  'Failure (list): ', exitcode)
 		else
-			local exS = table.concat(excludes, '\n')
-			log('Normal', 'Recursive startup rsync: ',config.source,
-				' -> ',target,' with excludes.')
-			spawn(
-				event, config.rsyncBinary,
-				'<', exS,
-				'--exclude-from=-',
-				delete,
-				'-r',
-				config.rsyncOpts,
-				config.source,
-				target
-			)
+			log('Error', 'Unknown exitcode (list): ',exitcode)
+			rc = 'die'
 		end
-	end,
+		return rc
+	else
+		local rc = config.sshExitCodes[exitcode]
 
-	--
-	-- checks the configuration.
-	--
-	prepare = function(config)
-
-		if not config.host then
-			error('default.rsyncssh needs "host" configured', 4)
+		if rc == 'ok' then
+			log('Normal', 'Finished ',agent.etype,' ',agent.sourcePath,': ',exitcode)
+		elseif rc == 'again' then
+			log('Normal', 'Retrying ',agent.etype,' ',agent.sourcePath,': ',exitcode)
+		elseif rc == 'die' then
+			log('Normal', 'Failure ',agent.etype,' ',agent.sourcePath,': ',exitcode)
+		else
+			log('Error', 'Unknown exitcode ',agent.etype,' ',agent.sourcePath,': ',exitcode)
+			rc = 'die'
 		end
 
-		if not config.targetdir then
-			error('default.rsyncssh needs "targetdir" configured', 4)
-		end
+		return rc
+	end
 
-		if config.rsyncOps then
-			error('did you mean rsyncOpts with "t"?', 4)
-		end
+end
 
-		-- appends a slash to the targetdir if missing
-		if string.sub(config.targetdir, -1) ~= '/' then
-			config.targetdir = config.targetdir .. '/'
-		end
-	end,
+--
+-- checks the configuration.
+--
+rsyncssh.prepare = function( config )
 
-	--
-	-- the rsync binary called
-	--
-	rsyncBinary = '/usr/bin/rsync',
+	default.rsync.prepare( config, 5, true )
 
-	--
-	-- calls rsync with this default short opts
-	--
-	rsyncOpts = '-lts',
+	if not config.host then
+		error('default.rsyncssh needs "host" configured', 4)
+	end
 
-	--
-	-- allow processes
-	--
-	maxProcesses = 1,
+	if not config.targetdir then
+		error('default.rsyncssh needs "targetdir" configured', 4)
+	end
 
-	--
-	-- The core should not split move events
-	--
-	onMove = true,
+	if config.rsyncOps then
+		error('did you mean rsyncOpts with "t"?', 4)
+	end
 
-	--
-	-- default delay
-	--
-	delay = 15,
+	-- appends a slash to the targetdir if missing
+	if string.sub(config.targetdir, -1) ~= '/' then
+		config.targetdir = config.targetdir .. '/'
+	end
+
+end
+
+--
+-- allow processes
+--
+rsyncssh.maxProcesses = 1
+
+--
+-- The core should not split move events
+--
+rsyncssh.onMove = true
+
+--
+-- default delay
+--
+rsyncssh.delay = 15
 
 
-	--
-	-- by default do deletes
-	--
-	delete = true,
+--
+-- no default exit codes
+--
+rsyncssh.exitcodes = false
 
-	--
-	-- rsync exit codes
-	--
-	rsyncExitCodes = default.rsyncExitCodes,
+--
+-- rsync exit codes
+--
+rsyncssh.rsyncExitCodes = default.rsyncExitCodes
 
-	--
-	-- ssh exit codes
-	--
-	sshExitCodes = default.sshExitCodes,
+--
+-- ssh exit codes
+--
+rsyncssh.sshExitCodes = default.sshExitCodes
 
-	--
-	-- xargs calls configuration
-	--
-	-- xargs is used to delete multiple remote files, when ssh access is
-	-- available this is simpler than to build filters for rsync for this.
-	--
-	xargs = {
-
-		--
-		-- the binary called (on target host)
-		binary = '/usr/bin/xargs',
-
-		--
-		-- delimiter, uses null by default, you might want to override this for older
-		-- by for example '\n'
-		delimiter = '\000',
-
-		--
-		-- extra parameters
-		_extra = { '-0', 'rm -rf' }
-	},
+--
+-- xargs calls configuration
+--
+-- xargs is used to delete multiple remote files, when ssh access is
+-- available this is simpler than to build filters for rsync for this.
+--
+rsyncssh.xargs = {
 
 	--
-	-- ssh calls configuration
+	-- the binary called (on target host)
+	binary = '/usr/bin/xargs',
+
 	--
-	-- ssh is used to move and delete files on the target host
+	-- delimiter, uses null by default, you might want to override this for older
+	-- by for example '\n'
+	delimiter = '\000',
+
 	--
-	ssh = {
-		--
-		-- the binary called
-		binary = '/usr/bin/ssh',
-
-		--
-		-- if set connect to this port
-		port = nil,
-
-		--
-		-- extra parameters
-		_extra = { }
-	}
-
+	-- extra parameters
+	_extra = { '-0', 'rm -rf' }
 }
+
+--
+-- ssh calls configuration
+--
+-- ssh is used to move and delete files on the target host
+--
+rsyncssh.ssh = {
+
+	--
+	-- the binary called
+	--
+	binary = '/usr/bin/ssh',
+
+	--
+	-- if set connect to this port
+	--
+	port = nil,
+
+	--
+	-- extra parameters
+	--
+	_extra = { }
+}
+

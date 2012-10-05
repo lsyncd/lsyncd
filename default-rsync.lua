@@ -28,6 +28,64 @@ end
 
 default.rsync = { }
 local rsync = default.rsync
+-- uses default collect
+
+--
+-- used to ensure there aren't typos in the keys
+--
+rsync.checkgauge = {
+
+	default.checkgauge,
+
+	-- unsets default user action handlers
+	onCreate   =  false,
+	onModify   =  false,
+	onDelete   =  false,
+	onStartup  =  false,
+	onMove     =  false,
+
+	delete     =  true,
+	exclude    =  true,
+	source     =  true,
+	target     =  true,
+
+	rsync  = {
+		-- rsync binary
+		binary            =  true,
+
+		-- rsync shortflags
+		verbose           =  true,
+		quiet             =  true,
+		checksum          =  true,
+		update            =  true,
+		links             =  true,
+		copy_links        =  true,
+		hard_links        =  true,
+		perms             =  true,
+		executability     =  true,
+		acls              =  true,
+		xattrs            =  true,
+		owner             =  true,
+        group             =  true,
+        times             =  true,
+		sparse            =  true,
+		dry_run           =  true,
+        whole_file        =  true,
+		one_file_system   =  true,
+		prune_empty_dirs  =  true,
+		ignore_times      =  true,
+		compress          =  true,
+		cvs_exclude       =  true,
+		protect_args      =  true,
+		ipv4              =  true,
+		ipv6              =  true,
+
+		-- further rsync options
+		rsh               =  true,
+		rsync_path        =  true,
+	},
+}
+
 
 --
 -- Spawns rsync for a list of events
@@ -163,10 +221,19 @@ end
 --
 rsync.init = function(event)
 
-	local config = event.config
-	local inlet = event.inlet
+	local config   = event.config
+	local inlet    = event.inlet
 	local excludes = inlet.getExcludes( )
-	local delete = nil
+	local delete   = nil
+	local target   = config.target
+
+	if not target then
+		if not config.host then
+			error('Internal fail, Neither target nor host is configured')
+		end
+
+		target = config.host .. ':' .. config.targetdir
+	end
 
 	if config.delete then
 		delete = { '--delete', '--ignore-errors' }
@@ -179,7 +246,7 @@ rsync.init = function(event)
 			'recursive startup rsync: ',
 			config.source,
 			' -> ',
-			config.target
+			target
 		)
 
 		spawn(
@@ -189,7 +256,7 @@ rsync.init = function(event)
 			config.rsync._computed,
 			'-r',
 			config.source,
-			config.target
+			target
 		)
 
 	else
@@ -202,7 +269,7 @@ rsync.init = function(event)
 			'recursive startup rsync: ',
 			config.source,
 			' -> ',
-			config.target,
+			target,
 			' excluding\n',
 			exS
 		)
@@ -216,7 +283,7 @@ rsync.init = function(event)
 			config.rsync._computed,
 			'-r',
 			config.source,
-			config.target
+			target
 		)
 	end
 end
@@ -225,19 +292,30 @@ end
 --
 -- Prepares and checks a syncs configuration on startup.
 --
-rsync.prepare = function( config )
+rsync.prepare = function(
+	config,    -- the configuration
+	level,     -- additional error level for inherited use ( by rsyncssh )
+	skipTarget -- used by rsyncssh, do not check for target
+)
 
-	if not config.target then
+	level = level or 4
+
+	--
+	-- First let default.prepare test the checkgauge
+	--
+	default.prepare( config, level + 6 )
+
+	if not skipTarget and not config.target then
 		error(
 			'default.rsync needs "target" configured',
-			4
+			level
 		)
 	end
 
 	if config.rsyncOps then
 		error(
 			'"rsyncOps" is outdated please use the new rsync = { ... } syntax.',
-			4
+			level
 		)
 	end
 
@@ -246,7 +324,7 @@ rsync.prepare = function( config )
 			'"rsyncOpts" is outdated in favor of the new rsync = { ... } syntax\n"' +
 			'for which you provided the _extra attribute as well.\n"' +
 			'Please remove rsyncOpts from your config.',
-			4
+			level
 		)
 	end
 
@@ -265,7 +343,7 @@ rsync.prepare = function( config )
 			'"rsyncBinary is outdated in favor of the new rsync = { ... } syntax\n"'+
 			'for which you provided the binary attribute as well.\n"' +
 			"Please remove rsyncBinary from your config.'",
-			4
+			level
 		)
 	end
 
@@ -283,50 +361,84 @@ rsync.prepare = function( config )
 	if config.rsync._computed then
 		error(
 			'please do not use the internal rsync._computed parameter',
-			4
+			level
 		)
 	end
 
 	-- computes the rsync arguments into one list
 	local rsync = config.rsync;
+
 	rsync._computed = { true }
 	local computed = rsync._computed
+	local computedN = 1
+
+	local shortFlags = {
+		verbose            = 'v',
+		quiet              = 'q',
+		checksum           = 'c',
+		update             = 'u',
+		links              = 'l',
+		copy_links         = 'L',
+		hard_links         = 'H',
+		perms              = 'p',
+		executability      = 'E',
+		acls               = 'A',
+		xattrs             = 'X',
+		owner              = 'o',
+        group              = 'g',
+        times              = 't',
+		sparse             = 'S',
+		dry_run            = 'n',
+        whole_file         = 'W',
+		one_file_system    = 'x',
+		prune_empty_dirs   = 'm',
+		ignore_times       = 'I',
+		compress           = 'z',
+		cvs_exclude        = 'C',
+		protect_args       = 's',
+		ipv4               = '4',
+		ipv6               = '6'
+	}
+
 	local shorts = { '-' }
+	local shortsN = 2
 
 	if config.rsync._extra then
 		for k, v in ipairs( config.rsync._extra ) do
-			computed[ k + 1 ] = v
+			computed[ computedN ] = v
+			computedN = computedN  + 1
 		end
 	end
 
-	if rsync.links then
-		shorts[ #shorts + 1 ] = 'l'
+	for k, flag in pairs( shortFlags ) do
+		if config.rsync[k] then
+			shorts[ shortsN ] = flag
+			shortsN = shortsN + 1
+		end
 	end
 
-	if rsync.times then
-		shorts[ #shorts + 1 ] = 't'
+	if config.rsync.rsh then
+		computed[ computedN ] = '--rsh=' + config.rsync.rsh
+		computedN = computedN  + 1
 	end
 
-	if rsync.protectArgs then
-		shorts[ #shorts + 1 ] = 's'
+	if config.rsync.rsync_path then
+		computed[ computedN ] = '--rsync-path=' + config.rsync.rsync_path
+		computedN = computedN  + 1
 	end
 
-	if #shorts ~= 1 then
+	if shortsN ~= 2 then
 		computed[ 1 ] = table.concat( shorts, '' )
 	else
 		computed[ 1 ] = { }
 	end
 
 	-- appends a / to target if not present
-	if string.sub(config.target, -1) ~= '/' then
+	if not skipTarget and string.sub(config.target, -1) ~= '/' then
 		config.target = config.target..'/'
 	end
+
 end
-
-
---
--- rsync uses default collect
---
 
 
 --
@@ -334,23 +446,22 @@ end
 --
 rsync.delete = true
 
+--
+-- Rsyncd exitcodes
+--
+rsync.exitcodes  = default.rsyncExitCodes
 
 --
 -- Calls rsync with this default options
 --
 rsync.rsync = {
 	-- The rsync binary to be called.
-	binary       = '/usr/bin/rsync',
-	links        = true,
-	times        = true,
-	protectArgs  = true
+	binary        = '/usr/bin/rsync',
+	links         = true,
+	times         = true,
+	protect_args  = true
 }
 
-
---
--- Exit codes for rsync.
---
-rsync.exitcodes = default.rsyncExitCodes
 
 --
 -- Default delay
