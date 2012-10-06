@@ -26,16 +26,15 @@ if default.rsync then
 end
 
 
-default.rsync = { }
-local rsync = default.rsync
+local rsync = { }
+default.rsync = rsync
+
 -- uses default collect
 
 --
 -- used to ensure there aren't typos in the keys
 --
 rsync.checkgauge = {
-
-	default.checkgauge,
 
 	-- unsets default user action handlers
 	onCreate   =  false,
@@ -46,7 +45,6 @@ rsync.checkgauge = {
 
 	delete     =  true,
 	exclude    =  true,
-	source     =  true,
 	target     =  true,
 
 	rsync  = {

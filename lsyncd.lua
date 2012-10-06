@@ -2119,7 +2119,7 @@ local Syncs = ( function( )
 	--
 	-- the list of all syncs
 	--
-	local list = Array.new( )
+	local syncsList = Array.new( )
 
 	--
 	-- The round robin pointer. In case of global limited maxProcesses
@@ -2134,7 +2134,7 @@ local Syncs = ( function( )
 
 		round = round + 1;
 
-		if round > #list then
+		if round > #syncsList then
 			round = 1
 		end
 
@@ -2152,7 +2152,7 @@ local Syncs = ( function( )
 	-- Returns sync at listpos i
 	--
 	local function get( i )
-		return list[ i ];
+		return syncsList[ i ];
 	end
 
 	--
@@ -2182,7 +2182,17 @@ local Syncs = ( function( )
 		-- non integer keys
 		--
 		for k, v in pairs( cs ) do
-			if type( k ) ~= 'number' or cs._verbatim == true then
+			if
+				(
+					type( k ) ~= 'number' or
+					cs._verbatim == true
+				)
+				and
+				(
+					type( cs._merge ) ~= 'table' or
+					cs._merge[ k ] == true
+				)
+			then
 				inheritKV( cd, k, v )
 			end
 		end
@@ -2211,25 +2221,27 @@ local Syncs = ( function( )
 	--
 	inheritKV = function( cd, k, v )
 
+		-- don't merge inheritance controls
+		if k == '_merge' or k == '_verbatim' then
+			return
+		end
+
 		local dtype = type( cd [ k ] )
 
 		if type( v ) == 'table' then
 
 			if dtype == 'nil' then
-
 				cd[ k ] = { }
 				inherit( cd[ k ], v )
-
-			elseif dtype == 'table' and v._merge ~= false then
-
+			elseif
+				dtype == 'table' and
+				v._merge ~= false
+			then
 				inherit( cd[ k ], v )
-
 			end
 
 		elseif dtype == 'nil' then
-
 			cd[ k ] = v
-
 		end
 
 	end
@@ -2240,22 +2252,42 @@ local Syncs = ( function( )
 	--
 	local function add( config )
 
-		-- Creates a new config table and inherit all keys/values
+		-- Creates a new config table which inherits all keys/values
 		-- from integer keyed tables
 		local uconfig = config
-		config = { }
-		inherit( config, uconfig, false )
 
-		-- Lets settings or commandline override delay values.
+		config = { }
+
+		inherit( config, uconfig )
+
+		--
+		-- last and least defaults are inherited
+		--
+		inherit( config, default )
+
+		local inheritSettings = {
+			'delay',
+			'maxDelays',
+			'maxProcesses'
+		}
+		-- Lets settings or commandline override these values.
 		if settings then
-			config.delay = settings.delay or config.delay
+			for _, v in ipairs( inheritSettings ) do
+				if settings[ v ] then
+					config[ v ] = settings[ v ]
+				end
+			end
 		end
 
-		-- at very first lets the userscript 'prepare' function
-		-- fill out more values.
+		--
+		-- lets the userscript 'prepare' function
+		-- check and complete the config
+		--
 		if type( config.prepare ) == 'function' then
-			-- explicitly gives a writeable copy of config.
+
+			-- prepare is given a writeable copy of config
 			config.prepare( config )
+
 		end
 
 		if not config[ 'source' ] then
@@ -2268,7 +2300,9 @@ local Syncs = ( function( )
 			terminate( -1 )
 		end
 
+		--
 		-- absolute path of source
+		--
 		local realsrc = lsyncd.realdir( config.source )
 
 		if not realsrc then
@@ -2307,20 +2341,6 @@ local Syncs = ( function( )
 			settings = {}
 		end
 
-		local defaultValues = {
-			'action',
-			'collect',
-			'init',
-			'maxDelays',
-			'maxProcesses',
-		}
-
-		for _, dn in pairs( defaultValues ) do
-			if config[ dn ] == nil then
-				config[ dn ] = settings[ dn ] or default[ dn ]
-			end
-		end
-
 		-- the monitor to use
 		config.monitor =
 			settings.monitor or
@@ -2347,7 +2367,9 @@ local Syncs = ( function( )
 
 		--- creates the new sync
 		local s = Sync.new( config )
-		table.insert( list, s )
+
+		table.insert( syncsList, s )
+
 		return s
 	end
 
@@ -2355,21 +2377,21 @@ local Syncs = ( function( )
 	-- Allows a for-loop to walk through all syncs.
 	--
 	local function iwalk( )
-		return ipairs( list )
+		return ipairs( syncsList )
 	end
 
 	--
 	-- Returns the number of syncs.
 	--
 	local size = function( )
-		return #list
+		return #syncsList
 	end
 
 	--
 	-- Tests if any sync is interested in a path.
 	--
 	local function concerns( path )
-		for _, s in ipairs( list ) do
+		for _, s in ipairs( syncsList ) do
 			if s:concerns( path ) then
 				return true
 			end
@@ -3761,41 +3783,54 @@ function runner.initialize( firstTime )
 		settings[ v ]= true
 	end
 
+	--
 	-- all command line settings overwrite config file settings
-
+	--
 	for k, v in pairs( clSettings ) do
-
 		if k ~= 'syncs' then
 			settings[ k ] = v
 		end
 
 	end
 
-	-- implicitly force 'insist' on Lsyncd resets.
+	--
+	-- implicitly forces 'insist' on Lsyncd resets.
+	--
 	if not firstTime then
 		settings.insist = true
 	end
 
+	--
 	-- adds syncs specified by command line.
+	--
 	if clSettings.syncs then
 
 		for _, s in ipairs( clSettings.syncs ) do
 
-			if s[1] == 'rsync' then
+			if s[ 1 ] == 'rsync' then
+
 				sync{
 					default.rsync,
 					source = s[ 2 ],
 					target = s[ 3 ]
 				}
-			elseif s[1] == 'rsyncssh' then
+
+			elseif s[ 1 ] == 'rsyncssh' then
+
 				sync{
 					default.rsyncssh,
 					source = s[ 2 ],
 					host   = s[ 3 ],
 					targetdir=s[ 4 ]
 				}
-			elseif s[1] == 'direct' then
-				sync{ default.direct, source=s[2], target=s[3]}
+
+			elseif s[ 1 ] == 'direct' then
+				sync{
+					default.direct,
+					source=s[ 2 ],
+					target=s[ 3 ]
+				}
+
 			end
 
 		end

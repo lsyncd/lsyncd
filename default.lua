@@ -16,6 +16,21 @@ default = { }
 
 
 --
+-- Only this items are inherited from the default
+-- table
+--
+default._merge = {
+	action          = true,
+	checkgauge      = true,
+	collect         = true,
+	delay           = true,
+	init            = true,
+	maxDelays       = true,
+	maxProcesses    = true,
+	prepare         = true,
+}
+
+--
 -- used to ensure there aren't typos in the keys
 --
 default.checkgauge = {
@@ -33,8 +48,9 @@ default.checkgauge = {
 	onStartup       =  true,
 	onMove          =  true,
 	prepare         =  true,
-	rsyncExitCodes  =  true, -- TODO
-	sshExitCodes    =  true  -- TODO
+	-- rsyncExitCodes  =  true, -- TODO
+	source          =  true,
+	-- sshExitCodes    =  true  -- TODO
 }
 
 --
@@ -196,13 +212,6 @@ end
 
 
 --
--- The maximum number of processes Lsyncd will
--- simultanously spawn for this sync.
---
-default.maxProcesses = 1
-
-
---
 -- The collapsor tries not to have more than these delays.
 -- So it dealy stack does not grow too large,
 -- since calculation for stacking events is n*log(n) (or so)
@@ -210,11 +219,11 @@ default.maxProcesses = 1
 default.maxDelays = 1000
 
 
----
--- a default configuration using /bin/cp|rm|mv.
--- TODO huh?
 --
-default.direct = default_direct
+-- The maximum number of processes Lsyncd will
+-- simultanously spawn for this sync.
+--
+default.maxProcesses = 1
 
 
 --
@@ -294,6 +303,7 @@ default.statusInterval = 10
 local function check(
 	config,
 	gauge,
+	subtable,
 	level
 )
 	for k, v in pairs( config ) do
@@ -301,6 +311,7 @@ local function check(
 		if not gauge[k] then
 			error(
 				'Parameter "'
+				.. subtable
 				.. k
 				.. '" unknown.'
 				.. ' (if this is not a typo add it to checkgauge)',
@@ -314,6 +325,7 @@ local function check(
 
 				error(
 					'Parameter "'
+					.. subtable
 					.. k
 					.. '" must be a table.',
 					level
@@ -321,7 +333,12 @@ local function check(
 
 			end
 
-			check( config[ k ], gauge[ k ], level + 1 )
+			check(
+				config[ k ],
+				gauge[ k ],
+				subtable .. k .. '.',
+				level + 1
+			)
 
 		end
 	end
@@ -335,6 +352,6 @@ default.prepare = function( config, level )
 		return
 	end
 
-	check( config, gauge, level or 2 )
+	check( config, gauge, '', level or 2 )
 end
 
