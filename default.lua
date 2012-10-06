@@ -352,6 +352,6 @@ default.prepare = function( config, level )
 		return
 	end
 
-	check( config, gauge, '', level or 2 )
+	check( config, gauge, '', level + 1 )
 end
 

@@ -39,25 +39,27 @@ default.rsyncssh = rsyncssh
 rsyncssh.checkgauge = {
 
 	-- unsets the inherited value of from default.rsync
-	target     =  false,
-	onMove     =  true,
+	target          =  false,
+	onMove          =  true,
 
 	-- rsyncssh users host and targetdir
-	host       =  true,
-	targetdir  =  true,
+	host            =  true,
+	targetdir       =  true,
+	sshExitCodes    =  true,
+	rsyncExitCodes  =  true,
 
 	-- ssh settings
 	ssh = {
-		binary  =  true,
-		port    =  true,
-		_extra  =  true
+		binary      =  true,
+		port        =  true,
+		_extra      =  true
 	},
 
 	-- xargs settings
 	xargs = {
-		binary    = true,
-		delimiter = true,
-		_extra    = true
+		binary      =  true,
+		delimiter   =  true,
+		_extra      =  true
 	}
 }
 
@@ -254,9 +256,9 @@ end
 --
 -- checks the configuration.
 --
-rsyncssh.prepare = function( config )
+rsyncssh.prepare = function( config, level )
 
-	default.rsync.prepare( config, 5, true )
+	default.rsync.prepare( config, level + 1, true )
 
 	if not config.host then
 		error('default.rsyncssh needs "host" configured', 4)

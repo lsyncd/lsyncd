@@ -30,150 +30,137 @@ if default.direct then
 	error('default-direct already loaded')
 end
 
-default.direct = {
+local direct = { }
 
-	--
-	-- Spawns rsync for a list of events
-	--
-	action = function(inlet)
-		-- gets all events ready for syncing
-		local event, event2 = inlet.getEvent()
-		local config = inlet.getConfig()
+default.direct = direct
 
-		if event.etype == 'Create' then
-			if event.isdir then
-				spawn(
-					event,
-					'/bin/mkdir',
-					event.targetPath
-				)
-			else
-				-- 'cp -t', not supported on OSX
-				spawn(
-					event,
-					'/bin/cp',
-					event.sourcePath,
-					event.targetPathdir
-				)
-			end
-		elseif event.etype == 'Modify' then
-			if event.isdir then
-				error("Do not know how to handle 'Modify' on dirs")
-			end
-			spawn(event,
+--
+-- Spawns rsync for a list of events
+--
+direct.action = function(inlet)
+	-- gets all events ready for syncing
+	local event, event2 = inlet.getEvent()
+	local config = inlet.getConfig()
+
+	if event.etype == 'Create' then
+		if event.isdir then
+			spawn(
+				event,
+				'/bin/mkdir',
+				event.targetPath
+			)
+		else
+			-- 'cp -t', not supported on OSX
+			spawn(
+				event,
 				'/bin/cp',
 				event.sourcePath,
 				event.targetPathdir
 			)
-		elseif event.etype == 'Delete' then
-			if not config.delete then
-				inlet.discardEvent(event)
-			end
-
-			local tp = event.targetPath
-			-- extra security check
-			if tp == '' or tp == '/' or not tp then
-				error('Refusing to erase your harddisk!')
-			end
-			spawn(event, '/bin/rm', '-rf', tp)
-		elseif event.etype == 'Move' then
-			local tp = event.targetPath
-			-- extra security check
-			if tp == '' or tp == '/' or not tp then
-				error('Refusing to erase your harddisk!')
-			end
-			local command = '/bin/mv $1 $2 || /bin/rm -rf $1'
-			if not config.delete then command = '/bin/mv $1 $2'; end
-			spawnShell(
-				event,
-				command,
-				event.targetPath,
-				event2.targetPath)
-		else
-			log('Warn', 'ignored an event of type "',event.etype, '"')
+		end
+	elseif event.etype == 'Modify' then
+		if event.isdir then
+			error("Do not know how to handle 'Modify' on dirs")
+		end
+		spawn(event,
+			'/bin/cp',
+			event.sourcePath,
+			event.targetPathdir
+		)
+	elseif event.etype == 'Delete' then
+		if not config.delete then
 			inlet.discardEvent(event)
 		end
-	end,
 
-	-----
-	-- Called when collecting a finished child process
-	--
-	collect = function(agent, exitcode)
-		local config = agent.config
+		local tp = event.targetPath
+		-- extra security check
+		if tp == '' or tp == '/' or not tp then
+			error('Refusing to erase your harddisk!')
+		end
+		spawn(event, '/bin/rm', '-rf', tp)
+	elseif event.etype == 'Move' then
+		local tp = event.targetPath
+		-- extra security check
+		if tp == '' or tp == '/' or not tp then
+			error('Refusing to erase your harddisk!')
+		end
+		local command = '/bin/mv $1 $2 || /bin/rm -rf $1'
+		if not config.delete then command = '/bin/mv $1 $2'; end
+		spawnShell(
+			event,
+			command,
+			event.targetPath,
+			event2.targetPath)
+	else
+		log('Warn', 'ignored an event of type "',event.etype, '"')
+		inlet.discardEvent(event)
+	end
+end
 
-		if not agent.isList and agent.etype == 'Init' then
-			local rc = config.rsyncExitCodes[exitcode]
-			if rc == 'ok' then
-				log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
-			elseif rc == 'again' then
-				if settings.insist then
-					log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
-				else
-					log('Error', 'Temporary or permanent failure on startup of "',
-					agent.source, '". Terminating since "insist" is not set.');
-					terminate(-1) -- ERRNO
-				end
-			elseif rc == 'die' then
-				log('Error', 'Failure on startup of "',agent.source,'": ', exitcode)
+--
+-- Called when collecting a finished child process
+--
+direct.collect = function(agent, exitcode)
+	local config = agent.config
+
+	if not agent.isList and agent.etype == 'Init' then
+		local rc = config.rsyncExitCodes[exitcode]
+		if rc == 'ok' then
+			log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
+		elseif rc == 'again' then
+			if settings.insist then
+				log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
 			else
-				log('Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode)
-				rc = 'die'
+				log('Error', 'Temporary or permanent failure on startup of "',
+				agent.source, '". Terminating since "insist" is not set.');
+				terminate(-1) -- ERRNO
 			end
-			return rc
+		elseif rc == 'die' then
+			log('Error', 'Failure on startup of "',agent.source,'": ', exitcode)
+		else
+			log('Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode)
+			rc = 'die'
 		end
+		return rc
+	end
 
-		-- everything else is just as it is,
-		-- there is no network to retry something.
-		return
-	end,
+	-- everything else is just as it is,
+	-- there is no network to retry something.
+	return
+end
 
-	-----
-	-- Spawns the recursive startup sync
-	-- (currently) identical to default rsync.
-	--
-	init = default.rsync.init,
+--
+-- Spawns the recursive startup sync
+-- (currently) identical to default rsync.
+--
+direct.init = default.rsync.init
 
-	-----
-	-- Checks the configuration.
-	--
-	prepare = function(config)
-		if not config.target then
-			error('default.direct needs "target".', 4)
-		end
+--
+-- Checks the configuration.
+--
+direct.prepare = function( config, level )
 
-		if config.rsyncOps then
-			error('did you mean rsyncOpts with "t"?', 4)
-		end
-	end,
+	default.rsync.prepare( config, level + 1 )
 
-	-----
-	-- Default delay is very short.
-	--
-	delay = 1,
+end
 
-	------
-	-- Let the core not split move events.
-	--
-	onMove = true,
+--
+-- Default delay is very short.
+--
+direct.delay = 1
 
-	-----
-	-- The rsync binary called.
-	--
-	rsync = default.rsync.rsync,
+--
+-- Let the core not split move events.
+--
+direct.onMove = true
 
-	-----
-	-- By default do deletes.
-	--
-	delete = true,
+--
+-- By default do deletes.
+--
+direct.delete = true
 
-	-----
-	-- rsync exit codes
-	--
-	rsyncExitCodes = default.rsyncExitCodes,
+--
+-- On many system multiple disk operations just rather slow down
+-- than speed up.
 
-	-----
-	-- On many system multiple disk operations just rather slow down
-	-- than speed up.
-
-	maxProcesses = 1,
-}
+direct.maxProcesses = 1

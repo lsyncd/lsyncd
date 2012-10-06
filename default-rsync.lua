@@ -296,8 +296,6 @@ rsync.prepare = function(
 	skipTarget -- used by rsyncssh, do not check for target
 )
 
-	level = level or 4
-
 	--
 	-- First let default.prepare test the checkgauge
 	--
@@ -363,11 +361,42 @@ rsync.prepare = function(
 		)
 	end
 
+	--
 	-- computes the rsync arguments into one list
-	local rsync = config.rsync;
+	--
+	local crsync = config.rsync;
 
-	rsync._computed = { true }
-	local computed = rsync._computed
+	--
+	-- everything implied by archive = true
+	--
+	local archiveFlags = {
+		recursive   =  true,
+		links       =  true,
+		perms       =  true,
+		times       =  true,
+		group       =  true,
+		owner       =  true,
+		devices     =  true,
+		specials    =  true,
+		hard_links  =  false,
+		acls        =  false,
+		xattrs      =  false,
+	}
+
+	--
+	-- if archive given the implications are filled in
+	--
+	if crsync.archive then
+		for k, v in pairs( archiveFlags ) do
+			if crsync[ k ] == nil then
+				crsync[ k ] = v
+			end
+		end
+	end
+
+
+	crsync._computed = { true }
+	local computed = crsync._computed
 	local computedN = 1
 
 	local shortFlags = {
@@ -401,27 +430,42 @@ rsync.prepare = function(
 	local shorts = { '-' }
 	local shortsN = 2
 
-	if config.rsync._extra then
-		for k, v in ipairs( config.rsync._extra ) do
+	if crsync._extra then
+		for k, v in ipairs( crsync._extra ) do
 			computed[ computedN ] = v
 			computedN = computedN  + 1
 		end
 	end
 
 	for k, flag in pairs( shortFlags ) do
-		if config.rsync[k] then
+		if crsync[ k ] then
 			shorts[ shortsN ] = flag
 			shortsN = shortsN + 1
 		end
 	end
 
-	if config.rsync.rsh then
-		computed[ computedN ] = '--rsh=' + config.rsync.rsh
+	if crsync.devices and crsync.specials then
+			shorts[ shortsN ] = 'D'
+			shortsN = shortsN + 1
+	else
+		if crsync.devices then
+			computed[ computedN ] = '--devices'
+			computedN = computedN  + 1
+		end
+
+		if crsync.specials then
+			computed[ computedN ] = '--specials'
+			computedN = computedN  + 1
+		end
+	end
+
+	if crsync.rsh then
+		computed[ computedN ] = '--rsh=' + crsync.rsh
 		computedN = computedN  + 1
 	end
 
-	if config.rsync.rsync_path then
-		computed[ computedN ] = '--rsync-path=' + config.rsync.rsync_path
+	if crsync.rsync_path then
+		computed[ computedN ] = '--rsync-path=' + crsync.rsync_path
 		computedN = computedN  + 1
 	end
 

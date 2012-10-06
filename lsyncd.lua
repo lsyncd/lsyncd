@@ -2286,7 +2286,7 @@ local Syncs = ( function( )
 		if type( config.prepare ) == 'function' then
 
 			-- prepare is given a writeable copy of config
-			config.prepare( config )
+			config.prepare( config, 4 )
 
 		end
 
