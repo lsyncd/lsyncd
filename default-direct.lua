@@ -34,6 +34,21 @@ local direct = { }
 
 default.direct = direct
 
+
+--
+-- known configuration parameters
+--
+direct.checkgauge = {
+	--
+	-- inherits rsync config params
+	--
+	default.rsync.checkgauge,
+
+	rsyncExitCodes  =  true,
+	onMove          =  true,
+}
+
+
 --
 -- Spawns rsync for a list of events
 --
@@ -153,6 +168,12 @@ direct.delay = 1
 -- Let the core not split move events.
 --
 direct.onMove = true
+
+--
+-- Rsync configuration for startup.
+--
+direct.rsync = default.rsync.rsync
+direct.rsyncExitCodes = default.rsyncExitCodes
 
 --
 -- By default do deletes.

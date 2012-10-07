@@ -48,9 +48,8 @@ default.checkgauge = {
 	onStartup       =  true,
 	onMove          =  true,
 	prepare         =  true,
-	-- rsyncExitCodes  =  true, -- TODO
 	source          =  true,
-	-- sshExitCodes    =  true  -- TODO
+	target          =  true,
 }
 
 --

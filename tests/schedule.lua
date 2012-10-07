@@ -47,7 +47,7 @@ sync {ccircuit, source ="]]..srcdir..[[", target = "]]..trgdir..[["}
 
 
 -- test if the filename exists, fails if this is different to expect
-local function testfile(filename) 
+local function testfile(filename)
 	local stat, err = posix.stat(filename)
 	if not stat then
 		cwriteln("failure: ",filename," missing");
