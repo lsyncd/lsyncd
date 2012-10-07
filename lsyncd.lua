@@ -65,6 +65,12 @@ local Monitors
 --
 local processCount = 0
 
+--
+-- Settings specified by command line.
+--
+local clSettings = { }
+
+
 --============================================================================
 -- Lsyncd Prototypes
 --============================================================================
@@ -2270,11 +2276,21 @@ local Syncs = ( function( )
 			'maxDelays',
 			'maxProcesses'
 		}
-		-- Lets settings or commandline override these values.
+
+		-- Lets settings override these values.
 		if settings then
 			for _, v in ipairs( inheritSettings ) do
 				if settings[ v ] then
 					config[ v ] = settings[ v ]
+				end
+			end
+		end
+
+		-- Lets commandline override these values.
+		if clSettings then
+			for _, v in ipairs( inheritSettings ) do
+				if clSettings[ v ] then
+					config[ v ] = clSettings[ v ]
 				end
 			end
 		end
@@ -3521,11 +3537,6 @@ end
 
 
 --
--- Settings specified by command line.
---
-local clSettings = { }
-
---
 -- Called from core to parse the command line arguments
 --
 -- returns a string as user script to load.
@@ -3535,7 +3546,7 @@ local clSettings = { }
 --
 function runner.configure( args, monitors )
 
-	Monitors.initialize (monitors )
+	Monitors.initialize( monitors )
 
 	-- a list of all valid options
 	--
@@ -3760,7 +3771,7 @@ function runner.initialize( firstTime )
 	--
 	-- creates settings if user didnt
 	--
-	settings = settings or {}
+	settings = settings or { }
 
 	--
 	-- From this point on, no globals may be created anymore
@@ -3790,7 +3801,6 @@ function runner.initialize( firstTime )
 		if k ~= 'syncs' then
 			settings[ k ] = v
 		end
-
 	end
 
 	--
