@@ -37,6 +37,7 @@ cwriteln("Exitcode of Lsyncd = ", exitmsg, " ", lexitcode)
 
 exitcode = os.execute("diff -r "..srcdir.." "..trgdir)
 cwriteln("Exitcode of diff = '", exitcode, "'")
+
 if exitcode ~= 0 then
 	os.exit(1)
 else

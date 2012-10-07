@@ -79,11 +79,13 @@ posix.sleep(3)
 cwriteln("testing excludes after startup");
 testfiles();
 cwriteln("ok, removing sources");
+
 if srcdir:sub(1,4) ~= "/tmp" then
 	-- just to make sure before rm -rf
 	cwriteln("exist before drama, srcdir is '", srcdir, "'");
 	os.exit(1);
 end
+
 os.execute("rm -rf "..srcdir.."/*");
 cwriteln("waiting for Lsyncd to remove destination");
 posix.sleep(5);
@@ -92,20 +94,22 @@ if os.execute("diff -urN "..srcdir.." "..trgdir) ~= 0 then
 	os.exit(1);
 end
 
-cwriteln("writing files after startup");
-writefiles();
-cwriteln("waiting for Lsyncd to transmit changes");
-posix.sleep(5);
-testfiles();
+cwriteln( "writing files after startup" );
+writefiles( );
+cwriteln( "waiting for Lsyncd to transmit changes" );
+posix.sleep( 5 );
+testfiles( );
 
-cwriteln("killing started Lsyncd");
-posix.kill(pid);
-local _, exitmsg, lexitcode = posix.wait(lpid);
-cwriteln("Exitcode of Lsyncd = ", exitmsg, " ", lexitcode);
-posix.sleep(1);
-if lexitcode == 0 then
-	cwriteln("OK");
+cwriteln( "killing started Lsyncd" );
+posix.kill( pid );
+local _, exitmsg, lexitcode = posix.wait( lpid );
+cwriteln( "Exitcode of Lsyncd = ", exitmsg, " ", lexitcode );
+
+if lexitcode == 143 then
+	cwriteln( "OK" );
+	os.exit( 0 );
+else
+	os.exit( 1 );
 end
-os.exit(lexitcode);
 
 -- TODO remove temp
