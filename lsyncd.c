@@ -2571,7 +2571,7 @@ main1( int argc, char *argv[] )
 			lua_settable   ( L, -3                );
 		}
 
-		if( lua_pcall( L, 2, 1, -3 ) )
+		if( lua_pcall( L, 2, 1, -4 ) )
 			{ exit( -1 ); }
 
 		if( first_time )

@@ -70,6 +70,17 @@ local processCount = 0
 --
 local clSettings = { }
 
+--
+-- Settings specified by config scripts.
+--
+local uSettings = { }
+
+--
+-- A copy of the settings function to see if the
+-- user script replaced the settings() by a table
+-- ( pre Lsyncd 2.1 style )
+--
+local settingsSafe
 
 --============================================================================
 -- Lsyncd Prototypes
@@ -1926,8 +1937,8 @@ local Sync = ( function( )
 		for _, d in Queue.qpairs( self.delays ) do
 
 			-- if reached the global limit return
-			if settings.maxProcesses and
-				processCount >= settings.maxProcesses
+			if uSettings.maxProcesses and
+				processCount >= uSettings.maxProcesses
 			then
 				log('Alarm', 'at global process limit.')
 				return
@@ -2278,20 +2289,16 @@ local Syncs = ( function( )
 		}
 
 		-- Lets settings override these values.
-		if settings then
-			for _, v in ipairs( inheritSettings ) do
-				if settings[ v ] then
-					config[ v ] = settings[ v ]
-				end
+		for _, v in ipairs( inheritSettings ) do
+			if uSettings[ v ] then
+				config[ v ] = uSettings[ v ]
 			end
 		end
 
 		-- Lets commandline override these values.
-		if clSettings then
-			for _, v in ipairs( inheritSettings ) do
-				if clSettings[ v ] then
-					config[ v ] = clSettings[ v ]
-				end
+		for _, v in ipairs( inheritSettings ) do
+			if clSettings[ v ] then
+				config[ v ] = clSettings[ v ]
 			end
 		end
 
@@ -2352,14 +2359,9 @@ local Syncs = ( function( )
 			terminate( -1 )
 		end
 
-		-- loads a default value for an option if not existent
-		if not settings then
-			settings = {}
-		end
-
 		-- the monitor to use
 		config.monitor =
-			settings.monitor or
+			uSettings.monitor or
 			config.monitor or
 			Monitors.default( )
 
@@ -2520,7 +2522,8 @@ local Inotify = ( function( )
 		end
 
 		-- registers the watch
-		local inotifyMode = ( settings and settings.inotifyMode ) or '';
+		local inotifyMode = ( uSettings and uSettings.inotifyMode ) or '';
+
 		local wd = lsyncd.inotify.addwatch( path, inotifyMode) ;
 
 		if wd < 0 then
@@ -3194,9 +3197,10 @@ local StatusFile = ( function( )
 			' )'
 		)
 
+		--
 		-- takes care not write too often
-
-		if settings.statusInterval > 0 then
+		--
+		if uSettings.statusInterval > 0 then
 
 			-- already waiting?
 			if alarm and timestamp < alarm then
@@ -3213,8 +3217,10 @@ local StatusFile = ( function( )
 
 			-- determines when a next write will be possible
 			if not alarm then
+
 				local nextWrite =
-					lastWritten and timestamp + settings.statusInterval
+					lastWritten and timestamp +
+					uSettings.statusInterval
 
 				if nextWrite and timestamp < nextWrite then
 					log(
@@ -3234,13 +3240,13 @@ local StatusFile = ( function( )
 
 		log( 'Statusfile', 'writing now' )
 
-		local f, err = io.open( settings.statusFile, 'w' )
+		local f, err = io.open( uSettings.statusFile, 'w' )
 
 		if not f then
 			log(
 				'Error',
 				'Cannot open status file "' ..
-					settings.statusFile ..
+					uSettings.statusFile ..
 					'" :' ..
 					err
 			)
@@ -3455,8 +3461,8 @@ function runner.cycle(
 	-- not at global limit
 	--
 	if
-		not settings.maxProcesses or
-		processCount < settings.maxProcesses
+		not uSettings.maxProcesses or
+		processCount < uSettings.maxProcesses
 	then
 		local start = Syncs.getRound( )
 
@@ -3479,7 +3485,7 @@ function runner.cycle(
 
 	UserAlarms.invoke( timestamp )
 
-	if settings.statusFile then
+	if uSettings.statusFile then
 		StatusFile.write( timestamp )
 	end
 
@@ -3548,6 +3554,7 @@ function runner.configure( args, monitors )
 
 	Monitors.initialize( monitors )
 
+	--
 	-- a list of all valid options
 	--
 	-- first paramter is the number of parameters an option takes
@@ -3768,10 +3775,16 @@ end
 --
 function runner.initialize( firstTime )
 
-	--
-	-- creates settings if user didnt
-	--
-	settings = settings or { }
+	if settings ~= settingsSafe then
+		log(
+			'Warn',
+			'settings = { ... } is deprecated.\n'..
+			'      please use settings{ ... } (without the equal sign)'
+		)
+
+		uSettings = settings
+
+	end
 
 	--
 	-- From this point on, no globals may be created anymore
@@ -3781,9 +3794,12 @@ function runner.initialize( firstTime )
 	--
 	-- copies simple settings with numeric keys to 'key = true' settings.
 	--
-	for k, v in ipairs( settings ) do
+	-- FIXME this can be removed when
+	-- Lsyncd 2.0.x backwards compatibility is dropped
+	--
+	for k, v in ipairs( uSettings ) do
 
-		if settings[ v ] then
+		if uSettings[ v ] then
 			log(
 				'Error',
 				'Double setting "' .. v.. '"'
@@ -3791,7 +3807,8 @@ function runner.initialize( firstTime )
 			os.exit( -1 )
 		end
 
-		settings[ v ]= true
+		uSettings[ v ]= true
+
 	end
 
 	--
@@ -3799,7 +3816,7 @@ function runner.initialize( firstTime )
 	--
 	for k, v in pairs( clSettings ) do
 		if k ~= 'syncs' then
-			settings[ k ] = v
+			uSettings[ k ] = v
 		end
 	end
 
@@ -3807,7 +3824,7 @@ function runner.initialize( firstTime )
 	-- implicitly forces 'insist' on Lsyncd resets.
 	--
 	if not firstTime then
-		settings.insist = true
+		uSettings.insist = true
 	end
 
 	--
@@ -3847,31 +3864,31 @@ function runner.initialize( firstTime )
 
 	end
 
-	if settings.nodaemon then
+	if uSettings.nodaemon then
 		lsyncd.configure( 'nodaemon' )
 	end
 
-	if settings.logfile then
-		lsyncd.configure( 'logfile', settings.logfile )
+	if uSettings.logfile then
+		lsyncd.configure( 'logfile', uSettings.logfile )
 	end
 
-	if settings.logident then
-		lsyncd.configure( 'logident', settings.logident )
+	if uSettings.logident then
+		lsyncd.configure( 'logident', uSettings.logident )
 	end
 
-	if settings.logfacility then
-		lsyncd.configure( 'logfacility', settings.logfacility )
+	if uSettings.logfacility then
+		lsyncd.configure( 'logfacility', uSettings.logfacility )
 	end
 
-	if settings.pidfile then
-		lsyncd.configure( 'pidfile', settings.pidfile )
+	if uSettings.pidfile then
+		lsyncd.configure( 'pidfile', uSettings.pidfile )
 	end
 
 	--
-	-- Transfers some defaults to settings
+	-- Transfers some defaults to uSettings
 	--
-	if settings.statusInterval == nil then
-		settings.statusInterval = default.statusInterval
+	if uSettings.statusInterval == nil then
+		uSettings.statusInterval = default.statusInterval
 	end
 
 	-- makes sure the user gave Lsyncd anything to do
@@ -3991,8 +4008,8 @@ function runner.getAlarm( )
 	-- but only if the global process limit is not yet reached.
 	--
 	if
-		not settings.maxProcesses or
-		processCount < settings.maxProcesses
+		not uSettings.maxProcesses or
+		processCount < uSettings.maxProcesses
 	then
 		for _, s in Syncs.iwalk( ) do
 			checkAlarm( s:getAlarm ( ))
@@ -4182,8 +4199,8 @@ function spawn(
 
 		processCount = processCount + 1
 		if
-			settings.maxProcesses and
-			processCount > settings.maxProcesses
+			uSettings.maxProcesses and
+			processCount > uSettings.maxProcesses
 		then
 			error( 'Spawned too much processes!' )
 		end
@@ -4281,9 +4298,18 @@ function string.ends( String, End )
 end
 
 --
--- Provides a default empty settings table.
+-- The Lsyncd 2.1 settings call
 --
-settings = { }
+function settings( a1 )
+	for k, v in pairs( a1 ) do
+		if type( k ) ~= 'number' then
+			uSettings[ k ] = v
+		else
+			uSettings[ v ] = true
+		end
+	end
+end
+settingsSafe = settings
 
 --
 -- Returns the core the runners function interface.
