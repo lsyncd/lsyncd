@@ -79,7 +79,7 @@ rsyncssh.action = function( inlet )
 		spawn(
 			event,
 			config.ssh.binary,
---			config.ssh._computed, TODO XXX
+			config.ssh._computed,
 			config.host,
 			'mv',
 			'\"' .. config.targetdir .. event.path .. '\"',
@@ -138,7 +138,7 @@ rsyncssh.action = function( inlet )
 			config.ssh.binary,
 			'<', table.concat(paths, config.xargs.delimiter),
 			params,
-			-- config.ssh._computed, TODO XXX
+			config.ssh._computed,
 			config.host,
 			config.xargs.binary,
 			config.xargs._extra
@@ -261,15 +261,45 @@ rsyncssh.prepare = function( config, level )
 	default.rsync.prepare( config, level + 1, true )
 
 	if not config.host then
-		error('default.rsyncssh needs "host" configured', 4)
+		error(
+			'default.rsyncssh needs "host" configured',
+			level
+		)
 	end
 
 	if not config.targetdir then
-		error('default.rsyncssh needs "targetdir" configured', 4)
+		error(
+			'default.rsyncssh needs "targetdir" configured',
+			level
+		)
 	end
 
-	if config.rsyncOps then
-		error('did you mean rsyncOpts with "t"?', 4)
+	--
+	-- computes the ssh options
+	--
+	if config.ssh._computed then
+		error(
+			'please do not use the internal rsync._computed parameter',
+			level
+		)
+	end
+
+	local cssh = config.rsync;
+	cssh._computed = { }
+	local computed = cssh._computed
+	local computedN = 1
+
+	if cssh._extra then
+		for k, v in ipairs( cssh._extra ) do
+			computed[ computedN ] = v
+			computedN = computedN  + 1
+		end
+	end
+
+	if cssh.port then
+		computed[ computedN     ] = '-p'
+		computed[ computedN + 1 ] = cssh.port
+		computedN = computedN + 2
 	end
 
 	-- appends a slash to the targetdir if missing
