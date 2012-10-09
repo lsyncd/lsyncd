@@ -1,3 +1,16 @@
+??-??-2012: 2.1.0
+	fix: fail startup if settings.inist is false and one of the target hosts fails
+	enhancement: rsyncOpts has been replaced by rsync = {...} parameter lists
+	enhancement: default.rsyncssh has now a ssh = {...} parameter similar to default.rsync to
+	             add option to ssh calls. Ditto for xargs = {...}
+	enhancement: the default.* implementations have a checkgauge erroring on any unknown
+	             parameters to the sync{} call
+	enhancement: the delete parameter now takes: true, false, 'running' and 'startup'
+	improvement: Dennis Schridde provided various improvements for Lsyncd's autoconf building
+	change: Lsyncd is now Lua 5.2 compatible
+	change: Lsyncd now exits with exitcode 143 on TERM signal
+	change: settings is now be used as call like settings{...} instead of settings = {...}
+
 04-04-2012: 2.0.7
 	fix: closed a memory leak due to not correct configured weak tables
 	fix: default.direct, do not use on OSX unrecognized option -t on modify
