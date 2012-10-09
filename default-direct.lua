@@ -83,29 +83,48 @@ direct.action = function(inlet)
 			event.targetPathdir
 		)
 	elseif event.etype == 'Delete' then
-		if not config.delete then
+
+		if
+			config.delete ~= true and
+			config.delete ~= 'running'
+		then
 			inlet.discardEvent(event)
+			return
 		end
 
 		local tp = event.targetPath
+
 		-- extra security check
 		if tp == '' or tp == '/' or not tp then
 			error('Refusing to erase your harddisk!')
 		end
+
 		spawn(event, '/bin/rm', '-rf', tp)
+
 	elseif event.etype == 'Move' then
 		local tp = event.targetPath
+
 		-- extra security check
 		if tp == '' or tp == '/' or not tp then
 			error('Refusing to erase your harddisk!')
 		end
+
 		local command = '/bin/mv $1 $2 || /bin/rm -rf $1'
-		if not config.delete then command = '/bin/mv $1 $2'; end
+
+		if
+			config.delete ~= true and
+			config.delete ~= 'running'
+		then
+			command = '/bin/mv $1 $2'
+		end
+
 		spawnShell(
 			event,
 			command,
 			event.targetPath,
-			event2.targetPath)
+			event2.targetPath
+		)
+
 	else
 		log('Warn', 'ignored an event of type "',event.etype, '"')
 		inlet.discardEvent(event)
@@ -116,6 +135,7 @@ end
 -- Called when collecting a finished child process
 --
 direct.collect = function(agent, exitcode)
+
 	local config = agent.config
 
 	if not agent.isList and agent.etype == 'Init' then

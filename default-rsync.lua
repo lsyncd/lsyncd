@@ -192,7 +192,7 @@ rsync.action = function( inlet )
 	local config = inlet.getConfig( )
 	local delete = nil
 
-	if config.delete then
+	if config.delete == true or config.delete == 'running' then
 		delete = { '--delete', '--ignore-errors' }
 	end
 
@@ -233,7 +233,7 @@ rsync.init = function(event)
 		target = config.host .. ':' .. config.targetdir
 	end
 
-	if config.delete then
+	if config.delete == true or config.delete == 'startup' then
 		delete = { '--delete', '--ignore-errors' }
 	end
 

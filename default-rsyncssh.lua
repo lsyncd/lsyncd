@@ -93,7 +93,11 @@ rsyncssh.action = function( inlet )
 	-- instead of constructing rsync filters
 
 	if event.etype == 'Delete' then
-		if not config.delete then
+
+		if
+			config.delete ~= true and
+			config.delete ~= 'running'
+		then
 			inlet.discardEvent(event)
 			return
 		end
