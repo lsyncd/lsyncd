@@ -2269,6 +2269,22 @@ local Syncs = ( function( )
 	--
 	local function add( config )
 
+		-- workaround for backwards compatibility
+		-- FIXME: remove when dropping that
+		if settings ~= settingsSafe then
+			log(
+				'Warn',
+				'settings = { ... } is deprecated.\n'..
+				'      please use settings{ ... } (without the equal sign)'
+			)
+
+			for k, v in pairs( settings ) do
+				uSettings[ k ] = v
+			end
+
+			settings = settingsSafe
+		end
+
 		-- Creates a new config table which inherits all keys/values
 		-- from integer keyed tables
 		local uconfig = config
@@ -3782,7 +3798,9 @@ function runner.initialize( firstTime )
 			'      please use settings{ ... } (without the equal sign)'
 		)
 
-		uSettings = settings
+		for k, v in pairs( settings ) do
+			uSettings[ k ] = v
+		end
 
 	end
 
