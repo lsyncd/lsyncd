@@ -63,7 +63,7 @@ default.action = function( inlet )
 
 	local func = config[ 'on'.. event.etype ]
 
-	if func then
+	if type( func ) == 'function' then
 		func( event, event2 )
 	end
 
