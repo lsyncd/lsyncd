@@ -206,7 +206,7 @@ rsyncssh.collect = function( agent, exitcode )
 		if rc == 'ok' then
 			log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
 		elseif rc == 'again' then
-			if settings.insist then
+			if uSettings.insist then
 				log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
 			else
 				log('Error', 'Temporary or permanent failure on startup of "',

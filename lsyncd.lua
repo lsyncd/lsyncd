@@ -3387,6 +3387,11 @@ local lsyncdStatus = 'init'
 local runner = { }
 
 --
+-- Last time said to be waiting for more child processes
+--
+local lastReportedWaiting = false
+
+--
 -- Called from core whenever Lua code failed.
 --
 -- Logs a backtrace
@@ -3452,12 +3457,19 @@ function runner.cycle(
 
 		if processCount > 0 then
 
-			log(
-				'Normal',
-				'waiting for ',
-				processCount,
-				' more child processes.'
-			)
+			if
+				lastReportedWaiting == false or
+				timestamp >= lastReportedWaiting + 60
+			then
+				lastReportedWaiting = timestamp
+
+				log(
+					'Normal',
+					'waiting for ',
+					processCount,
+					' more child processes.'
+				)
+			end
 
 			return true
 		else
@@ -3467,7 +3479,6 @@ function runner.cycle(
 	end
 
 	if lsyncdStatus ~= 'run' then
-
 		error( 'runner.cycle() called while not running!' )
 	end
 
@@ -3803,6 +3814,8 @@ function runner.initialize( firstTime )
 		end
 
 	end
+
+	lastReportedWaiting = false
 
 	--
 	-- From this point on, no globals may be created anymore
