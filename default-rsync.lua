@@ -81,6 +81,7 @@ rsync.checkgauge = {
 		-- further rsync options
 		rsh               =  true,
 		rsync_path        =  true,
+		temp_dir          =  true,
 	},
 }
 
@@ -466,6 +467,11 @@ rsync.prepare = function(
 
 	if crsync.rsync_path then
 		computed[ computedN ] = '--rsync-path=' + crsync.rsync_path
+		computedN = computedN  + 1
+	end
+
+	if crsync.temp_dir then
+		computed[ computedN ] = '--temp-dir=' + crsync.temp_dir
 		computedN = computedN  + 1
 	end
 
