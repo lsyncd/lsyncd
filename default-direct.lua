@@ -9,6 +9,7 @@
 -- Note:
 --    this is infact just a configuration using Layer 1 configuration
 --    like any other. It only gets compiled into the binary by default.
+--
 --    You can simply use a modified one, by copying everything into a
 --    config file of yours and name it differently.
 --
@@ -17,158 +18,190 @@
 --
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-if not default       then error('default not loaded'); end
-if not default.rsync then error('default-direct (currently) needs default.rsync loaded'); end
-if default.direct    then error('default-direct already loaded'); end
+if not default then
+	error('default not loaded')
+end
 
-default.direct = {
-	-----
-	-- Spawns rsync for a list of events
+if not default.rsync then
+	error('default-direct (currently) needs default.rsync loaded')
+end
+
+if default.direct then
+	error('default-direct already loaded')
+end
+
+local direct = { }
+
+default.direct = direct
+
+
+--
+-- known configuration parameters
+--
+direct.checkgauge = {
 	--
-	action = function(inlet)
-		-- gets all events ready for syncing
-		local event, event2 = inlet.getEvent()
-		local config = inlet.getConfig()
+	-- inherits rsync config params
+	--
+	default.rsync.checkgauge,
 
-		if event.etype == 'Create' then
-			if event.isdir then
-				spawn(
-					event,
-					'/bin/mkdir',
-					event.targetPath
-				)
-			else
-				-- 'cp -t', not supported on OSX
-				spawn(
-					event,
-					'/bin/cp',
-					event.sourcePath,
-					event.targetPathdir
-				)
-			end
-		elseif event.etype == 'Modify' then
-			if event.isdir then
-				error("Do not know how to handle 'Modify' on dirs")
-			end
-			spawn(event,
+	rsyncExitCodes  =  true,
+	onMove          =  true,
+}
+
+
+--
+-- Spawns rsync for a list of events
+--
+direct.action = function(inlet)
+	-- gets all events ready for syncing
+	local event, event2 = inlet.getEvent()
+	local config = inlet.getConfig()
+
+	if event.etype == 'Create' then
+		if event.isdir then
+			spawn(
+				event,
+				'/bin/mkdir',
+				event.targetPath
+			)
+		else
+			-- 'cp -t', not supported on OSX
+			spawn(
+				event,
 				'/bin/cp',
 				event.sourcePath,
 				event.targetPathdir
 			)
-		elseif event.etype == 'Delete' then
-			if not config.delete then
-				inlet.discardEvent(event)
-			end
+		end
+	elseif event.etype == 'Modify' then
+		if event.isdir then
+			error("Do not know how to handle 'Modify' on dirs")
+		end
+		spawn(event,
+			'/bin/cp',
+			event.sourcePath,
+			event.targetPathdir
+		)
+	elseif event.etype == 'Delete' then
 
-			local tp = event.targetPath
-			-- extra security check
-			if tp == '' or tp == '/' or not tp then
-				error('Refusing to erase your harddisk!')
-			end
-			spawn(event, '/bin/rm', '-rf', tp)
-		elseif event.etype == 'Move' then
-			local tp = event.targetPath
-			-- extra security check
-			if tp == '' or tp == '/' or not tp then
-				error('Refusing to erase your harddisk!')
-			end
-			local command = '/bin/mv $1 $2 || /bin/rm -rf $1'
-			if not config.delete then command = '/bin/mv $1 $2'; end
-			spawnShell(
-				event,
-				command,
-				event.targetPath,
-				event2.targetPath)
-		else
-			log('Warn', 'ignored an event of type "',event.etype, '"')
+		if
+			config.delete ~= true and
+			config.delete ~= 'running'
+		then
 			inlet.discardEvent(event)
+			return
 		end
-	end,
 
-	-----
-	-- Called when collecting a finished child process
-	--
-	collect = function(agent, exitcode)
-		local config = agent.config
+		local tp = event.targetPath
 
-		if not agent.isList and agent.etype == 'Init' then
-			local rc = config.rsyncExitCodes[exitcode]
-			if rc == 'ok' then
-				log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
-			elseif rc == 'again' then
-				if settings.insist then
-					log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
-				else
-					log('Error', 'Temporary or permanent failure on startup of "',
-					agent.source, '". Terminating since "insist" is not set.');
-					terminate(-1) -- ERRNO
-				end
-			elseif rc == 'die' then
-				log('Error', 'Failure on startup of "',agent.source,'": ', exitcode)
+		-- extra security check
+		if tp == '' or tp == '/' or not tp then
+			error('Refusing to erase your harddisk!')
+		end
+
+		spawn(event, '/bin/rm', '-rf', tp)
+
+	elseif event.etype == 'Move' then
+		local tp = event.targetPath
+
+		-- extra security check
+		if tp == '' or tp == '/' or not tp then
+			error('Refusing to erase your harddisk!')
+		end
+
+		local command = '/bin/mv $1 $2 || /bin/rm -rf $1'
+
+		if
+			config.delete ~= true and
+			config.delete ~= 'running'
+		then
+			command = '/bin/mv $1 $2'
+		end
+
+		spawnShell(
+			event,
+			command,
+			event.targetPath,
+			event2.targetPath
+		)
+
+	else
+		log('Warn', 'ignored an event of type "',event.etype, '"')
+		inlet.discardEvent(event)
+	end
+end
+
+--
+-- Called when collecting a finished child process
+--
+direct.collect = function(agent, exitcode)
+
+	local config = agent.config
+
+	if not agent.isList and agent.etype == 'Init' then
+		local rc = config.rsyncExitCodes[exitcode]
+		if rc == 'ok' then
+			log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
+		elseif rc == 'again' then
+			if settings.insist then
+				log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
 			else
-				log('Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode)
-				rc = 'die'
+				log('Error', 'Temporary or permanent failure on startup of "',
+				agent.source, '". Terminating since "insist" is not set.');
+				terminate(-1) -- ERRNO
 			end
-			return rc
+		elseif rc == 'die' then
+			log('Error', 'Failure on startup of "',agent.source,'": ', exitcode)
+		else
+			log('Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode)
+			rc = 'die'
 		end
+		return rc
+	end
 
-		-- everything else is just as it is,
-		-- there is no network to retry something.
-		return
-	end,
+	-- everything else is just as it is,
+	-- there is no network to retry something.
+	return
+end
 
-	-----
-	-- Spawns the recursive startup sync
-	-- (currently) identical to default rsync.
-	--
-	init = default.rsync.init,
+--
+-- Spawns the recursive startup sync
+-- (currently) identical to default rsync.
+--
+direct.init = default.rsync.init
 
-	-----
-	-- Checks the configuration.
-	--
-	prepare = function(config)
-		if not config.target then
-			error('default.direct needs "target".', 4)
-		end
+--
+-- Checks the configuration.
+--
+direct.prepare = function( config, level )
 
-		if config.rsyncOps then
-			error('did you mean rsyncOpts with "t"?', 4)
-		end
-	end,
+	default.rsync.prepare( config, level + 1 )
 
-	-----
-	-- Default delay is very short.
-	--
-	delay = 1,
+end
 
-	------
-	-- Let the core not split move events.
-	--
-	onMove = true,
+--
+-- Default delay is very short.
+--
+direct.delay = 1
 
-	-----
-	-- The rsync binary called.
-	--
-	rsyncBinary = '/usr/bin/rsync',
+--
+-- Let the core not split move events.
+--
+direct.onMove = true
 
-	-----
-	-- For startup sync
-	--
-	rsyncOpts = '-lts',
+--
+-- Rsync configuration for startup.
+--
+direct.rsync = default.rsync.rsync
+direct.rsyncExitCodes = default.rsyncExitCodes
 
-	-----
-	-- By default do deletes.
-	--
-	delete = true,
+--
+-- By default do deletes.
+--
+direct.delete = true
 
-	-----
-	-- rsync exit codes
-	--
-	rsyncExitCodes = default.rsyncExitCodes,
+--
+-- On many system multiple disk operations just rather slow down
+-- than speed up.
 
-	-----
-	-- On many system multiple disk operations just rather slow down
-	-- than speed up.
-
-	maxProcesses = 1,
-}
+direct.maxProcesses = 1

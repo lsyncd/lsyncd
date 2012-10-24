@@ -1,4 +1,5 @@
-AUTOMAKE_OPTIONS = foreign
+ACLOCAL_AMFLAGS = -I m4
+
 CFLAGS += -Wall $(LUA_CFLAGS)
 bin_PROGRAMS = lsyncd
 lsyncd_SOURCES = lsyncd.h lsyncd.c lsyncd.lua default-rsync.lua
@@ -37,7 +38,7 @@ EXTRA_DIST = doc/lsyncd.1.txt inotify.c fsevents.c bin2carray.lua \
 doc/lsyncd.1: doc/lsyncd.1.txt
 	$(A2X) --format=manpage $<
 
-CLEANFILES = runner.out defaults.out runner.c defaults.c doc/lsyncd.1
+CLEANFILES = runner.out defaults.out runner.c defaults.c
 
 # compiles the runner and the defaults into the binary
 lsyncd_LDADD += runner.o defaults.o

@@ -108,9 +108,12 @@ posix.kill(pid);
 local _, exitmsg, lexitcode = posix.wait(lpid);
 cwriteln('Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode);
 posix.sleep(1);
-if lexitcode == 0 then
-	cwriteln('OK');
+
+if lexitcode == 143 then
+	cwriteln( 'OK' );
+	os.exit( 0 );
+else
+	os.exit( 1 );
 end
-os.exit(lexitcode);
 
 -- TODO remove temp
