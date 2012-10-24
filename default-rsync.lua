@@ -50,6 +50,7 @@ rsync.checkgauge = {
 	rsync  = {
 		-- rsync binary
 		binary            =  true,
+		_extra            =  true,
 
 		-- rsync shortflags
 		verbose           =  true,
@@ -461,17 +462,17 @@ rsync.prepare = function(
 	end
 
 	if crsync.rsh then
-		computed[ computedN ] = '--rsh=' + crsync.rsh
+		computed[ computedN ] = '--rsh='..crsync.rsh
 		computedN = computedN  + 1
 	end
 
 	if crsync.rsync_path then
-		computed[ computedN ] = '--rsync-path=' + crsync.rsync_path
+		computed[ computedN ] = '--rsync-path='..crsync.rsync_path
 		computedN = computedN  + 1
 	end
 
 	if crsync.temp_dir then
-		computed[ computedN ] = '--temp-dir=' + crsync.temp_dir
+		computed[ computedN ] = '--temp-dir='..crsync.temp_dir
 		computedN = computedN  + 1
 	end
 
