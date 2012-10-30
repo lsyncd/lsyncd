@@ -399,7 +399,7 @@ rsync.prepare = function(
 
 	crsync._computed = { true }
 	local computed = crsync._computed
-	local computedN = 1
+	local computedN = 2
 
 	local shortFlags = {
 		verbose            = 'v',
@@ -461,18 +461,23 @@ rsync.prepare = function(
 		end
 	end
 
+	if crsync.password_file then
+		computed[ computedN ] = '--password-file=' .. crsync.password_file
+		computedN = computedN  + 1
+	end
+
 	if crsync.rsh then
-		computed[ computedN ] = '--rsh='..crsync.rsh
+		computed[ computedN ] = '--rsh=' .. crsync.rsh
 		computedN = computedN  + 1
 	end
 
 	if crsync.rsync_path then
-		computed[ computedN ] = '--rsync-path='..crsync.rsync_path
+		computed[ computedN ] = '--rsync-path=' .. crsync.rsync_path
 		computedN = computedN  + 1
 	end
 
 	if crsync.temp_dir then
-		computed[ computedN ] = '--temp-dir='..crsync.temp_dir
+		computed[ computedN ] = '--temp-dir=' .. crsync.temp_dir
 		computedN = computedN  + 1
 	end
 
