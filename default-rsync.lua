@@ -37,15 +37,16 @@ default.rsync = rsync
 rsync.checkgauge = {
 
 	-- unsets default user action handlers
-	onCreate   =  false,
-	onModify   =  false,
-	onDelete   =  false,
-	onStartup  =  false,
-	onMove     =  false,
+	onCreate    =  false,
+	onModify    =  false,
+	onDelete    =  false,
+	onStartup   =  false,
+	onMove      =  false,
 
-	delete     =  true,
-	exclude    =  true,
-	target     =  true,
+	delete      =  true,
+	exclude     =  true,
+	excludeFrom =  true,
+	target      =  true,
 
 	rsync  = {
 		-- rsync binary
