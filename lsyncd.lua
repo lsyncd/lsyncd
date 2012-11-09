@@ -4332,6 +4332,12 @@ end
 -- The Lsyncd 2.1 settings call
 --
 function settings( a1 )
+	-- if a1 is a string this is a get operation
+	if typeof( a1 ) == 'string' then
+		return uSettings[ a1 ]
+	end
+
+	-- if its a table it sets all the value of the bale
 	for k, v in pairs( a1 ) do
 		if type( k ) ~= 'number' then
 			uSettings[ k ] = v

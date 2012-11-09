@@ -100,7 +100,7 @@ default.collect = function( agent, exitcode )
 			log('Normal', 'Startup of "',agent.source,'" finished.')
 			return 'ok'
 		elseif rc == 'again' then
-			if settings.insist then
+			if settings('insist') then
 				log(
 					'Normal',
 					'Retrying startup of "',
