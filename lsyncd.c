@@ -422,7 +422,7 @@ printlogf0(lua_State *L,
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
 
-// FIXME call the Lua garbace collector in case of out of memory
+// FIXME call the Lua garbage collector in case of out of memory
 
 /*
 | "Secured" calloc
@@ -1721,7 +1721,7 @@ l_nonobserve_fd( lua_State *L )
 }
 
 /*
-| The Lsnycd's core library
+| The Lsyncd's core library
 */
 static const luaL_Reg lsyncdlib[] =
 {
