@@ -501,7 +501,10 @@ rsync.rsync = {
 	binary        = '/usr/bin/rsync',
 	links         = true,
 	times         = true,
-	protect_args  = true
+	protect_args  = true,
+	perms         = true,
+	owner         = true,
+	group         = true
 }
 
 
