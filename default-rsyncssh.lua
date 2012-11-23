@@ -304,6 +304,9 @@ rsyncssh.prepare = function( config, level )
 		computed[ computedN     ] = '-p'
 		computed[ computedN + 1 ] = cssh.port
 		computedN = computedN + 2
+
+		local rsyncc = config.rsync._computed
+		rsyncc[ #rsyncc ] = '--rsh=ssh -p ' .. cssh.port
 	end
 
 	-- appends a slash to the targetdir if missing
