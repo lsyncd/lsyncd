@@ -4333,7 +4333,7 @@ end
 --
 function settings( a1 )
 	-- if a1 is a string this is a get operation
-	if typeof( a1 ) == 'string' then
+	if type( a1 ) == 'string' then
 		return uSettings[ a1 ]
 	end
 
