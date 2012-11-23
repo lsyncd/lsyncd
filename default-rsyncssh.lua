@@ -288,7 +288,7 @@ rsyncssh.prepare = function( config, level )
 		)
 	end
 
-	local cssh = config.rsync;
+	local cssh = config.ssh;
 	cssh._computed = { }
 	local computed = cssh._computed
 	local computedN = 1
