@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 #AC_PREREQ(2.60)
-AC_INIT(lsyncd, 2.1.3, axkibe@gmail.com)
+AC_INIT(lsyncd, 2.1.4, axkibe@gmail.com)
 AM_INIT_AUTOMAKE([foreign])
 
 AC_CONFIG_MACRO_DIR([m4])
