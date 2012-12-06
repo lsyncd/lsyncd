@@ -67,6 +67,7 @@ rsync.checkgauge = {
 		links             =  true,
 		one_file_system   =  true,
 		owner             =  true,
+		password_file     =  true,
 		perms             =  true,
 		protect_args      =  true,
 		prune_empty_dirs  =  true,
