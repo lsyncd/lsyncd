@@ -6,7 +6,7 @@ Lsyncd watches a local directory trees event monitor interface (inotify or fseve
 
 Rsync+ssh is an advanced action configuration that uses a SSH to act file and directory moves directly on the target instead of retransmitting the move destination over the wire.
 
-Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/) This way simplicity can be balanced with powerfulness.  See the manual for details [Lsyncd20Manual](https://github.com/axkibe/lsyncd/wiki/Manual-to-Lsyncd-2.0.x)
+Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/) This way simplicity can be balanced with powerfulness.  See the manual for details [Lsyncd21Manual](https://github.com/axkibe/lsyncd/wiki/Manual-to-Lsyncd-2.1.x)
 
 License: [GPLv2](http://www.fsf.org/licensing/licenses/info/GPLv2.html) or any later GPL version.
 
