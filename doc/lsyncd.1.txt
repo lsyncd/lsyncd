@@ -31,17 +31,17 @@ Lsyncd(1) watches local directory trees through an event monitor interface
 then spawns one or more processes to synchronize the changes. By default this
 is rsync(1).  Lsyncd is thus a light-weight asynchronous live mirror solution
 that is comparatively easy to install not requiring new filesystems or
-blockdevices and does not hamper local filesystem performance.
+block devices and does not hamper local filesystem performance.
 
 Rsync+ssh is an advanced action configuration that uses a SSH(1) to act file
-and directory moves directly on the target instead of retransmitting the move
+and directory moves directly on the target instead of re-transmitting the move
 destination over the wire.
 
 Fine-grained customization can be achieved through the CONFIG-FILE.  Custom
 action configs can even be written from scratch in cascading layers ranging
 from shell scripts to code written in the LUA(1) language.  This way simplicity
 can be balanced with powerfulness.  See the online manual for details on the
-CONFIG-FILE http://code.google.com/p/lsyncd/wiki/Lsyncd20Manual
+CONFIG-FILE https://github.com/axkibe/lsyncd/wiki/Manual-to-Lsyncd-2.0.x .
 
 Note that under normal configuration Lsyncd will delete pre-existing files in
 the target directories that are not present in the respective source directory.
@@ -55,7 +55,7 @@ OPTIONS
 	Show a help message.
 
 *-insist*::
-	Continues startup even if a startup rsync cannot connect.
+	Continues start up even if rsync cannot connect.
 
 *-log* 'LEVEL'::
 	Controls which kind of events are logged. By default Lsyncd logs 'Normal'
@@ -88,7 +88,7 @@ EXIT STATUS
 
 SEE ALSO
 --------
-Online Manual: http://code.google.com/p/lsyncd/wiki/Lsyncd2
+Online Manual: https://github.com/axkibe/lsyncd/wiki/Lsyncd-2.1.x-%E2%80%96-What's-New%3F
 
 VERSION
 ------
