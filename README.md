@@ -4,9 +4,9 @@ Description
 -----------
 Lsyncd watches a local directory trees event monitor interface (inotify or fsevents). It aggregates and combines events for a few seconds and then spawns one (or more) process(es) to synchronize the changes. By default this is [rsync](http://rsync.samba.org/).  Lsyncd is thus a light-weight live mirror solution that is comparatively easy to install not requiring new filesystems or block devices and does not hamper local filesystem performance.
 
-Rsync+ssh is an advanced action configuration that uses a SSH to act file and directory moves directly on the target instead of retransmitting the move destination over the wire.
+Rsync+ssh is an advanced action configuration that uses a SSH to act file and directory moves directly on the target instead of re-transmitting the move destination over the wire.
 
-Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/) This way simplicity can be balanced with powerfulness.  See the manual for details [Lsyncd21Manual](https://github.com/axkibe/lsyncd/wiki/Manual-to-Lsyncd-2.1.x)
+Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/). This way simple, powerful and flexible configurations can be acheived.  See the manual for details [Lsyncd21Manual](https://github.com/axkibe/lsyncd/wiki/Manual-to-Lsyncd-2.1.x)
 
 License: [GPLv2](http://www.fsf.org/licensing/licenses/info/GPLv2.html) or any later GPL version.
 
@@ -24,12 +24,12 @@ Lsyncd usage examples
 ---------------------
 ```lsyncd -rsync /home remotehost.org::share/```
 
-This watches and rsyncs the local directory /home with all subdirectories and
+This watches and rsyncs the local directory /home with all sub-directories and
 transfers them to 'remotehost' using the rsync-share 'share'.
 
 ```lsyncd -rsyncssh /home remotehost.org backup-home/```
 
-This will also rsync/watch '/home', but it uses a ssh connection to make moves local on the remotehost instead of retransmitting the moved file over the wire.
+This will also rsync/watch '/home', but it uses a ssh connection to make moves local on the remotehost instead of re-transmitting the moved file over the wire.
 
 Some more complicated examples, tips and tricks you can find in the [Lsyncd21Manual](https://github.com/axkibe/lsyncd/wiki/Manual-to-Lsyncd-2.1.x).
 
