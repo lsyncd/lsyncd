@@ -76,6 +76,7 @@ rsync.checkgauge = {
 		rsync_path        =  true,
 		sparse            =  true,
 		temp_dir          =  true,
+		timeout           =  true,
         times             =  true,
 		update            =  true,
 		verbose           =  true,
@@ -478,6 +479,11 @@ rsync.prepare = function(
 
 	if crsync.temp_dir then
 		computed[ computedN ] = '--temp-dir=' .. crsync.temp_dir
+		computedN = computedN  + 1
+	end
+
+	if crsync.timeout then
+		computed[ computedN ] = '--timeout=' .. crsync.timeout
 		computedN = computedN  + 1
 	end
 

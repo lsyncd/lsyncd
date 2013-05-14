@@ -313,8 +313,8 @@ Also add information on how to contact you by electronic and paper mail.
 If the program is interactive, make it output a short notice like this
 when it starts in an interactive mode:
 
-    Gnomovision version 69, Copyright (C) year  name of author
-    Gnomovision comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+    Lsyncd version 2.X, Copyright (C) 2013  Axel Kittenberger
+    Lsyncd comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
     This is free software, and you are welcome to redistribute it
     under certain conditions; type `show c' for details.
 
@@ -328,7 +328,7 @@ school, if any, to sign a "copyright disclaimer" for the program, if
 necessary.  Here is a sample; alter the names:
 
   Yoyodyne, Inc., hereby disclaims all copyright interest in the program
-  `Gnomovision' (which makes passes at compilers) written by James Hacker.
+  `Lsyncd' (which makes synchronises directories) written by Axel Kittenberger.
 
   <signature of Ty Coon>, 1 April 1989
   Ty Coon, President of Vice
