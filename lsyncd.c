@@ -1246,7 +1246,7 @@ l_exec( lua_State *L )
 			struct pipemsg *pm;
 			logstring( "Exec", "adding pipe observance" );
 			pm = s_calloc( 1, sizeof( struct pipemsg ) );
-			pm->text = s_calloc( pipe_len + 1, sizeof( char * ) );
+			pm->text = s_calloc( pipe_len + 1, sizeof( char ) );
 			memcpy( pm->text, pipe_text, pipe_len + 1 );
 			pm->tlen = pipe_len;
 			pm->pos  = len;
