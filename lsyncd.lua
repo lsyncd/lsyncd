@@ -3608,7 +3608,7 @@ function runner.configure( args, monitors )
 			{
 				1,
 				function( secs )
-					clSettings.delay = secs
+					clSettings.delay = secs + 0
 				end
 			},
 
