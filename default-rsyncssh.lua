@@ -306,11 +306,11 @@ rsyncssh.prepare = function( config, level )
 		computedN = computedN + 2
 
 		local rsyncc = config.rsync._computed
-		rsyncc[ #rsyncc ] = '--rsh=ssh -p ' .. cssh.port
+		rsyncc[ #rsyncc + 1 ] = '--rsh=ssh -p ' .. cssh.port
 	end
 
 	-- appends a slash to the targetdir if missing
-	if string.sub(config.targetdir, -1) ~= '/' then
+	if string.sub( config.targetdir, -1 ) ~= '/' then
 		config.targetdir = config.targetdir .. '/'
 	end
 
