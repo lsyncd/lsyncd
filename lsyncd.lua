@@ -3001,7 +3001,7 @@ local functionWriter = ( function( )
 				while ai <= #a do
 					if a[ ai ][ 1 ] then
 						local pre, post =
-							string.match( a[ ai ][ 2 ], '(.*)"..v[1].."(.*)' )
+							string.match( a[ ai ][ 2 ], '(.*)'..v[1]..'(.*)' )
 
 						if pre then
 
