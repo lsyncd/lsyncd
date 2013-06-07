@@ -560,7 +560,7 @@ pipe_writey(
 	}
 	else if( pm->pos >= pm->tlen )
 	{
-		logstring("Exec", "finished pipe.");
+		logstring( "Exec", "finished pipe." );
 		nonobserve_fd(fd);
 	}
 }
@@ -1116,16 +1116,28 @@ l_exec( lua_State *L )
 		for( i = 1; i <= argc; i++ )
 		{
 			lua_pushstring( L, " [" );
-			lua_pushvalue(  L, i + 1 );
+			lua_pushvalue( L, i + 1 );
 			lua_pushstring( L, "]" );
 		}
 
 		lua_concat( L, 3 * argc + 1 );
 
+		// replaces midfile 0 chars by linefeed
+		size_t len = 0;
+		const char * cs = lua_tolstring( L, -1, &len );
+		char * s = s_calloc( len + 1, sizeof( char ) ); 
+
+		for( i = 0; i < len; i++ )
+		{
+			s[ i ] = cs[ i ] ? cs[ i ] : '\n';
+		}
+
 		logstring0(
 			LOG_DEBUG, "Exec",
-			luaL_checkstring(L, -1)
+			s
 		);
+
+		free( s );
 
 		lua_pop( L, 1 );
 	}

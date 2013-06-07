@@ -199,12 +199,6 @@ rsync.action = function( inlet )
 		delete = { '--delete', '--ignore-errors' }
 	end
 
-	log(
-		'Normal',
-		'Computed',
-		config.rsync._computed
-	)
-
 	spawn(
 		elist,
 		config.rsync.binary,
