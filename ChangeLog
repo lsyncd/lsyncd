@@ -7,6 +7,7 @@
 	fix: configure script lua detection now includes math lib to workaround 
 	     wrongly created "needs COMPAT_ALL" messages.
 	fix: repaired variable replacement for layer 3 scripts
+	fix: config.delay is now checked to a number >= 0
 	change: a2x is no longer checked by configure script.
 			should not be needed when building from tarball
 
