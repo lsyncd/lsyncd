@@ -2111,6 +2111,16 @@ local Sync = ( function( )
 			end
 		end
 
+		if
+			config.delay ~= nil and
+			(
+				type(config.delay) ~= 'number' or
+				config.delay < 0
+			)
+		then
+			error( 'delay must be a number and >= 0', 2 )
+		end
+
 		if config.excludeFrom then
 			s.excludes:loadFile( config.excludeFrom )
 		end
