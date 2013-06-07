@@ -15,10 +15,10 @@ AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-AC_PATH_PROG([A2X], [a2x], [no])
-if test x${A2X} = xno ; then
-	AC_MSG_ERROR([Program 'a2x' (package asciidoc) is required])
-fi
+#AC_PATH_PROG([A2X], [a2x], [no])
+#if test x${A2X} = xno ; then
+#	AC_MSG_ERROR([Program 'a2x' (package asciidoc) is required])
+#fi
 
 ###
 # Checks for Lua
