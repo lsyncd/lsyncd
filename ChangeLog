@@ -1,4 +1,4 @@
-07-07-2013: 2.1.5
+07-06-2013: 2.1.5
 	enhancement: Added rsync options: bwlimit, timeout
 	fix: Specifying ssh port no longer overwrites the last rsync option
 	fix: rsync option password_file is now accepted
