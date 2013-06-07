@@ -52,6 +52,7 @@ rsync.checkgauge = {
 		acls              =  true,
 		archive           =  true,
 		binary            =  true,
+		bwlimit           =  true,
 		checksum          =  true,
 		compress          =  true,
 		copy_links        =  true,
@@ -197,6 +198,12 @@ rsync.action = function( inlet )
 	if config.delete == true or config.delete == 'running' then
 		delete = { '--delete', '--ignore-errors' }
 	end
+
+	log(
+		'Normal',
+		'Computed',
+		config.rsync._computed
+	)
 
 	spawn(
 		elist,
@@ -460,6 +467,11 @@ rsync.prepare = function(
 			computed[ computedN ] = '--specials'
 			computedN = computedN  + 1
 		end
+	end
+	
+	if crsync.bwlimit then
+		computed[ computedN ] = '--bwlimit=' .. crsync.bwlimit
+		computedN = computedN  + 1
 	end
 
 	if crsync.password_file then
