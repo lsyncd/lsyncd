@@ -1384,7 +1384,7 @@ local Excludes = ( function( )
 
 			-- lsyncd 2.0 does not support includes
 
-			if not string.match(line, '^%s*+') then
+			if not string.match(line, '^%s*%+') then
 				local p = string.match(
 					line, '%s*-?%s*(.*)'
 				)
