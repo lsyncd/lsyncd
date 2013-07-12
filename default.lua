@@ -87,7 +87,7 @@ default.collect = function( agent, exitcode )
 	local config = agent.config
 	local rc
 
-	if config.exitcodes then
+	if config.exitcodes[exitcode] then
 		rc = config.exitcodes[exitcode]
 	elseif exitcode == 0 then
 		rc = 'ok'
