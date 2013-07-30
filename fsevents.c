@@ -49,9 +49,11 @@
 #define DEV_FSEVENTS     "/dev/fsevents"
 
 /* buffer for reading from the device */
-#define FSEVENT_BUFSIZ   131072 
+#define FSEVENT_BUFSIZ   131072
+
 /* limited by MAX_KFS_EVENTS */
-#define EVENT_QUEUE_SIZE 4096  
+#define EVENT_QUEUE_SIZE 4096
+
 #define KFS_NUM_ARGS  FSE_MAX_ARGS
 
 /* OS 10.5 structuce */
@@ -175,8 +177,13 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 			logstring("Fsevents", "contains dropped events");
 		}*/
 	} else {
-		printlogf(L, "Error", "unknown event(%d) in fsevents.", 
-			atype);
+		printlogf(
+			L,
+			"Error",
+			"unknown event(%d) in fsevents.",
+			atype
+		);
+
 		exit(-1); // ERRNO
 	}
 

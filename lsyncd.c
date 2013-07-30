@@ -126,6 +126,8 @@ static bool first_time = true;
 */
 volatile sig_atomic_t hup  = 0;
 volatile sig_atomic_t term = 0;
+volatile sig_atomic_t sigcode = 0;
+int pidfile_fd = 0;
 
 /*
 | The kernel's clock ticks per second.
@@ -144,11 +146,19 @@ sig_child(int sig) {
  * signal handler
  */
 void
-sig_handler(int sig)
+sig_handler( int sig )
 {
-	switch (sig) {
-	case SIGTERM: term = 1; return;
-	case SIGHUP:  hup  = 1; return;
+	switch( sig )
+	{
+		case SIGTERM:
+		case SIGINT:
+			term = 1;
+			sigcode = sig;
+			return;
+
+		case SIGHUP:
+			hup = 1;
+			return;
 	}
 }
 
@@ -655,23 +665,44 @@ non_block_fd( int fd )
 | Writes a pid file.
 */
 static void
-write_pidfile( lua_State *L, const char *pidfile )
+write_pidfile(
+	lua_State *L,
+	const char *pidfile
+)
 {
-	FILE* f = fopen( pidfile, "w" );
+	pidfile_fd = open( pidfile, O_CREAT | O_RDWR | O_CLOEXEC, 0644 );
 
-	if( !f )
+	char buf[ 127 ];
+
+	if( pidfile_fd < 0 )
 	{
 		printlogf(
 			L, "Error",
-			"Cannot write pidfile; '%s'",
+			"Cannot create pidfile; '%s'",
 			pidfile
-		)
-		;
+		);
+
 		exit( -1 );
 	}
 
-	fprintf( f, "%i\n", getpid( ) );
-	fclose( f );
+	int rc = lockf( pidfile_fd, F_TLOCK, 0 );
+
+	if( rc < 0 )
+	{
+		printlogf(
+			L, "Error",
+			"Cannot lock pidfile; '%s'",
+			pidfile
+		);
+
+		exit( -1 );
+	}
+
+	snprintf( buf, sizeof( buf ), "%i\n", getpid( ) );
+
+	write( pidfile_fd, buf, strlen( buf ) );
+
+	//fclose( f );
 }
 
 
@@ -871,7 +902,9 @@ user_obs_ready(
 
 	// calls the user function
 	if( lua_pcall( L, 1, 0, -3 ) )
-		{ exit( -1 ); }
+	{
+		exit( -1 );
+	}
 
 	lua_pop( L, 2 );
 }
@@ -1545,18 +1578,24 @@ l_configure( lua_State *L )
 		const char * file = luaL_checkstring( L, 2 );
 
 		if( settings.log_file )
-			{ free( settings.log_file ); }
+		{
+			free( settings.log_file );
+		}
 
-		settings.log_file = s_strdup( file );
+		settings.log_file =
+			s_strdup( file );
 	}
 	else if( !strcmp( command, "pidfile" ) )
 	{
 		const char * file = luaL_checkstring( L, 2 );
 
 		if( settings.pidfile )
-			{ free( settings.pidfile ); }
+		{
+			free( settings.pidfile );
+		}
 
-		settings.pidfile = s_strdup( file );
+		settings.pidfile =
+			s_strdup( file );
 	}
 	else if( !strcmp( command, "logfacility" ) )
 	{
@@ -2167,7 +2206,9 @@ masterloop(lua_State *L)
 
 						// Checks for signals
 						if( hup || term )
-							{ break; }
+						{
+							break;
+						}
 
 						// a file descriptor became read-ready
 						if( obs->ready && FD_ISSET( obs->fd, &rfds ) )
@@ -2176,8 +2217,10 @@ masterloop(lua_State *L)
 						}
 
 						// Checks for signals, again, better safe than sorry
-						if (hup || term)
-							{ break; }
+						if ( hup || term )
+						{
+							break;
+						}
 
 						// FIXME breaks on multiple nonobservances in one beat
 						if(
@@ -2200,7 +2243,7 @@ masterloop(lua_State *L)
 					// works through delayed nonobserve_fd() calls
 					for (pi = 0; pi < nonobservances_len; pi++)
 					{
-						nonobserve_fd(nonobservances[pi]);
+						nonobserve_fd( nonobservances[ pi ] );
 					}
 
 					nonobservances_len = 0;
@@ -2235,32 +2278,44 @@ masterloop(lua_State *L)
 		if( hup )
 		{
 			load_runner_func( L, "hup" );
+
 			if( lua_pcall( L, 0, 0, -2 ) )
 			{
 				exit( -1 );
 			}
+
 			lua_pop( L, 1 );
+
 			hup = 0;
 		}
 
-		// reacts on TERM signals
+		// reacts on TERM and INT signals
 		if( term == 1 )
 		{
 			load_runner_func( L, "term" );
-			if( lua_pcall( L, 0, 0, -2 ) )
+
+			lua_pushnumber( L, sigcode );
+
+			if( lua_pcall( L, 1, 0, -3 ) )
 			{
 				exit( -1 );
 			}
+
 			lua_pop( L, 1 );
+
 			term = 2;
 		}
 
 		// lets the runner do stuff every cycle,
 		// like starting new processes, writing the statusfile etc.
 		load_runner_func( L, "cycle" );
+
 		l_now( L );
+
 		if( lua_pcall( L, 1, 1, -3 ) )
-			{ exit( -1 ); }
+		{
+			exit( -1 );
+		}
 
 		if( !lua_toboolean( L, -1 ) )
 		{
@@ -2523,7 +2578,7 @@ main1( int argc, char *argv[] )
 		}
 
 		// prepares the defaults
-		if (lua_pcall( L, 0, 0, 0 ) )
+		if( lua_pcall( L, 0, 0, 0 ) )
 		{
 			printlogf(
 				L, "Error",
@@ -2545,10 +2600,12 @@ main1( int argc, char *argv[] )
 				!strcmp( argv[ i ], "--help" )
 			)
 			{
-				load_runner_func(L, "help");
+				load_runner_func( L, "help" );
 
-				if (lua_pcall(L, 0, 0, -2))
-					{ exit( -1 ); }
+				if( lua_pcall( L, 0, 0, -2 ) )
+				{
+					exit( -1 );
+				}
 
 				lua_pop( L, 1 );
 				exit( 0 );
@@ -2584,7 +2641,9 @@ main1( int argc, char *argv[] )
 		}
 
 		if( lua_pcall( L, 2, 1, -4 ) )
-			{ exit( -1 ); }
+		{
+			exit( -1 );
+		}
 
 		if( first_time )
 		{
@@ -2681,6 +2740,7 @@ main1( int argc, char *argv[] )
 
 		signal( SIGHUP,  sig_handler );
 		signal( SIGTERM, sig_handler );
+		signal( SIGINT,  sig_handler );
 	}
 
 	// runs initializations from runner
@@ -2690,7 +2750,9 @@ main1( int argc, char *argv[] )
 		lua_pushboolean( L, first_time );
 
 		if( lua_pcall( L, 1, 0, -3 ) )
-			{ exit( -1 ); }
+		{
+			exit( -1 );
+		}
 
 		lua_pop( L, 1 );
 	}
@@ -2754,7 +2816,17 @@ main( int argc, char * argv[ ] )
 		main1( argc, argv );
 	}
 
-	// exits with 143 since it got a kill signal
-	return 143;
+	if( pidfile_fd > 0 )
+	{
+		close( pidfile_fd );
+	}
+
+	if( settings.pidfile )
+	{
+		remove( settings.pidfile );
+	}
+
+	// exits with error code responding to the signal it died for
+	return 128 + sigcode;
 }
 

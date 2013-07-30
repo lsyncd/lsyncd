@@ -3459,7 +3459,7 @@ end
 --   * an expired alarm.
 --   * a returned child process.
 --   * received filesystem events.
---   * received a HUP or TERM signal.
+--   * received a HUP, TERM or INT signal.
 --
 function runner.cycle(
 	timestamp   -- the current kernel time (in jiffies)
@@ -4133,11 +4133,25 @@ end
 --
 -- Called by core on a term signal.
 --
-function runner.term( )
+function runner.term( sigcode )
+
+	local sigtexts = {
+		[ 2 ] =
+			'INT',
+
+		[ 15 ] =
+			'TERM'
+	};
+
+	local sigtext = sigtexts[ sigcode ];
+
+	if not sigtext then
+		sigtext = 'UNKNOWN'
+	end
 
 	log(
 		'Normal',
-		'--- TERM signal, fading ---'
+		'--- ', sigtext, ' signal, fading ---'
 	)
 
 	lsyncdStatus = 'fade'
