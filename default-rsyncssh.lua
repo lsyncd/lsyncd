@@ -50,9 +50,11 @@ rsyncssh.checkgauge = {
 
 	-- ssh settings
 	ssh = {
-		binary      =  true,
-		port        =  true,
-		_extra      =  true
+		binary       =  true,
+		identityFile =  true,
+		options      =  true,
+		port         =  true,
+		_extra       =  true
 	},
 
 	-- xargs settings
@@ -68,13 +70,21 @@ rsyncssh.checkgauge = {
 --
 rsyncssh.action = function( inlet )
 
-	local event, event2 = inlet.getEvent()
-	local config = inlet.getConfig()
+	local event, event2 = inlet.getEvent( )
+
+	local config = inlet.getConfig( )
 
 	-- makes move local on target host
 	-- if the move fails, it deletes the source
 	if event.etype == 'Move' then
-		log('Normal', 'Moving ',event.path,' -> ',event2.path)
+
+		log(
+			'Normal',
+			'Moving ',
+			event.path,
+			' -> ',
+			event2.path
+		)
 
 		spawn(
 			event,
@@ -85,7 +95,9 @@ rsyncssh.action = function( inlet )
 			'\"' .. config.targetdir .. event.path .. '\"',
 			'\"' .. config.targetdir .. event2.path .. '\"',
 			'||', 'rm', '-rf',
-			'\"' .. config.targetdir .. event.path .. '\"')
+			'\"' .. config.targetdir .. event.path .. '\"'
+		)
+
 		return
 	end
 
@@ -155,7 +167,7 @@ rsyncssh.action = function( inlet )
 	-- for everything else a rsync is spawned
 	--
 	local elist = inlet.getEvents(
-		function(e)
+		function( e )
 			-- TODO use a table
 			return e.etype ~= 'Move' and
 			       e.etype ~= 'Delete' and
@@ -170,16 +182,19 @@ rsyncssh.action = function( inlet )
 	-- removes trailing slashes from dirs.
 	--
 	for k, v in ipairs( paths ) do
-		if string.byte(v, -1) == 47 then
-			paths[k] = string.sub(v, 1, -2)
+		if string.byte( v, -1 ) == 47 then
+			paths[k] = string.sub( v, 1, -2 )
 		end
-
 	end
 
-	local sPaths = table.concat(paths, '\n')
-	local zPaths = table.concat(paths, '\000')
+	local sPaths = table.concat( paths, '\n' )
+	local zPaths = table.concat( paths, '\000' )
 
-	log('Normal', 'Rsyncing list\n', sPaths)
+	log(
+		'Normal',
+		'Rsyncing list\n',
+		sPaths
+	)
 
 	spawn(
 		elist,
@@ -288,30 +303,117 @@ rsyncssh.prepare = function( config, level )
 		)
 	end
 
-	local cssh = config.ssh;
-	cssh._computed = { }
-	local computed = cssh._computed
-	local computedN = 1
+	local cssh =
+		config.ssh;
 
-	if cssh._extra then
-		for k, v in ipairs( cssh._extra ) do
-			computed[ computedN ] = v
-			computedN = computedN  + 1
+	cssh._computed =
+		{ }
+
+	local computed =
+		cssh._computed
+
+	local computedN =
+		1
+
+	local rsyncc =
+		config.rsync._computed
+
+	if cssh.identityFile then
+		computed[ computedN ] =
+			'-i'
+
+		computed[ computedN + 1 ] =
+			cssh.identityFile
+
+		computedN =
+			computedN + 2
+
+		if not config.rsync._rshIndex then
+			config.rsync._rshIndex =
+				#rsyncc + 1
+
+			rsyncc[ config.rsync._rshIndex ] =
+				'--rsh=ssh'
+		end
+
+		rsyncc[ config.rsync._rshIndex ] =
+			rsyncc[ config.rsync._rshIndex ] ..
+			' -i ' ..
+			cssh.identityFile
+	end
+
+	if cssh.options then
+
+
+		for k, v in pairs( cssh.options ) do
+
+			computed[ computedN ] =
+				'-o'
+
+			computed[ computedN + 1 ] =
+				k .. '=' .. v
+
+			computedN =
+				computedN + 2
+
+			if not config.rsync._rshIndex then
+				config.rsync._rshIndex =
+					#rsyncc + 1
+
+				rsyncc[ config.rsync._rshIndex ] =
+					'--rsh=ssh'
+			end
+
+			rsyncc[ config.rsync._rshIndex ] =
+				table.concat(
+					{
+						rsyncc[ config.rsync._rshIndex ],
+						' -o ',
+						k,
+						'=',
+						v
+					},
+					''
+				)
 		end
 	end
 
 	if cssh.port then
-		computed[ computedN     ] = '-p'
-		computed[ computedN + 1 ] = cssh.port
-		computedN = computedN + 2
+		computed[ computedN ] =
+			'-p'
 
-		local rsyncc = config.rsync._computed
-		rsyncc[ #rsyncc + 1 ] = '--rsh=ssh -p ' .. cssh.port
+		computed[ computedN + 1 ] =
+			cssh.port
+
+		computedN =
+			computedN + 2
+
+		if not config.rsync._rshIndex then
+			config.rsync._rshIndex =
+				#rsyncc + 1
+
+			rsyncc[ config.rsync._rshIndex ] =
+				'--rsh=ssh'
+		end
+
+		rsyncc[ config.rsync._rshIndex ] =
+			rsyncc[ config.rsync._rshIndex ] .. ' -p ' .. cssh.port
+	end
+
+	if cssh._extra then
+		for k, v in ipairs( cssh._extra ) do
+			computed[ computedN ] =
+				v
+
+			computedN =
+				computedN  + 1
+		end
 	end
 
 	-- appends a slash to the targetdir if missing
 	if string.sub( config.targetdir, -1 ) ~= '/' then
-		config.targetdir = config.targetdir .. '/'
+		config.targetdir =
+			config.targetdir .. '/'
 	end
 
 end
@@ -319,33 +421,39 @@ end
 --
 -- allow processes
 --
-rsyncssh.maxProcesses = 1
+rsyncssh.maxProcesses =
+	1
 
 --
 -- The core should not split move events
 --
-rsyncssh.onMove = true
+rsyncssh.onMove =
+	true
 
 --
 -- default delay
 --
-rsyncssh.delay = 15
+rsyncssh.delay =
+	15
 
 
 --
 -- no default exit codes
 --
-rsyncssh.exitcodes = false
+rsyncssh.exitcodes =
+	false
 
 --
 -- rsync exit codes
 --
-rsyncssh.rsyncExitCodes = default.rsyncExitCodes
+rsyncssh.rsyncExitCodes =
+	default.rsyncExitCodes
 
 --
 -- ssh exit codes
 --
-rsyncssh.sshExitCodes = default.sshExitCodes
+rsyncssh.sshExitCodes =
+	default.sshExitCodes
 
 --
 -- xargs calls configuration
@@ -357,16 +465,19 @@ rsyncssh.xargs = {
 
 	--
 	-- the binary called (on target host)
-	binary = '/usr/bin/xargs',
+	binary =
+		'/usr/bin/xargs',
 
 	--
 	-- delimiter, uses null by default, you might want to override this for older
 	-- by for example '\n'
-	delimiter = '\000',
+	delimiter =
+		'\000',
 
 	--
 	-- extra parameters
-	_extra = { '-0', 'rm -rf' }
+	_extra =
+		{ '-0', 'rm -rf' }
 }
 
 --
@@ -379,16 +490,31 @@ rsyncssh.ssh = {
 	--
 	-- the binary called
 	--
-	binary = '/usr/bin/ssh',
+	binary =
+		'/usr/bin/ssh',
+
+	--
+	-- if set adds this key to ssh
+	--
+	identityFile =
+		nil,
+
+	--
+	-- if set adds this special options to ssh
+	--
+	options =
+		nil,
 
 	--
 	-- if set connect to this port
 	--
-	port = nil,
+	port =
+		nil,
 
 	--
 	-- extra parameters
 	--
-	_extra = { }
+	_extra =
+		{ }
 }
 
