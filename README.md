@@ -18,7 +18,7 @@ Other synchronization tools
 ------------------------
 [DRBD](http://www.drbd.org) operates on block device level. This makes it useful for synchronizing systems that are under heavy load. Lsyncd on the other hand does not require you to change block devices and/or mount points, allows you to change uid/gid of the transferred files, separates the receiver through the one-way nature of rsync. DRBD is likely the better option if you are syncing databases.
 
-[GlusterFS](http://www.gluster.org) and [BindFS](http://www.cs.helsinki.fi/u/partel/bindfs/) use a FUSE-Filesystem to interject kernel/userspace filesystem events.
+[GlusterFS](http://www.gluster.org) and [BindFS](http://bindfs.org/) use a FUSE-Filesystem to interject kernel/userspace filesystem events.
 
 Lsyncd usage examples
 ---------------------
