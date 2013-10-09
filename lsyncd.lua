@@ -4163,51 +4163,48 @@ function runner.overflow( )
 end
 
 --
--- Called by core on a hup signal.
+-- Called by core on SIGHUP, SIGINT, SIGTERM signal.
 --
-function runner.hup( )
+function runner.sig_handler( sigcode )
+
+	local sigacts = {
+		[ 1 ] = {
+			'HUP',
+			'resetting',
+			'fade'
+		},
+
+		[ 2 ] = {
+			'INT',
+			'fading',
+			'fade'
+		},
+
+		[ 15 ] = {
+			'TERM',
+			'gracefully fading',
+			'gracefulfade'
+		},
+
+	};
+
+	local sigact = sigacts[ sigcode ];
+
+	if not sigact then
+		log(
+			'Normal',
+			'Unknown signal, terminating'
+		)
+		sigact = sigacts [ 15 ]
+	end
 
 	log(
 		'Normal',
-		'--- HUP signal, resetting ---'
+		'--- ', sigact[1], ' signal, ',
+		sigact[2],
+		' ---'
 	)
-
-	lsyncdStatus = 'fade'
-
-end
-
---
--- Called by core on a term signal.
---
-function runner.term( sigcode )
-
-	local sigtexts = {
-		[ 2 ] =
-			'INT',
-
-		[ 15 ] =
-			'TERM'
-	};
-
-	local sigtext = sigtexts[ sigcode ];
-
-	if not sigtext then
-		sigtext = 'UNKNOWN'
-	end
-
-	if sigcode == 15 then
-		log(
-			'Normal',
-			'--- ', sigtext, ' signal, fading gracefully ---'
-		)
-		lsyncdStatus = 'gracefulfade'
-	else
-		log(
-			'Normal',
-			'--- ', sigtext, ' signal, fading ---'
-		)
-		lsyncdStatus = 'fade'
-	end
+	lsyncdStatus = sigact[3]
 end
 
 --============================================================================

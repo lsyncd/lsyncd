@@ -59,9 +59,10 @@ extern int l_now(lua_State *L);
 // pushes a runner function and the runner error handler onto Lua stack
 extern void load_runner_func(lua_State *L, const char *name);
 
-// set to 1 on hup signal or term signal
-extern volatile sig_atomic_t hup;
-extern volatile sig_atomic_t term;
+// set to the signal being processed
+extern volatile sig_atomic_t sigcode;
+// set to true during final process termination
+extern volatile bool term;
 
 /**
  * wrappers for heap management, they exit if out-of-memory.

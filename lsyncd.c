@@ -124,9 +124,12 @@ static bool first_time = true;
 | Set by TERM or HUP signal handler
 | telling Lsyncd should end or reset ASAP.
 */
-volatile sig_atomic_t hup  = 0;
-volatile sig_atomic_t term = 0;
 volatile sig_atomic_t sigcode = 0;
+/*
+| marks final stage of process termination
+*/
+volatile bool term = 0;
+
 int pidfile_fd = 0;
 
 /*
@@ -152,12 +155,11 @@ sig_handler( int sig )
 	{
 		case SIGTERM:
 		case SIGINT:
-			term = 1;
 			sigcode = sig;
 			return;
 
 		case SIGHUP:
-			hup = 1;
+			sigcode = sig;
 			return;
 	}
 }
@@ -1450,7 +1452,7 @@ l_readdir ( lua_State *L )
 
 	lua_newtable( L );
 
-	while( !hup && !term )
+	while( sigcode == 0 )
 	{
 		struct dirent *de = readdir( d );
 		bool isdir;
@@ -2205,7 +2207,7 @@ masterloop(lua_State *L)
 						struct observance *obs = observances + pi;
 
 						// Checks for signals
-						if( hup || term )
+						if( sigcode != 0 )
 						{
 							break;
 						}
@@ -2217,7 +2219,7 @@ masterloop(lua_State *L)
 						}
 
 						// Checks for signals, again, better safe than sorry
-						if ( hup || term )
+						if ( sigcode != 0 )
 						{
 							break;
 						}
@@ -2274,25 +2276,10 @@ masterloop(lua_State *L)
 			lua_pop( L, 1 );
 		}
 
-		// reacts on HUP signals
-		if( hup )
+		// reacts on signals
+		if( sigcode > 0 && !term )
 		{
-			load_runner_func( L, "hup" );
-
-			if( lua_pcall( L, 0, 0, -2 ) )
-			{
-				exit( -1 );
-			}
-
-			lua_pop( L, 1 );
-
-			hup = 0;
-		}
-
-		// reacts on TERM and INT signals
-		if( term == 1 )
-		{
-			load_runner_func( L, "term" );
+			load_runner_func( L, "sig_handler" );
 
 			lua_pushnumber( L, sigcode );
 
@@ -2302,8 +2289,12 @@ masterloop(lua_State *L)
 			}
 
 			lua_pop( L, 1 );
-
-			term = 2;
+			if ( sigcode == SIGHUP)
+			{
+				sigcode = 0;
+			} else { /* SIGTERM || SIGINT */
+				term = 1;
+			}
 		}
 
 		// lets the runner do stuff every cycle,
