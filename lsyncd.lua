@@ -82,6 +82,16 @@ local uSettings = { }
 --
 local settingsSafe
 
+--
+-- Current status of Lsyncd.
+--
+-- 'init'  ... on (re)init
+-- 'run'   ... normal operation
+-- 'fade'  ... waits for remaining processes
+-- 'gracefulfade' ... flushes queue, waits for remaining processes
+--
+local lsyncdStatus = 'init'
+
 --============================================================================
 -- Lsyncd Prototypes
 --============================================================================
@@ -2019,6 +2029,10 @@ local Sync = ( function( )
 		return newd
 	end
 
+	local function countDelays( self )
+		return self.delays.size
+	end
+
 	--
 	-- Writes a status report about delays in this sync.
 	--
@@ -2086,6 +2100,7 @@ local Sync = ( function( )
 			removeDelay     = removeDelay,
 			rmExclude       = rmExclude,
 			statusReport    = statusReport,
+			countDelays     = countDelays,
 		}
 
 		s.inlet = InletFactory.newInlet( s )
@@ -2611,6 +2626,7 @@ local Inotify = ( function( )
 		wd2,       --  watch descriptor for target if it's a Move
 		filename2  --  string filename without path of Move target
 	)
+
 		if isdir then
 			filename = filename .. '/'
 
@@ -2795,6 +2811,7 @@ local Fsevents = ( function( )
 		path,   --  path of file
 		path2   --  path of target in case of 'Move'
 	)
+
 		if isdir then
 			path = path .. '/'
 
@@ -3385,15 +3402,6 @@ end )( )
 --============================================================================
 
 --
--- Current status of Lsyncd.
---
--- 'init'  ... on (re)init
--- 'run'   ... normal operation
--- 'fade'  ... waits for remaining processes
---
-local lsyncdStatus = 'init'
-
---
 -- The cores interface to the runner.
 --
 local runner = { }
@@ -3490,11 +3498,58 @@ function runner.cycle(
 		end
 	end
 
+	if lsyncdStatus == 'gracefulfade' then
+		local queuesize = 0
+		for _, s in Syncs.iwalk() do
+			queuesize = queuesize + s:countDelays()
+		end
+		if queuesize == 0 and processCount == 0 then
+			-- job done
+			log(
+				'Normal',
+				'queue flushed, no processes pending'
+			)
+			return false
+		end
+		if
+			lastReportedWaiting == false or
+			timestamp >= lastReportedWaiting + 1
+		then
+			lastReportedWaiting = timestamp
+
+			log(
+				'Normal',
+				'waiting for ',
+				queuesize,
+				' queued changes and ',
+				processCount,
+				' child processes.'
+			)
+		end
+		if uSettings.delay then
+			runner._cycle_syncs( timestamp + uSettings.delay )
+		else
+			runner._cycle_syncs( timestamp )
+		end
+		return true
+	end
+
 	if lsyncdStatus ~= 'run' then
 		error( 'runner.cycle() called while not running!' )
 	end
 
-	--
+	runner._cycle_syncs( timestamp )
+
+	UserAlarms.invoke( timestamp )
+
+	if uSettings.statusFile then
+		StatusFile.write( timestamp )
+	end
+
+	return true
+end
+
+function runner._cycle_syncs( timestamp )
 	-- goes through all syncs and spawns more actions
 	-- if possibly. But only let Syncs invoke actions if
 	-- not at global limit
@@ -3521,16 +3576,7 @@ function runner.cycle(
 
 		Syncs.nextRound( )
 	end
-
-	UserAlarms.invoke( timestamp )
-
-	if uSettings.statusFile then
-		StatusFile.write( timestamp )
-	end
-
-	return true
 end
-
 --
 -- Called by core if '-help' or '--help' is in
 -- the arguments.
@@ -4149,13 +4195,19 @@ function runner.term( sigcode )
 		sigtext = 'UNKNOWN'
 	end
 
-	log(
-		'Normal',
-		'--- ', sigtext, ' signal, fading ---'
-	)
-
-	lsyncdStatus = 'fade'
-
+	if sigcode == 15 then
+		log(
+			'Normal',
+			'--- ', sigtext, ' signal, fading gracefully ---'
+		)
+		lsyncdStatus = 'gracefulfade'
+	else
+		log(
+			'Normal',
+			'--- ', sigtext, ' signal, fading ---'
+		)
+		lsyncdStatus = 'fade'
+	end
 end
 
 --============================================================================
