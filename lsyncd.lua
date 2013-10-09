@@ -2627,6 +2627,14 @@ local Inotify = ( function( )
 		filename2  --  string filename without path of Move target
 	)
 
+		if lsyncdStatus == 'gracefulfade' then
+			log(
+				'Warn',
+				'Ignoring event - in gracefulfade'
+			)
+			return true
+		end
+
 		if isdir then
 			filename = filename .. '/'
 
@@ -2811,6 +2819,13 @@ local Fsevents = ( function( )
 		path,   --  path of file
 		path2   --  path of target in case of 'Move'
 	)
+		if lsyncdStatus == 'gracefulfade' then
+			log(
+				'Warn',
+				'Ignoring event - in gracefulfade'
+			)
+			return true
+		end
 
 		if isdir then
 			path = path .. '/'
