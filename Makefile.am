@@ -29,6 +29,7 @@ TESTS = \
 	tests/exclude-rsync.lua \
 	tests/exclude-rsyncssh.lua \
 	tests/schedule.lua \
+	tests/flush-queue-sigterm.sh \
 	tests/l4rsyncdata.lua
 
 dist_man1_MANS = doc/lsyncd.1
