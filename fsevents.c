@@ -32,6 +32,7 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -161,7 +162,7 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 			exit(-1); // ERRNO
 		}
 		lua_pop(L, 1);
-		hup = 1;
+		sigcode = SIGHUP;
 		return;
 	}
 
@@ -306,7 +307,7 @@ fsevents_ready(lua_State *L, struct observance *obs)
 	}
 	{
 		int off = 0;
-		while (off < len && !hup && !term) {
+		while (off < len && sigcode == 0) {
 			/* deals with alignment issues on 64 bit by copying data bit by bit */
 			struct kfs_event* event = (struct kfs_event *) eventbuf;
 			event->type = *(int32_t*)(readbuf+off);

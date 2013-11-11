@@ -229,7 +229,7 @@ handle_event(
 			exit( -1 );
 		}
 		lua_pop( L, 1 );
-		hup = 1;
+		sigcode = SIGHUP;
 		return;
 	}
 
@@ -462,7 +462,7 @@ inotify_ready(
 
 		{
 			int i = 0;
-			while( i < len && !hup && !term )
+			while( i < len && sigcode == 0 )
 			{
 				struct inotify_event *event =
 					( struct inotify_event * )

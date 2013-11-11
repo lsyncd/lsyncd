@@ -82,6 +82,16 @@ local uSettings = { }
 --
 local settingsSafe
 
+--
+-- Current status of Lsyncd.
+--
+-- 'init'  ... on (re)init
+-- 'run'   ... normal operation
+-- 'fade'  ... waits for remaining processes
+-- 'gracefulfade' ... flushes queue, waits for remaining processes
+--
+local lsyncdStatus = 'init'
+
 --============================================================================
 -- Lsyncd Prototypes
 --============================================================================
@@ -2019,6 +2029,10 @@ local Sync = ( function( )
 		return newd
 	end
 
+	local function countDelays( self )
+		return self.delays.size
+	end
+
 	--
 	-- Writes a status report about delays in this sync.
 	--
@@ -2086,6 +2100,7 @@ local Sync = ( function( )
 			removeDelay     = removeDelay,
 			rmExclude       = rmExclude,
 			statusReport    = statusReport,
+			countDelays     = countDelays,
 		}
 
 		s.inlet = InletFactory.newInlet( s )
@@ -2611,6 +2626,15 @@ local Inotify = ( function( )
 		wd2,       --  watch descriptor for target if it's a Move
 		filename2  --  string filename without path of Move target
 	)
+
+		if lsyncdStatus == 'gracefulfade' then
+			log(
+				'Warn',
+				'Ignoring event - in gracefulfade'
+			)
+			return true
+		end
+
 		if isdir then
 			filename = filename .. '/'
 
@@ -2795,6 +2819,14 @@ local Fsevents = ( function( )
 		path,   --  path of file
 		path2   --  path of target in case of 'Move'
 	)
+		if lsyncdStatus == 'gracefulfade' then
+			log(
+				'Warn',
+				'Ignoring event - in gracefulfade'
+			)
+			return true
+		end
+
 		if isdir then
 			path = path .. '/'
 
@@ -3385,15 +3417,6 @@ end )( )
 --============================================================================
 
 --
--- Current status of Lsyncd.
---
--- 'init'  ... on (re)init
--- 'run'   ... normal operation
--- 'fade'  ... waits for remaining processes
---
-local lsyncdStatus = 'init'
-
---
 -- The cores interface to the runner.
 --
 local runner = { }
@@ -3490,11 +3513,58 @@ function runner.cycle(
 		end
 	end
 
+	if lsyncdStatus == 'gracefulfade' then
+		local queuesize = 0
+		for _, s in Syncs.iwalk() do
+			queuesize = queuesize + s:countDelays()
+		end
+		if queuesize == 0 and processCount == 0 then
+			-- job done
+			log(
+				'Normal',
+				'queue flushed, no processes pending'
+			)
+			return false
+		end
+		if
+			lastReportedWaiting == false or
+			timestamp >= lastReportedWaiting + 1
+		then
+			lastReportedWaiting = timestamp
+
+			log(
+				'Normal',
+				'waiting for ',
+				queuesize,
+				' queued changes and ',
+				processCount,
+				' child processes.'
+			)
+		end
+		if uSettings.delay then
+			runner._cycle_syncs( timestamp + uSettings.delay )
+		else
+			runner._cycle_syncs( timestamp )
+		end
+		return true
+	end
+
 	if lsyncdStatus ~= 'run' then
 		error( 'runner.cycle() called while not running!' )
 	end
 
-	--
+	runner._cycle_syncs( timestamp )
+
+	UserAlarms.invoke( timestamp )
+
+	if uSettings.statusFile then
+		StatusFile.write( timestamp )
+	end
+
+	return true
+end
+
+function runner._cycle_syncs( timestamp )
 	-- goes through all syncs and spawns more actions
 	-- if possibly. But only let Syncs invoke actions if
 	-- not at global limit
@@ -3521,16 +3591,7 @@ function runner.cycle(
 
 		Syncs.nextRound( )
 	end
-
-	UserAlarms.invoke( timestamp )
-
-	if uSettings.statusFile then
-		StatusFile.write( timestamp )
-	end
-
-	return true
 end
-
 --
 -- Called by core if '-help' or '--help' is in
 -- the arguments.
@@ -4117,45 +4178,48 @@ function runner.overflow( )
 end
 
 --
--- Called by core on a hup signal.
+-- Called by core on SIGHUP, SIGINT, SIGTERM signal.
 --
-function runner.hup( )
+function runner.sig_handler( sigcode )
 
-	log(
-		'Normal',
-		'--- HUP signal, resetting ---'
-	)
+	local sigacts = {
+		[ 1 ] = {
+			'HUP',
+			'resetting',
+			'fade'
+		},
 
-	lsyncdStatus = 'fade'
-
-end
-
---
--- Called by core on a term signal.
---
-function runner.term( sigcode )
-
-	local sigtexts = {
-		[ 2 ] =
+		[ 2 ] = {
 			'INT',
+			'fading',
+			'fade'
+		},
 
-		[ 15 ] =
-			'TERM'
+		[ 15 ] = {
+			'TERM',
+			'gracefully fading',
+			'gracefulfade'
+		},
+
 	};
 
-	local sigtext = sigtexts[ sigcode ];
+	local sigact = sigacts[ sigcode ];
 
-	if not sigtext then
-		sigtext = 'UNKNOWN'
+	if not sigact then
+		log(
+			'Normal',
+			'Unknown signal, terminating'
+		)
+		sigact = sigacts [ 15 ]
 	end
 
 	log(
 		'Normal',
-		'--- ', sigtext, ' signal, fading ---'
+		'--- ', sigact[1], ' signal, ',
+		sigact[2],
+		' ---'
 	)
-
-	lsyncdStatus = 'fade'
-
+	lsyncdStatus = sigact[3]
 end
 
 --============================================================================
