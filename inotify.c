@@ -143,7 +143,7 @@ l_addwatch( lua_State *L )
 
 		printlogf(
 			L, "Inotify",
-			"addwatch( %s )-> % d; err= %d : %s",
+			"addwatch( %s )-> %d; err= %d : %s",
 			path, wd, errno, strerror( errno )
 		);
 	}
