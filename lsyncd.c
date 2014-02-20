@@ -416,12 +416,24 @@ printlogf0(lua_State *L,
 	const char *cat,
 	const char *fmt, ...)
 {
+#if 0 // weird bug (ubuntu precise lua5.1) ? "addwatch( /home/gauchard/.lyx/cache/ )-> -1; err= 13 : Permission denied" where /home/gauchard/.lyx/cache/ is NFS unreadable by root -> segfault
 	va_list ap;
 	va_start(ap, fmt);
 	lua_pushvfstring(L, fmt, ap);
 	va_end(ap);
 	logstring0(priority, cat, luaL_checkstring(L, -1));
 	lua_pop(L, 1);
+#else
+	// quick hack
+	char buf[256];
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(buf, 255, fmt, ap);
+	va_end(ap);
+	lua_pushfstring(L, "%s", buf);
+	logstring0(priority, cat, luaL_checkstring(L, -1));
+	lua_pop(L, 1);
+#endif
 	return;
 }
 
