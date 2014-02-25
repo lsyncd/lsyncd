@@ -2740,6 +2740,46 @@ main1( int argc, char *argv[] )
 
 #endif
 
+	// drop privileges (in case of suid bit on executable, fsevents needs it)
+	if( getgid() != getegid() )
+	{
+		printlogf(
+			L, "Notice",
+			"dropping group privilege"
+		);
+		
+		if( setegid( getgid() ) != 0 )
+		{
+			printlogf(
+				L, "Error",
+				"setegid(%i): %s",
+				getgid(), strerror( errno )
+			);
+
+			exit( -1 );
+		}
+	}
+		
+	// drop privileges (in case of suid bit on executable, fsevents needs it)
+	if( getuid() != geteuid() )
+	{
+		printlogf(
+			L, "Notice",
+			"dropping user privilege"
+		);
+		
+		if( seteuid( getuid() ) != 0 )
+		{
+			printlogf(
+				L, "Error",
+				"seteuid(%i): %s",
+				getuid(), strerror( errno )
+			);
+
+			exit( -1 );
+		}
+	}
+
 	// adds signal handlers
 	// listens to SIGCHLD, but blocks it until pselect( )
 	// opens the signal handler up
