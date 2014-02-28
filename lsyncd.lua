@@ -1454,7 +1454,7 @@ local Excludes = ( function( )
 end )( )
 
 --
--- Holds information about one observed directory inclusively subdirs.
+-- Holds information about one observed directory including subdirs.
 --
 local Sync = ( function( )
 
@@ -1486,6 +1486,7 @@ local Sync = ( function( )
 	-- Removes a delay.
 	--
 	local function removeDelay( self, delay )
+
 		if self.delays[ delay.dpos ] ~= delay then
 			error( 'Queue is broken, delay not a dpos' )
 		end
@@ -1494,9 +1495,13 @@ local Sync = ( function( )
 
 		-- free all delays blocked by this one.
 		if delay.blocks then
+
 			for i, vd in pairs( delay.blocks ) do
+
 				vd.status = 'wait'
+
 			end
+
 		end
 	end
 
@@ -1507,18 +1512,25 @@ local Sync = ( function( )
 
 		-- not concerned if watch rootdir doesnt match
 		if not path:starts( self.source ) then
+
 			return false
+
 		end
 
 		-- a sub dir and not concerned about subdirs
 		if self.config.subdirs == false and
+
 			path:sub( #self.source, -1 ):match( '[^/]+/?' )
+
 		then
+
 			return false
+
 		end
 
 		-- concerned if not excluded
 		return not self.excludes:test( path:sub( #self.source ) )
+
 	end
 
 	--
@@ -1640,6 +1652,7 @@ local Sync = ( function( )
 		end
 
 		table.insert( oldDelay.blocks, newDelay )
+
 	end
 
 	--
@@ -1661,6 +1674,7 @@ local Sync = ( function( )
 		local function recurse( )
 
 			if etype == 'Create' and path:byte( -1 ) == 47 then
+
 				local entries = lsyncd.readdir( self.source .. path )
 
 				if entries then
@@ -2062,6 +2076,7 @@ local Sync = ( function( )
 	-- Creates a new Sync
 	--
 	local function new( config )
+
 		local s = {
 			-- fields
 
@@ -2111,6 +2126,7 @@ local Sync = ( function( )
 			else
 				error( 'type for exclude must be table or string', 2 )
 			end
+
 		end
 
 		if
@@ -2124,7 +2140,9 @@ local Sync = ( function( )
 		end
 
 		if config.excludeFrom then
+
 			s.excludes:loadFile( config.excludeFrom )
+
 		end
 
 		return s
@@ -2133,7 +2151,9 @@ local Sync = ( function( )
 	--
 	-- Public interface
 	--
-	return { new = new }
+	return {
+		new = new
+	}
 
 end )( )
 

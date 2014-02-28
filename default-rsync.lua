@@ -59,7 +59,7 @@ rsync.checkgauge = {
 		cvs_exclude       =  true,
 		dry_run           =  true,
 		executability     =  true,
-        group             =  true,
+		group             =  true,
 		hard_links        =  true,
 		ignore_times      =  true,
 		ipv4              =  true,
@@ -78,10 +78,10 @@ rsync.checkgauge = {
 		sparse            =  true,
 		temp_dir          =  true,
 		timeout           =  true,
-        times             =  true,
+		times             =  true,
 		update            =  true,
 		verbose           =  true,
-        whole_file        =  true,
+		whole_file        =  true,
 		xattrs            =  true,
 		_extra            =  true,
 	},
@@ -299,9 +299,7 @@ rsync.prepare = function(
 	skipTarget -- used by rsyncssh, do not check for target
 )
 
-	--
 	-- First let default.prepare test the checkgauge
-	--
 	default.prepare( config, level + 6 )
 
 	if not skipTarget and not config.target then
@@ -364,14 +362,10 @@ rsync.prepare = function(
 		)
 	end
 
-	--
 	-- computes the rsync arguments into one list
-	--
 	local crsync = config.rsync;
 
-	--
 	-- everything implied by archive = true
-	--
 	local archiveFlags = {
 		recursive   =  true,
 		links       =  true,
@@ -386,9 +380,7 @@ rsync.prepare = function(
 		xattrs      =  false,
 	}
 
-	--
-	-- if archive given the implications are filled in
-	--
+	-- if archive is given the implications are filled in
 	if crsync.archive then
 		for k, v in pairs( archiveFlags ) do
 			if crsync[ k ] == nil then
@@ -410,7 +402,7 @@ rsync.prepare = function(
 		cvs_exclude        = 'C',
 		dry_run            = 'n',
 		executability      = 'E',
-        group              = 'g',
+		group              = 'g',
 		hard_links         = 'H',
 		ignore_times       = 'I',
 		ipv4               = '4',
@@ -424,10 +416,10 @@ rsync.prepare = function(
 		prune_empty_dirs   = 'm',
 		quiet              = 'q',
 		sparse             = 'S',
-        times              = 't',
+		times              = 't',
 		update             = 'u',
 		verbose            = 'v',
-        whole_file         = 'W',
+		whole_file         = 'W',
 		xattrs             = 'X',
 	}
 
