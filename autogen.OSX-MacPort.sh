@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "MacPort needed packages: autogen lua asciidoc"
+echo "MacPort needed packages: autogen autoconf automake lua asciidoc"
 
 export PATH=/opt/local/bin:$PATH
 
@@ -34,7 +34,7 @@ if autoreconf --install --force; then
   # problem with O_CLOEXEC /usr/include/sys/fcntl.h on 10.6
   grep O_CLOEXEC /usr/include/sys/fcntl.h 2>&1 >/dev/null || CFLAGS="$CFLAGS -DO_CLOEXEC=0"
   
-  echo $CFLAGS
+  #echo $CFLAGS
   
   ./configure --without-inotify --with-fsevents --prefix=/usr/local
   
