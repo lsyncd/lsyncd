@@ -2097,12 +2097,15 @@ masterloop(lua_State *L)
 		// queries the runner about the soonest alarm
 		//
 		load_runner_func( L, "getAlarm" );
+
 		if( lua_pcall( L, 0, 1, -2 ) )
-			{ exit( -1 ); }
+		{
+			exit( -1 );
+		}
 
 		if( lua_type( L, -1 ) == LUA_TBOOLEAN)
 		{
-			have_alarm  = false;
+			have_alarm = false;
 			force_alarm = lua_toboolean( L, -1 );
 		}
 		else
@@ -2110,6 +2113,7 @@ masterloop(lua_State *L)
 			have_alarm = true;
 			alarm_time = *( ( clock_t * ) luaL_checkudata( L, -1, "Lsyncd.jiffies" ) );
 		}
+
 		lua_pop( L, 2 );
 
 		if(
@@ -2212,6 +2216,7 @@ masterloop(lua_State *L)
 				{
 					// walks through the observances calling ready/writey
 					observance_action = true;
+
 					for( pi = 0; pi < observances_len; pi++ )
 					{
 						struct observance *obs = observances + pi;
@@ -2351,6 +2356,7 @@ masterloop(lua_State *L)
 
 /*
 | The effective main for one run.
+|
 | HUP signals may cause several runs of the one main.
 */
 int
