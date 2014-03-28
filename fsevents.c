@@ -166,10 +166,11 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 	}
 
 	atype  = event->type & FSE_TYPE_MASK;
-	/*uint32_t aflags = FSE_GET_FLAGS(event->type);*/
 
-	if ((atype < FSE_MAX_EVENTS) && (atype >= -1)) {
-		/*printlogf(L, "Fsevents", "got event %s", eventNames[atype]);
+	if ((atype == FSE_ARG_DONE) || ((atype < FSE_MAX_EVENTS) && (atype >= -1))) {
+		/*uint32_t aflags = FSE_GET_FLAGS(event->type);
+		//printlogf(L, "Fsevents", "got event %s, aflags=0x%x", eventNames[atype], aflags);
+		printlogf(L, "Fsevents", "got event %dd=0x%x %dd=0x%x flags=0x%x", atype, atype, event->type, event->type, aflags);
 		if (aflags & FSE_COMBINED_EVENTS) {
 			logstring("Fsevents", "combined events");
 		}
@@ -255,6 +256,8 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 	if (etype) {
 		if (!path) {
 			printlogf(L, "Error", "Internal fail, fsevents, no path.");
+			//printlogf(L, "Error", "Internal fail, fsevents, no path, ignoring (etype=%s atype=%dd/0x%x, flags=0x%x).", etype, atype, atype, FSE_GET_FLAGS(event->type));
+			//return;
 			exit(-1);
 		}
 		if (isdir < 0) {
