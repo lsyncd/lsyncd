@@ -444,6 +444,47 @@ open_fsevents(lua_State *L)
 	close_exec_fd(fsevents_fd);
 	non_block_fd(fsevents_fd);
 	observe_fd(fsevents_fd, fsevents_ready, NULL, fsevents_tidy, NULL);
+
+	// drop privileges (in case of suid bit on executable, fsevents needs it)
+	if( getgid() != getegid() )
+	{
+		printlogf(
+			L, "Notice",
+			"dropping group privilege"
+		);
+		
+		if( setegid( getgid() ) != 0 )
+		{
+			printlogf(
+				L, "Error",
+				"setegid(%i): %s",
+				getgid(), strerror( errno )
+			);
+
+			exit( -1 );
+		}
+	}
+		
+	// drop privileges (in case of suid bit on executable, fsevents needs it)
+	if( getuid() != geteuid() )
+	{
+		printlogf(
+			L, "Notice",
+			"dropping user privilege"
+		);
+		
+		if( seteuid( getuid() ) != 0 )
+		{
+			printlogf(
+				L, "Error",
+				"seteuid(%i): %s",
+				getuid(), strerror( errno )
+			);
+
+			exit( -1 );
+		}
+	}
+
 }
 
 
