@@ -167,7 +167,13 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 
 	atype  = event->type & FSE_TYPE_MASK;
 
-	if ((atype == FSE_ARG_DONE) || ((atype < FSE_MAX_EVENTS) && (atype >= -1))) {
+	if (atype == 11)
+	{
+		printlogf(L, "Fsevents", "ignore undocumented event 11");
+		return;
+	}
+
+  	if ((atype < FSE_MAX_EVENTS) && (atype >= -1)) {
 		/*uint32_t aflags = FSE_GET_FLAGS(event->type);
 		//printlogf(L, "Fsevents", "got event %s, aflags=0x%x", eventNames[atype], aflags);
 		printlogf(L, "Fsevents", "got event %dd=0x%x %dd=0x%x flags=0x%x", atype, atype, event->type, event->type, aflags);
