@@ -16,10 +16,23 @@ m4 -DPKG_CHECK_MODULES < configure.ac > OSX/configure.ac
 cd OSX
 
 xnu=`uname -a | sed 's,.*\(xnu[^\~]*\).*,\1,'`
-xnurl="http://www.opensource.apple.com/source/xnu/$xnu/bsd/sys/fsevents.h?txt"
-mkdir -p bsd/sys
-echo "downloading '$xnurl' to bsd/sys/fsevents.h"
-curl "$xnurl" > bsd/sys/fsevents.h
+while :; do
+
+	xnurl="http://www.opensource.apple.com/source/xnu/$xnu/bsd/sys/fsevents.h?txt"
+	mkdir -p bsd/sys
+	echo "downloading '$xnurl' to bsd/sys/fsevents.h"
+	curl "$xnurl" > bsd/sys/fsevents.h
+
+	if grep -i html bsd/sys/fsevents.h > /dev/null; then
+		echo "ERROR, please browse the following URL:"
+		echo "	http://www.opensource.apple.com/source/xnu/"
+		echo "and copy paste here the nearest version of yours ($xnu):"
+		read xnu
+	else
+		break;
+	fi
+done
+echo "OK, bsd/sys/fsevents.h seems to be correct"
 
 if autoreconf --install --force; then
   echo "Preparing was successful if there was no error messages above."
