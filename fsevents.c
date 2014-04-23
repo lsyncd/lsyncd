@@ -167,9 +167,9 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 
 	atype  = event->type & FSE_TYPE_MASK;
 
-	if (atype == 11)
+	if (atype == 11 || atype == 831)
 	{
-		printlogf(L, "Fsevents", "ignore undocumented event 11");
+		printlogf(L, "Fsevents", "ignore undocumented event %d", atype);
 		return;
 	}
 
@@ -261,10 +261,10 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 
 	if (etype) {
 		if (!path) {
-			printlogf(L, "Error", "Internal fail, fsevents, no path.");
-			//printlogf(L, "Error", "Internal fail, fsevents, no path, ignoring (etype=%s atype=%dd/0x%x, flags=0x%x).", etype, atype, atype, FSE_GET_FLAGS(event->type));
-			//return;
-			exit(-1);
+			//printlogf(L, "Error", "Internal fail, fsevents, no path.");
+			printlogf(L, "Error", "Internal fail, fsevents, no path, ignoring (etype=%s atype=%dd/0x%x, flags=0x%x).", etype, atype, atype, FSE_GET_FLAGS(event->type));
+			return;
+			//exit(-1);
 		}
 		if (isdir < 0) {
 			printlogf(L, "Error", "Internal fail, fsevents, neither dir nor file.");
