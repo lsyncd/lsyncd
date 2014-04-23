@@ -60,8 +60,10 @@ extern size_t defaults_size;
 */
 #ifndef LSYNCD_WITH_INOTIFY
 #ifndef LSYNCD_WITH_FANOTIFY
-#ifndef LSYNCD_WITH_FSEVENTS
+#ifndef LSYNCD_WITH_OLDFSEVENTS
+#ifndef LSYNCD_WITH_FSEVENTS_API
 #	error "need at least one notifcation system. please rerun ./configure"
+#endif
 #endif
 #endif
 #endif
@@ -79,7 +81,12 @@ static char *monitors[] = {
 	"fanotify",
 #endif
 
-#ifdef LSYNCD_WITH_FSEVENTS
+#ifdef LSYNCD_WITH_OLDFSEVENTS
+	"fsevents",
+#endif
+
+#ifdef LSYNCD_WITH_FSEVENTS_API
+	//"fsevents-api",
 	"fsevents",
 #endif
 
@@ -1946,6 +1953,15 @@ register_lsyncd( lua_State *L )
 
 #endif
 
+#ifdef LSYNCD_WITH_FSEVENTS_API
+
+	lua_getglobal( L, LSYNCD_LIBNAME );
+	register_fsevents_api( L );
+	lua_setfield( L, -2, LSYNCD_FSEVENTSAPILIBNAME );
+	lua_pop( L, 1 );
+
+#endif
+
 	if( lua_gettop( L ) )
 	{
 		logstring(
@@ -2740,9 +2756,15 @@ main1( int argc, char *argv[] )
 
 #endif
 
-#ifdef LSYNCD_WITH_FSEVENTS
+#ifdef LSYNCD_WITH_OLDFSEVENTS
 
 	open_fsevents( L );
+
+#endif
+
+#ifdef LSYNCD_WITH_FSEVENTS_API
+
+	open_fsevents_api( L );
 
 #endif
 

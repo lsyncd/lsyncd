@@ -15,7 +15,7 @@ rm -f OSX/OSX OSX/configure.ac
 m4 -DPKG_CHECK_MODULES < configure.ac > OSX/configure.ac
 cd OSX
 
-if false; then
+if true; then
 	xnu=`uname -a | sed 's,.*\(xnu[^\~]*\).*,\1,'`
 	while :; do
 	
@@ -51,7 +51,7 @@ if autoreconf --install --force; then
   
   #echo $CFLAGS
   
-  ./configure --without-inotify --with-fseventsapi --prefix=/usr/local
+  ./configure --without-inotify --with-oldfsevents --prefix=/usr/local
   
   echo "You can run (cd OSX; make)"
 fi

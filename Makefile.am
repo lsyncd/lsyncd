@@ -8,8 +8,14 @@ if INOTIFY
 lsyncd_SOURCES += inotify.c
 endif
 
-if FSEVENTS
+if OLDFSEVENTS
 lsyncd_SOURCES += fsevents.c
+endif
+
+if FSEVENTS_API
+lsyncd_SOURCES += fsevents-api.c fsevents-bindapi.c
+bin_PROGRAMS += fsevents-api-test
+fsevents_api_test_SOURCES = fsevents-api-test.c fsevents-api.c
 endif
 
 lsyncd_LDADD = $(LUA_LIBS)
