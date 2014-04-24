@@ -58,7 +58,7 @@ local rsyncpostcmd = {
 			return default.collect(agent,exitcode)
 		end
 		error("this should never be reached")
-	end
+	end,
 
 	-- called before anything else
 	-- builds the target from host and targetdir
