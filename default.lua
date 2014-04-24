@@ -172,9 +172,9 @@ default.collect = function( agent, exitcode )
 		end
 	else
 		if rc == 'ok' then
-			log('Normal', 'Retrying ',agent.etype,' on ',agent.sourcePath,' = ',exitcode)
-		elseif rc == 'again' then
 			log('Normal', 'Finished ',agent.etype,' on ',agent.sourcePath,' = ',exitcode)
+		elseif rc == 'again' then
+			log('Normal', 'Retrying ',agent.etype,' on ',agent.sourcePath,' = ',exitcode)
 		elseif rc == 'die' then
 			log('Error', 'Failure with ',agent.etype,' on ',agent.sourcePath,' = ',exitcode)
 		else
