@@ -1,3 +1,13 @@
+??-??-????: 2.1.6 or 2.2.0
+	enhancement: Lsyncd now locks its pidfile
+	enhancement: Lsyncd adding ssh.identifyFile and ssh.options options
+	fix: ignore blank lines and rsync commens in exclude files (David Reiss)
+	fix: don't tread exclude lines with embedded "+" chars as inclusions (David Reiss)
+	fix: crash when debugging inotify (Michael Ploujnikov)
+	fix: fixed Finished/Retrying error messages being swapped around (Jun Saito)
+	change: closes also on INT signals
+	change: now removes its pidfile on INT and TERM signals
+
 07-06-2013: 2.1.5
 	enhancement: Added rsync options: bwlimit, timeout
 	fix: Specifying ssh port no longer overwrites the last rsync option
