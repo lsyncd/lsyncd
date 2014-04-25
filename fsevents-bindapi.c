@@ -34,7 +34,8 @@ fsevents_ready(lua_State *L, struct observance *obs)
 {
 	const char* etype;
 	uint32_t flags, len;
-	int status, isdir;
+	int isdir;
+	size_t status;
 
 	if (obs->fd != fsevents_fd) {
 		logstring("Error", "Internal, fsevents_fd != ob->fd");

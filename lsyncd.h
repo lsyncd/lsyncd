@@ -30,7 +30,7 @@
 
 #define LSYNCD_LIBNAME "lsyncd"
 #define LSYNCD_INOTIFYLIBNAME "inotify"
-#define LSYNCD_FSEVENTSAPILIBNAME "fsevents-api"
+#define LSYNCD_FSEVENTSAPILIBNAME "fseventsapi"
 
 /**
  * Lsyncd runtime configuration
