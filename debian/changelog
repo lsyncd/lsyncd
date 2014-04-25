@@ -1,0 +1,178 @@
+lsyncd (2.1.5.gh-201402191038) unstable; urgency=low
+
+  * git 178f31590732da0eb39cd58b20cc53c3d954ebec
+
+ -- David Gauchard <gauchard@laas.fr>  Wed, 19 Feb 2014 10:38:57 +0100
+
+
+lsyncd (2.1.5-1) unstable; urgency=low
+
+  * New upstream version (Closes: #707328).
+  * refresh debian/patches/dont_install_lua_as_docs.patch
+  * debian/control:
+    - change Homepage to github page
+    - switch to canonical Vcs-* URLs
+    - bump Standards-Version to 3.9.4 (no changes)
+  * debian/rules:
+    - add --add-missing to automake invocation to add missing test-driver and
+      remove test-driver in clean target (Closes: #713793)
+  * debian/lsyncd.init:
+    - don't source /lib/init/vars.sh and don't use $VERBOSE, don't use
+      --make-pidfile
+    - add --nicelevel to lsyncd invocation
+
+ -- Jan Dittberner <jandd@debian.org>  Sat, 22 Jun 2013 23:14:59 +0200
+
+lsyncd (2.0.7-3) unstable; urgency=low
+
+  * fix breakage introduced when trying to fix #673387, PIDFILE was not
+    defined before DAEMON_ARGS in debian/lsyncd.init
+
+ -- Jan Dittberner <jandd@debian.org>  Sat, 19 May 2012 00:50:59 +0200
+
+lsyncd (2.0.7-2) unstable; urgency=low
+
+  * fix lsyncd init script stores the wrong PID in /var/run/lsyncd.pid so
+    cannot stop it by adding -pidfile option to debian/lsyncd.init's
+    DAEMON_ARGS (Closes: #673387)
+  * debian/rules: fix FTBFS twice in a row
+    - override_dh_clean instead of clean
+    - remove generated configure
+  * enable hardening build flags
+    - add dpkg-dev (>= 1.16.1~) to Build-Depends
+    - add DPKG_EXPORT_BUILDFLAGS=1 and include
+      /usr/share/dpkg/buildflags.mk in debian/rules
+
+ -- Jan Dittberner <jandd@debian.org>  Fri, 18 May 2012 12:23:25 +0200
+
+lsyncd (2.0.7-1) unstable; urgency=low
+
+  * New upstream version
+  * refresh debian/patches/dont_install_lua_as_docs.patch
+  * Bump Standards-Version to 3.9.3 (no changes)
+
+ -- Jan Dittberner <jandd@debian.org>  Wed, 04 Apr 2012 14:17:30 +0200
+
+lsyncd (2.0.5-1) unstable; urgency=low
+
+  * New upstream version
+  * debian/control:
+    - add autotools-dev to Build-Depends (fixes Lintian
+      error "missing-build-dependency-for-dh-addon")
+    - bump Standards-Version to 3.9.2 (no changes needed)
+  * refresh debian/patches/dont_install_lua_as_docs.patch
+  * update debian/copyright format
+  * add status command to debian/lsyncd.init (fixes Lintian complaint
+    "init.d-script-does-not-implement-optional-option")
+
+ -- Jan Dittberner <jandd@debian.org>  Thu, 12 Jan 2012 00:57:21 +0100
+
+lsyncd (2.0.4-1) unstable; urgency=low
+
+  * New upstream version
+  * remove debian/patches/fix_spelling_errors.patch that has been
+    applied upstream
+
+ -- Jan Dittberner <jandd@debian.org>  Sun, 27 Mar 2011 11:06:53 +0200
+
+lsyncd (2.0.3-1) unstable; urgency=low
+
+  * New upstream version.
+  * refresh patches
+
+ -- Jan Dittberner <jandd@debian.org>  Fri, 25 Feb 2011 19:31:54 +0100
+
+lsyncd (2.0.2-3) unstable; urgency=low
+
+  * Add debian/lsyncd.init (Closes: #614391) thanks to Ignace Mouzannar for the
+    base script
+  * add documentation on how to use the init script in
+    debian/README.Debian
+  * add debian/patches/dont_install_lua_as_docs.patch to not install lua
+    scripts to the documentation dir (they are installed as examples by
+    debian/rules)
+
+ -- Jan Dittberner <jandd@debian.org>  Tue, 22 Feb 2011 21:33:55 +0100
+
+lsyncd (2.0.2-2) unstable; urgency=low
+
+  * Upload to unstable
+
+ -- Jan Dittberner <jandd@debian.org>  Sun, 06 Feb 2011 11:33:59 +0100
+
+lsyncd (2.0.2-1) experimental; urgency=low
+
+  * New upstream version.
+  * refresh debian/patches/fix_spelling_errors.patch
+    b/debian/patches/fix_spelling_errors.patch
+
+ -- Jan Dittberner <jandd@debian.org>  Fri, 21 Jan 2011 19:53:55 +0100
+
+lsyncd (2.0.0-1) experimental; urgency=low
+
+  * New upstream version.
+  * debian/control:
+    - add liblua5.1-0-dev, lua5.1, pkg-config, asciidoc, xsltproc, docbook-xml
+      and docbook-xsl to Build-Depends
+    - add lua5.1 to Depends
+  * add --with autotools_dev to debian/rules
+  * update debian/lsyncd.docs (all documentation previously mentioned there got
+    removed, added doc/lsyncd.1.txt instead)
+  * update debian/lsyncd.examples to include the examples directory
+  * replace debian/patches/0001-fix-spelling-error.patch with
+    debian/patches/fix_spelling_errors.patch to fix spelling errors
+
+ -- Jan Dittberner <jandd@debian.org>  Tue, 21 Dec 2010 15:08:31 +0100
+
+lsyncd (1.39-1) experimental; urgency=low
+
+  * New upstream version.
+
+ -- Jan Dittberner <jandd@debian.org>  Sat, 09 Oct 2010 21:28:28 +0200
+
+lsyncd (1.38-1) experimental; urgency=low
+
+  * New upstream version.
+  * change debian/watch to remove the need for the Google code
+    redirector
+
+ -- Jan Dittberner <jandd@debian.org>  Thu, 02 Sep 2010 19:51:08 +0200
+
+lsyncd (1.37-1) experimental; urgency=low
+
+  * New upstream version.
+  * debian/control:
+    - bump Standards-Version to 3.9.1
+    - change debhelper build dependency to 7.0.50~
+  * add debian/patches/0001-fix-spelling-error.patch and
+    debian/patches/series to fix spelling errors in manual pages
+
+ -- Jan Dittberner <jandd@debian.org>  Tue, 17 Aug 2010 11:19:22 +0200
+
+lsyncd (1.34-1) unstable; urgency=low
+
+  * New upstream version.
+  * remove
+    debian/patches/01-fix-spelling-error-in-lsyncd.conf.xml-manpage.patch,
+    debian/patches/02-fix-lsyncd.conf.xml-manpage-location.patch and
+    debian/patches/series all patches have been applied upstream
+  * debian/control: Bump Standards-Version to 3.9.0 (no changes
+    necessary)
+
+ -- Jan Dittberner <jandd@debian.org>  Sun, 11 Jul 2010 23:22:25 +0200
+
+lsyncd (1.33-1) unstable; urgency=low
+
+  * New upstream version.
+  * updated debian/watch to use googlecode redirector
+  * refresh debian/patches/01-fix-spelling-error-in-lsyncd.conf.xml-
+    manpage.patch
+  * run autoreconf in debian/rules
+
+ -- Jan Dittberner <jandd@debian.org>  Sat, 05 Jun 2010 10:59:19 +0200
+
+lsyncd (1.26-1) unstable; urgency=low
+
+  * Initial release. (Closes: #570296)
+
+ -- Jan Dittberner <jandd@debian.org>  Sat, 20 Feb 2010 15:04:05 +0100

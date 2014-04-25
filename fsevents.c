@@ -166,10 +166,17 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 	}
 
 	atype  = event->type & FSE_TYPE_MASK;
-	/*uint32_t aflags = FSE_GET_FLAGS(event->type);*/
 
-	if ((atype < FSE_MAX_EVENTS) && (atype >= -1)) {
-		/*printlogf(L, "Fsevents", "got event %s", eventNames[atype]);
+	if (atype == 11 || atype == 831)
+	{
+		printlogf(L, "Fsevents", "ignore undocumented event %d", atype);
+		return;
+	}
+
+  	if ((atype < FSE_MAX_EVENTS) && (atype >= -1)) {
+		/*uint32_t aflags = FSE_GET_FLAGS(event->type);
+		//printlogf(L, "Fsevents", "got event %s, aflags=0x%x", eventNames[atype], aflags);
+		printlogf(L, "Fsevents", "got event %dd=0x%x %dd=0x%x flags=0x%x", atype, atype, event->type, event->type, aflags);
 		if (aflags & FSE_COMBINED_EVENTS) {
 			logstring("Fsevents", "combined events");
 		}
@@ -254,8 +261,10 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 
 	if (etype) {
 		if (!path) {
-			printlogf(L, "Error", "Internal fail, fsevents, no path.");
-			exit(-1);
+			//printlogf(L, "Error", "Internal fail, fsevents, no path.");
+			printlogf(L, "Error", "Internal fail, fsevents, no path, ignoring (etype=%s atype=%dd/0x%x, flags=0x%x).", etype, atype, atype, FSE_GET_FLAGS(event->type));
+			return;
+			//exit(-1);
 		}
 		if (isdir < 0) {
 			printlogf(L, "Error", "Internal fail, fsevents, neither dir nor file.");
@@ -435,6 +444,47 @@ open_fsevents(lua_State *L)
 	close_exec_fd(fsevents_fd);
 	non_block_fd(fsevents_fd);
 	observe_fd(fsevents_fd, fsevents_ready, NULL, fsevents_tidy, NULL);
+
+	// drop privileges (in case of suid bit on executable, fsevents needs it)
+	if( getgid() != getegid() )
+	{
+		printlogf(
+			L, "Notice",
+			"dropping group privilege"
+		);
+		
+		if( setegid( getgid() ) != 0 )
+		{
+			printlogf(
+				L, "Error",
+				"setegid(%i): %s",
+				getgid(), strerror( errno )
+			);
+
+			exit( -1 );
+		}
+	}
+		
+	// drop privileges (in case of suid bit on executable, fsevents needs it)
+	if( getuid() != geteuid() )
+	{
+		printlogf(
+			L, "Notice",
+			"dropping user privilege"
+		);
+		
+		if( seteuid( getuid() ) != 0 )
+		{
+			printlogf(
+				L, "Error",
+				"seteuid(%i): %s",
+				getuid(), strerror( errno )
+			);
+
+			exit( -1 );
+		}
+	}
+
 }
 
 

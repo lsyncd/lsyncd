@@ -1,0 +1,4 @@
+The Debian package adds an init script /etc/init.d/lsyncd for lsyncd. If you
+want to have a globally running lsyncd you need to create
+/etc/lsyncd/lsyncd.conf.lua.  Examples for such lua configurations are
+available in /usr/share/doc/lsyncd/examples.

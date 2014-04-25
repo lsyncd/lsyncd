@@ -1,0 +1,3 @@
+#!/bin/sh
+make distclean >/dev/null 2>&1
+rm -rf *~ *.o *.out aclocal.m4 autom4te.cache bsd config.h config.h.in config.log config.status configure install-sh missing depcomp stamp-h1 OSX debian/lsyncd compile debian/files debian/*.log debian/*.debhelper debian/*.substvars test-driver

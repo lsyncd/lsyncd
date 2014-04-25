@@ -1,0 +1,24 @@
+Source: lsyncd
+Section: admin
+Priority: optional
+Maintainer: Jan Dittberner <jandd@debian.org>
+Standards-Version: 3.9.4
+Build-Depends: debhelper (>= 7.0.50~), libxml2-dev, automake, liblua5.1-0-dev,
+ lua5.1, pkg-config, asciidoc, xsltproc, docbook-xml, docbook-xsl,
+ autotools-dev, dpkg-dev (>= 1.16.1~)
+Homepage: https://github.com/axkibe/lsyncd
+Vcs-Git: git://anonscm.debian.org/collab-maint/lsyncd.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/lsyncd.git
+
+Package: lsyncd
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, rsync, lua5.1
+Description: daemon to synchronize local directories using rsync
+ Lsyncd (Live syncing mirror daemon) uses rsync to synchronize local
+ directories with a remote machine running rsyncd. Lsyncd watches
+ multiple directories trees through inotify. The first step after
+ adding the watches is to rsync all directories with the remote host,
+ and then sync single file by collecting the inotify events. So lsyncd
+ is a light-weight live mirror solution that should be easy to install
+ and use while blending
+ well with your system.

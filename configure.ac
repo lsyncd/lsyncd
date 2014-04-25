@@ -117,17 +117,38 @@ fi
 AM_CONDITIONAL([INOTIFY], [test x${with_inotify} != xno])
 
 ###
-# --with-fsevents
+# --with-oldfsevents
 # disabled per default, experimental, works only with OS X 10.5/10.6
-AC_ARG_WITH([fsevents],
-[  --with-fsevents         Uses MacOS (10.5) /dev/fsevents. EXPERIMENTAL!
+AC_ARG_WITH([oldfsevents],
+[  --with-oldfsevents      Uses MacOS (10.5) /dev/fsevents. EXPERIMENTAL!
                           Off by default.])
-if test "x${with_fsevents}" == xyes; then
-	echo "compiling with fsevents. WARNING experimental!"
-	AC_DEFINE(LSYNCD_WITH_FSEVENTS,,"descr")
+if test "x${with_oldfsevents}" == xyes; then
+	echo "compiling with old fsevents (/dev/fsevents). WARNING experimental!"
+	AC_DEFINE(LSYNCD_WITH_OLDFSEVENTS,,"descr")
 fi
-AM_CONDITIONAL([FSEVENTS],
-	[test x${with_fsevents} != x -a xno${with_fsevents} != xno])
+AM_CONDITIONAL([OLDFSEVENTS],
+	[test x${with_oldfsevents} != x -a xno${with_oldfsevents} != xno])
+
+###
+# --with-fseventsapi
+# disabled per default, experimental, works only with OS X 10.5/10.6
+
+#AC_ARG_WITH([fseventsapi],
+#[  --without-fseventsapi      Do not uses OSX FSEvents API],
+#[],[with_fseventsapi=yes]
+#)
+
+AC_ARG_WITH([fseventsapi],
+[  --with-fseventsapi      uses OSX FSEvents API]
+)
+
+if test "x${with_fseventsapi}" == xyes; then
+	echo "compiling with OSX fsevents API"
+	AC_DEFINE(LSYNCD_WITH_FSEVENTS_API,,"descr")
+	LIBS="${LIBS} -framework CoreServices"
+fi
+AM_CONDITIONAL([FSEVENTS_API],
+	[test x${with_fseventsapi} != x -a xno${with_fseventsapi} != xno])
 
 # Checks for typedefs, structures, and compiler characteristics.
 # Checks for library functions.

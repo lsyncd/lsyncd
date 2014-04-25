@@ -1,0 +1,1 @@
+make -f debian/rules source && { touch config.h.in; debuild; }

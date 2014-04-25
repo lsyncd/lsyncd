@@ -1,0 +1,4 @@
+version=3
+
+opts=downloadurlmangle=s#.*(lsyncd-([\d.]+)\.tar\.gz).*#http://lsyncd.googlecode.com/files/$1#,filenamemangle=s#.*(lsyncd-([\d.]+)\.tar\.gz).*#$1# \
+    http://code.google.com/p/lsyncd/downloads/list ^.*detail\?name=lsyncd-([\d.]+)\.tar\.gz.*
