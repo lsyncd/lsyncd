@@ -16,12 +16,6 @@ CMakeFiles/
 cmake_install.cmake
 
 
-# manpages
-
-doc/lsyncd.1.xml
-doc/lsyncd.1
-
-
 # generated C code
 
 defaults.c
