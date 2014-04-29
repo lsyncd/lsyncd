@@ -1,0 +1,157 @@
+'\" t
+.\"     Title: lsyncd
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: April 2012
+.\"    Manual: Lsyncd
+.\"    Source: Lsyncd 2.0.7
+.\"  Language: English
+.\"
+.TH "LSYNCD" "1" "April 2012" "Lsyncd 2\&.0\&.7" "Lsyncd"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lsyncd \- a daemon to continuously synchronize directory trees
+.SH "SYNOPSIS"
+.PP
+config file
+.RS 4
+\ \&
+\fBlsyncd\fR
+[\fIOPTIONS\fR]
+\fICONFIG\-FILE\fR
+.RE
+.PP
+default rsync behaviour
+.RS 4
+\ \&
+\fBlsyncd\fR
+[\fIOPTIONS\fR] \-rsync
+\fISOURCEDIR\fR\fITARGET\fR
+\&...
+.RE
+.PP
+default rync+ssh behaviour (moves and deletes through ssh)
+.RS 4
+\ \&
+\fBlsyncd\fR
+[\fIOPTIONS\fR] \-rsyncssh
+\fISOURCEDIR\fR\fITARGETHOST\fR\fITARGETDIR\fR
+\&...
+.RE
+.PP
+default direct behaviour (local file operations/rsync)
+.RS 4
+\ \&
+\fBlsyncd\fR
+[\fIOPTIONS\fR] \-direct
+\fISOURCEDIR\fR\fITARGETDIR\fR
+\&...
+.RE
+.SH "DESCRIPTION"
+.sp
+Lsyncd(1) watches local directory trees through an event monitor interface (inotify, fsevents)\&. It aggregates and combines events for a few seconds and then spawns one or more processes to synchronize the changes\&. By default this is rsync(1)\&. Lsyncd is thus a light\-weight asynchronous live mirror solution that is comparatively easy to install not requiring new filesystems or block devices and does not hamper local filesystem performance\&.
+.sp
+Rsync+ssh is an advanced action configuration that uses a SSH(1) to act file and directory moves directly on the target instead of re\-transmitting the move destination over the wire\&.
+.sp
+Fine\-grained customization can be achieved through the CONFIG\-FILE\&. Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the LUA(1) language\&. This way simplicity can be balanced with powerfulness\&. See the online manual for details on the CONFIG\-FILE https://github\&.com/axkibe/lsyncd/wiki/Manual\-to\-Lsyncd\-2\&.0\&.x \&.
+.sp
+Note that under normal configuration Lsyncd will delete pre\-existing files in the target directories that are not present in the respective source directory\&.
+.SH "OPTIONS"
+.PP
+\fB\-delay\fR \fISECS\fR
+.RS 4
+Overrides the default delay times\&.
+.RE
+.PP
+\fB\-help\fR
+.RS 4
+Show a help message\&.
+.RE
+.PP
+\fB\-insist\fR
+.RS 4
+Continues start up even if rsync cannot connect\&.
+.RE
+.PP
+\fB\-log\fR \fILEVEL\fR
+.RS 4
+Controls which kind of events are logged\&. By default Lsyncd logs
+\fINormal\fR
+and
+\fIError\fR
+Messages\&.
+\fB\-log scarce\fR
+will make Lsyncd log Error messages only\&.
+\fB\-log all\fR
+will log all debug messages\&.
+.RE
+.PP
+\fB\-log\fR \fICategory\fR
+.RS 4
+Turns on a specific debug message\&. E\&.g\&.
+\fB\-log Exec\fR
+will log all processes as they are spawned\&.
+.RE
+.PP
+\fB\-nodaemon\fR
+.RS 4
+Lsyncd will not detach from the invoker and log as well to stdout/err\&.
+.RE
+.PP
+\fB\-pidfile\fR \fIFILE\fR
+.RS 4
+Lsyncd will write its process ID in
+\fIFILE\fR\&.
+.RE
+.PP
+\fB\-runner\fR \fIFILE\fR
+.RS 4
+Makes the Lsyncd core load the part of Lsyncd written in Lua from
+\fIFILE\fR\&.
+.RE
+.PP
+\fB\-version\fR
+.RS 4
+Writes version information and exits\&.
+.RE
+.SH "EXIT STATUS"
+.PP
+\fB0\fR
+.RS 4
+Terminated on a TERM signal(7)
+.RE
+.PP
+\fB\-1\fR
+.RS 4
+Failure (syntax, unrecoverable error condition, internal failure)
+.RE
+.SH "SEE ALSO"
+.sp
+Online Manual: https://github\&.com/axkibe/lsyncd/wiki/Lsyncd\-2\&.1\&.x\-%E2%80%96\-What\(cqs\-New%3F
+.SH "VERSION"
+.sp
+This man page is for lsyncd(1) version 2\&.0\&.7
+.SH "AUTHOR"
+.sp
+Axel Kittenberger, <axkibe@gmail\&.com> 2010\-2012
+.SH "COPYING"
+.sp
+Copyright (C) 2010\-2012 Axel Kittenberger\&. Free use of this software is granted under the terms of the GNU General Public License (GPL) version 2, or any later version\&. Free redistrubition of this Documentation (/doc directory) is granted under the terms of the Creative Commons 3\&.0 Attribution License (CC\-3\&.0\-BY)\&.
