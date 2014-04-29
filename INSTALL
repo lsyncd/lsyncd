@@ -1,0 +1,56 @@
+INSTALLING
+==========
+
+Prerequisites
+-------------
+
+  CMake
+    
+    Lsyncd now uses CMake as configuration tool
+
+  Common compiler stuff
+   
+    The C compiler, make, binutils, etc.
+
+  Lua
+
+    For building Lsyncd the Lua interpreter 'lua'
+	and the Lua compiler 'luac' are needed.
+	They aren't needed in the deployed binary tough.
+	
+	Use Lua 5.1 or Lua 5.2 at your choice.
+
+  Liblua
+
+    The lua library.
+	
+	Note that you likely need the package "liblua-dev"
+	or something like that.
+
+	Use Lua 5.1 or Lua 5.2 at your choice.
+
+	Note, this has to be exactly the same Version as the
+	lua compiler used above!
+
+
+Building
+--------
+
+  Building with a seperate build directory:
+
+    mkdir build
+    cd build
+    cmake ..
+	make
+    sudo make install
+
+  Building intree:
+    cmake .
+	make
+
+  On OSX you yet need to get the xnu sources.
+  For example:
+    cmake -DWITH_INOTIFY=OFF -DWITH_FSEVENTS=ON -DXNU_DIR=/path/to/xnu-VERSION
+	make
+
+FIXME make install not yet done

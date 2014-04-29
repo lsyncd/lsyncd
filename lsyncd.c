@@ -58,11 +58,9 @@ extern size_t defaults_size;
 /*
 | Makes sure there is one file system monitor.
 */
-#ifndef LSYNCD_WITH_INOTIFY
-#ifndef LSYNCD_WITH_FANOTIFY
-#ifndef LSYNCD_WITH_FSEVENTS
-#	error "need at least one notifcation system. please rerun ./configure"
-#endif
+#ifndef WITH_INOTIFY
+#ifndef WITH_FSEVENTS
+#	error "needing at least one notification system. please rerun cmake"
 #endif
 #endif
 
@@ -71,15 +69,11 @@ extern size_t defaults_size;
 */
 static char *monitors[] = {
 
-#ifdef LSYNCD_WITH_INOTIFY
+#ifdef WITH_INOTIFY
 	"inotify",
 #endif
 
-#ifdef LSYNCD_WITH_FANOTIFY
-	"fanotify",
-#endif
-
-#ifdef LSYNCD_WITH_FSEVENTS
+#ifdef WITH_FSEVENTS
 	"fsevents",
 #endif
 
@@ -1925,7 +1919,7 @@ register_lsyncd( lua_State *L )
 
 	lua_pop( L, 1 ); // pop(mt)
 
-#ifdef LSYNCD_WITH_INOTIFY
+#ifdef WITH_INOTIFY
 
 	lua_getglobal( L, LSYNCD_LIBNAME );
 	register_inotify( L );
@@ -2722,13 +2716,13 @@ main1( int argc, char *argv[] )
 		}
 	}
 
-#ifdef LSYNCD_WITH_INOTIFY
+#ifdef WITH_INOTIFY
 
 	open_inotify( L );
 
 #endif
 
-#ifdef LSYNCD_WITH_FSEVENTS
+#ifdef WITH_FSEVENTS
 
 	open_fsevents( L );
 

@@ -1,38 +1,26 @@
-#~~~~~
-# Compiled output
+#
+# compiled stuff
 #
 *.o
 *.out
 lsyncd
 
-#~~~~~
-# Autoconf/Automake
 #
-aclocal.m4
+# cmake
+#
+AdditionalInfo.txt
 config.h
-config.h.in
-config.log
-config.status
-configure
-install-sh
 Makefile
-depcomp
-Makefile.in
-missing
-stamp-h1
+build/
 
-.deps/
-autom4te.cache/
-
-#~~~~~
-# Manpages
+#
+# manpages
 #
 doc/lsyncd.1.xml
 doc/lsyncd.1
 
-#####
-# Generated C code
+#
+# generated C code
 #
 defaults.c
 runner.c
-

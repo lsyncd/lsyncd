@@ -141,26 +141,18 @@ extern void observe_fd(
 // stops the core to observe a file descriptor
 extern void nonobserve_fd(int fd);
 
-/**
+/*
  * inotify
  */
-#ifdef LSYNCD_WITH_INOTIFY
+#ifdef WITH_INOTIFY
 extern void register_inotify(lua_State *L);
 extern void open_inotify(lua_State *L);
 #endif
 
-/**
- * fanotify
- */
-#ifdef LSYNCD_WITH_FANOTIFY
-extern void register_fanotify(lua_State *L);
-extern void open_fanotify(lua_State *L);
-#endif
-
-/**
+/*
  * /dev/fsevents
  */
-#ifdef LSYNCD_WITH_FSEVENTS
+#ifdef WITH_FSEVENTS
 extern void open_fsevents(lua_State *L);
 #endif
 

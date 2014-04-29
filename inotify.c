@@ -12,10 +12,6 @@
 
 #include "lsyncd.h"
 
-#ifndef HAVE_SYS_INOTIFY_H
-#  error Missing <sys/inotify.h>; supply kernel-headers and rerun configure.
-#endif
-
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
