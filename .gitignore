@@ -1,26 +1,28 @@
-#
 # compiled stuff
-#
+
 *.o
 *.out
 lsyncd
 
-#
+
 # cmake
-#
+
 AdditionalInfo.txt
 config.h
 Makefile
 build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
 
-#
+
 # manpages
-#
+
 doc/lsyncd.1.xml
 doc/lsyncd.1
 
-#
+
 # generated C code
-#
+
 defaults.c
 runner.c
