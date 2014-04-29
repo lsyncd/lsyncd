@@ -79,7 +79,17 @@ add_custom_command( OUTPUT defaults.out
     DEPENDS ${DEFAULT_CONFIGS}
 ) 
 
+# the manpage
+add_custom_command( OUTPUT doc/lsyncd.1
+    COMMAND ${CMAKE_COMMAND} -E echo "Updating the manpage"
+	COMMAND a2x --format=manpage doc/lsyncd.1.txt
+    DEPENDS doc/lsyncd.1.txt
+)
+add_custom_target( manpage ALL DEPENDS doc/lsyncd.1 )
 
 # compiling and linking it all together
 add_executable( lsyncd ${LSYNCD_SRC} )
 target_link_libraries( lsyncd ${LUA_LIBRARIES} )
+
+install( TARGETS lsyncd RUNTIME DESTINATION bin )
+install( FILES doc/lsyncd.1 DESTINATION man)
