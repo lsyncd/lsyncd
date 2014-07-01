@@ -82,7 +82,7 @@ add_custom_command( OUTPUT defaults.out
 # the manpage
 add_custom_command( OUTPUT doc/lsyncd.1
     COMMAND ${CMAKE_COMMAND} -E echo "Updating the manpage"
-	COMMAND a2x --format=manpage doc/lsyncd.1.txt
+	COMMAND a2x --format=manpage ../doc/lsyncd.1.txt
     DEPENDS doc/lsyncd.1.txt
 )
 add_custom_target( manpage ALL DEPENDS doc/lsyncd.1 )
