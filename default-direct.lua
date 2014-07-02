@@ -147,7 +147,8 @@ direct.collect = function(agent, exitcode)
 				log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
 			else
 				log('Error', 'Temporary or permanent failure on startup of "',
-				agent.source, '". Terminating since "insist" is not set.');
+				agent.source, '" (target: "', agent.target,
+				'"). Terminating since "insist" is not set.');
 				terminate(-1) -- ERRNO
 			end
 		elseif rc == 'die' then
