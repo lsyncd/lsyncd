@@ -77,6 +77,10 @@ rsyncssh.action = function( inlet )
 	-- makes move local on target host
 	-- if the move fails, it deletes the source
 	if event.etype == 'Move' then
+		local path1 = config.targetdir .. event.path
+		local path2 = config.targetdir .. event2.path
+		path1 = "'" .. path1:gsub ('\'', '\'"\'"\'') .. "'"
+		path2 = "'" .. path2:gsub ('\'', '\'"\'"\'') .. "'"
 
 		log(
 			'Normal',
@@ -92,10 +96,10 @@ rsyncssh.action = function( inlet )
 			config.ssh._computed,
 			config.host,
 			'mv',
-			'\"' .. config.targetdir .. event.path .. '\"',
-			'\"' .. config.targetdir .. event2.path .. '\"',
+			path1,
+			path2,
 			'||', 'rm', '-rf',
-			'\"' .. config.targetdir .. event.path .. '\"'
+			path1
 		)
 
 		return
