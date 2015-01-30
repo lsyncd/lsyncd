@@ -62,7 +62,7 @@ local rsyncpostcmd = {
 
 	-- called before anything else
 	-- builds the target from host and targetdir
-	prepare = function(config)
+	prepare = function(config, level, skipTarget)
 		if not config.host then
 			error("rsyncpostcmd neets 'host' configured", 4)
 		end
@@ -72,7 +72,7 @@ local rsyncpostcmd = {
 		if not config.target then
 			config.target = config.host .. ":" .. config.targetdir
 		end
-		return default.rsync.prepare(config)
+		return default.rsync.prepare(config, level, skipTarget)
 	end
 }
 
