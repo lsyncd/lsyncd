@@ -25,7 +25,7 @@ local rsyncpostcmd = {
 			-- uses rawget to test if "isPostcmd" has been set without
 			-- triggering an error if not.
 			local isPostcmd = rawget(event, "isPostcmd")
-			if event.isPostcmd then
+			if isPostcmd then
 				spawn(event, "/usr/bin/ssh",
 					config.host, config.postcmd)
         		return
