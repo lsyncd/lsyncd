@@ -11,6 +11,14 @@ local rsyncpostcmd = {
 	-- based on default rsync.
 	default.rsync,
 
+	checkgauge = {
+		default.rsync.checkgauge,
+		host = true,
+		targetdir = true,
+		target = true,
+		postcmd = true,
+	},
+
 	-- for this config it is important to keep maxProcesses at 1, so
 	-- the postcmds will only be spawned after the rsync completed
 	maxProcesses = 1,
