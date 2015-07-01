@@ -98,7 +98,7 @@ rsyncssh.action = function( inlet )
 			'mv',
 			path1,
 			path2,
-			'||', 'rm', '-rf',
+			'2>&- ||', 'rm', '-rf',
 			path1
 		)
 
