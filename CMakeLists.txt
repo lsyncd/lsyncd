@@ -80,16 +80,16 @@ add_custom_command( OUTPUT defaults.out
 ) 
 
 # the manpage
-add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/doc/lsyncd.1
+add_custom_command( OUTPUT ${CMAKE_BINARY_DIR}/lsyncd.1
     COMMAND ${CMAKE_COMMAND} -E echo "Updating the manpage"
 	COMMAND a2x --format=manpage ${CMAKE_SOURCE_DIR}/doc/lsyncd.1.txt --destination-dir=${CMAKE_BINARY_DIR}
     DEPENDS ${CMAKE_SOURCE_DIR}/doc/lsyncd.1.txt
 )
-add_custom_target( manpage ALL DEPENDS ${CMAKE_BINARY_DIR}/doc/lsyncd.1 )
+add_custom_target( manpage ALL DEPENDS ${CMAKE_BINARY_DIR}/lsyncd.1 )
 
 # compiling and linking it all together
 add_executable( lsyncd ${LSYNCD_SRC} )
 target_link_libraries( lsyncd ${LUA_LIBRARIES} )
 
 install( TARGETS lsyncd RUNTIME DESTINATION bin )
-install( FILES ${CMAKE_BINARY_DIR}/doc/lsyncd.1 DESTINATION man)
+install( FILES ${CMAKE_BINARY_DIR}/lsyncd.1 DESTINATION man)
