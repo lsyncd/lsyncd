@@ -1356,6 +1356,66 @@ l_realdir( lua_State *L )
 	return 1;
 }
 
+static int
+l_isdir( lua_State *L )
+{
+	luaL_Buffer b;
+	const char *rdir = luaL_checkstring(L, 1);
+	char *adir = get_realpath(rdir);
+
+	bool isdir;
+	isdir = 0;
+
+	// makes sure its a directory
+	struct stat st;
+	if (stat(adir, &st)) {
+		printlogf(L, "Error",
+			"cannot get absolute path of dir '%s': %s", rdir, strerror(errno));
+
+		lua_pushboolean(L, 0);
+		return 0;
+	}
+
+	if (S_ISDIR(st.st_mode)) {
+		isdir = 1;
+	}
+
+	lua_pushboolean(L, isdir);
+	free(adir);
+
+	return 1;
+}
+
+static int
+l_islink( lua_State *L )
+{
+	luaL_Buffer b;
+	const char *rdir = luaL_checkstring(L, 1);
+	char *adir = get_realpath(rdir);
+
+	bool isdir;
+	isdir = 0;
+
+	// makes sure its a directory
+	struct stat st;
+	if (stat(adir, &st)) {
+		printlogf(L, "Error",
+			"cannot get absolute path of dir '%s': %s", rdir, strerror(errno));
+
+		lua_pushboolean(L, 0);
+		return 0;
+	}
+
+	if (S_ISLNK(st.st_mode)) {
+		isdir = 1;
+	}
+
+	lua_pushboolean(L, isdir);
+	free(adir);
+
+	return 1;
+}
+
 /*
 | Dumps the Lua stack.
 | For debugging purposes.
@@ -1778,6 +1838,8 @@ static const luaL_Reg lsyncdlib[] =
 	{ "observe_fd",     l_observe_fd    },
 	{ "readdir",        l_readdir       },
 	{ "realdir",        l_realdir       },
+	{ "isdir",        	l_isdir         },
+	{ "islink",        	l_islink        },
 	{ "stackdump",      l_stackdump     },
 	{ "terminate",      l_terminate     },
 	{ NULL,             NULL            }
