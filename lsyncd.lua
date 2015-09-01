@@ -2599,6 +2599,9 @@ local Inotify = ( function( )
 		end
 
 		for dirname, isdir in pairs( entries ) do
+
+
+			isdir = lsyncd.isdir(path .. dirname)
 			if isdir then
 				addWatch( path .. dirname .. '/' )
 			end
@@ -2633,6 +2636,7 @@ local Inotify = ( function( )
 	)
 		-- looks up the watch descriptor id
 		local path = wdpaths[ wd ]
+
 		if path then
 			path = path..filename
 		end
@@ -2654,9 +2658,11 @@ local Inotify = ( function( )
 
 		if isdir then
 			filename = filename .. '/'
+			path = path .. '/'
 
 			if filename2 then
 				filename2 = filename2 .. '/'
+				path2 = path2 .. '/'
 			end
 		end
 
