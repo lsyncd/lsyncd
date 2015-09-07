@@ -2651,12 +2651,6 @@ local Inotify = ( function( )
 		isdir = lsyncd.isdir(path);
 
 		if isdir then
-			log('Test', filename, ' appears to be a directory');
-		else
-			log('Test', filename, ' does not appear to be a directory');
-		end
-
-		if isdir then
 			filename = filename .. '/'
 			path = path .. '/'
 
