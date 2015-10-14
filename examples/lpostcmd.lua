@@ -11,6 +11,14 @@ local rsyncpostcmd = {
 	-- based on default rsync.
 	default.rsync,
 
+	checkgauge = {
+		default.rsync.checkgauge,
+		host = true,
+		targetdir = true,
+		target = true,
+		postcmd = true,
+	},
+
 	-- for this config it is important to keep maxProcesses at 1, so
 	-- the postcmds will only be spawned after the rsync completed
 	maxProcesses = 1,
@@ -25,7 +33,7 @@ local rsyncpostcmd = {
 			-- uses rawget to test if "isPostcmd" has been set without
 			-- triggering an error if not.
 			local isPostcmd = rawget(event, "isPostcmd")
-			if event.isPostcmd then
+			if isPostcmd then
 				spawn(event, "/usr/bin/ssh",
 					config.host, config.postcmd)
         		return
@@ -62,7 +70,7 @@ local rsyncpostcmd = {
 
 	-- called before anything else
 	-- builds the target from host and targetdir
-	prepare = function(config)
+	prepare = function(config, level, skipTarget)
 		if not config.host then
 			error("rsyncpostcmd neets 'host' configured", 4)
 		end
@@ -72,7 +80,7 @@ local rsyncpostcmd = {
 		if not config.target then
 			config.target = config.host .. ":" .. config.targetdir
 		end
-		return default.rsync.prepare(config)
+		return default.rsync.prepare(config, level, skipTarget)
 	end
 }
 
