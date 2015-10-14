@@ -62,6 +62,7 @@ rsync.checkgauge = {
 		group             =  true,
 		hard_links        =  true,
 		ignore_times      =  true,
+		inplace           =  true,
 		ipv4              =  true,
 		ipv6              =  true,
 		keep_dirlinks     =  true,
@@ -457,6 +458,11 @@ rsync.prepare = function(
 
 	if crsync.bwlimit then
 		computed[ computedN ] = '--bwlimit=' .. crsync.bwlimit
+		computedN = computedN  + 1
+	end
+
+	if crsync.inplace == true then
+		computed[ computedN ] = '--inplace'
 		computedN = computedN  + 1
 	end
 
