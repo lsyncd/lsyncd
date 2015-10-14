@@ -16,17 +16,20 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-if not default then
+if not default
+then
 	error( 'default not loaded' )
 end
 
 
-if default.rsync then
+if default.rsync
+then
 	error( 'default-rsync already loaded' )
 end
 
 
 local rsync = { }
+
 default.rsync = rsync
 
 -- uses default collect
@@ -62,6 +65,7 @@ rsync.checkgauge = {
 		group             =  true,
 		hard_links        =  true,
 		ignore_times      =  true,
+		inplace           =  true,
 		ipv4              =  true,
 		ipv6              =  true,
 		keep_dirlinks     =  true,
@@ -293,30 +297,34 @@ end
 --
 -- Prepares and checks a syncs configuration on startup.
 --
-rsync.prepare = function(
-	config,    -- the configuration
-	level,     -- additional error level for inherited use ( by rsyncssh )
-	skipTarget -- used by rsyncssh, do not check for target
-)
+rsync.prepare =
+	function(
+		config,    -- the configuration
+		level,     -- additional error level for inherited use ( by rsyncssh )
+		skipTarget -- used by rsyncssh, do not check for target
+	)
 
 	-- First let default.prepare test the checkgauge
 	default.prepare( config, level + 6 )
 
-	if not skipTarget and not config.target then
+	if not skipTarget and not config.target
+	then
 		error(
 			'default.rsync needs "target" configured',
 			level
 		)
 	end
 
-	if config.rsyncOps then
+	if config.rsyncOps
+	then
 		error(
 			'"rsyncOps" is outdated please use the new rsync = { ... } syntax.',
 			level
 		)
 	end
 
-	if config.rsyncOpts and config.rsync._extra then
+	if config.rsyncOpts and config.rsync._extra
+	then
 		error(
 			'"rsyncOpts" is outdated in favor of the new rsync = { ... } syntax\n"' +
 			'for which you provided the _extra attribute as well.\n"' +
@@ -325,7 +333,8 @@ rsync.prepare = function(
 		)
 	end
 
-	if config.rsyncOpts then
+	if config.rsyncOpts
+	then
 		log(
 			'Warn',
 			'"rsyncOpts" is outdated. Please use the new rsync = { ... } syntax."'
@@ -335,7 +344,8 @@ rsync.prepare = function(
 		config.rsyncOpts = nil
 	end
 
-	if config.rsyncBinary and config.rsync.binary then
+	if config.rsyncBinary and config.rsync.binary
+	then
 		error(
 			'"rsyncBinary is outdated in favor of the new rsync = { ... } syntax\n"'+
 			'for which you provided the binary attribute as well.\n"' +
@@ -344,7 +354,8 @@ rsync.prepare = function(
 		)
 	end
 
-	if config.rsyncBinary then
+	if config.rsyncBinary
+	then
 		log(
 			'Warn',
 			'"rsyncBinary" is outdated. Please use the new rsync = { ... } syntax."'
@@ -355,7 +366,8 @@ rsync.prepare = function(
 	end
 
 	-- checks if the _computed argument exists already
-	if config.rsync._computed then
+	if config.rsync._computed
+	then
 		error(
 			'please do not use the internal rsync._computed parameter',
 			level
@@ -381,9 +393,12 @@ rsync.prepare = function(
 	}
 
 	-- if archive is given the implications are filled in
-	if crsync.archive then
-		for k, v in pairs( archiveFlags ) do
-			if crsync[ k ] == nil then
+	if crsync.archive
+	then
+		for k, v in pairs( archiveFlags )
+		do
+			if crsync[ k ] == nil
+			then
 				crsync[ k ] = v
 			end
 		end
@@ -426,73 +441,94 @@ rsync.prepare = function(
 	local shorts = { '-' }
 	local shortsN = 2
 
-	if crsync._extra then
-		for k, v in ipairs( crsync._extra ) do
+	if crsync._extra
+	then
+		for k, v in ipairs( crsync._extra )
+		do
 			computed[ computedN ] = v
 			computedN = computedN  + 1
 		end
 	end
 
-	for k, flag in pairs( shortFlags ) do
-		if crsync[ k ] then
+	for k, flag in pairs( shortFlags )
+	do
+		if crsync[ k ]
+		then
 			shorts[ shortsN ] = flag
 			shortsN = shortsN + 1
 		end
 	end
 
-	if crsync.devices and crsync.specials then
+	if crsync.devices and crsync.specials
+	then
 			shorts[ shortsN ] = 'D'
 			shortsN = shortsN + 1
 	else
-		if crsync.devices then
+		if crsync.devices
+		then
 			computed[ computedN ] = '--devices'
 			computedN = computedN  + 1
 		end
 
-		if crsync.specials then
+		if crsync.specials
+		then
 			computed[ computedN ] = '--specials'
 			computedN = computedN  + 1
 		end
 	end
 
-	if crsync.bwlimit then
+	if crsync.bwlimit
+	then
 		computed[ computedN ] = '--bwlimit=' .. crsync.bwlimit
 		computedN = computedN  + 1
 	end
 
-	if crsync.password_file then
+	if crsync.inplace
+	then
+		computed[ computedN ] = '--inplace'
+		computedN = computedN  + 1
+	end
+
+	if crsync.password_file
+	then
 		computed[ computedN ] = '--password-file=' .. crsync.password_file
 		computedN = computedN  + 1
 	end
 
-	if crsync.rsh then
+	if crsync.rsh
+	then
 		computed[ computedN ] = '--rsh=' .. crsync.rsh
 		computedN = computedN  + 1
 	end
 
-	if crsync.rsync_path then
+	if crsync.rsync_path
+	then
 		computed[ computedN ] = '--rsync-path=' .. crsync.rsync_path
 		computedN = computedN  + 1
 	end
 
-	if crsync.temp_dir then
+	if crsync.temp_dir
+	then
 		computed[ computedN ] = '--temp-dir=' .. crsync.temp_dir
 		computedN = computedN  + 1
 	end
 
-	if crsync.timeout then
+	if crsync.timeout
+	then
 		computed[ computedN ] = '--timeout=' .. crsync.timeout
 		computedN = computedN  + 1
 	end
 
-	if shortsN ~= 2 then
+	if shortsN ~= 2
+	then
 		computed[ 1 ] = table.concat( shorts, '' )
 	else
 		computed[ 1 ] = { }
 	end
 
 	-- appends a / to target if not present
-	if not skipTarget and string.sub(config.target, -1) ~= '/' then
+	if not skipTarget and string.sub(config.target, -1) ~= '/'
+	then
 		config.target = config.target..'/'
 	end
 
@@ -512,7 +548,8 @@ rsync.exitcodes  = default.rsyncExitCodes
 --
 -- Calls rsync with this default options
 --
-rsync.rsync = {
+rsync.rsync =
+{
 	-- The rsync binary to be called.
 	binary        = '/usr/bin/rsync',
 	links         = true,
