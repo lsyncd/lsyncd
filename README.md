@@ -35,4 +35,4 @@ Some more complicated examples, tips and tricks you can find in the [Lsyncd21Man
 
 Disclaimer
 ----------
-Besides the usual disclaimer in the license, we want to specifically emphasize that neither the authors nor any organization the authors are associated with can and will hold responsible for data-loss caused by possible malfunctions of Lsyncd.
+Besides the usual disclaimer in the license, we want to specifically emphasize that the authors, and any organizations the authors are associated with, can not be held responsible for data-loss caused by possible malfunctions of Lsyncd.
