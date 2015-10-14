@@ -664,7 +664,9 @@ write_pidfile(
 	const char *pidfile
 )
 {
-	pidfile_fd = open( pidfile, O_CREAT | O_RDWR | O_CLOEXEC, 0644 );
+	pidfile_fd = open( pidfile, O_CREAT | O_RDWR, 0644 );
+
+	fcntl( pidfile_fd, F_SETFD, FD_CLOEXEC );
 
 	char buf[ 127 ];
 
