@@ -1,10 +1,11 @@
-??-??-????: 2.1.6 or 2.2.0
+??-??-????: 2.1.6
 	enhancement: Lsyncd now locks its pidfile
 	enhancement: Lsyncd adding ssh.identifyFile and ssh.options options
-	fix: ignore blank lines and rsync commens in exclude files (David Reiss)
+	fix: ignore blank lines and rsync commenits in exclude files (David Reiss)
 	fix: don't tread exclude lines with embedded "+" chars as inclusions (David Reiss)
 	fix: crash when debugging inotify (Michael Ploujnikov)
 	fix: fixed Finished/Retrying error messages being swapped around (Jun Saito)
+	fix: properly encapsulate filenames on ssh mv commands to avoid shell command injections.
 	change: closes also on INT signals
 	change: now removes its pidfile on INT and TERM signals
 
@@ -14,7 +15,7 @@
 	fix: rsync option password_file is now accepted
 	fix: onAttrib is accepted again
 	fix: -log Exec now prints now fully all arguments
-	fix: configure script lua detection now includes math lib to workaround 
+	fix: configure script lua detection now includes math lib to workaround
 	     wrongly created "needs COMPAT_ALL" messages.
 	fix: repaired variable replacement for layer 3 scripts
 	fix: config.delay is now checked to a number >= 0
