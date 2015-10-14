@@ -14,17 +14,17 @@ local log = {"-log", "all"}
 
 writefile(cfgfile, [[
 settings = {
-    logfile = "]]..logfile..[[",
-    nodaemon = true,
+	logfile = "]]..logfile..[[",
+	nodaemon = true,
 	delay = 3,
 }
 
 sync {
-    default.rsync,
+	default.rsync,
 	source = "]]..srcdir..[[",
 	target = "]]..trgdir..[[",
 	exclude = {
-        "erf",
+		"erf",
 		"/eaf",
 		"erd/",
 		"/ead/",
@@ -70,42 +70,51 @@ local function testfiles()
 end
 
 
-cwriteln("testing startup excludes");
-writefiles();
-cwriteln("starting Lsyncd");
-local pid = spawn("./lsyncd", cfgfile, '-log', 'all');
-cwriteln("waiting for Lsyncd to start");
-posix.sleep(3)
-cwriteln("testing excludes after startup");
-testfiles();
-cwriteln("ok, removing sources");
-
-if srcdir:sub(1,4) ~= "/tmp" then
-	-- just to make sure before rm -rf
-	cwriteln("exist before drama, srcdir is '", srcdir, "'");
-	os.exit(1);
-end
-
-os.execute("rm -rf "..srcdir.."/*");
-cwriteln("waiting for Lsyncd to remove destination");
-posix.sleep(5);
-if os.execute("diff -urN "..srcdir.." "..trgdir) ~= 0 then
-	cwriteln("fail, target directory not empty!");
-	os.exit(1);
-end
-
-cwriteln( "writing files after startup" );
+cwriteln( 'testing startup excludes' );
 writefiles( );
-cwriteln( "waiting for Lsyncd to transmit changes" );
+cwriteln( 'starting Lsyncd' );
+local pid = spawn( './lsyncd', cfgfile, '-log', 'all');
+
+cwriteln( 'waiting for Lsyncd to start' );
+posix.sleep( 3 )
+cwriteln( 'testing excludes after startup' );
+testfiles( );
+cwriteln( 'ok, removing sources' );
+
+if srcdir:sub( 1,4 ) ~= '/tmp'
+then
+	-- just to make sure before rm -rf
+	cwriteln( 'exit before drama, srcdir is "', srcdir, '"' );
+	os.exit( 1 );
+end
+
+os.execute( 'rm -rf '..srcdir..'/*' );
+
+cwriteln( 'waiting for Lsyncd to remove destination' );
+
+posix.sleep( 5 );
+
+_, result, code = os.execute( 'diff -urN ' .. srcdir .. ' ' .. trgdir )
+
+if result ~= 'exit' or code ~= 0
+then
+	cwriteln( 'fail, target directory not empty!' );
+	os.exit( 1 );
+end
+
+cwriteln( 'writing files after startup' );
+writefiles( );
+cwriteln( 'waiting for Lsyncd to transmit changes' );
 posix.sleep( 5 );
 testfiles( );
 
-cwriteln( "killing started Lsyncd" );
+cwriteln( 'killing started Lsyncd' );
 posix.kill( pid );
 local _, exitmsg, lexitcode = posix.wait( lpid );
-cwriteln( "Exitcode of Lsyncd = ", exitmsg, " ", lexitcode );
+cwriteln( 'Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode );
 
-if lexitcode == 143 then
+if lexitcode == 143
+then
 	cwriteln( "OK" );
 	os.exit( 0 );
 else

@@ -1,15 +1,15 @@
 #!/usr/bin/lua
 
-require('posix')
-dofile('tests/testlib.lua')
+require( 'posix' )
+dofile( 'tests/testlib.lua' )
 
-cwriteln('****************************************************************');
-cwriteln(' Testing excludes');
-cwriteln('****************************************************************');
-cwriteln(' (this test needs passwordless ssh localhost access ');
-cwriteln('  for current user)');
+cwriteln( '****************************************************************' );
+cwriteln( ' Testing excludes'                                                );
+cwriteln( '****************************************************************' );
+cwriteln( ' (this test needs passwordless ssh localhost access '             );
+cwriteln( '  for current user)'                                              );
 
-local tdir, srcdir, trgdir = mktemps()
+local tdir, srcdir, trgdir = mktemps( )
 local logfile = tdir .. 'log'
 local cfgfile = tdir .. 'config.lua'
 local range = 5
@@ -18,18 +18,18 @@ log = {'-log', 'all'}
 
 writefile(cfgfile, [[
 settings = {
-    logfile = ']]..logfile..[[',
-    nodaemon = true,
+	logfile = ']]..logfile..[[',
+	nodaemon = true,
 	delay = 3,
 }
 
 sync {
-    default.rsyncssh,
+	default.rsyncssh,
 	host = 'localhost',
 	source = ']]..srcdir..[[',
 	targetdir = ']]..trgdir..[[',
 	exclude = {
-        'erf',
+		'erf',
 		'/eaf',
 		'erd/',
 		'/ead/',
@@ -64,14 +64,14 @@ end
 
 -- test all files
 local function testfiles()
-	testfile(trgdir .. 'erf', false);
-	testfile(trgdir .. 'eaf', false);
-	testfile(trgdir .. 'erd', true);
-	testfile(trgdir .. 'ead', true);
-	testfile(trgdir .. 'd/erf', false);
-	testfile(trgdir .. 'd/eaf', true);
-	testfile(trgdir .. 'd/erd', true);
-	testfile(trgdir .. 'd/ead', true);
+	testfile( trgdir .. 'erf', false );
+	testfile( trgdir .. 'eaf', false );
+	testfile( trgdir .. 'erd', true );
+	testfile( trgdir .. 'ead', true );
+	testfile( trgdir .. 'd/erf', false );
+	testfile( trgdir .. 'd/eaf', true );
+	testfile( trgdir .. 'd/erd', true );
+	testfile( trgdir .. 'd/ead', true );
 end
 
 
@@ -89,27 +89,33 @@ if srcdir:sub(1,4) ~= '/tmp' then
 	cwriteln('exist before drama, srcdir is "', srcdir, '"');
 	os.exit(1);
 end
-os.execute('rm -rf '..srcdir..'/*');
-cwriteln('waiting for Lsyncd to remove destination');
-posix.sleep(5);
-if os.execute('diff -urN '..srcdir..' '..trgdir) ~= 0 then
-	cwriteln('fail, target directory not empty!');
-	os.exit(1);
+
+os.execute( 'rm -rf ' .. srcdir .. '/*' );
+cwriteln( 'waiting for Lsyncd to remove destination' );
+posix.sleep( 5 );
+
+_, result, code = os.execute('diff -urN '..srcdir..' '..trgdir) ~= 0
+
+if result ~= 'exit' or code ~= 0
+then
+	cwriteln( 'fail, target directory not empty!' );
+	os.exit( 1 );
 end
 
-cwriteln('writing files after startup');
-writefiles();
-cwriteln('waiting for Lsyncd to transmit changes');
-posix.sleep(15);
-testfiles();
+cwriteln( 'writing files after startup' );
+writefiles( );
+cwriteln( 'waiting for Lsyncd to transmit changes' );
+posix.sleep( 15 );
+testfiles( );
 
-cwriteln('killing started Lsyncd');
-posix.kill(pid);
-local _, exitmsg, lexitcode = posix.wait(lpid);
-cwriteln('Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode);
-posix.sleep(1);
+cwriteln( 'killing started Lsyncd' );
+posix.kill( pid );
+local _, exitmsg, lexitcode = posix.wait( lpid );
+cwriteln( 'Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode );
+posix.sleep( 1 );
 
-if lexitcode == 143 then
+if lexitcode == 143
+then
 	cwriteln( 'OK' );
 	os.exit( 0 );
 else

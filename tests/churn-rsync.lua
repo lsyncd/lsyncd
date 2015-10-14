@@ -39,10 +39,17 @@ posix.kill( pid )
 local _, exitmsg, lexitcode = posix.wait( lpid )
 cwriteln( 'Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode )
 
-exitcode = os.execute( 'diff -r '..srcdir..' '..trgdir )
-cwriteln( 'Exitcode of diff = "', exitcode, '"' )
+_, result, code = os.execute( 'diff -r ' .. srcdir .. ' ' .. trgdir )
 
-if exitcode ~= 0 then
+if result == 'exit'
+then
+	cwriteln( 'Exitcode of diff = ', code  )
+else
+	cwriteln( 'Signal terminating diff = ', code )
+end
+
+if exitcode ~= 0
+then
 	os.exit( 1 )
 else
 	os.exit( 0 )

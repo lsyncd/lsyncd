@@ -1,5 +1,5 @@
 -- common testing environment
-require('posix')
+posix = require('posix')
 
 -- escape codes to colorize output on terminal
 local c1='\027[47;34m'
