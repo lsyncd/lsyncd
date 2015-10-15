@@ -1,13 +1,16 @@
 ??-??-????: 2.1.6
 	enhancement: Lsyncd now locks its pidfile
-	enhancement: Lsyncd adding ssh.identifyFile and ssh.options options
+	enhancement: added ssh.identifyFile and ssh.options options
+	enhancement: added rsync inplace option
 	fix: ignore blank lines and rsync commenits in exclude files (David Reiss)
 	fix: don't tread exclude lines with embedded "+" chars as inclusions (David Reiss)
 	fix: crash when debugging inotify (Michael Ploujnikov)
 	fix: fixed Finished/Retrying error messages being swapped around (Jun Saito)
 	fix: properly encapsulate filenames on ssh mv commands to avoid shell command injections.
+	fix: postcmd example (Timo Teräs)
 	change: closes also on INT signals
 	change: now removes its pidfile on INT and TERM signals
+	change: changed build system from autotools to cmake
 
 07-06-2013: 2.1.5
 	enhancement: Added rsync options: bwlimit, timeout
