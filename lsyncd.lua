@@ -30,7 +30,7 @@ if lsyncd_version then
 	lsyncd.terminate( -1 )
 end
 
-lsyncd_version = '2.1.5'
+lsyncd_version = '2.1.6'
 
 --
 -- Hides the core interface from user scripts.

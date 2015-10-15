@@ -2556,7 +2556,7 @@ main1( int argc, char *argv[] )
 			printlogf(
 				L, "Error",
 				"Version mismatch '%s' is '%s', but core is '%s'",
- 				lsyncd_runner_file ? lsyncd_runner_file : "( internal runner )",
+				lsyncd_runner_file ? lsyncd_runner_file : "( internal runner )",
 				lversion, PACKAGE_VERSION
 			);
 
