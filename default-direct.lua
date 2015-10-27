@@ -109,13 +109,13 @@ direct.action = function(inlet)
 			error('Refusing to erase your harddisk!')
 		end
 
-		local command = '/bin/mv $1 $2 || /bin/rm -rf $1'
+		local command = '/bin/mv "$1" "$2" || /bin/rm -rf "$1"'
 
 		if
 			config.delete ~= true and
 			config.delete ~= 'running'
 		then
-			command = '/bin/mv $1 $2'
+			command = '/bin/mv "$1" "$2"'
 		end
 
 		spawnShell(
