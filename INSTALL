@@ -16,7 +16,7 @@ Prerequisites
 
     For building Lsyncd the Lua interpreter 'lua'
 	and the Lua compiler 'luac' are needed.
-	They aren't needed in the deployed binary tough.
+	They aren't needed in the deployed binary though.
 	
 	Use Lua 5.1 or Lua 5.2 at your choice.
 
