@@ -22,7 +22,7 @@ Other synchronization tools
 
 Lsyncd usage examples
 ---------------------
-```lsyncd -rsync /home remotehost.org::share/```
+```lsyncd -rsync /home remotehost.org:share/```
 
 This watches and rsyncs the local directory /home with all sub-directories and
 transfers them to 'remotehost' using the rsync-share 'share'.
