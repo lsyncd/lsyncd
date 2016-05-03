@@ -1,3 +1,6 @@
+??-??-????:
+	change: _verbatim forced for 'exitcodes' entry.
+
 15-10-2015: 2.1.6
 	enhancement: Lsyncd now locks its pidfile
 	enhancement: added ssh.identifyFile and ssh.options options

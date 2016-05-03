@@ -80,6 +80,7 @@ static char *monitors[] = {
 	NULL,
 };
 
+
 /**
 | Configuration parameters that matter to the core
 */
@@ -92,15 +93,18 @@ struct settings settings = {
 	.nodaemon     = false,
 };
 
+
 /*
 | True when Lsyncd daemonized itself.
 */
 static bool is_daemon = false;
 
+
 /*
 | The config file loaded by Lsyncd.
 */
 char * lsyncd_config_file = NULL;
+
 
 /*
 | False after first time Lsyncd started up.
@@ -114,6 +118,7 @@ char * lsyncd_config_file = NULL;
 */
 static bool first_time = true;
 
+
 /*
 | Set by TERM or HUP signal handler
 | telling Lsyncd should end or reset ASAP.
@@ -123,10 +128,12 @@ volatile sig_atomic_t term = 0;
 volatile sig_atomic_t sigcode = 0;
 int pidfile_fd = 0;
 
+
 /*
 | The kernel's clock ticks per second.
 */
 static long clocks_per_sec;
+
 
 /**
  * signal handler
@@ -135,6 +142,7 @@ void
 sig_child(int sig) {
 	// nothing
 }
+
 
 /**
  * signal handler
@@ -156,6 +164,7 @@ sig_handler( int sig )
 	}
 }
 
+
 /*
 | Non glibc builds need a real tms structure for the times( ) call
 */
@@ -165,6 +174,7 @@ sig_handler( int sig )
 	static struct tms  _dummy_tms;
 	static struct tms * dummy_tms = &_dummy_tms;
 #endif
+
 
 /*
 | Returns the absolute path of a path.
@@ -189,7 +199,6 @@ get_realpath( const char * rpath )
 	return s_strdup( asw );
 #endif
 }
-
 
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
@@ -344,6 +353,7 @@ logstring0(
 		char ct[ 255 ];
 		// gets current timestamp hour:minute:second
 		time_t mtime;
+
 		time( &mtime );
 
 		strftime( ct, sizeof( ct ), "%T", localtime( &mtime ) );
@@ -358,18 +368,21 @@ logstring0(
 	}
 
 	// writes to file if configured so
-	if (settings.log_file)
+	if( settings.log_file )
 	{
 		FILE * flog = fopen( settings.log_file, "a" );
+
 		char * ct;
+
 		time_t mtime;
 
 		// gets current timestamp day-time-year
 		time( &mtime );
+
 		ct = ctime( &mtime );
 
 	 	// cuts trailing linefeed
- 		ct[ strlen( ct ) - 1] = 0;
+		ct[ strlen( ct ) - 1] = 0;
 
 		if( flog == NULL )
 		{
@@ -378,6 +391,7 @@ logstring0(
 				"Cannot open logfile [%s]!\n",
 				settings.log_file
 			);
+
 			exit( -1 );
 		}
 
@@ -418,7 +432,6 @@ printlogf0(lua_State *L,
 	lua_pop(L, 1);
 	return;
 }
-
 
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
@@ -596,6 +609,7 @@ pipe_tidy( struct observance * observance )
 */
 static int runner;
 
+
 /*
 | Dummy variable of which it's address is used as
 | the cores index n the lua registry to
@@ -612,9 +626,9 @@ close_exec_fd( int fd )
 {
 	int flags;
 
-    flags = fcntl( fd, F_GETFD );
+	flags = fcntl( fd, F_GETFD );
 
-    if( flags == -1 )
+	if( flags == -1 )
 	{
 		logstring( "Error", "cannot get descriptor flags!" );
 		exit( -1 );
@@ -638,9 +652,9 @@ non_block_fd( int fd )
 {
 	int flags;
 
-    flags = fcntl( fd, F_GETFL );
+	flags = fcntl( fd, F_GETFL );
 
-    if( flags == -1 )
+	if( flags == -1 )
 	{
 		logstring( "Error", "cannot get status flags!" );
 		exit( -1 );
@@ -1325,36 +1339,56 @@ l_realdir( lua_State *L )
 	const char *rdir = luaL_checkstring(L, 1);
 	char *adir = get_realpath(rdir);
 
-	if (!adir) {
-		printlogf(L, "Error", "failure getting absolute path of [%s]", rdir);
+	if( !adir )
+	{
+		printlogf(
+			L, "Error",
+			"failure getting absolute path of [%s]",
+			rdir
+		);
+
 		return 0;
 	}
 
 	{
 		// makes sure its a directory
 	    struct stat st;
-	    if (stat(adir, &st)) {
-			printlogf(L, "Error",
-				"cannot get absolute path of dir '%s': %s", rdir, strerror(errno));
-			free(adir);
+	    if( stat( adir, &st ) )
+		{
+			printlogf(
+				L, "Error",
+				"cannot get absolute path of dir '%s': %s",
+				rdir,
+				strerror( errno )
+			);
+
+			free( adir );
+
 			return 0;
 		}
 
-	    if (!S_ISDIR(st.st_mode)) {
-			printlogf(L, "Error",
-				"cannot get absolute path of dir '%s': is not a directory", rdir);
-			free(adir);
+	    if( !S_ISDIR( st.st_mode ) )
+		{
+			printlogf(
+				L, "Error",
+				"cannot get absolute path of dir '%s': is not a directory",
+				rdir
+			);
+
+			free( adir );
+
 			return 0;
 	    }
 	}
 
 	// returns absolute path with a concated '/'
-	luaL_buffinit(L, &b);
-	luaL_addstring(&b, adir);
-	luaL_addchar(&b, '/');
-	luaL_pushresult(&b);
+	luaL_buffinit( L, &b );
+	luaL_addstring( &b, adir );
+	luaL_addchar( &b, '/' );
+	luaL_pushresult( &b );
 
-	free(adir);
+	free( adir );
+
 	return 1;
 }
 
@@ -1380,35 +1414,43 @@ l_stackdump( lua_State * L )
 		switch( t )
 		{
 			case LUA_TSTRING:
+
 				printlogf(
 					L, "Debug",
 					"%d string: '%s'",
 					i, lua_tostring( L,  i )
 				);
+
 				break;
 
 			case LUA_TBOOLEAN:
+
 				printlogf(
 					L, "Debug",
 					"%d boolean %s",
 					i, lua_toboolean( L, i ) ? "true" : "false"
 				);
+
 				break;
 
 			case LUA_TNUMBER:
+
 				printlogf(
 					L, "Debug",
 					"%d number: %g",
 					i, lua_tonumber( L, i )
 				);
+
 				break;
 
 			default:
+
 				printlogf(
 					L, "Debug",
 					"%d %s",
 					i, lua_typename( L, t )
 				);
+
 				break;
 		}
 	}
@@ -1434,6 +1476,7 @@ l_readdir ( lua_State *L )
 	DIR *d;
 
 	d = opendir( dirname );
+
 	if( d == NULL )
 	{
 		printlogf(
@@ -1475,6 +1518,7 @@ l_readdir ( lua_State *L )
 				strlen( de->d_name ) +
 				2
 			);
+
 			struct stat st;
 
 			strcpy( entry, dirname );
@@ -1500,6 +1544,7 @@ l_readdir ( lua_State *L )
 	}
 
 	closedir( d );
+
 	return 1;
 }
 
@@ -1767,6 +1812,7 @@ l_nonobserve_fd( lua_State *L )
 	return 0;
 }
 
+
 /*
 | The Lsnycd's core library
 */
@@ -1784,6 +1830,7 @@ static const luaL_Reg lsyncdlib[] =
 	{ "terminate",      l_terminate     },
 	{ NULL,             NULL            }
 };
+
 
 /*
 | Adds a number in seconds to a jiffy timestamp.
@@ -1817,6 +1864,7 @@ l_jiffies_add( lua_State *L )
 	}
 }
 
+
 /*
 | Subracts two jiffy timestamps resulting in a number in seconds
 | or substracts a jiffy by a number in seconds resulting a jiffy timestamp.
@@ -1849,6 +1897,7 @@ l_jiffies_sub( lua_State *L )
 	return 1;
 }
 
+
 /*
 | Compares two jiffy timestamps
 */
@@ -1863,6 +1912,7 @@ l_jiffies_eq( lua_State *L )
 	return 1;
 }
 
+
 /*
 * True if jiffy1 timestamp is eariler than jiffy2 timestamp
 */
@@ -1876,6 +1926,7 @@ l_jiffies_lt( lua_State *L )
 
 	return 1;
 }
+
 
 /*
 | True if jiffy1 before or equals jiffy2
@@ -1970,6 +2021,7 @@ load_runner_func(
 	lua_gettable( L, -2 );
 	lua_remove( L, -2 );
 }
+
 
 /*
 | Daemonizes.
@@ -2337,6 +2389,7 @@ masterloop(lua_State *L)
 		}
 	}
 }
+
 
 /*
 | The effective main for one run.
@@ -2804,6 +2857,7 @@ main1( int argc, char *argv[] )
 	lua_close( L );
 	return 0;
 }
+
 
 /*
 | Main

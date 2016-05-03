@@ -2216,24 +2216,25 @@ local Syncs = ( function( )
 	--
 	-- table copy source ( cs )
 	-- table copy destination ( cd )
+	-- forced verbatim for e.g. exitcodes ( verbatim )
 	--
 	-- All entries with integer keys are inherited as additional
 	-- sources for non-verbatim tables
 	--
-	local function inherit( cd, cs )
+	local function inherit( cd, cs, verbatim )
 
+		-- First copies all entries with non-integer keys.
 		--
-		-- First copies all entries with non-integer keys
-		-- tables are merged, already present keys are not
+		-- Tables are merged; already present keys are not
 		-- overwritten
 		--
 		-- For verbatim tables integer keys are treated like
-		-- non integer keys
-		--
+		-- non-integer keys
 		for k, v in pairs( cs ) do
 			if
 				(
 					type( k ) ~= 'number' or
+					verbatim or
 					cs._verbatim == true
 				)
 				and
@@ -2246,10 +2247,8 @@ local Syncs = ( function( )
 			end
 		end
 
-		--
 		-- recursevely inherits all integer keyed tables
 		-- ( for non-verbatim tables )
-		--
 		if cs._verbatim ~= true then
 
 			local n = nil
@@ -2281,12 +2280,12 @@ local Syncs = ( function( )
 
 			if dtype == 'nil' then
 				cd[ k ] = { }
-				inherit( cd[ k ], v )
+				inherit( cd[ k ], v, k == 'exitcodes' )
 			elseif
 				dtype == 'table' and
 				v._merge ~= false
 			then
-				inherit( cd[ k ], v )
+				inherit( cd[ k ], v, k == 'exitcodes' )
 			end
 
 		elseif dtype == 'nil' then
