@@ -145,6 +145,18 @@ sig_child(int sig) {
 
 
 /**
+ * wrapper for the different length functions
+**/
+size_t lua_len_wrapper( lua_State *L, int index )
+{
+#if LUA_VERSION_NUM > 501
+	return lua_rawlen( L, index );
+#else
+	return lua_objlen( L, index );
+#endif
+}
+
+/**
  * signal handler
  */
 void
@@ -1129,13 +1141,13 @@ l_exec( lua_State *L )
 		{
 			int tlen;
 			int it;
-			lua_checkstack( L, lua_gettop( L ) + lua_objlen( L, i ) + 1 );
+			lua_checkstack( L, lua_gettop( L ) + lua_len_wrapper( L, i ) + 1 );
 
 			// moves table to top of stack
 			lua_pushvalue( L, i );
 			lua_remove( L, i );
 			argc--;
-			tlen = lua_objlen( L, -1 );
+			tlen = lua_len_wrapper( L, -1 );
 
 			for( it = 1; it <= tlen; it++ )
 			{
@@ -1948,8 +1960,15 @@ l_jiffies_le(lua_State *L)
 void
 register_lsyncd( lua_State *L )
 {
+#if LUA_VERSION_NUM > 501
+        lua_newtable( L );
+        luaL_setfuncs( L, lsyncdlib, 0 );
+        lua_setglobal( L, LSYNCD_LIBNAME );
+#else
 	luaL_register( L, LSYNCD_LIBNAME, lsyncdlib );
 	lua_setglobal( L, LSYNCD_LIBNAME );
+
+#endif
 
 	// creates the metatable for the jiffies ( timestamps ) userdata
 	luaL_newmetatable( L, "Lsyncd.jiffies" );
@@ -1973,6 +1992,7 @@ register_lsyncd( lua_State *L )
 	lua_pop( L, 1 ); // pop(mt)
 
 #ifdef WITH_INOTIFY
+
 
 	lua_getglobal( L, LSYNCD_LIBNAME );
 	register_inotify( L );

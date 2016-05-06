@@ -495,7 +495,12 @@ inotify_ready(
 extern void
 register_inotify( lua_State *L )
 {
+#if LUA_VERSION_NUM > 501
+        lua_newtable( L );
+        luaL_setfuncs( L, linotfylib, 0 );
+#else
 	luaL_register( L, LSYNCD_INOTIFYLIBNAME, linotfylib );
+#endif
 }
 
 
