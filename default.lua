@@ -116,7 +116,8 @@ default.collect = function( agent, exitcode )
 					'Error',
 					'Temporary or permanent failure on startup of "',
 					agent.source,
-					'". Terminating since "insist" is not set.'
+					'" (target: "', agent.target,
+					'"). Terminating since "insist" is not set.'
 				)
 
 				terminate( -1 )
