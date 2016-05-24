@@ -159,7 +159,7 @@ default.collect = function( agent, exitcode )
 		elseif rc == 'die' then
 			log(
 				'Error',
-				'Failure with a list width exitcode = ',
+				'Failure with a list with exitcode = ',
 				exitcode
 			)
 		else
