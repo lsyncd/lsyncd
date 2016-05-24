@@ -97,7 +97,7 @@ rsync.checkgauge = {
 --
 -- Spawns rsync for a list of events
 --
--- Exlcusions are already handled by not having
+-- Exclusions are already handled by not having
 -- events for them.
 --
 rsync.action = function( inlet )
