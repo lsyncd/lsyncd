@@ -98,15 +98,17 @@ default.collect = function( agent, exitcode )
 	-- TODO synchronize with similar code before
 	if not agent.isList and agent.etype == 'Init' then
 		if rc == 'ok' then
-			log('Normal', 'Startup of "',agent.source,'" finished.')
+			log('Normal', 'Startup of ',agent.source,' -> ',agent.target,' finished.')
 			return 'ok'
 		elseif rc == 'again' then
 			if settings('insist') then
 				log(
 					'Normal',
-					'Retrying startup of "',
+					'Retrying startup of ',
 					agent.source,
-					'": ',
+					' -> ',
+					agent.target,
+					': ',
 					exitcode
 				)
 
@@ -114,9 +116,11 @@ default.collect = function( agent, exitcode )
 			else
 				log(
 					'Error',
-					'Temporary or permanent failure on startup of "',
+					'Temporary or permanent failure on startup of ',
 					agent.source,
-					'". Terminating since "insist" is not set.'
+					' -> ',
+					agent.target,
+					'. Terminating since "insist" is not set.'
 				)
 
 				terminate( -1 )
@@ -124,9 +128,11 @@ default.collect = function( agent, exitcode )
 		elseif rc == 'die' then
 			log(
 				'Error',
-				'Failure on startup of "',
+				'Failure on startup of ',
 				agent.source,
-				'".'
+				' -> ',
+				agent.target,
+				'.'
 			)
 
 			terminate( -1 )
@@ -135,9 +141,11 @@ default.collect = function( agent, exitcode )
 				'Error',
 				'Unknown exitcode "',
 				exitcode,
-				'" on startup of "',
+				'" on startup of ',
 				agent.source,
-				'".'
+				' -> ',
+				agent.target,
+				'.'
 			)
 			return 'die'
 		end
