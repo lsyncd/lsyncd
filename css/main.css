@@ -1,0 +1,134 @@
+html {
+	height: 100%;
+    overflow-y: scroll;
+}
+
+body {
+	background-color: rgb( 245, 245, 245 );
+	font: 13px/1.4 Helvetica, arial, nimbussansl, liberationsans, freesans, clean, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+	height: 100%;
+	margin: 0;
+}
+
+#pillar {
+	position: relative;
+	margin: 0.8em auto;
+	border-radius: 1em;
+	max-width: 70em;
+	height: auto;
+	min-height: 100%;
+	overflow: auto;
+	background-color: white;
+	padding: 0%;
+}
+
+a:link, a:visited {
+	color: blue;
+	text-decoration: inherit;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+nav {
+	background-color: rgb( 200, 200, 200 );
+	position : absolute;
+	right : 0;
+	padding: 0;
+	width: 11em;
+	bottom: 0;
+	top: 0;
+}
+
+nav::before {
+	content: "Lsyncd";
+	padding-left: 1em;
+}
+
+nav h4 {
+	border-bottom: 1px solid black;
+	padding-left: 1em;
+	margin-right: 1em;
+	font-size: 15px;
+}
+
+nav a {
+	display : block;
+	position : relative;
+	margin-left: 1em;
+	padding: 0.2em 0 0.2em 0;
+	font-size: 14px;
+}
+
+
+nav a.current {
+	background-color: rgb( 220, 220, 220 );
+	padding-left: 1em;
+	margin-left: 0;
+	margin-right: 1em;
+	border-top-right-radius: 0.8em;
+	border-bottom-right-radius: 0.8em;
+}
+
+
+nav a.current::before {
+	content : "";
+	border-color : white;
+	border-width : 1em;
+	border-style : solid;
+	border-radius : 1em;
+	position : absolute;
+	left: -1.5em;
+	height : 0;
+	top : -0.12em;
+	width: 0;
+	z-index: 100;
+}
+
+
+nav ul {
+	list-style-type: none;
+	padding : 0;
+}
+
+#container {
+	margin: 0 13em 0 2em;
+}
+
+table {
+	padding : 0;
+	margin : 0;
+	border-spacing : 0;
+}
+
+tr:nth-child( even ) {
+	background-color: rgb( 240, 240, 240 );
+}
+
+tr:first-child td {
+	border-top : 1px solid rgb( 220, 220, 220 )
+}
+
+tr td:first-child {
+	border-left : 1px solid rgb( 220, 220, 220 )
+}
+
+td {
+	border-bottom : 1px solid rgb( 220, 220, 220 );
+	border-right : 1px solid rgb( 220, 220, 220 );
+	padding : 1em;
+	margin : 0;
+}
+
+tr:first-child td:first-child { border-top-left-radius: 1em; }
+tr:first-child td:last-child { border-top-right-radius: 1em; }
+tr:last-child td:first-child { border-bottom-left-radius: 1em; }
+tr:last-child td:last-child { border-bottom-right-radius: 1em; }
+
+
+pre {
+	background-color: rgb( 245, 245, 245 );
+	padding: 1em;
+	border-radius: 1em;
+}

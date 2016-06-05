@@ -6,21 +6,38 @@
   <link rel="stylesheet" type="text/css" href="/css/main.css">
 </head>
 <body>
+  <div id="pillar">
   <nav>
-  <ul>
-    <li><a href="/">Home</a></li>
-    <li><a href="/about">About</a></li>
-  </ul>
+  {% for section in site.data.docs %}
+  <h4>{{section.title}}</h4>
+   <ul>
+   {% for doc in section.docs %}
+     {% assign doc_url = doc | prepend:"/" | prepend: section.dir | prepend:"/" | append:"/" %}
+	 {% assign p = site.pages | where:"url", doc_url | first %}
+	 {% if page.tab %}
+	   {% assign tab = page.tab | prepend:"/" | append:"/" %} 
+	 {% endif %}
+	 {% if p.short %}
+	   {% assign title = p.short %} 
+	 {% else %}
+	   {% assign title = p.title %}
+	 {% endif %}
+     <li><a {% if doc_url == page.url or doc_url == tab %}class="current"{% endif %} href="{{ p.url }}">{{ title }}</a></li>
+   {% endfor %}
+   </ul>
+  {% endfor %}
   </nav>
-  <div class="container">
 
+  <div id="container">
+  <h1>{{ page.title }}</h1>
   {{ content }}
+  </div>
 
-  </div><!-- /.container -->
-  <footer>
+  </div>
+  <!--footer>
   <ul>
     <li><a href="https://github.com/lsyncd">github.com/lsyncd</a></li>
   </ul>
-</footer>
+  </footer-->
 </body>
 </html>
