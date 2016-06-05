@@ -22,7 +22,7 @@
 	 {% else %}
 	   {% assign title = p.title %}
 	 {% endif %}
-     <li><a {% if doc_url == page.url or doc_url == tab %}class="current"{% endif %} href="{{ site.url + p.url }}">{{ title }}</a></li>
+     <li><a {% if doc_url == page.url or doc_url == tab %}class="current"{% endif %} href="{{ site.url | append: p.url }}">{{ title }}</a></li>
    {% endfor %}
    </ul>
   {% endfor %}
