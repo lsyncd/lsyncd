@@ -12,7 +12,7 @@
   <h4>{{section.title}}</h4>
    <ul>
    {% for doc in section.docs %}
-     {% assign doc_url = doc | prepend:"/" | prepend: section.dir | prepend:"/" | append:"/" %}
+     {% assign doc_url = doc | prepend:"/" | prepend: section.dir | prepend: site.url | append:"/" %}
 	 {% assign p = site.pages | where:"url", doc_url | first %}
 	 {% if page.tab %}
 	   {% assign tab = page.tab | prepend:"/" | append:"/" %} 
