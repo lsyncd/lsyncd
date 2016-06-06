@@ -1,3 +1,4 @@
 name: Lsyncd
 markdown: kramdown
 url : /lsyncd
+baseurl : /lsyncd
