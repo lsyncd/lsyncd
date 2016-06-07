@@ -1,15 +1,17 @@
+- title: Lsyncd
+  docs:
+  - /
+  - /download
 - title: Manual
-  dir: manual
   docs:
-  - compiling
-  - invoking
-  - config/file
-  - config/layer4
-  - config/layer3
-  - config/layer2
-  - config/layer1
-  - examples
+  - /manual/compiling
+  - /manual/invoking
+  - /manual/config/file
+  - /manual/config/layer4
+  - /manual/config/layer3
+  - /manual/config/layer2
+  - /manual/config/layer1
+  - /manual/examples
 - title: Appendices
-  dir: appendices
   docs:
-  - devdocs
+  - /appendices/devdocs

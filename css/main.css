@@ -12,14 +12,12 @@ body {
 
 #pillar {
 	position: relative;
-	margin: 0.8em auto;
-	border-radius: 1em;
+	margin: 0 auto;
 	max-width: 70em;
-	height: auto;
 	min-height: 100%;
 	overflow: auto;
 	background-color: white;
-	padding: 0%;
+	padding: 0;
 }
 
 a:link, a:visited {
@@ -36,14 +34,29 @@ nav {
 	position : absolute;
 	right : 0;
 	padding: 0;
-	width: 11em;
+	width: 11.1em;
 	bottom: 0;
 	top: 0;
+	margin: 0;
 }
 
-nav::before {
-	content: "Lsyncd";
-	padding-left: 1em;
+#menu {
+	background-color: rgba( 200, 200, 200, 0.95 );
+	z-index: 20;
+	position: relative;
+	margin: 0;
+	padding: 0;
+	width: 11.1em;
+}
+
+#menufooter {
+	position: absolute;
+	bottom: -2em;
+	height: 2em;
+	width: 11.1em;
+	background-color: transparent;
+	background-image: linear-gradient(to bottom, rgba(200, 200, 200, 0.95), rgba(200, 200, 200, 0));
+	pointer-events: none;
 }
 
 nav h4 {
@@ -131,4 +144,78 @@ pre {
 	background-color: rgb( 245, 245, 245 );
 	padding: 1em;
 	border-radius: 1em;
+}
+
+#ribbonwrap {
+	position: absolute;
+	right: 14.1em;
+	z-index: 10;
+}
+
+#ribbon {
+	position: fixed;
+	bottom: 0;
+	width: 12.1em;
+	height: 12.1em;
+	overflow: hidden;
+}
+
+#ribbon::before, #ribbon::after {
+	display: block;
+	position: absolute;
+	transform: rotate(-45deg);
+	top: auto;
+	bottom: 3.15em;
+	height: 1.54em;
+	width: 15.38em;
+	right: -3.23em;
+}
+
+#ribbon::before {
+	content: "";
+	background-color: #666;
+	background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.15));
+	padding: 0.38em 0;
+	box-shadow: 0 .15em .23em 0 rgba(0, 0, 0, 0.5);
+}
+
+#ribbon::after {
+	content: "Fork me on Github";
+	color: white;
+	font: 700 1em "Helvetica Neue", Helvetica, Arial, sans-serif;
+	line-height: 1.54em;
+	padding: 0.15em 0;
+	margin: 0.15em 0;
+	text-indent: 0;
+	text-align: center;
+	border-color: rgba(255, 255, 255, 0.7);
+	border-style: dotted;
+	border-width: 0.08em 0;
+}
+
+#footnav {
+}
+
+.prenext {
+}
+
+.prenext a:hover::before {
+	text-decoration: underline;
+}
+
+.prenext .prev::before, .prenext .next:before {
+	background-color: rgb( 240, 240, 240 );
+	padding: 0.2em 0.8em;
+	border-radius: 0.8em;
+	margin: 0.1em 0 1em 0;
+}
+
+.prenext .prev::before {
+	content : "\2039\2039\00a0prev";
+	float: left;
+}
+
+.prenext .next::before {
+	content : "next\00a0\203A\203A";
+	float: right;
 }
