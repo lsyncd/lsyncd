@@ -11,13 +11,13 @@ For scripts of all layers, the ```settings``` call can be used to alter daemon-w
 
 For example, the following code will instruct Lsyncd to log into ```/tmp/lsyncd.log```, periodically update the file ```/tmp/lsyncd.status``` with its status and to not detach as a daemon.
 
-```Lua
+{% highlight lua %}
 settings {
    logfile    = "/tmp/lsyncd.log",
    statusFile = "/tmp/lsyncd.status",
    nodaemon   = true,
 }
-```
+{% endhighlight %}
 
 **Caution**
 If you are upgrading from 2.0.x, please notice that `settings` became a function from a variable, so you **MUST** delete the equal sign '=' between `settings` and the `{`.

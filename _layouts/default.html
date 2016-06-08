@@ -1,9 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
+  {% if page.url != "/" %}
+  <title>Lsyncd - {{ page.title }}</title>
+  {% else %}
   <title>{{ page.title }}</title>
+  {% endif %}
   <!-- link to main stylesheet -->
   <link rel="stylesheet" type="text/css" href="{{ site.url }}/css/main.css">
+  <link rel="stylesheet" type="text/css" href="{{ site.url }}/css/syntax.css">
 </head>
 <body>
   <div id="pillar">
@@ -35,6 +40,7 @@
   <div id="ribbonwrap"><a href="https://github.com/axkibe/lsyncd" id="ribbon"></a></div>
   </nav>
   <div id="container">
+  <a href="https://github.com/axkibe/lsyncd/edit/gh-pages{{ page.url }}index.md" id="improvethis"></a>
   <h1>{{ page.title }}</h1>
   {{ content }}
 
@@ -67,11 +73,5 @@
 
   </div>
   </div>
-
-  <!--footer>
-  <ul>
-    <li><a href="https://github.com/lsyncd">github.com/lsyncd</a></li>
-  </ul>
-  </footer-->
 </body>
 </html>

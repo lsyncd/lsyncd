@@ -9,7 +9,7 @@ Instead of designating actions as strings as in Layer 3 Lua functions can used t
 
 This example will convert any file with the suffix ".ps" created in a directory into a PDF.
 
-```Lua
+{% highlight lua %}
 autopdf = {
     onCreate = function(event)
         log("Normal", "got an onCreate Event")
@@ -18,7 +18,7 @@ autopdf = {
         end
     end
 }
-```
+{% endhighlight %}
 
 The function can take any valid Lua code. 
 
@@ -42,11 +42,11 @@ The same as spawn(), only it will invoke a shell. Any parameters are referred as
 
 By the way, this is the simple implementation of spawnShell:
 
-```Lua
+{% highlight lua %}
 function spawnShell(agent, command, ...)
     return spawn(agent, "/bin/sh", "-c", command, "/bin/sh", ...)
 end
-```
+{% endhighlight %}
 
 terminate(exitcode)
 -------------------
@@ -78,14 +78,14 @@ onMove actions have two events as parameter, the origin and the destination of t
 
 This example will tattle about all moves within the observed directory tree.
 
-```Lua
+{% highlight lua %}
 tattleMove = {
     onMove = function(oEvent, dEvent)
         log("Normal", "A moved happened from ",
             oEvent.pathname, " to ",  dEvent.pathname)
     end,
 }
-```
+{% endhighlight %}
 
 Action functions have to be short and fast. They are running right within Lsyncd's one and only main thread. If you have to do any more time consuming calculations _spawn{}_ a child process instead. 
 

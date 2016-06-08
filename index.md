@@ -1,6 +1,6 @@
 ---
 layout: default
-title: "Lsyncd – Live Syncing (Mirror) Daemon"
+title: "Lsyncd - Live Syncing (Mirror) Daemon"
 short: "Welcome"
 ---
 Description
@@ -25,16 +25,18 @@ Other synchronization tools
 
 Lsyncd usage examples
 ---------------------
-```lsyncd -rsync /home remotehost.org::share/```
+{% highlight shell %}
+lsyncd -rsync /home remotehost.org::share/
+{% endhighlight %}
 
 This watches and rsyncs the local directory /home with all sub-directories and
 transfers them to 'remotehost' using the rsync-share 'share'.
 
-```lsyncd -rsyncssh /home remotehost.org backup-home/```
+{% highlight shell %}
+lsyncd -rsyncssh /home remotehost.org backup-home/
+{% endhighlight %}
 
 This will also rsync/watch '/home', but it uses a ssh connection to make moves local on the remotehost instead of re-transmitting the moved file over the wire.
-
-Some more complicated examples, tips and tricks you can find in the [Lsyncd21Manual](https://github.com/axkibe/lsyncd/wiki/Manual-to-Lsyncd-2.1.x).
 
 Disclaimer
 ----------

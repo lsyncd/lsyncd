@@ -5,7 +5,7 @@ tab: "manual/examples"
 ---
 A Layer 3 [example](..) that forces a directory tree to be read/writeable by a group.
 
-```lua
+{% highlight lua %}
 -----
 -- User configuration file for lsyncd.
 -- 
@@ -87,4 +87,4 @@ gforce = {
 }
 
 sync{gforce, source="/path/to/share"}
-```
+{% endhighlight %}

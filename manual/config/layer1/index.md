@@ -7,7 +7,7 @@ Layer 2 allows you to create one process per one event. However, as with default
 
 For example this is the action used by default.rsync:
 
-```Lua
+{% highlight lua %}
 action = function(inlet)
    local elist = inlet.getEvents()
    local config = inlet.getConfig()
@@ -20,12 +20,13 @@ action = function(inlet)
        "--include-from=-",
        "--exclude=*",
        config.source, config.target)
-```
+end
+{% endhighlight %}
 
 Inlet functions are:
 
-| **Function** | **Description** |
-|:----------|:------------|
+| Function | Description |
+|:---------|:------------|
 | inlet.getEvent() | Retrieves the next `event` as in Layer 2 configuration. Multiple calls to getEvent() will return the same event unless it has spawn{}ed an action. |
 | inlet.getEvents(test) | Returns a list of all events that are ready. `test` is optional for a function that will be called for every event to test if it should be included in the list. It has one parameter the `event` and returns true if an event should be included. If nil every ready event will be included in the list |
 | inlet.discardEvent() | Discards an event. The next call to getEvent will thus receive another event, even if no action has been spawned for this event |
@@ -38,7 +39,7 @@ The list returned by getEvents can be handed to spawn{} as _agent_ just as well 
 
 Lists have following functions 
 
-| **Function** | **Description** |
+| Function  | Description |
 |:----------|:------------|
 | elist.getPaths(delimiter) | returns a string of the paths (as in `event.path` separated by `delimiter`. By default \n is used as delimiter. |
 | elist.getSourcePaths(delimiter) | returns a string of the sourcePaths (as in `event.sourcePath` separated by `delimiter`. By default \n is used as delimiter. |
@@ -47,7 +48,7 @@ Take care calling getEvents() and its function since depending on the amount of 
 
 Layer 2 functions is nothing else than following layer 1 action loaded by the default if the user script did not provide one itself.
 
-```Lua
+{% highlight lua %}
 -----
 -- Default action calls user scripts on**** functions.
 --
@@ -65,13 +66,13 @@ action = function(inlet)
         inlet.discardEvent(event)
     end 
 end,
-```
+{% endhighlight %}
 
 Lsyncd will automatically split Move events into Create and Delete events if no "onMove" field is found in the config. When handling moves in layer 1 `action` function, simply set "onMove" to be "true". 
 
 Other than `action` Lsyncd calls `init` for each sync{} on initialization. This is the default init function which is loaded if the user script does not have one. It provides the onStartup() functionality for layer 2 and 3.
 
-```Lua
+{% highlight lua %}
 -----
 -- called on (re)initalizing of lsyncd.
 --
@@ -88,11 +89,11 @@ init = function(inlet)
         end 
     end 
 end,
-```
+{% endhighlight %}
 
 As another example this is the init of `default.rsync`. As specialty it changes the configuration in that it adds a slash to target if not there already.
 
-```Lua
+{% highlight lua %}
 -----
 -- Spawns the recursive startup sync
 -- 
@@ -110,13 +111,13 @@ init = function(inlet)
         config.source, 
         config.target)
 end,
-```
+{% endhighlight %}
 
 When child processes are finished and their zombie processes are collected, Lsyncd calls the function of the `collect` entry. When collect return "again" the status of the agent (an event or an event list) will be set on "wait" again, and will become ready in `delay` seconds (or 1 second if smaller).
 
 The default collect function looks in the exitcodes[] table for an entry of the exit code. Otherwise most of the unfortunately longer code below does nothing but making nice log message.
 
-```Lua
+{% highlight lua %}
 -----
 -- Called when collecting a finished child process
 --
@@ -161,4 +162,4 @@ collect = function(agent, exitcode)
 	end
 	return rc
 end,
-```
+{% endhighlight %}

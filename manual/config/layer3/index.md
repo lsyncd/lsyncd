@@ -7,7 +7,7 @@ Simple onAction
 ---------------
 In this layer, custom configurations can be created. This example will use bash commands to keep a local directory in sync.
 
-```Lua
+{% highlight lua %}
 bash = {
     delay = 5,
     maxProcesses = 3,
@@ -17,21 +17,21 @@ bash = {
     onMove   = "mv ^o.targetPathname ^d.targetPathname",
     onStartup = '[[ if [ "$(ls -A ^source)" ]; then cp -r ^source* ^target; fi]]',
 }
-```
+{% endhighlight %}
 
 The example explained step by step. Technically, any Lsyncd configuration is a Lua table with a set of keys filled out. Thus it starts by creating a variable called ```bash``` and assigns it a table with = { ... }.
 
-```Lua
+{% highlight lua %}
 bash = {
   ...
 }
-```
+{% endhighlight %}
 
 Now the table is filled with entries. Every entry having a key left of the equal sign and its value right of it. If no delay is specified, this means immediate actions for Lsyncd. This example wants to aggregate changes for 5 seconds thus the next entry is:
 
-```Lua
+{% highlight lua %}
     delay = 5,
-```
+{% endhighlight %}
 
 And a comma is needed since to mark the end of an entry.
 
@@ -73,10 +73,10 @@ The action to be taken is specified as a Lua string. Thus actions can be delimit
 
 Any action starting with a "/" instructs Lsyncd to directly call the binary file at the beginning instead of spawning an additional shell. For example
 
-```Lua
+{% highlight lua %}
    onCreate = "/usr/bin/zip /usr/var/all.zip ^sourceName"
    onModify = "/usr/bin/zip /usr/var/all.zip ^sourceName"
-```
+{% endhighlight %}
 
 will add any newly created and modified files to /usr/var/all.zip using absolute path names. Any action not starting with a "/" will result in Lsyncd spawning a shell to execute the action as command.
 
@@ -86,17 +86,17 @@ Variable arguments are specified with the caret symbol ^. It has been chosen ove
 
 Note that variables will always be implicitly quoted in double quotes, so if you want them to be a part of another double-quoted string, you will have to go one layer deeper, e.g. 
 
-```Lua
+{% highlight lua %}
     onCreate   = '[[ su user -c "/usr/bin/zip /usr/var/all.zip ^o.sourceName " ]],
-```
+{% endhighlight %}
 
 will expand to ```su user -c "/usr/bin/zip /usr/var/all.zip "source""``` which is incorrect and will break. You have to rewrite the above statement one layer deeper as 
 
-```Lua
+{% highlight lua %}
   onCreate = function(event)
     spawnShell('[[ su user -c "/usr/bin/zip /usr/var/all.zip \"$1\"" ]], event.sourceName)
   end
-```
+{% endhighlight %}
 
 
 All possible variables
@@ -140,23 +140,23 @@ All possible variables
 For ```onMoves``` a _o._ and or _d._ can be prepended to path, pathname, sourcePath sourcePathname, targetPath and targetPathname to specify the move origin or destination. Without neither the variables refers to the move origin. 
 
 From the example above, it moves the file or directory in the target directory.
-```
+{% highlight lua %}
     onMove   = "mv ^o.targetPathname ^d.targetPathname",
-```
+{% endhighlight %}
 
 Execution control (exit codes)
 ------------------------------
 A few words on the startup of the example. It looks a little more complicated, but it is just some bash scripting, nothing Lsyncd specific. It simply does a recursive copy of the source to the target, but first tests if there is anything in the source file. Otherwise the command returns a non-zero error code.
 
-```Lua
+{% highlight lua %}
     onStartup = '[[if [ "$(ls -A ^source)" ]; then cp -r ^source* ^target; fi]],
-```
+{% endhighlight %}
 
 By default Lsyncd ignores all exit codes except onStartup which must return 0 for it to continue. You can change this behavior by adding a ```exitcodes``` table.
 
-```Lua
+{% highlight lua %}
     exitcodes = {[0] = "ok", [1] = "again", [2] = "die"}
-```
+{% endhighlight %}
 The keys specify for the exit code the string of the desired action. 
 
 <table>

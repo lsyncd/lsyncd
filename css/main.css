@@ -123,8 +123,34 @@ tr:first-child td {
 	border-top : 1px solid rgb( 220, 220, 220 )
 }
 
-tr td:first-child {
+tr td:first-child, tr th:first-child {
 	border-left : 1px solid rgb( 220, 220, 220 )
+}
+
+thead::after {
+	line-height: 0.4em;
+	content: "\200C";
+	display:block;
+}
+
+th {
+	background-color: rgb( 230, 230, 230 );
+	border-top : 1px solid rgb( 210, 210, 210 );
+	border-bottom : 1px solid rgb( 210, 210, 210 );
+	border-right : 1px solid rgb( 210, 210, 210 );
+	padding : 0.8em 1em;
+	margin : 0;
+	font-weight: bold;
+}
+
+th:first-child {
+	border-top-left-radius: 1em;
+	border-bottom-left-radius: 1em;
+}
+
+th:last-child {
+	border-top-right-radius: 1em;
+	border-bottom-right-radius: 1em;
 }
 
 td {
@@ -138,13 +164,6 @@ tr:first-child td:first-child { border-top-left-radius: 1em; }
 tr:first-child td:last-child { border-top-right-radius: 1em; }
 tr:last-child td:first-child { border-bottom-left-radius: 1em; }
 tr:last-child td:last-child { border-bottom-right-radius: 1em; }
-
-
-pre {
-	background-color: rgb( 245, 245, 245 );
-	padding: 1em;
-	border-radius: 1em;
-}
 
 #ribbonwrap {
 	position: absolute;
@@ -207,7 +226,7 @@ pre {
 	background-color: rgb( 240, 240, 240 );
 	padding: 0.2em 0.8em;
 	border-radius: 0.8em;
-	margin: 0.1em 0 1em 0;
+	margin: 1em 0 1em 0;
 }
 
 .prenext .prev::before {
@@ -218,4 +237,21 @@ pre {
 .prenext .next::before {
 	content : "next\00a0\203A\203A";
 	float: right;
+}
+
+#improvethis {
+	float: right;
+	color: #bbb;
+	margin: 1em 0 0 0;
+}
+
+
+#improvethis::before {
+	content : "\f040\00a0Improve\00a0this\00a0page";
+}
+
+.highlighter-rouge {
+	background-color: #f8f8f8;
+	border-radius: 0.4em;
+	padding: 0.1em 0.2em;
 }

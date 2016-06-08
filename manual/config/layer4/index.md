@@ -7,26 +7,26 @@ You can simply choose from a set of three default implementations which are: __r
 
 To sync a local directory using the default rsync behavior, just add this to a config file:
 
-```Lua
+{% highlight lua %}
 sync {
    default.rsync,
    source = "DIRNAME",
    target = "DIRNAME"
 }
-```
+{% endhighlight %}
 
 The order of the arguments is of no importance. If target is a local directory, take care that it is an absolute pathname. You can add multiple syncs that way. The source directories may be identical or differ without problems. ```source``` is an universal parameter that must be given for every sync. All other ```sync``` parameters can differ depending on the behavior selected. Optionally you can override the default or settings values ```maxDelays``` or ```maxProcesses``` per _Sync_. 
 
 One can also skip the initial rsync process by setting the default ```init``` function to false:
 
-```Lua
+{% highlight lua %}
 sync {
     default.rsync,
     source = "DIRNAME",
     target = "DIRNAME",
     init   = false
 }
-```
+{% endhighlight %}
 
 This is an optimization which can be dangerous; so, please use it only if you are sure that source and target are synchronized when Lsyncd is started.
 
@@ -36,15 +36,15 @@ default.rsync
 -------------
 The default rsync configuration will aggregate events up to ```delay``` seconds or 1000 separate uncollapsible events, which ever happens first. Then it will spawn one Rsync with a filter of all files that  changed. The filter list is transmitted to Rsync trough a pipe. A call from Lsyncd to Rsync will thus look like this:
 
-```shell
+{% highlight shell %}
 /usr/bin/rsync -ltsd --delete --include-from=- --exclude=* SOURCE TARGET
-```
+{% endhighlight %}
 
 You can change the options Rsync is called and the Rsync binary that is call with the ```rsync``` parameter.
 
 Example:
 
-```Lua
+{% highlight lua %}
 sync {
     default.rsync,
     source    = "/home/user/src/",
@@ -56,7 +56,7 @@ sync {
         compress = true
     }
 }
-```
+{% endhighlight %}
 
 Below is a table of options for the ```rsync``` parameter. Please have a look at the Rsync documentation for an in depth explanation.
 
@@ -296,7 +296,8 @@ Additional to that ssh can be configured via the ```ssh``` parameter.
 </table>
 
 Example:
-```
+
+{% highlight lua %}
 settings {
     logfile = "/var/log/lsyncd.log",
     statusFile = "/var/log/lsyncd-status.log",
@@ -318,12 +319,12 @@ sync {
      port = 1234
    }
 }
-```
+{% endhighlight %}
+
 Please note the comma between the ```rsync``` parameter set and the ```ssh``` parameter set.
 
 **Caution**
 If you are upgrading from 2.0.x, please notice that `settings` became a function from a variable, so you **MUST** delete the equal sign '=' between `settings` and the `{`.
-
 
 Lsyncd will call ```xargs``` on the remote host to handle multiple tasks in a single connection. Xargs options can be specified by, just guessed it, the xargs parameter.
 
@@ -352,14 +353,14 @@ Lsyncd will call ```xargs``` on the remote host to handle multiple tasks in a si
 
 Example:
 
-```Lua
+{% highlight lua %}
 sync {
     default.rsyncssh,
     source    = "/home/user/src/",
     host      = "foohost.com",
     targetdir = "~/trg/",
 }
-```
+{% endhighlight %}
 
 default.direct
 -------------
@@ -367,13 +368,13 @@ Default.direct can be used to keep two local directories in sync with better per
 
 Example:
 
-```Lua
+{% highlight lua %}
 sync {
     default.direct,
     source  = "/home/user/src/",
     target  = "/home/user/trg/"
 }
-```
+{% endhighlight %}
 
 Exclusions
 ----------
@@ -406,14 +407,14 @@ Exclusion rules are modeled after rsync's exclusion patterns but are a bit simpl
 
 Example:
 
-```Lua
+{% highlight lua %}
 sync {
     default.rsync,
     source    = "/home/user/src/",
     targetdir = "/home/user/dst/",
     exclude = { '.bak' , '.tmp' }
 }
-```
+{% endhighlight %}
 
 Deletions
 ---------
