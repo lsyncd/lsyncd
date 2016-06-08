@@ -59,21 +59,21 @@ Variables of the actions are given by the _event_ field. It has following fields
 |Field|Meaning|
 |:----|:----|
 | event.config | the configuration as called with sync{} |
-| event.inlet | see [layer 1](Layer 1 Config) about inlets |
+| event.inlet | see [layer 1](https://axkibe.github.io/lsyncd/manual/config/layer1/) about inlets |
 | event.etype | the event type. Can be 'ATTRIB', 'CREATE', 'MODIFY', 'DELETE', 'MOVE' |
 | event.status | the status of the event. 'wait' when it is ready to be spawned and 'active' if there is a process running associated with this event |
 | event.isdir | true if the event relates to a directory |
-|event.name | the filename, directories end with a slash |
+| event.name | the filename, directories end with a slash |
 | event.basename | the filename, directories do not end with a slash |
-| event.path | see ^path of [Layer 3][l3-all-vars] |
-|event.pathname | see ^pathname of [Layer 3][l3-all-vars] |
-| event.source | see ^source of [Layer 3][l3-all-vars] |
-| event.sourcePath | see ^sourcePath of [Layer 3][l3-all-vars] |
-|event.sourcePathname | see ^sourcePathname of [Layer 3][l3-all-vars] |
-|event.target | see ^target of [Layer 3][l3-all-vars] |
-|event.targetPath | see ^targetPath of [Layer 3][l3-all-vars] |
-|event.targetPathname | see ^targetPathname of [Layer 3][l3-all-vars] |
-[l3-all-vars]:../wiki/Lsyncd-2.1.x-‖-Layer-3-Config-‖-Simple-onAction#all-possible-variables
+| event.path | see ^path of [Layer 3](https://axkibe.github.io/lsyncd/manual/config/layer3/#all-possible-variables) |
+| event.pathname | see ^pathname of [Layer 3](https://axkibe.github.io/lsyncd/manual/config/layer3/#all-possible-variables) |
+| event.source | see ^source of [Layer 3](https://axkibe.github.io/lsyncd/manual/config/layer3/#all-possible-variables) |
+| event.sourcePath | see ^sourcePath of [Layer 3](https://axkibe.github.io/lsyncd/manual/config/layer3/#all-possible-variables) |
+| event.sourcePathname | see ^sourcePathname of [Layer 3](https://axkibe.github.io/lsyncd/manual/config/layer3/#all-possible-variables) |
+| event.target | see ^target of [Layer 3](https://axkibe.github.io/lsyncd/manual/config/layer3/#all-possible-variables) |
+| event.targetPath | see ^targetPath of [Layer 3](https://axkibe.github.io/lsyncd/manual/config/layer3/#all-possible-variables) |
+| event.targetPathname | see ^targetPathname of [Layer 3](https://axkibe.github.io/lsyncd/manual/config/layer3/#all-possible-variables) |
+
 onMove actions have two events as parameter, the origin and the destination of the move.
 
 This example will tattle about all moves within the observed directory tree.
