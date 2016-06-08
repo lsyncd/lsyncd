@@ -3,8 +3,8 @@ lsyncd(1)
 :doctype: manpage
 :man source: Lsyncd
 :man manual: Lsyncd
-:man version: 2.0.7
-:date: April 2012
+:man version: 2.1.5
+:date: June 2016
 
 NAME
 ----
@@ -41,7 +41,7 @@ Fine-grained customization can be achieved through the CONFIG-FILE.  Custom
 action configs can even be written from scratch in cascading layers ranging
 from shell scripts to code written in the LUA(1) language.  This way simplicity
 can be balanced with powerfulness.  See the online manual for details on the
-CONFIG-FILE https://github.com/axkibe/lsyncd/wiki/Manual-to-Lsyncd-2.0.x .
+CONFIG-FILE https://axkibe.github.io/lsyncd/config/file/ .
 
 Note that under normal configuration Lsyncd will delete pre-existing files in
 the target directories that are not present in the respective source directory.
@@ -88,19 +88,19 @@ EXIT STATUS
 
 SEE ALSO
 --------
-Online Manual: https://github.com/axkibe/lsyncd/wiki/Lsyncd-2.1.x-%E2%80%96-What's-New%3F
+Online Manual: https://axkibe.github.io/lsyncd/
 
 VERSION
 ------
-This man page is for lsyncd(1) version 2.0.7
+This man page is for lsyncd(1) version 2.1.5
 
 AUTHOR
 ------
-Axel Kittenberger, <axkibe@gmail.com> 2010-2012
+Axel Kittenberger, <axkibe@gmail.com> 2010-2016
 
 COPYING
 -------
-Copyright \(C) 2010-2012 Axel Kittenberger. Free use of this software is granted
+Copyright \(C) 2010-2016 Axel Kittenberger. Free use of this software is granted
 under the terms of the GNU General Public License (GPL) version 2, or any later
 version. Free redistrubition of this Documentation (/doc directory) is granted
 under the terms of the Creative Commons 3.0 Attribution License (CC-3.0-BY).

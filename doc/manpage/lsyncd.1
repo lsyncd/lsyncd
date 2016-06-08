@@ -2,12 +2,12 @@
 .\"     Title: lsyncd
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: April 2012
+.\"      Date: June 2016
 .\"    Manual: Lsyncd
-.\"    Source: Lsyncd 2.0.7
+.\"    Source: Lsyncd 2.1.5
 .\"  Language: English
 .\"
-.TH "LSYNCD" "1" "April 2012" "Lsyncd 2\&.0\&.7" "Lsyncd"
+.TH "LSYNCD" "1" "June 2016" "Lsyncd 2\&.1\&.5" "Lsyncd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -71,7 +71,7 @@ Lsyncd(1) watches local directory trees through an event monitor interface (inot
 .sp
 Rsync+ssh is an advanced action configuration that uses a SSH(1) to act file and directory moves directly on the target instead of re\-transmitting the move destination over the wire\&.
 .sp
-Fine\-grained customization can be achieved through the CONFIG\-FILE\&. Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the LUA(1) language\&. This way simplicity can be balanced with powerfulness\&. See the online manual for details on the CONFIG\-FILE https://github\&.com/axkibe/lsyncd/wiki/Manual\-to\-Lsyncd\-2\&.0\&.x \&.
+Fine\-grained customization can be achieved through the CONFIG\-FILE\&. Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the LUA(1) language\&. This way simplicity can be balanced with powerfulness\&. See the online manual for details on the CONFIG\-FILE https://axkibe\&.github\&.io/lsyncd/config/file/ \&.
 .sp
 Note that under normal configuration Lsyncd will delete pre\-existing files in the target directories that are not present in the respective source directory\&.
 .SH "OPTIONS"
@@ -145,13 +145,13 @@ Failure (syntax, unrecoverable error condition, internal failure)
 .RE
 .SH "SEE ALSO"
 .sp
-Online Manual: https://github\&.com/axkibe/lsyncd/wiki/Lsyncd\-2\&.1\&.x\-%E2%80%96\-What\(cqs\-New%3F
+Online Manual: https://axkibe\&.github\&.io/lsyncd/
 .SH "VERSION"
 .sp
-This man page is for lsyncd(1) version 2\&.0\&.7
+This man page is for lsyncd(1) version 2\&.1\&.5
 .SH "AUTHOR"
 .sp
-Axel Kittenberger, <axkibe@gmail\&.com> 2010\-2012
+Axel Kittenberger, <axkibe@gmail\&.com> 2010\-2016
 .SH "COPYING"
 .sp
-Copyright (C) 2010\-2012 Axel Kittenberger\&. Free use of this software is granted under the terms of the GNU General Public License (GPL) version 2, or any later version\&. Free redistrubition of this Documentation (/doc directory) is granted under the terms of the Creative Commons 3\&.0 Attribution License (CC\-3\&.0\-BY)\&.
+Copyright (C) 2010\-2016 Axel Kittenberger\&. Free use of this software is granted under the terms of the GNU General Public License (GPL) version 2, or any later version\&. Free redistrubition of this Documentation (/doc directory) is granted under the terms of the Creative Commons 3\&.0 Attribution License (CC\-3\&.0\-BY)\&.
