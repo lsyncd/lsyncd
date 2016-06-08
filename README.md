@@ -6,7 +6,7 @@ Lsyncd watches a local directory trees event monitor interface (inotify or fseve
 
 Rsync+ssh is an advanced action configuration that uses a SSH to act file and directory moves directly on the target instead of re-transmitting the move destination over the wire.
 
-Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/). This way simple, powerful and flexible configurations can be acheived.  See the manual for details [Lsyncd21Manual](https://github.com/axkibe/lsyncd/wiki/Manual-to-Lsyncd-2.1.x)
+Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/). This way simple, powerful and flexible configurations can be acheived.  See [the manual](https://axkibe.github.io/lsyncd/) for details.
 
 License: [GPLv2](http://www.fsf.org/licensing/licenses/info/GPLv2.html) or any later GPL version.
 
@@ -31,8 +31,9 @@ transfers them to 'remotehost' using the rsync-share 'share'.
 
 This will also rsync/watch '/home', but it uses a ssh connection to make moves local on the remotehost instead of re-transmitting the moved file over the wire.
 
-Some more complicated examples, tips and tricks you can find in the [Lsyncd21Manual](https://github.com/axkibe/lsyncd/wiki/Manual-to-Lsyncd-2.1.x).
+Some more complicated examples, tips and tricks you can find in the [manual](https://axkibe.github.io/lsyncd/).
 
 Disclaimer
 ----------
 Besides the usual disclaimer in the license, we want to specifically emphasize that the authors, and any organizations the authors are associated with, can not be held responsible for data-loss caused by possible malfunctions of Lsyncd.
+
