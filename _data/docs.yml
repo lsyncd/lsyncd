@@ -2,6 +2,7 @@
   docs:
   - /
   - /download
+  - /help
 - title: Manual
   docs:
   - /manual/compiling
