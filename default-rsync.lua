@@ -57,6 +57,7 @@ rsync.checkgauge = {
 		binary            =  true,
 		bwlimit           =  true,
 		checksum          =  true,
+		chown             =  true,
 		compress          =  true,
 		copy_links        =  true,
 		cvs_exclude       =  true,
@@ -484,6 +485,12 @@ rsync.prepare =
 	if crsync.bwlimit
 	then
 		computed[ computedN ] = '--bwlimit=' .. crsync.bwlimit
+		computedN = computedN  + 1
+	end
+
+	if crsync.chown
+	then
+		computed[ computedN ] = '--chown=' .. crsync.chown
 		computedN = computedN  + 1
 	end
 

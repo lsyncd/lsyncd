@@ -1,5 +1,8 @@
 ??-??-????:
-	enhancement: add rsync options: "omit-dir-times" and "omit-link-times"
+	enhancement: add rsync options:
+		"chown",
+		"omit-dir-times",
+		"omit-link-times"
 	change: _verbatim forced for 'exitcodes' entry.
 
 15-10-2015: 2.1.6

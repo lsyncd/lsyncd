@@ -425,39 +425,33 @@ end
 --
 -- allow processes
 --
-rsyncssh.maxProcesses =
-	1
+rsyncssh.maxProcesses = 1
 
 --
 -- The core should not split move events
 --
-rsyncssh.onMove =
-	true
+rsyncssh.onMove = true
 
 --
 -- default delay
 --
-rsyncssh.delay =
-	15
+rsyncssh.delay = 15
 
 
 --
 -- no default exit codes
 --
-rsyncssh.exitcodes =
-	false
+rsyncssh.exitcodes = false
 
 --
 -- rsync exit codes
 --
-rsyncssh.rsyncExitCodes =
-	default.rsyncExitCodes
+rsyncssh.rsyncExitCodes = default.rsyncExitCodes
 
 --
 -- ssh exit codes
 --
-rsyncssh.sshExitCodes =
-	default.sshExitCodes
+rsyncssh.sshExitCodes = default.sshExitCodes
 
 --
 -- xargs calls configuration
