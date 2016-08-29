@@ -1558,12 +1558,15 @@ local Sync = ( function( )
 				exitcode
 			)
 
-			if rc == 'die' then
-				log( 'Error', 'Critical exitcode.' );
+			if rc == 'die'
+			then
+				log( 'Error', 'Critical exitcode.' )
+
 				terminate( -1 )
 			end
 
-			if rc ~= 'again' then
+			if rc ~= 'again'
+			then
 				-- if its active again the collecter restarted the event
 				removeDelay( self, delay )
 				log(
@@ -2214,15 +2217,14 @@ local Syncs = ( function( )
 	-- Recurvely inherits a source table to a destionation table
 	-- copying all keys from source.
 	--
-	-- table copy source ( cs )
-	-- table copy destination ( cd )
-	-- forced verbatim for e.g. exitcodes ( verbatim )
-	--
 	-- All entries with integer keys are inherited as additional
 	-- sources for non-verbatim tables
 	--
-	local function inherit( cd, cs, verbatim )
-
+	local function inherit(
+		cd,        -- table copy destination
+		cs,        -- table copy source
+		verbatim   -- forced verbatim ( for e.g. 'exitcodes' )
+	)
 		-- First copies all entries with non-integer keys.
 		--
 		-- Tables are merged; already present keys are not
@@ -2230,7 +2232,8 @@ local Syncs = ( function( )
 		--
 		-- For verbatim tables integer keys are treated like
 		-- non-integer keys
-		for k, v in pairs( cs ) do
+		for k, v in pairs( cs )
+		do
 			if
 				(
 					type( k ) ~= 'number' or
@@ -2249,12 +2252,15 @@ local Syncs = ( function( )
 
 		-- recursevely inherits all integer keyed tables
 		-- ( for non-verbatim tables )
-		if cs._verbatim ~= true then
-
+		if cs._verbatim ~= true
+		then
 			local n = nil
-			for k, v in ipairs( cs ) do
+
+			for k, v in ipairs( cs )
+			do
 				n = k
-				if type( v ) == 'table' then
+				if type( v ) == 'table'
+				then
 					inherit( cd, v )
 				else
 					cd[ #cd + 1 ] = v
@@ -2267,18 +2273,25 @@ local Syncs = ( function( )
 	--
 	-- Helper to inherit. Inherits one key.
 	--
-	inheritKV = function( cd, k, v )
+	inheritKV =
+		function(
+			cd,  -- table copy destination
+			k,   -- key
+			v    -- value
+		)
 
 		-- don't merge inheritance controls
-		if k == '_merge' or k == '_verbatim' then
+		if k == '_merge' or k == '_verbatim'
+		then
 			return
 		end
 
 		local dtype = type( cd [ k ] )
 
-		if type( v ) == 'table' then
-
-			if dtype == 'nil' then
+		if type( v ) == 'table'
+		then
+			if dtype == 'nil'
+			then
 				cd[ k ] = { }
 				inherit( cd[ k ], v, k == 'exitcodes' )
 			elseif
@@ -2288,10 +2301,10 @@ local Syncs = ( function( )
 				inherit( cd[ k ], v, k == 'exitcodes' )
 			end
 
-		elseif dtype == 'nil' then
+		elseif dtype == 'nil'
+		then
 			cd[ k ] = v
 		end
-
 	end
 
 
@@ -2302,14 +2315,16 @@ local Syncs = ( function( )
 
 		-- workaround for backwards compatibility
 		-- FIXME: remove when dropping that
-		if settings ~= settingsSafe then
+		if settings ~= settingsSafe
+		then
 			log(
 				'Warn',
 				'settings = { ... } is deprecated.\n'..
 				'      please use settings{ ... } (without the equal sign)'
 			)
 
-			for k, v in pairs( settings ) do
+			for k, v in pairs( settings )
+			do
 				uSettings[ k ] = v
 			end
 
@@ -2336,15 +2351,19 @@ local Syncs = ( function( )
 		}
 
 		-- Lets settings override these values.
-		for _, v in ipairs( inheritSettings ) do
-			if uSettings[ v ] then
+		for _, v in ipairs( inheritSettings )
+		do
+			if uSettings[ v ]
+			then
 				config[ v ] = uSettings[ v ]
 			end
 		end
 
 		-- Lets commandline override these values.
-		for _, v in ipairs( inheritSettings ) do
-			if clSettings[ v ] then
+		for _, v in ipairs( inheritSettings )
+		do
+			if clSettings[ v ]
+			then
 				config[ v ] = clSettings[ v ]
 			end
 		end
@@ -2353,11 +2372,10 @@ local Syncs = ( function( )
 		-- lets the userscript 'prepare' function
 		-- check and complete the config
 		--
-		if type( config.prepare ) == 'function' then
-
+		if type( config.prepare ) == 'function'
+		then
 			-- prepare is given a writeable copy of config
 			config.prepare( config, 4 )
-
 		end
 
 		if not config[ 'source' ] then
@@ -2375,7 +2393,8 @@ local Syncs = ( function( )
 		--
 		local realsrc = lsyncd.realdir( config.source )
 
-		if not realsrc then
+		if not realsrc
+		then
 			log(
 				'Error',
 				'Cannot access source directory: ',
