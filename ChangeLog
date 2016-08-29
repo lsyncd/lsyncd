@@ -2,8 +2,12 @@
 	enhancement: add rsync options:
 		"chown",
 		"omit-dir-times",
+		"omit-dir-times"
 		"omit-link-times"
 	change: _verbatim forced for 'exitcodes' entry.
+	fix: ']' is not escaped for rsync rules, since rsync only applies
+	     doesn't applie pattern matching if no other pattern chars
+		 are found.
 
 15-10-2015: 2.1.6
 	enhancement: Lsyncd now locks its pidfile

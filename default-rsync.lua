@@ -123,8 +123,7 @@ rsync.action = function( inlet )
 		return p:
 			gsub( '%?', '\\?' ):
 			gsub( '%*', '\\*' ):
-			gsub( '%[', '\\[' ):
-			gsub( '%]', '\\]' )
+			gsub( '%[', '\\[' )
 	end
 
 	--
