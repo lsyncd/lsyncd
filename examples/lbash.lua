@@ -4,7 +4,7 @@
 -- This example uses local bash commands to keep two local
 -- directory trees in sync.
 --
-settings = {
+settings {
 	logfile         = "/tmp/lsyncd.log",
 	statusFile      = "/tmp/lsyncd.stat",
 	statusIntervall = 1,
