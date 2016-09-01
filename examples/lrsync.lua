@@ -3,7 +3,7 @@
 --
 -- Simple example for default rsync.
 --
-settings = {
+settings {
 	statusFile = "/tmp/lsyncd.stat",
 	statusInterval = 1,
 }
