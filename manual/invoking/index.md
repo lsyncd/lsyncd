@@ -53,7 +53,7 @@ When testing Lsyncd configurations ```-nodaemon``` is a pretty handy flag. With 
 lsyncd -nodaemon CONFIGFILE
 {% endhighlight %}
 
-Note there is a difference in behaviour. When running with -nodaemon, Lsyncd will not change its working directory to ```/```, as it does when becoming a daemon. Thus relative targets like ```./target``` will work with ```-nodaemon```, but must be specified to absolute paths to work in daemon mode. The source directories will also be turned into absolute paths by Lsyncd. The reason targets are not resolved to absolute paths while sources are is because Lsyncd itself does not care about the format of the target specifier which can also be remote hosts, rsyncd modules, etc. It is opaquely handed to rsync. It cares about the observed directories though.
+There is a difference in behaviour when running with -nodaemon. Lsyncd will not change its working directory to ```/```, as it does when becoming a daemon. Thus relative targets like ```./target``` will work with ```-nodaemon``` but must be specified to absolute paths to work in daemon mode. The source directories will also be turned into absolute paths by Lsyncd. The reason targets are not resolved to absolute paths while sources are is because Lsyncd itself does not care about the format of the target specifier which can also be remote hosts, rsyncd modules, etc. It is opaquely handed to rsync. It cares about the observed directories though.
 
 All log messages are sorted in categories. By default Lsyncd is scarce with log messages. You can turn Lsyncd into a motormouth by specifying ```-log all```.
 
@@ -66,3 +66,11 @@ This might easily become too much. A particularly useful category is "Exec" whic
 {% highlight shell %}
 lsyncd -log Exec CONFIGFILE
 {% endhighlight %}
+
+When the initial startup sync fails by default Lsyncd will terminate with an error message. It has been designed this way, so configuration failures are visibly reported to a possibly beginning user. However, in production a remote target might be done, but you want Lsyncd to start nevertheless and keep trying to sync to the remote target until it is up.
+
+{% highlight shell %}
+lsyncd -insist -rsync /home/USER/src remotehost:dst
+{% endhighlight %}
+
+In production mode it is recommended to have insist on. It can also be specified in the settings{} command in a config file.
