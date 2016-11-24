@@ -4,6 +4,7 @@
 		"omit-dir-times",
 		"omit-dir-times"
 		"omit-link-times"
+	change: compatible with Lua5.3 (along with 5.1 and 5.2)
 	change: _verbatim forced for 'exitcodes' entry.
 	fix: ']' is not escaped for rsync rules, since rsync only applies
 	     doesn't applie pattern matching if no other pattern chars

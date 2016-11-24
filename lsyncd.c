@@ -1948,7 +1948,7 @@ l_jiffies_le(lua_State *L)
 void
 register_lsyncd( lua_State *L )
 {
-	luaL_register( L, LSYNCD_LIBNAME, lsyncdlib );
+	lua_compat_register( L, LSYNCD_LIBNAME, lsyncdlib );
 	lua_setglobal( L, LSYNCD_LIBNAME );
 
 	// creates the metatable for the jiffies ( timestamps ) userdata

@@ -17,6 +17,7 @@
 #define _DARWIN_C_SOURCE 1
 
 #define LUA_COMPAT_ALL
+#define LUA_COMPAT_5_1
 
 // includes needed for headerfile
 #include "config.h"
@@ -30,6 +31,20 @@
 
 #define LSYNCD_LIBNAME "lsyncd"
 #define LSYNCD_INOTIFYLIBNAME "inotify"
+
+/*
+| Workaround to register a library for different lua versions.
+*/
+#if LUA_VERSION_NUM > 502
+	#define lua_compat_register( L, name, lib ) \
+		{ \
+			lua_newtable((L)); \
+			luaL_setfuncs((L), (lib), 0); \
+		}
+#else
+	#define lua_compat_register( L, name, lib ) \
+		{luaL_register( (L), (name), (lib) );}
+#endif
 
 /**
  * Lsyncd runtime configuration
