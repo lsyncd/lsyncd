@@ -45,26 +45,26 @@ include_directories("${PROJECT_BINARY_DIR}")
 
 # building and compiling the part of lsyncd written in Lua
 # also called "runner"
-add_custom_command( OUTPUT runner.c 
-    COMMAND ${CMAKE_COMMAND} -E echo "Generating built-in runner linkable" 
+add_custom_command( OUTPUT runner.c
+	COMMAND ${CMAKE_COMMAND} -E echo "Generating built-in runner linkable"
 	COMMAND ${LUA_EXECUTABLE} ${PROJECT_SOURCE_DIR}/bin2carray.lua runner.out runner runner.c
-    DEPENDS runner.out 
-) 
+	DEPENDS runner.out
+)
 
 # this supposes the Lua compiler 'luac' is sitting right next to the Lua interpreter 'lua'
 add_custom_command( OUTPUT runner.out
-    COMMAND ${CMAKE_COMMAND} -E echo "Compiling built-in runner" 
+	COMMAND ${CMAKE_COMMAND} -E echo "Compiling built-in runner"
 	COMMAND ${LUA_COMPILER} -o runner.out ${PROJECT_SOURCE_DIR}/lsyncd.lua
-    DEPENDS ${PROJECT_SOURCE_DIR}/lsyncd.lua
-) 
+	DEPENDS ${PROJECT_SOURCE_DIR}/lsyncd.lua
+)
 
 # building and compiling the built-in default configs:
 #   rsync rysnc-ssh and direct
-add_custom_command( OUTPUT defaults.c 
-    COMMAND ${CMAKE_COMMAND} -E echo "Generating built-in default configs" 
+add_custom_command( OUTPUT defaults.c
+	COMMAND ${CMAKE_COMMAND} -E echo "Generating built-in default configs"
 	COMMAND ${LUA_EXECUTABLE} ${PROJECT_SOURCE_DIR}/bin2carray.lua defaults.out defaults defaults.c
-    DEPENDS defaults.out 
-) 
+	DEPENDS defaults.out
+)
 
 set( DEFAULT_CONFIGS
 	${PROJECT_SOURCE_DIR}/default.lua
@@ -74,18 +74,18 @@ set( DEFAULT_CONFIGS
 )
 
 add_custom_command( OUTPUT defaults.out
-    COMMAND ${CMAKE_COMMAND} -E echo "Compiling built-in default configs"
+	COMMAND ${CMAKE_COMMAND} -E echo "Compiling built-in default configs"
 	COMMAND ${LUA_COMPILER} -o defaults.out ${DEFAULT_CONFIGS}
-    DEPENDS ${DEFAULT_CONFIGS}
-) 
+	DEPENDS ${DEFAULT_CONFIGS}
+)
 
 # the manpage
 add_custom_command( OUTPUT doc/manpage/lsyncd.1
-    COMMAND ${CMAKE_COMMAND} -E echo "Updating the manpage"
+	COMMAND ${CMAKE_COMMAND} -E echo "Updating the manpage"
 	COMMAND a2x --format=manpage doc/manpage/lsyncd.1.txt
-    DEPENDS doc/manpage/lsyncd.1.txt
+	DEPENDS doc/manpage/lsyncd.1.txt
 )
-add_custom_target( manpage ALL DEPENDS doc/manpage/lsyncd.1 )
+add_custom_target( manpage DEPENDS doc/manpage/lsyncd.1 )
 
 # compiling and linking it all together
 add_executable( lsyncd ${LSYNCD_SRC} )
