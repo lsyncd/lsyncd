@@ -11,6 +11,7 @@
 	fix: ']' is not escaped for rsync rules, since rsync only applies
 	     doesn't applie pattern matching if no other pattern chars
 		 are found.
+	fix: Shell injection hole close for default.direct on mv commands. (Marcin Szewczyk)
 
 15-10-2015: 2.1.6
 	enhancement: Lsyncd now locks its pidfile
