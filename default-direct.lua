@@ -62,6 +62,7 @@ direct.action = function(inlet)
 			spawn(
 				event,
 				'/bin/mkdir',
+				'--',
 				event.targetPath
 			)
 		else
@@ -69,6 +70,7 @@ direct.action = function(inlet)
 			spawn(
 				event,
 				'/bin/cp',
+				'--',
 				event.sourcePath,
 				event.targetPathdir
 			)
@@ -79,6 +81,7 @@ direct.action = function(inlet)
 		end
 		spawn(event,
 			'/bin/cp',
+			'--',
 			event.sourcePath,
 			event.targetPathdir
 		)
@@ -99,7 +102,7 @@ direct.action = function(inlet)
 			error('Refusing to erase your harddisk!')
 		end
 
-		spawn(event, '/bin/rm', '-rf', tp)
+		spawn(event, '/bin/rm', '-rf', '--', tp)
 
 	elseif event.etype == 'Move' then
 		local tp = event.targetPath
@@ -109,13 +112,13 @@ direct.action = function(inlet)
 			error('Refusing to erase your harddisk!')
 		end
 
-		local command = '/bin/mv "$1" "$2" || /bin/rm -rf "$1"'
+		local command = '/bin/mv -- "$1" "$2" || /bin/rm -rf -- "$1"'
 
 		if
 			config.delete ~= true and
 			config.delete ~= 'running'
 		then
-			command = '/bin/mv "$1" "$2"'
+			command = '/bin/mv -- "$1" "$2"'
 		end
 
 		spawnShell(
