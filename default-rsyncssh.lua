@@ -283,14 +283,16 @@ rsyncssh.prepare = function( config, level )
 
 	default.rsync.prepare( config, level + 1, true )
 
-	if not config.host then
+	if not config.host
+	then
 		error(
 			'default.rsyncssh needs "host" configured',
 			level
 		)
 	end
 
-	if not config.targetdir then
+	if not config.targetdir
+	then
 		error(
 			'default.rsyncssh needs "targetdir" configured',
 			level
@@ -300,44 +302,37 @@ rsyncssh.prepare = function( config, level )
 	--
 	-- computes the ssh options
 	--
-	if config.ssh._computed then
+	if config.ssh._computed
+	then
 		error(
 			'please do not use the internal rsync._computed parameter',
 			level
 		)
 	end
 
-	local cssh =
-		config.ssh;
+	local cssh = config.ssh;
 
-	cssh._computed =
-		{ }
+	cssh._computed = { }
 
-	local computed =
-		cssh._computed
+	local computed = cssh._computed
 
-	local computedN =
-		1
+	local computedN = 1
 
-	local rsyncc =
-		config.rsync._computed
+	local rsyncc = config.rsync._computed
 
-	if cssh.identityFile then
-		computed[ computedN ] =
-			'-i'
+	if cssh.identityFile
+	then
+		computed[ computedN ] = '-i'
 
-		computed[ computedN + 1 ] =
-			cssh.identityFile
+		computed[ computedN + 1 ] = cssh.identityFile
 
-		computedN =
-			computedN + 2
+		computedN = computedN + 2
 
-		if not config.rsync._rshIndex then
-			config.rsync._rshIndex =
-				#rsyncc + 1
+		if not config.rsync._rshIndex
+		then
+			config.rsync._rshIndex = #rsyncc + 1
 
-			rsyncc[ config.rsync._rshIndex ] =
-				'--rsh=ssh'
+			rsyncc[ config.rsync._rshIndex ] = '--rsh=ssh'
 		end
 
 		rsyncc[ config.rsync._rshIndex ] =
@@ -346,26 +341,21 @@ rsyncssh.prepare = function( config, level )
 			cssh.identityFile
 	end
 
-	if cssh.options then
+	if cssh.options
+	then
+		for k, v in pairs( cssh.options )
+		do
+			computed[ computedN ] = '-o'
 
+			computed[ computedN + 1 ] = k .. '=' .. v
 
-		for k, v in pairs( cssh.options ) do
+			computedN = computedN + 2
 
-			computed[ computedN ] =
-				'-o'
+			if not config.rsync._rshIndex
+			then
+				config.rsync._rshIndex = #rsyncc + 1
 
-			computed[ computedN + 1 ] =
-				k .. '=' .. v
-
-			computedN =
-				computedN + 2
-
-			if not config.rsync._rshIndex then
-				config.rsync._rshIndex =
-					#rsyncc + 1
-
-				rsyncc[ config.rsync._rshIndex ] =
-					'--rsh=ssh'
+				rsyncc[ config.rsync._rshIndex ] = '--rsh=ssh'
 			end
 
 			rsyncc[ config.rsync._rshIndex ] =
@@ -382,40 +372,38 @@ rsyncssh.prepare = function( config, level )
 		end
 	end
 
-	if cssh.port then
-		computed[ computedN ] =
-			'-p'
+	if cssh.port
+	then
+		computed[ computedN ] = '-p'
 
-		computed[ computedN + 1 ] =
-			cssh.port
+		computed[ computedN + 1 ] = cssh.port
 
-		computedN =
-			computedN + 2
+		computedN = computedN + 2
 
-		if not config.rsync._rshIndex then
-			config.rsync._rshIndex =
-				#rsyncc + 1
+		if not config.rsync._rshIndex
+		then
+			config.rsync._rshIndex = #rsyncc + 1
 
-			rsyncc[ config.rsync._rshIndex ] =
-				'--rsh=ssh'
+			rsyncc[ config.rsync._rshIndex ] = '--rsh=ssh'
 		end
 
 		rsyncc[ config.rsync._rshIndex ] =
 			rsyncc[ config.rsync._rshIndex ] .. ' -p ' .. cssh.port
 	end
 
-	if cssh._extra then
-		for k, v in ipairs( cssh._extra ) do
-			computed[ computedN ] =
-				v
+	if cssh._extra
+	then
+		for k, v in ipairs( cssh._extra )
+		do
+			computed[ computedN ] = v
 
-			computedN =
-				computedN  + 1
+			computedN = computedN  + 1
 		end
 	end
 
 	-- appends a slash to the targetdir if missing
-	if string.sub( config.targetdir, -1 ) ~= '/' then
+	if string.sub( config.targetdir, -1 ) ~= '/'
+	then
 		config.targetdir =
 			config.targetdir .. '/'
 	end

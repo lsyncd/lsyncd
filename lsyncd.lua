@@ -3349,16 +3349,18 @@ local UserAlarms = ( function( )
 
 	local alarms = { }
 
-
 	--
 	-- Calls the user function at timestamp.
 	--
 	local function alarm( timestamp, func, extra )
-
 		local idx
-		for k, v in ipairs( alarms ) do
-			if timestamp < v.timestamp then
+
+		for k, v in ipairs( alarms )
+		do
+			if timestamp < v.timestamp
+			then
 				idx = k
+
 				break
 			end
 		end
@@ -3369,12 +3371,12 @@ local UserAlarms = ( function( )
 			extra = extra
 		}
 
-		if idx then
+		if idx
+		then
 			table.insert( alarms, idx, a )
 		else
 			table.insert( alarms, a )
 		end
-
 	end
 
 
@@ -3382,13 +3384,12 @@ local UserAlarms = ( function( )
 	-- Retrieves the soonest alarm.
 	--
 	local function getAlarm( )
-
-		if #alarms == 0 then
+		if #alarms == 0
+		then
 			return false
 		else
 			return alarms[1].timestamp
 		end
-
 	end
 
 
@@ -3414,7 +3415,6 @@ local UserAlarms = ( function( )
 		getAlarm = getAlarm,
 		invoke   = invoke
 	}
-
 
 end )( )
 
@@ -3451,11 +3451,13 @@ function runner.callError( message )
 
 	-- prints backtrace
 	local level = 2
-	while true do
 
+	while true
+	do
 		local info = debug.getinfo( level, 'Sl' )
 
-		if not info then
+		if not info
+		then
 			terminate( -1 )
 		end
 
@@ -3502,11 +3504,10 @@ end
 function runner.cycle(
 	timestamp   -- the current kernel time (in jiffies)
 )
-
-	if lsyncdStatus == 'fade' then
-
-		if processCount > 0 then
-
+	if lsyncdStatus == 'fade'
+	then
+		if processCount > 0
+		then
 			if
 				lastReportedWaiting == false or
 				timestamp >= lastReportedWaiting + 60
@@ -3523,7 +3524,6 @@ function runner.cycle(
 
 			return true
 		else
-
 			return false
 		end
 	end
@@ -3546,13 +3546,12 @@ function runner.cycle(
 		local ir = start
 
 		repeat
-
 			local s = Syncs.get( ir )
 			s:invokeActions( timestamp )
 			ir = ir + 1
 
-			if ir > Syncs.size( ) then
-
+			if ir > Syncs.size( )
+			then
 				ir = 1
 			end
 		until ir == start
@@ -3562,7 +3561,8 @@ function runner.cycle(
 
 	UserAlarms.invoke( timestamp )
 
-	if uSettings.statusFile then
+	if uSettings.statusFile
+	then
 		StatusFile.write( timestamp )
 	end
 
@@ -4050,13 +4050,14 @@ end
 --
 -- Called by core to query the soonest alarm.
 --
--- @return false ... no alarm, core can in untimed sleep, or
+-- @return false ... no alarm, core can go in untimed sleep
 --         true  ... immediate action
 --         times ... the alarm time (only read if number is 1)
 --
 function runner.getAlarm( )
 
-	if lsyncdStatus ~= 'run' then
+	if lsyncdStatus ~= 'run'
+	then
 		return false
 	end
 
@@ -4066,22 +4067,23 @@ function runner.getAlarm( )
 	-- Checks if 'a' is sooner than the 'alarm' up-value.
 	--
 	local function checkAlarm( a )
-
-		if a == nil then
+		if a == nil
+		then
 			error('got nil alarm')
 		end
 
-		if alarm == true or not a then
+		if alarm == true or not a
+		then
 			-- 'alarm' is already immediate or
 			-- a not a new alarm
 			return
 		end
 
 		-- sets 'alarm' to a if a is sooner
-		if not alarm or a < alarm then
+		if not alarm or a < alarm
+		then
 			alarm = a
 		end
-
 	end
 
 	--
