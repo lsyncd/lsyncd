@@ -1,6 +1,7 @@
 ??-??-????:
 	enhancement: add rsync options:
 		"chown",
+		"existing",
 		"omit-dir-times",
 		"omit-dir-times"
 		"omit-link-times"
