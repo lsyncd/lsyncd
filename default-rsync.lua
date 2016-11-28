@@ -63,6 +63,7 @@ rsync.checkgauge = {
 		cvs_exclude       =  true,
 		dry_run           =  true,
 		executability     =  true,
+		existing          =  true,
 		group             =  true,
 		hard_links        =  true,
 		ignore_times      =  true,
@@ -490,6 +491,12 @@ rsync.prepare =
 	if crsync.chown
 	then
 		computed[ computedN ] = '--chown=' .. crsync.chown
+		computedN = computedN  + 1
+	end
+	
+	if crsync.existing
+	then
+		computed[ computedN ] = '--existing'
 		computedN = computedN  + 1
 	end
 
