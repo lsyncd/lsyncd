@@ -840,11 +840,11 @@ local InletFactory = ( function( )
 			return e2d[ event ].status
 		end,
 
-		--
+		---
 		-- Returns true if event relates to a directory
 		--
 		isdir = function( event )
-			return string.byte( getPath( event ), -1 ) == 47
+			return lsyncd.realdir( getPath ( event ));
 		end,
 
 		--
@@ -2617,6 +2617,9 @@ local Inotify = ( function( )
 		end
 
 		for dirname, isdir in pairs( entries ) do
+
+
+			isdir = lsyncd.isdir(path .. dirname)
 			if isdir then
 				addWatch( path .. dirname .. '/' )
 			end
@@ -2649,11 +2652,29 @@ local Inotify = ( function( )
 		wd2,       --  watch descriptor for target if it's a Move
 		filename2  --  string filename without path of Move target
 	)
+		-- looks up the watch descriptor id
+		local path = wdpaths[ wd ]
+
+		if path then
+			path = path..filename
+		end
+
+		local path2 = wd2 and wdpaths[ wd2 ]
+
+		if path2 and filename2 then
+			path2 = path2..filename2
+		end
+
+		-- overwrite isdir --
+		isdir = lsyncd.isdir(path);
+
 		if isdir then
 			filename = filename .. '/'
+			path = path .. '/'
 
 			if filename2 then
 				filename2 = filename2 .. '/'
+				path2 = path2 .. '/'
 			end
 		end
 
@@ -2677,18 +2698,6 @@ local Inotify = ( function( )
 				filename,
 				'(', wd, ')'
 			)
-		end
-
-		-- looks up the watch descriptor id
-		local path = wdpaths[ wd ]
-		if path then
-			path = path..filename
-		end
-
-		local path2 = wd2 and wdpaths[ wd2 ]
-
-		if path2 and filename2 then
-			path2 = path2..filename2
 		end
 
 		if not path and path2 and etype == 'Move' then
