@@ -5,7 +5,7 @@
   - /help
 - title: Manual
   docs:
-  - /manual/compiling
+  - /manual/building
   - /manual/invoking
   - /manual/config/file
   - /manual/config/layer4
