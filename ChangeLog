@@ -5,7 +5,8 @@
 		"existing",
 		"omit_dir_times",
 		"omit_dir_times"
-		"omit_link_times"
+		"omit_link_times",
+	enhancement: settings{ } now checks for unknown entries and errors if so.
 	change: compatible with Lua5.3 (along with 5.1 and 5.2)
 	change: _verbatim forced for 'exitcodes' entry.
 	change: manpage is not rebuild by default.

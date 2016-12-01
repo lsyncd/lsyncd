@@ -19,8 +19,8 @@
 -- A security measurement.
 -- The core will exit if version ids mismatch.
 --
-if lsyncd_version then
-
+if lsyncd_version
+then
 	-- ensures the runner is not being loaded twice
 	lsyncd.log(
 		'Error',
@@ -37,6 +37,7 @@ lsyncd_version = '2.1.6'
 --
 local _l = lsyncd
 lsyncd = nil
+
 local lsyncd = _l
 _l = nil
 
@@ -64,6 +65,24 @@ local Monitors
 -- Global: total number of processess running
 --
 local processCount = 0
+
+--
+-- all valid entries in a settings{} call
+--
+local settingsCheckgauge =
+{
+	logfile        = true,
+	pidfile        = true,
+	nodaemon	   = true,
+	statusFile     = true,
+	statusInterval = true,
+	logfacility    = true,
+	logident       = true,
+	insisit        = true,
+	inotifyMode    = true,
+	maxProcesses   = true,
+	maxDelays      = true,
+}
 
 --
 -- Settings specified by command line.
@@ -96,24 +115,30 @@ local Array = ( function( )
 
 	-- on accessing a nil index.
 	mt.__index = function( t, k )
-		if type(k) ~= 'number' then
+		if type(k) ~= 'number'
+		then
 			error( 'Key "'..k..'" invalid for Array', 2 )
 		end
+
 		return rawget( t, k )
 	end
 
 	-- on assigning a new index.
 	mt.__newindex = function( t, k, v )
-		if type( k ) ~= 'number' then
+		if type( k ) ~= 'number'
+		then
 			error( 'Key "'..k..'" invalid for Array', 2 )
 		end
+
 		rawset( t, k, v )
 	end
 
 	-- creates a new object
 	local function new( )
 		local o = { }
+
 		setmetatable( o, mt )
+
 		return o
 	end
 
@@ -148,9 +173,11 @@ local CountArray = ( function( )
 	-- On accessing a nil index.
 	--
 	mt.__index = function( t, k )
-		if type( k ) ~= 'number' then
+		if type( k ) ~= 'number'
+		then
 			error( 'Key "'..k..'" invalid for CountArray', 2 )
 		end
+
 		return t[ k_nt ][ k ]
 	end
 
@@ -159,7 +186,8 @@ local CountArray = ( function( )
 	--
 	mt.__newindex = function( t, k, v )
 
-		if type(k) ~= 'number' then
+		if type(k) ~= 'number'
+		then
 			error( 'Key "'..k..'" invalid for CountArray', 2 )
 		end
 
@@ -233,7 +261,8 @@ Queue = ( function( )
 	--
 	local function push( list, value )
 
-		if not value then
+		if not value
+		then
 			error('Queue pushing nil value', 2)
 		end
 
@@ -1948,16 +1977,18 @@ local Sync = ( function( )
 			' )'
 		)
 
-		if self.processes:size( ) >= self.config.maxProcesses then
+		if self.processes:size( ) >= self.config.maxProcesses
+		then
 			-- no new processes
 			return
 		end
 
-		for _, d in Queue.qpairs( self.delays ) do
-
+		for _, d in Queue.qpairs( self.delays )
+		do
 			-- if reached the global limit return
-			if uSettings.maxProcesses and
-				processCount >= uSettings.maxProcesses
+			if
+				uSettings.maxProcesses 
+				and processCount >= uSettings.maxProcesses
 			then
 				log('Alarm', 'at global process limit.')
 				return
@@ -3312,10 +3343,11 @@ local StatusFile = ( function( )
 		--
 		-- takes care not write too often
 		--
-		if uSettings.statusInterval > 0 then
-
+		if uSettings.statusInterval > 0
+		then
 			-- already waiting?
-			if alarm and timestamp < alarm then
+			if alarm and timestamp < alarm
+			then
 				log(
 					'Statusfile',
 					'waiting(',
@@ -3324,17 +3356,19 @@ local StatusFile = ( function( )
 					alarm,
 					')'
 				)
+
 				return
 			end
 
 			-- determines when a next write will be possible
-			if not alarm then
-
+			if not alarm
+			then
 				local nextWrite =
 					lastWritten and timestamp +
 					uSettings.statusInterval
 
-				if nextWrite and timestamp < nextWrite then
+				if nextWrite and timestamp < nextWrite
+				then
 					log(
 						'Statusfile',
 						'setting alarm: ',
@@ -3931,19 +3965,19 @@ function runner.initialize( firstTime )
 	-- FIXME this can be removed when
 	-- Lsyncd 2.0.x backwards compatibility is dropped
 	--
-	for k, v in ipairs( uSettings )
-	do
-		if uSettings[ v ]
-		then
-			log(
-				'Error',
-				'Double setting "' .. v.. '"'
-			)
-			os.exit( -1 )
-		end
-
-		uSettings[ v ]= true
-	end
+--	for k, v in ipairs( uSettings )
+--	do
+--		if uSettings[ v ]
+--		then
+--			log(
+--				'Error',
+--				'Double setting "' .. v.. '"'
+--			)
+--			os.exit( -1 )
+--		end
+--
+--		uSettings[ v ]= true
+--	end
 
 	--
 	-- all command line settings overwrite config file settings
@@ -4074,32 +4108,27 @@ function runner.initialize( firstTime )
 	end
 
 	-- runs through the Syncs created by users
-	for _, s in Syncs.iwalk( ) do
-
-		if s.config.monitor == 'inotify' then
-
+	for _, s in Syncs.iwalk( )
+	do
+		if s.config.monitor == 'inotify'
+		then
 			Inotify.addSync( s, s.source )
-
-		elseif s.config.monitor == 'fsevents' then
-
+		elseif s.config.monitor == 'fsevents'
+		then
 			Fsevents.addSync( s, s.source )
-
 		else
-
 			error(
 				'sync ' ..
 				s.config.name ..
 				' has no known event monitor interface.'
 			)
-
 		end
 
 		-- if the sync has an init function, the init delay
 		-- is stacked which causes the init function to be called.
-		if s.config.init then
-
+		if s.config.init
+		then
 			s:addInitDelay( )
-
 		end
 	end
 
@@ -4192,8 +4221,15 @@ function runner.collector(
 	pid,       -- pid of the child process
 	exitcode   -- exitcode of the child process
 )
-	if exitcode ~= 0 then
-		log('Error', 'Startup process',pid,' failed')
+	if exitcode ~= 0
+	then
+		log(
+			'Error',
+			'Startup process',
+			pid,
+			' failed'
+		)
+
 		terminate( -1 )
 	end
 
@@ -4456,16 +4492,40 @@ end
 -- The Lsyncd 2.1 settings call
 --
 function settings( a1 )
+
 	-- if a1 is a string this is a get operation
-	if type( a1 ) == 'string' then
+	if type( a1 ) == 'string'
+	then
 		return uSettings[ a1 ]
 	end
 
 	-- if its a table it sets all the value of the bale
-	for k, v in pairs( a1 ) do
-		if type( k ) ~= 'number' then
+	for k, v in pairs( a1 )
+	do
+		if type( k ) ~= 'number'
+		then
+			if not settingsCheckgauge[ k ]
+			then
+				error(
+					'setting "'
+					..k
+					..'" unknown.',
+					2
+				)
+			end
+
 			uSettings[ k ] = v
 		else
+			if not settingsCheckgauge[ v ]
+			then
+				error(
+					'setting "'
+					..v
+					..'" unknown.',
+					2
+				)
+			end
+
 			uSettings[ v ] = true
 		end
 	end
