@@ -302,7 +302,7 @@ Additional to that ssh can be configured via the ```ssh``` parameter.
  <tr><td> identityFile
 </td><td> =
 </td><td> FILE
-</td><td> Use this file to identify for public key authentication.
+</td><td> Uses this file to identify for public key authentication.
 </td></tr>
 
  <tr><td> options
