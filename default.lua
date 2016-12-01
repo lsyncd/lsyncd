@@ -8,7 +8,8 @@
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --============================================================================
 
-if default then
+if default
+then
 	error( 'default already loaded' )
 end
 
@@ -96,12 +97,25 @@ default.collect = function( agent, exitcode )
 	end
 
 	-- TODO synchronize with similar code before
-	if not agent.isList and agent.etype == 'Init' then
-		if rc == 'ok' then
-			log('Normal', 'Startup of ',agent.source,' -> ',agent.target,' finished.')
+	if not agent.isList and agent.etype == 'Init'
+	then
+		if rc == 'ok'
+		then
+			log(
+				'Normal',
+				'Startup of ',
+				agent.source,
+				' -> ',
+				agent.target,
+				' finished.'
+			)
+
 			return 'ok'
-		elseif rc == 'again' then
-			if settings('insist') then
+
+		elseif rc == 'again'
+		then
+			if settings('insist')
+			then
 				log(
 					'Normal',
 					'Retrying startup of ',
@@ -151,20 +165,24 @@ default.collect = function( agent, exitcode )
 		end
 	end
 
-	if agent.isList then
-		if rc == 'ok' then
+	if agent.isList
+	then
+		if rc == 'ok'
+		then
 			log(
 				'Normal',
 				'Finished a list after exitcode: ',
 				exitcode
 			)
-		elseif rc == 'again' then
+		elseif rc == 'again'
+		then
 			log(
 				'Normal',
 				'Retrying a list after exitcode = ',
 				exitcode
 			)
-		elseif rc == 'die' then
+		elseif rc == 'die'
+		then
 			log(
 				'Error',
 				'Failure with a list with exitcode = ',
@@ -179,15 +197,52 @@ default.collect = function( agent, exitcode )
 			rc = 'die'
 		end
 	else
-		if rc == 'ok' then
-			log('Normal', 'Finished ',agent.etype,' on ',agent.sourcePath,' = ',exitcode)
-		elseif rc == 'again' then
-			log('Normal', 'Retrying ',agent.etype,' on ',agent.sourcePath,' = ',exitcode)
-		elseif rc == 'die' then
-			log('Error', 'Failure with ',agent.etype,' on ',agent.sourcePath,' = ',exitcode)
+		if rc == 'ok'
+		then
+			log(
+				'Normal',
+				'Finished ',
+				agent.etype,
+				' on ',
+				agent.sourcePath,
+				' = ',
+				exitcode
+			)
+		elseif rc == 'again'
+		then
+			log(
+				'Normal',
+				'Retrying ',
+				agent.etype,
+				' on ',
+				agent.sourcePath,
+				' = ',
+				exitcode
+			)
+		elseif rc == 'die'
+		then
+			log(
+				'Error',
+				'Failure with ',
+				agent.etype,
+				' on ',
+				agent.sourcePath,
+				' = ',
+				exitcode
+			)
 		else
-			log('Normal', 'Unknown exitcode "',exitcode,'" with ', agent.etype,
-				' on ',agent.sourcePath,' = ',exitcode)
+			log(
+				'Normal',
+				'Unknown exitcode "',
+				exitcode,
+				'" with ',
+				agent.etype,
+				' on ',
+				agent.sourcePath,
+				' = ',
+				exitcode
+			)
+
 			rc = 'die'
 		end
 	end
@@ -202,16 +257,19 @@ end
 --
 default.init = function(event)
 	local config = event.config
+
 	local inlet = event.inlet
 
 	-- user functions
 	-- calls a startup if given by user script.
-	if type(config.onStartup) == 'function' then
+	if type(config.onStartup) == 'function'
+	then
 		local startup = config.onStartup(event)
 		-- TODO honor some return codes of startup like "warmstart".
 	end
 
-	if event.status == 'wait' then
+	if event.status == 'wait'
+	then
 		-- user script did not spawn anything
 		-- thus the blanket event is deleted again.
 		inlet.discardEvent(event)
@@ -356,7 +414,8 @@ default.prepare = function( config, level )
 
 	local gauge = config.checkgauge
 
-	if not gauge then
+	if not gauge
+	then
 		return
 	end
 
