@@ -171,7 +171,6 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> 
 </td></tr>
 
-
  <tr><td> links
 </td><td> =
 </td><td> true
@@ -300,6 +299,18 @@ Additional to that ssh can be configured via the ```ssh``` parameter.
 </td><td> Lsyncd calls this binary as ssh (default: /usr/bin/ssh)
 </td></tr>
 
+ <tr><td> identityFile
+</td><td> =
+</td><td> FILE
+</td><td> Use this file to identify for public key authentication.
+</td></tr>
+
+ <tr><td> options
+</td><td> =
+</td><td> TABLE
+</td><td> A table of addition extended options to pass to ssh's -o option.
+</td></tr>
+
  <tr><td> port
 </td><td> =
 </td><td> PORT
@@ -345,7 +356,7 @@ Please note the comma between the ```rsync``` parameter set and the ```ssh``` pa
 **Caution**
 If you are upgrading from 2.0.x, please notice that `settings` became a function from a variable, so you **MUST** delete the equal sign '=' between `settings` and the `{`.
 
-Lsyncd will call ```xargs``` on the remote host to handle multiple tasks in a single connection. Xargs options can be specified by, just guessed it, the xargs parameter.
+Lsyncd will call ```xargs``` on the remote host to handle multiple tasks in a single connection. Xargs options can be specified by the xargs parameter.
 
 <table>
 
