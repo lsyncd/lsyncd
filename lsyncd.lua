@@ -2649,15 +2649,18 @@ local Inotify = ( function( )
 		wd2,       --  watch descriptor for target if it's a Move
 		filename2  --  string filename without path of Move target
 	)
-		if isdir then
+		if isdir
+		then
 			filename = filename .. '/'
 
-			if filename2 then
+			if filename2
+			then
 				filename2 = filename2 .. '/'
 			end
 		end
 
-		if filename2 then
+		if filename2
+		then
 			log(
 				'Inotify',
 				'got event ',
@@ -2681,47 +2684,58 @@ local Inotify = ( function( )
 
 		-- looks up the watch descriptor id
 		local path = wdpaths[ wd ]
-		if path then
+
+		if path
+		then
 			path = path..filename
 		end
 
 		local path2 = wd2 and wdpaths[ wd2 ]
 
-		if path2 and filename2 then
+		if path2 and filename2
+		then
 			path2 = path2..filename2
 		end
 
-		if not path and path2 and etype == 'Move' then
+		if not path and path2 and etype == 'Move'
+		then
 			log(
 				'Inotify',
 				'Move from deleted directory ',
 				path2,
 				' becomes Create.'
 			)
+
 			path  = path2
+
 			path2 = nil
+
 			etype = 'Create'
 		end
 
-		if not path then
+		if not path
+		then
 			-- this is normal in case of deleted subdirs
 			log(
 				'Inotify',
 				'event belongs to unknown watch descriptor.'
 			)
+
 			return
 		end
 
-		for sync, root in pairs( syncRoots ) do repeat
-
+		for sync, root in pairs( syncRoots )
+		do repeat
 			local relative  = splitPath( path, root )
+
 			local relative2 = nil
 
 			if path2 then
 				relative2 = splitPath( path2, root )
 			end
 
-			if not relative and not relative2 then
+			if not relative and not relative2
+			then
 				-- sync is not interested in this dir
 				break -- continue
 			end
@@ -2729,32 +2743,43 @@ local Inotify = ( function( )
 			-- makes a copy of etype to possibly change it
 			local etyped = etype
 
-			if etyped == 'Move' then
-				if not relative2 then
+			if etyped == 'Move'
+			then
+				if not relative2
+				then
 					log(
 						'Normal',
 						'Transformed Move to Delete for ',
 						sync.config.name
 					)
+
 					etyped = 'Delete'
-				elseif not relative then
+				elseif not relative
+				then
 					relative = relative2
+
 					relative2 = nil
+
 					log(
 						'Normal',
 						'Transformed Move to Create for ',
 						sync.config.name
 					)
+
 					etyped = 'Create'
 				end
 			end
 
-			if isdir then
-				if etyped == 'Create' then
+			if isdir
+			then
+				if etyped == 'Create'
+				then
 					addWatch( path )
-				elseif etyped == 'Delete' then
+				elseif etyped == 'Delete'
+				then
 					removeWatch( path, true )
-				elseif etyped == 'Move' then
+				elseif etyped == 'Move'
+				then
 					removeWatch( path, false )
 					addWatch( path2 )
 				end
@@ -2772,7 +2797,8 @@ local Inotify = ( function( )
 
 		f:write( 'Inotify watching ', wdpaths:size(), ' directories\n' )
 
-		for wd, path in wdpaths:walk( ) do
+		for wd, path in wdpaths:walk( )
+		do
 			f:write( '  ', wd, ': ', path, '\n' )
 		end
 	end
@@ -2815,7 +2841,8 @@ local Fsevents = ( function( )
 	--
 	local function addSync( sync, dir )
 
-		if syncRoots[ sync ] then
+		if syncRoots[ sync ]
+		then
 			error( 'duplicate sync in Fanotify.addSync()' )
 		end
 
@@ -2833,10 +2860,12 @@ local Fsevents = ( function( )
 		path,   --  path of file
 		path2   --  path of target in case of 'Move'
 	)
-		if isdir then
+		if isdir
+		then
 			path = path .. '/'
 
-			if path2 then
+			if path2
+			then
 				path2 = path2 .. '/'
 			end
 		end
@@ -2850,34 +2879,56 @@ local Fsevents = ( function( )
 			path2
 		)
 
-		for _, sync in Syncs.iwalk() do repeat
+		for _, sync in Syncs.iwalk()
+		do repeat
 
 			local root = sync.source
 
 			-- TODO combine ifs
-			if not path:starts( root ) then
-				if not path2 or not path2:starts( root ) then
+			if not path:starts( root )
+			then
+				if not path2 or not path2:starts( root )
+				then
 					break  -- continue
 				end
 			end
 
-			local relative  = splitPath( path, root )
+			local relative = splitPath( path, root )
 
 			local relative2
-			if path2 then
+
+			if path2
+			then
 				relative2 = splitPath( path2, root )
 			end
 
 			-- possibly change etype for this iteration only
 			local etyped = etype
-			if etyped == 'Move' then
-				if not relative2 then
-					log('Normal', 'Transformed Move to Delete for ', sync.config.name)
+
+			if etyped == 'Move'
+			then
+				if not relative2
+				then
+					log(
+						'Normal',
+						'Transformed Move to Delete for ',
+						sync.config.name
+					)
+
 					etyped = 'Delete'
-				elseif not relative then
+
+				elseif not relative
+				then
 					relative = relative2
+
 					relative2 = nil
-					log('Normal', 'Transformed Move to Create for ', sync.config.name)
+
+					log(
+						'Normal',
+						'Transformed Move to Create for ',
+						sync.config.name
+					)
+
 					etyped = 'Create'
 				end
 			end
