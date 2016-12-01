@@ -114,7 +114,7 @@ default.collect = function( agent, exitcode )
 
 		elseif rc == 'again'
 		then
-			if settings('insist')
+			if settings( 'insist' )
 			then
 				log(
 					'Normal',

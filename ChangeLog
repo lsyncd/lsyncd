@@ -10,6 +10,9 @@
 	change: _verbatim forced for 'exitcodes' entry.
 	change: manpage is not rebuild by default.
 		it is provided precompiled.
+	change:
+		faulty/deprecated config files that use settings = { ... }, with equal sign
+		are no longer worked around.
 	fix: ']' is not escaped for rsync rules, since rsync only applies
 	     doesn't applie pattern matching if no other pattern chars
 		 are found.

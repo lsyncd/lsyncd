@@ -2313,22 +2313,17 @@ local Syncs = ( function( )
 	--
 	local function add( config )
 
-		-- workaround for backwards compatibility
-		-- FIXME: remove when dropping that
+		-- Checks if user overwrote the settings function.
+		-- ( was Lsyncd <2.1 style )
 		if settings ~= settingsSafe
 		then
 			log(
-				'Warn',
-				'settings = { ... } is deprecated.\n'..
+				'Error',
+				'Do not use settings = { ... }\n'..
 				'      please use settings{ ... } (without the equal sign)'
 			)
 
-			for k, v in pairs( settings )
-			do
-				uSettings[ k ] = v
-			end
-
-			settings = settingsSafe
+			os.exit( -1 )
 		end
 
 		-- Creates a new config table which inherits all keys/values
@@ -3826,7 +3821,8 @@ function runner.configure( args, monitors )
 
 			local o = options[ a ]
 
-			if not o then
+			if not o
+			then
 				log(
 					'Error',
 					'unknown option command line option ',
@@ -3835,22 +3831,30 @@ function runner.configure( args, monitors )
 				os.exit( -1 )
 			end
 
-			if o[ 1 ] >= 0 and i + o[ 1 ] > #args then
+			if o[ 1 ] >= 0 and i + o[ 1 ] > #args
+			then
 				log( 'Error', a ,' needs ', o[ 1 ],' arguments' )
+
 				os.exit( -1 )
-			elseif o[1] < 0 then
+			elseif o[1] < 0
+			then
 				o[ 1 ] = -o[ 1 ]
 			end
 
-			if o[ 2 ] then
-				if o[ 1 ] == 0 then
+			if o[ 2 ]
+			then
+				if o[ 1 ] == 0
+				then
 					o[ 2 ]( )
-				elseif o[ 1 ] == 1 then
-					o[ 2 ]( args[i + 1] )
-				elseif o[ 1 ] == 2 then
-					o[ 2 ]( args[i + 1], args[i + 2] )
-				elseif o[ 1 ] == 3 then
-					o[ 2 ]( args[i + 1], args[i + 2], args[i + 3] )
+				elseif o[ 1 ] == 1
+				then
+					o[ 2 ]( args[ i + 1] )
+				elseif o[ 1 ] == 2
+				then
+					o[ 2 ]( args[ i + 1], args[ i + 2] )
+				elseif o[ 1 ] == 3
+				then
+					o[ 2 ]( args[ i + 1], args[ i + 2], args[ i + 3] )
 				end
 			end
 			i = i + o[1]
@@ -3859,35 +3863,33 @@ function runner.configure( args, monitors )
 
 	end
 
-	if clSettings.syncs then
-
-		if #nonopts ~= 0 then
+	if clSettings.syncs
+	then
+		if #nonopts ~= 0
+		then
 			log(
 				'Error',
-				'There cannot be command line syncs and config file together.'
+				'There cannot be command line syncs and a config file together.'
 			)
 			os.exit( -1 )
 		end
 
 	else
 
-		if #nonopts == 0 then
-
+		if #nonopts == 0
+		then
 			runner.help( args[ 0 ] )
-
-		elseif #nonopts == 1 then
-
+		elseif #nonopts == 1
+		then
 			return nonopts[ 1 ]
-
 		else
-
 			-- TODO make this possible
 			log(
 				'Error',
-				'There can only be one config file in command line.'
+				'There can only be one config file in the command line.'
 			)
-			os.exit( -1 )
 
+			os.exit( -1 )
 		end
 
 	end
@@ -3903,17 +3905,17 @@ end
 --
 function runner.initialize( firstTime )
 
-	if settings ~= settingsSafe then
+	-- Checks if user overwrote the settings function.
+	-- ( was Lsyncd <2.1 style )
+	if settings ~= settingsSafe
+	then
 		log(
-			'Warn',
-			'settings = { ... } is deprecated.\n'..
+			'Error',
+			'Do not use settings = { ... }\n'..
 			'      please use settings{ ... } (without the equal sign)'
 		)
 
-		for k, v in pairs( settings ) do
-			uSettings[ k ] = v
-		end
-
+		os.exit( -1 )
 	end
 
 	lastReportedWaiting = false
@@ -3929,9 +3931,10 @@ function runner.initialize( firstTime )
 	-- FIXME this can be removed when
 	-- Lsyncd 2.0.x backwards compatibility is dropped
 	--
-	for k, v in ipairs( uSettings ) do
-
-		if uSettings[ v ] then
+	for k, v in ipairs( uSettings )
+	do
+		if uSettings[ v ]
+		then
 			log(
 				'Error',
 				'Double setting "' .. v.. '"'
@@ -3940,14 +3943,15 @@ function runner.initialize( firstTime )
 		end
 
 		uSettings[ v ]= true
-
 	end
 
 	--
 	-- all command line settings overwrite config file settings
 	--
-	for k, v in pairs( clSettings ) do
-		if k ~= 'syncs' then
+	for k, v in pairs( clSettings )
+	do
+		if k ~= 'syncs'
+		then
 			uSettings[ k ] = v
 		end
 	end
@@ -3955,77 +3959,80 @@ function runner.initialize( firstTime )
 	--
 	-- implicitly forces 'insist' on Lsyncd resets.
 	--
-	if not firstTime then
+	if not firstTime
+	then
 		uSettings.insist = true
 	end
 
 	--
 	-- adds syncs specified by command line.
 	--
-	if clSettings.syncs then
-
-		for _, s in ipairs( clSettings.syncs ) do
-
-			if s[ 1 ] == 'rsync' then
-
+	if clSettings.syncs
+	then
+		for _, s in ipairs( clSettings.syncs )
+		do
+			if s[ 1 ] == 'rsync'
+			then
 				sync{
 					default.rsync,
 					source = s[ 2 ],
 					target = s[ 3 ]
 				}
-
-			elseif s[ 1 ] == 'rsyncssh' then
-
+			elseif s[ 1 ] == 'rsyncssh'
+			then
 				sync{
 					default.rsyncssh,
 					source = s[ 2 ],
 					host   = s[ 3 ],
 					targetdir=s[ 4 ]
 				}
-
-			elseif s[ 1 ] == 'direct' then
+			elseif s[ 1 ] == 'direct'
+			then
 				sync{
 					default.direct,
 					source=s[ 2 ],
 					target=s[ 3 ]
 				}
-
 			end
-
 		end
-
 	end
 
-	if uSettings.nodaemon then
+	if uSettings.nodaemon
+	then
 		lsyncd.configure( 'nodaemon' )
 	end
 
-	if uSettings.logfile then
+	if uSettings.logfile
+	then
 		lsyncd.configure( 'logfile', uSettings.logfile )
 	end
 
-	if uSettings.logident then
+	if uSettings.logident
+	then
 		lsyncd.configure( 'logident', uSettings.logident )
 	end
 
-	if uSettings.logfacility then
+	if uSettings.logfacility
+	then
 		lsyncd.configure( 'logfacility', uSettings.logfacility )
 	end
 
-	if uSettings.pidfile then
+	if uSettings.pidfile
+	then
 		lsyncd.configure( 'pidfile', uSettings.pidfile )
 	end
 
 	--
 	-- Transfers some defaults to uSettings
 	--
-	if uSettings.statusInterval == nil then
+	if uSettings.statusInterval == nil
+	then
 		uSettings.statusInterval = default.statusInterval
 	end
 
 	-- makes sure the user gave Lsyncd anything to do
-	if Syncs.size() == 0 then
-
+	if Syncs.size() == 0
+	then
 		log(
 			'Error',
 			'Nothing to watch!'
@@ -4463,6 +4470,7 @@ function settings( a1 )
 		end
 	end
 end
+
 settingsSafe = settings
 
 --

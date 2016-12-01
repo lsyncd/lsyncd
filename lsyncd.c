@@ -265,18 +265,22 @@ add_logcat( const char *name, int priority )
 	if( !strcmp( "all", name ) )
 	{
 		settings.log_level = 99;
+
 		return true;
 	}
 
 	if( !strcmp( "scarce", name ) )
 	{
 		settings.log_level = LOG_WARNING;
+
 		return true;
 	}
 
 	// categories must start with a capital letter.
 	if( name[ 0 ] < 'A' || name[ 0 ] > 'Z' )
-		{ return false; }
+	{
+		return false;
+	}
 
 	if( !logcats[ name[ 0 ]- 'A' ] )
 	{
@@ -995,7 +999,9 @@ l_log( lua_State *L )
 
 	// skips filtered messages
 	if( priority > settings.log_level )
-		{ return 0; }
+	{
+		return 0;
+	}
 
 	// replaces non string values
 	{
@@ -1226,9 +1232,14 @@ l_exec( lua_State *L )
 
 	// prepares the arguments
 	argv = s_calloc( argc + 2, sizeof( char * ) );
+
 	argv[ 0 ] = binary;
+
 	for( i = 1; i <= argc; i++ )
-		{ argv[i] = luaL_checkstring( L, i + li ); }
+	{
+		argv[i] = luaL_checkstring( L, i + li );
+	}
+
 	argv[ i ] = NULL;
 
 	// the fork!
@@ -1238,7 +1249,9 @@ l_exec( lua_State *L )
 	{
 		// replaces stdin for pipes
 		if( pipe_text )
-			{ dup2( pipefd[ 0 ], STDIN_FILENO ); }
+		{
+			dup2( pipefd[ 0 ], STDIN_FILENO );
+		}
 
 		// if lsyncd runs as a daemon and has a logfile it will redirect
 		// stdout/stderr of child processes to the logfile.
@@ -1579,6 +1592,7 @@ static int
 l_configure( lua_State *L )
 {
 	const char * command = luaL_checkstring( L, 1 );
+
 	if( !strcmp( command, "running" ) )
 	{
 		// set by runner after first initialize
