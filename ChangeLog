@@ -1,5 +1,6 @@
 ??-??-????:
 	enhancement: add rsync options:
+		"chmod",
 		"chown",
 		"copy_dirlinks",
 		"existing",

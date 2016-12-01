@@ -15,15 +15,18 @@
 --
 --
 
-if not default then
+if not default
+then
 	error( 'default not loaded' );
 end
 
-if not default.rsync then
+if not default.rsync
+then
 	error( 'default.rsync not loaded' );
 end
 
-if default.rsyncssh then
+if default.rsyncssh
+then
 	error( 'default-rsyncssh already loaded' );
 end
 
@@ -31,6 +34,7 @@ end
 -- rsyncssh extends default.rsync
 --
 local rsyncssh = { default.rsync }
+
 default.rsyncssh = rsyncssh
 
 --

@@ -58,6 +58,7 @@ rsync.checkgauge = {
 		bwlimit           =  true,
 		checksum          =  true,
 		chown             =  true,
+		chmod             =  true,
 		compress          =  true,
 		copy_dirlinks     =  true,
 		copy_links        =  true,
@@ -487,6 +488,12 @@ rsync.prepare =
 	if crsync.bwlimit
 	then
 		computed[ computedN ] = '--bwlimit=' .. crsync.bwlimit
+		computedN = computedN  + 1
+	end
+
+	if crsync.chmod
+	then
+		computed[ computedN ] = '--chmod=' .. crsync.chmod
 		computedN = computedN  + 1
 	end
 
