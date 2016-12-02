@@ -39,4 +39,4 @@ sync {
 }
 {% endhighlight %}
 
-## [&#2039;&#2039;&#00a0;back to FAQ index](../)
+## [‹‹ back to FAQ index](../)
