@@ -1,6 +1,6 @@
 ---
 layout: default
-title: FAQ: How can I call a script after each rsync operation?
+title: "FAQ: How can I call a script after each rsync operation?"
 ---
 The issue with this quite frequent request is, by itself it complicates error handling a lot. What should Lsyncd do, when the script fails that it ought to run after each rsync call? If it should recall the post script it would require a new state for each rsync event which would complicate Lsyncd code quite a bit.
 
