@@ -8,6 +8,9 @@
 		"omit_dir_times"
 		"omit_link_times",
 	enhancement: settings{ } now checks for unknown entries and errors if so.
+	change: Lsyncd now writes a startup log message before daemonizing
+		does in case logging fails, it is recognized before it cannot
+		message anything about it, since it deamonized
 	change: compatible with Lua5.3 (along with 5.1 and 5.2)
 	change: _verbatim forced for 'exitcodes' entry.
 	change: manpage is not rebuild by default.
@@ -15,10 +18,12 @@
 	change:
 		faulty/deprecated config files that use settings = { ... }, with equal sign
 		are no longer worked around.
+	change: default.direct now calls copy with -p
 	fix: ']' is not escaped for rsync rules, since rsync only applies
 	     doesn't applie pattern matching if no other pattern chars
 		 are found.
 	fix: Shell injection hole close for default.direct on mv commands. (Marcin Szewczyk)
+	fix: Crash of default-direct when source doesn't exit (Michael Ploujnikov)
 
 15-10-2015: 2.1.6
 	enhancement: Lsyncd now locks its pidfile

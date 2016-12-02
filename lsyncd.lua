@@ -836,7 +836,7 @@ local InletFactory = ( function( )
 			return e2d[ event ].sync.config
 		end,
 
-		-----
+		--
 		-- Returns the inlet belonging to an event.
 		--
 		inlet = function( event )
@@ -893,7 +893,7 @@ local InletFactory = ( function( )
 			return string.match( getPath( event ), '([^/]+)/?$')
 		end,
 
-		---
+		--
 		-- Returns the file/dir relative to watch root
 		-- including a trailing slash for dirs.
 		--
@@ -917,7 +917,7 @@ local InletFactory = ( function( )
 			return cutSlash( getPath( event ) )
 		end,
 
-		---
+		--
 		-- Returns the absolute path of the watch root.
 		-- All symlinks are resolved.
 		--
@@ -942,7 +942,7 @@ local InletFactory = ( function( )
 				( string.match( getPath( event ), '^(.*/)[^/]+/?' ) or '' )
 		end,
 
-		------
+		--
 		-- Returns the absolute path of the file/dir
 		-- excluding a trailing slash for dirs.
 		--
@@ -1383,7 +1383,7 @@ local Excludes = ( function( )
 	end
 
 
-	-----
+	--
 	-- Adds a list of patterns to exclude.
 	--
 	local function addList(self, plist)
@@ -2044,7 +2044,7 @@ local Sync = ( function( )
 
 	end
 
-	------
+	--
 	-- Adds and returns a blanket delay thats blocks all.
 	-- Used as custom marker.
 	--
@@ -2475,7 +2475,7 @@ local Syncs = ( function( )
 			terminate( -1 )
 		end
 
-		--- creates the new sync
+		-- creates the new sync
 		local s = Sync.new( config )
 
 		table.insert( syncsList, s )
@@ -4436,8 +4436,8 @@ function spawnShell(
 	)
 end
 
------
--- Observes a filedescriptor
+--
+-- Observes a filedescriptor.
 --
 function observefd(
 	fd,     -- file descriptor
@@ -4452,7 +4452,7 @@ function observefd(
 end
 
 --
--- Stops observeing a filedescriptor
+-- Stops observeing a filedescriptor.
 --
 function nonobservefd(
 	fd      -- file descriptor

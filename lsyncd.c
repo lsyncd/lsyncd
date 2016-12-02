@@ -1605,22 +1605,27 @@ l_configure( lua_State *L )
 			settings.log_syslog = true;
 
 			const char * log_ident =
-				settings.log_ident ?
-					settings.log_ident :
-					"lsyncd";
+				settings.log_ident
+				? settings.log_ident
+				: "lsyncd";
 
 			openlog( log_ident, 0, settings.log_facility );
-		}
-
-		if( !settings.nodaemon && !is_daemon )
-		{
-			logstring( "Debug", "daemonizing now." );
-			daemonize( L );
 		}
 
 		if( settings.pidfile )
 		{
 			write_pidfile( L, settings.pidfile );
+		}
+
+		if( !settings.nodaemon && !is_daemon )
+		{
+			logstring( "Normal", "--- Startup, daemonizing ---" );
+
+			daemonize( L );
+		}
+		else
+		{
+			logstring( "Normal", "--- Startup ---" );
 		}
 
 	}
@@ -1649,8 +1654,7 @@ l_configure( lua_State *L )
 			free( settings.pidfile );
 		}
 
-		settings.pidfile =
-			s_strdup( file );
+		settings.pidfile = s_strdup( file );
 	}
 	else if( !strcmp( command, "logfacility" ) )
 	{
@@ -1694,8 +1698,10 @@ l_configure( lua_State *L )
 	{
 		const char * ident = luaL_checkstring( L, 2 );
 
-		if (settings.log_ident)
-			{ free(settings.log_ident); }
+		if( settings.log_ident )
+		{
+			free( settings.log_ident );
+		}
 
 		settings.log_ident = s_strdup( ident );
 	}
@@ -2423,6 +2429,7 @@ main1( int argc, char *argv[] )
 
 	// load Lua
 	L = luaL_newstate( );
+
 	luaL_openlibs( L );
 	{
 		// checks the lua version
@@ -2499,7 +2506,6 @@ main1( int argc, char *argv[] )
 
 	// registers Lsycnd's core library
 	register_lsyncd( L );
-
 
 	if( check_logcat( "Debug" ) <= settings.log_level )
 	{
@@ -2658,7 +2664,6 @@ main1( int argc, char *argv[] )
 		}
 	}
 
-
 	// checks if there is a "-help" or "--help"
 	{
 		int i;
@@ -2786,15 +2791,11 @@ main1( int argc, char *argv[] )
 	}
 
 #ifdef WITH_INOTIFY
-
 	open_inotify( L );
-
 #endif
 
 #ifdef WITH_FSEVENTS
-
 	open_fsevents( L );
-
 #endif
 
 	// adds signal handlers

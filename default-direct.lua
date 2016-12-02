@@ -70,6 +70,7 @@ direct.action = function(inlet)
 			spawn(
 				event,
 				'/bin/cp',
+				'-p',
 				'--',
 				event.sourcePath,
 				event.targetPathdir
@@ -81,6 +82,7 @@ direct.action = function(inlet)
 		end
 		spawn(event,
 			'/bin/cp',
+			'-p',
 			'--',
 			event.sourcePath,
 			event.targetPathdir
@@ -145,8 +147,10 @@ direct.collect = function(agent, exitcode)
 		local rc = config.rsyncExitCodes[exitcode]
 		if rc == 'ok' then
 			log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
-		elseif rc == 'again' then
-			if settings.insist then
+		elseif rc == 'again'
+		then
+			if settings( 'insist' )
+			then
 				log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
 			else
 				log('Error', 'Temporary or permanent failure on startup of "',
