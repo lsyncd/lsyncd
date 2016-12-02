@@ -39,4 +39,4 @@ sync {
 }
 {% endhighlight %}
 
-## [\2039\2039\00a0back to FAQ index](/faq)
+## [&#2039;&#2039;&#00a0;back to FAQ index](../)
