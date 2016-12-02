@@ -38,3 +38,5 @@ sync {
     }
 }
 {% endhighlight %}
+
+## (/faq)[\2039\2039\00a0back to FAQ index]
