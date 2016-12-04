@@ -638,7 +638,7 @@ local Combiner = ( function( )
 			end
 
 			-- if one is a parent directory of another, events are blocking
-			if d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path) or
+			if d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path) and d1.etype ~= 'Attrib' or
 			   d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path)
 			then
 				return 'stack'
