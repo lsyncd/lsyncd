@@ -53,6 +53,8 @@ rsync.checkgauge = {
 
 	rsync  = {
 		acls              =  true,
+		append            =  true,
+		append_verify     =  true,
 		archive           =  true,
 		binary            =  true,
 		bwlimit           =  true,
@@ -239,20 +241,24 @@ rsync.init = function(event)
 	local delete   = nil
 	local target   = config.target
 
-	if not target then
-		if not config.host then
+	if not target
+	then
+		if not config.host
+		then
 			error('Internal fail, Neither target nor host is configured')
 		end
 
 		target = config.host .. ':' .. config.targetdir
 	end
 
-	if config.delete == true or config.delete == 'startup' then
+	if config.delete == true or config.delete == 'startup'
+	then
 		delete = { '--delete', '--ignore-errors' }
 	end
 
-	if #excludes == 0 then
-		-- start rsync without any excludes
+	if #excludes == 0
+	then
+		-- starts rsync without any excludes
 		log(
 			'Normal',
 			'recursive startup rsync: ',
@@ -272,7 +278,7 @@ rsync.init = function(event)
 		)
 
 	else
-		-- start rsync providing an exclude list
+		-- starts rsync providing an exclusion list
 		-- on stdin
 		local exS = table.concat( excludes, '\n' )
 
@@ -486,6 +492,18 @@ rsync.prepare =
 			computed[ computedN ] = '--specials'
 			computedN = computedN  + 1
 		end
+	end
+
+	if crsync.append
+	then
+		computed[ computedN ] = '--append'
+		computedN = computedN  + 1
+	end
+	
+	if crsync.append_verify
+	then
+		computed[ computedN ] = '--append-verify'
+		computedN = computedN  + 1
 	end
 
 	if crsync.bwlimit
