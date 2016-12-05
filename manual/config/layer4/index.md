@@ -140,10 +140,15 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td>
 </td></tr>
 
-
  <tr><td> existing
 </td><td> =
 </td><td> true
+</td><td> (Lsyncd >= 2.1.7)
+</td></tr>
+
+ <tr><td> groupmap
+</td><td> =
+</td><td> STRING
 </td><td> (Lsyncd >= 2.1.7)
 </td></tr>
 
@@ -259,6 +264,12 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> =
 </td><td> true
 </td><td>
+</td></tr>
+
+ <tr><td> usermap
+</td><td> =
+</td><td> STRING
+</td><td> (Lsyncd >= 2.1.7)
 </td></tr>
 
  <tr><td> verbose
