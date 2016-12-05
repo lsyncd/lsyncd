@@ -80,6 +80,18 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> (Lsyncd >= 2.1.7)
 </td></tr>
 
+ <tr><td> backup
+</td><td> =
+</td><td> true
+</td><td> (Lsyncd >= 2.1.7)
+</td></tr>
+
+ <tr><td> backup_dir
+</td><td> =
+</td><td> DIR
+</td><td> (Lsyncd >= 2.1.7)
+</td></tr>
+
  <tr><td> binary
 </td><td> =
 </td><td> FILENAME
@@ -258,6 +270,12 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> =
 </td><td> true
 </td><td>
+</td></tr>
+
+ <tr><td> suffix
+</td><td> =
+</td><td> SUFFIX
+</td><td> (Lsyncd >= 2.1.7)
 </td></tr>
 
  <tr><td> temp_dir
