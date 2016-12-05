@@ -86,14 +86,20 @@ end
 default.collect = function( agent, exitcode )
 
 	local config = agent.config
-	local rc
+	local rc = nil
 
 	if config.exitcodes then
-		rc = config.exitcodes[exitcode]
-	elseif exitcode == 0 then
-		rc = 'ok'
-	else
-		rc = 'die'
+		if config.exitcodes[exitcode] then
+			rc = config.exitcodes[exitcode]
+		end
+	end
+	
+	if rc == nil then
+		if exitcode == 0 then
+			rc = 'ok'
+		else
+			rc = 'die'
+		end
 	end
 
 	-- TODO synchronize with similar code before
