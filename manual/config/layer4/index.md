@@ -68,6 +68,18 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td>
 </td></tr>
 
+ <tr><td> append
+</td><td> =
+</td><td> true
+</td><td> (Lsyncd >= 2.1.7)
+</td></tr>
+
+ <tr><td> append-verify
+</td><td> =
+</td><td> true
+</td><td> (Lsyncd >= 2.1.7)
+</td></tr>
+
  <tr><td> binary
 </td><td> =
 </td><td> FILENAME
