@@ -1,15 +1,17 @@
 ??-??-????:
 	enhancement: add rsync options:
 		"append",
-		"append-verify",
+		"append_verify",
+		"backup",
+		"backup_dir",
 		"chmod",
 		"chown",
 		"copy_dirlinks",
 		"existing",
 		"groupmap",
 		"omit_dir_times",
-		"omit_dir_times"
 		"omit_link_times",
+		"suffix,"
 		"usermap",
 	enhancement: settings{ } now checks for unknown entries and errors if so.
 	change: Lsyncd now writes a startup log message before daemonizing

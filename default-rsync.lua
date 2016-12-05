@@ -56,6 +56,8 @@ rsync.checkgauge = {
 		append            =  true,
 		append_verify     =  true,
 		archive           =  true,
+		backup            =  true,
+		backup_dir        =  true,
 		binary            =  true,
 		bwlimit           =  true,
 		checksum          =  true,
@@ -89,6 +91,7 @@ rsync.checkgauge = {
 		rsh               =  true,
 		rsync_path        =  true,
 		sparse            =  true,
+		suffix            =  true,
 		temp_dir          =  true,
 		timeout           =  true,
 		times             =  true,
@@ -425,6 +428,7 @@ rsync.prepare =
 
 	local shortFlags = {
 		acls               = 'A',
+		backup             = 'b',
 		checksum           = 'c',
 		compress           = 'z',
 		copy_dirlinks      = 'k',
@@ -505,6 +509,12 @@ rsync.prepare =
 		computed[ computedN ] = '--append-verify'
 		computedN = computedN  + 1
 	end
+	
+	if crsync.backup_dir
+	then
+		computed[ computedN ] = '--backup-dir=' .. crsync.backup_dir
+		computedN = computedN  + 1
+	end
 
 	if crsync.bwlimit
 	then
@@ -557,6 +567,12 @@ rsync.prepare =
 	if crsync.rsync_path
 	then
 		computed[ computedN ] = '--rsync-path=' .. crsync.rsync_path
+		computedN = computedN  + 1
+	end
+
+	if crsync.suffix
+	then
+		computed[ computedN ] = '--suffix=' .. crsync.suffix
 		computedN = computedN  + 1
 	end
 
