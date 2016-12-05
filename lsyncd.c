@@ -1483,9 +1483,10 @@ l_stackdump( lua_State * L )
 |     values are boolean true on dirs.
 */
 static int
-l_readdir ( lua_State *L )
+l_readdir( lua_State *L )
 {
 	const char * dirname = luaL_checkstring( L, 1 );
+
 	DIR *d;
 
 	d = opendir( dirname );
@@ -1507,16 +1508,15 @@ l_readdir ( lua_State *L )
 		struct dirent *de = readdir( d );
 		bool isdir;
 
-		if( de == NULL )
+		if( de == NULL ) // finished
 		{
-			// finished
 			break;
 		}
 
 		// ignores . and ..
 		if(
-			!strcmp( de->d_name, "."  ) ||
-			!strcmp( de->d_name, ".." )
+			!strcmp( de->d_name, "."  )
+			|| !strcmp( de->d_name, ".." )
 		)
 		{
 			continue;
@@ -1572,7 +1572,7 @@ l_readdir ( lua_State *L )
 |
 */
 int
-l_terminate(lua_State *L)
+l_terminate( lua_State *L )
 {
 	int exitcode = luaL_checkinteger( L, 1 );
 

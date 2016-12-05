@@ -803,7 +803,8 @@ local InletFactory = ( function( )
 	-- Removes the trailing slash from a path.
 	--
 	local function cutSlash( path )
-		if string.byte(path, -1) == 47 then
+		if string.byte(path, -1) == 47
+		then
 			return string.sub(path, 1, -2)
 		else
 			return path
@@ -814,7 +815,8 @@ local InletFactory = ( function( )
 	-- Gets the path of an event.
 	--
 	local function getPath( event )
-		if event.move ~= 'To' then
+		if event.move ~= 'To'
+		then
 			return e2d[ event ].path
 		else
 			return e2d[ event ].path2
@@ -1017,9 +1019,10 @@ local InletFactory = ( function( )
 		--
 		getPaths = function( elist, mutator )
 
-			local dlist = e2d[elist]
+			local dlist = e2d[ elist ]
 
-			if not dlist then
+			if not dlist
+			then
 				error( 'cannot find delay list from event list.' )
 			end
 
@@ -1057,17 +1060,20 @@ local InletFactory = ( function( )
 
 		__index = function( elist, func )
 
-			if func == 'isList' then
+			if func == 'isList'
+			then
 				return true
 			end
 
-			if func == 'config' then
+			if func == 'config'
+			then
 				return e2d[ elist ].sync.config
 			end
 
 			local f = eventListFuncs[ func ]
 
-			if not f then
+			if not f
+			then
 				error(
 					'event list does not have function "' .. func .. '"',
 					2
@@ -1100,9 +1106,10 @@ local InletFactory = ( function( )
 		-- already created?
 		local eu = e2d2[delay]
 
-		if delay.etype ~= 'Move' then
-
-			if eu then
+		if delay.etype ~= 'Move'
+		then
+			if eu
+			then
 				return eu
 			end
 
@@ -1115,7 +1122,8 @@ local InletFactory = ( function( )
 
 		else
 			-- moves have 2 events - origin and destination
-			if eu then
+			if eu
+			then
 				return eu[1], eu[2]
 			end
 
@@ -1132,7 +1140,6 @@ local InletFactory = ( function( )
 
 			-- move events have a field 'move'
 			return event, event2
-
 		end
 	end
 
@@ -1143,7 +1150,8 @@ local InletFactory = ( function( )
 
 		local eu = e2d2[ dlist ]
 
-		if eu then
+		if eu
+		then
 			return eu
 		end
 
@@ -1152,10 +1160,10 @@ local InletFactory = ( function( )
 		setmetatable( elist, eventListMeta )
 
 		e2d [ elist ] = dlist
+
 		e2d2[ dlist ] = elist
 
 		return elist
-
 	end
 
 	--
@@ -1186,7 +1194,8 @@ local InletFactory = ( function( )
 			local e = { }
 			local en = 1;
 
-			for k, _ in pairs( sync.excludes.list ) do
+			for k, _ in pairs( sync.excludes.list )
+			do
 				e[ en ] = k;
 				en = en + 1;
 			end
@@ -1207,14 +1216,18 @@ local InletFactory = ( function( )
 		--
 		discardEvent = function( sync, event )
 			local delay = e2d[ event ]
-			if delay.status ~= 'wait' then
+
+			if delay.status ~= 'wait'
+			then
 				log(
 					'Error',
 					'Ignored cancel of a non-waiting event of type ',
 					event.etype
 				)
+
 				return
 			end
+
 			sync:removeDelay( delay )
 		end,
 
@@ -1232,6 +1245,7 @@ local InletFactory = ( function( )
 		--
 		getEvents = function( sync, test )
 			local dlist = sync:getDelays( test )
+
 			return dl2el( dlist )
 		end,
 
@@ -2599,7 +2613,7 @@ local Inotify = ( function( )
 	-- @param path       absolute path of directory to observe
 	-- @param recurse    true if recursing into subdirs
 	--
-	local function addWatch(path)
+	local function addWatch( path )
 
 		log(
 			'Function',
@@ -2608,8 +2622,10 @@ local Inotify = ( function( )
 			' )'
 		)
 
-		if not Syncs.concerns(path) then
+		if not Syncs.concerns(path)
+		then
 			log('Inotify', 'not concerning "',path,'"')
+
 			return
 		end
 
@@ -2618,7 +2634,8 @@ local Inotify = ( function( )
 
 		local wd = lsyncd.inotify.addwatch( path, inotifyMode) ;
 
-		if wd < 0 then
+		if wd < 0
+		then
 			log( 'Inotify','Unable to add watch "', path, '"' )
 			return
 		end
@@ -2627,23 +2644,29 @@ local Inotify = ( function( )
 			-- If this watch descriptor is registered already
 			-- the kernel reuses it since old dir is gone.
 			local op = wdpaths[ wd ]
-			if op and op ~= path then
+
+			if op and op ~= path
+			then
 				pathwds[ op ] = nil
 			end
 		end
 
 		pathwds[ path ] = wd
+
 		wdpaths[ wd   ] = path
 
 		-- registers and adds watches for all subdirectories
 		local entries = lsyncd.readdir( path )
 
-		if not entries then
+		if not entries
+		then
 			return
 		end
 
-		for dirname, isdir in pairs( entries ) do
-			if isdir then
+		for dirname, isdir in pairs( entries )
+		do
+			if isdir
+			then
 				addWatch( path .. dirname .. '/' )
 			end
 		end
