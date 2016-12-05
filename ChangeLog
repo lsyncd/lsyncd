@@ -4,9 +4,11 @@
 		"chown",
 		"copy_dirlinks",
 		"existing",
+		"groupmap",
 		"omit_dir_times",
 		"omit_dir_times"
 		"omit_link_times",
+		"usermap",
 	enhancement: settings{ } now checks for unknown entries and errors if so.
 	change: Lsyncd now writes a startup log message before daemonizing
 		does in case logging fails, it is recognized before it cannot

@@ -67,6 +67,7 @@ rsync.checkgauge = {
 		executability     =  true,
 		existing          =  true,
 		group             =  true,
+		groupmap          =  true,
 		hard_links        =  true,
 		ignore_times      =  true,
 		inplace           =  true,
@@ -90,6 +91,7 @@ rsync.checkgauge = {
 		timeout           =  true,
 		times             =  true,
 		update            =  true,
+		usermap           =  true,
 		verbose           =  true,
 		whole_file        =  true,
 		xattrs            =  true,
@@ -409,9 +411,10 @@ rsync.prepare =
 		end
 	end
 
-
 	crsync._computed = { true }
+
 	local computed = crsync._computed
+
 	local computedN = 2
 
 	local shortFlags = {
@@ -503,6 +506,12 @@ rsync.prepare =
 		computedN = computedN  + 1
 	end
 	
+	if crsync.groupmap
+	then
+		computed[ computedN ] = '--groupmap=' .. crsync.groupmap
+		computedN = computedN  + 1
+	end
+	
 	if crsync.existing
 	then
 		computed[ computedN ] = '--existing'
@@ -542,6 +551,12 @@ rsync.prepare =
 	if crsync.timeout
 	then
 		computed[ computedN ] = '--timeout=' .. crsync.timeout
+		computedN = computedN  + 1
+	end
+	
+	if crsync.usermap
+	then
+		computed[ computedN ] = '--usermap=' .. crsync.usermap
 		computedN = computedN  + 1
 	end
 
