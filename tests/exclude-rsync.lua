@@ -13,16 +13,16 @@ local range = 5
 local log = {"-log", "all"}
 
 writefile(cfgfile, [[
-settings = {
+settings {
 	logfile = "]]..logfile..[[",
 	nodaemon = true,
-	delay = 3,
 }
 
 sync {
 	default.rsync,
 	source = "]]..srcdir..[[",
 	target = "]]..trgdir..[[",
+	delay = 3,
 	exclude = {
 		"erf",
 		"/eaf",

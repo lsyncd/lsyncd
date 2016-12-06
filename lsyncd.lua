@@ -1537,14 +1537,12 @@ local Sync = ( function( )
 		Queue.remove( self.delays, delay.dpos )
 
 		-- free all delays blocked by this one.
-		if delay.blocks then
-
-			for i, vd in pairs( delay.blocks ) do
-
+		if delay.blocks
+		then
+			for i, vd in pairs( delay.blocks )
+			do
 				vd.status = 'wait'
-
 			end
-
 		end
 	end
 
@@ -1554,26 +1552,21 @@ local Sync = ( function( )
 	local function concerns( self, path )
 
 		-- not concerned if watch rootdir doesnt match
-		if not path:starts( self.source ) then
-
+		if not path:starts( self.source )
+		then
 			return false
-
 		end
 
 		-- a sub dir and not concerned about subdirs
-		if self.config.subdirs == false and
-
-			path:sub( #self.source, -1 ):match( '[^/]+/?' )
-
+		if
+			self.config.subdirs == false
+			and path:sub( #self.source, -1 ):match( '[^/]+/?' )
 		then
-
 			return false
-
 		end
 
 		-- concerned if not excluded
 		return not self.excludes:test( path:sub( #self.source ) )
-
 	end
 
 	--
@@ -1583,16 +1576,18 @@ local Sync = ( function( )
 
 		local delay = self.processes[ pid ]
 
-		if not delay then
+		if not delay
+		then
 			-- not a child of this sync.
 			return
 		end
 
-		if delay.status then
-
+		if delay.status
+		then
 			log( 'Delay', 'collected an event' )
 
-			if delay.status ~= 'active' then
+			if delay.status ~= 'active'
+			then
 				error('collecting a non-active process')
 			end
 
@@ -1628,7 +1623,8 @@ local Sync = ( function( )
 				local alarm = self.config.delay
 
 				-- delays at least 1 second
-				if alarm < 1 then
+				if alarm < 1
+				then
 					alarm = 1
 				end
 
@@ -1645,31 +1641,39 @@ local Sync = ( function( )
 				exitcode
 			)
 
-			if rc == 'die' then
+			if rc == 'die'
+			then
 				log( 'Error', 'Critical exitcode.' );
+
 				terminate( -1 )
 			end
 
-			if rc == 'again' then
-
+			if rc == 'again'
+			then
 				-- sets the delay on wait again
 				delay.status = 'wait'
+
 				local alarm = self.config.delay
+
 				-- delays at least 1 second
-				if alarm < 1 then
+				if alarm < 1
+				then
 					alarm = 1
 				end
 
 				alarm = now() + alarm
 
-				for _, d in ipairs( delay ) do
+				for _, d in ipairs( delay )
+				do
 					d.alarm = alarm
 					d.status = 'wait'
 				end
 			end
 
-			for _, d in ipairs( delay ) do
-				if rc ~= 'again' then
+			for _, d in ipairs( delay )
+			do
+				if rc ~= 'again'
+				then
 					removeDelay( self, d )
 				else
 					d.status = 'wait'
@@ -1693,7 +1697,8 @@ local Sync = ( function( )
 
 		newDelay.status = 'block'
 
-		if not oldDelay.blocks then
+		if not oldDelay.blocks
+		then
 			oldDelay.blocks = { }
 		end
 
@@ -1719,17 +1724,18 @@ local Sync = ( function( )
 		-- TODO
 		local function recurse( )
 
-			if etype == 'Create' and path:byte( -1 ) == 47 then
-
+			if etype == 'Create' and path:byte( -1 ) == 47
+			then
 				local entries = lsyncd.readdir( self.source .. path )
 
-				if entries then
-
-					for dirname, isdir in pairs(entries) do
-
+				if entries
+				then
+					for dirname, isdir in pairs( entries )
+					do
 						local pd = path .. dirname
 
-						if isdir then
+						if isdir
+						then
 							pd = pd..'/'
 						end
 
@@ -1738,20 +1744,19 @@ local Sync = ( function( )
 							'Create creates Create on ',
 							pd
 						)
+
 						delay( self, 'Create', time, pd, nil )
-
 					end
-
 				end
-
 			end
-
 		end
 
 		-- exclusion tests
-		if not path2 then
+		if not path2
+		then
 			-- simple test for single path events
-			if self.excludes:test(path) then
+			if self.excludes:test(path)
+			then
 				log(
 					'Exclude',
 					'excluded ',
@@ -1763,12 +1768,13 @@ local Sync = ( function( )
 				return
 			end
 		else
-			-- for double paths (move) it might result into a split
+			-- for double paths ( move ) it might result into a split
 			local ex1 = self.excludes:test( path  )
+
 			local ex2 = self.excludes:test( path2 )
 
-			if ex1 and ex2 then
-
+			if ex1 and ex2
+			then
 				log(
 					'Exclude',
 					'excluded "',
@@ -1782,8 +1788,8 @@ local Sync = ( function( )
 
 				return
 
-			elseif not ex1 and ex2 then
-
+			elseif not ex1 and ex2
+			then
 				-- splits the move if only partly excluded
 				log(
 					'Exclude',
@@ -1802,8 +1808,8 @@ local Sync = ( function( )
 				)
 
 				return
-
-			elseif ex1 and not ex2 then
+			elseif ex1 and not ex2
+			then
 				-- splits the move if only partly excluded
 				log(
 					'Exclude',
@@ -1825,22 +1831,26 @@ local Sync = ( function( )
 			end
 		end
 
-		if etype == 'Move' and not self.config.onMove then
-
+		if etype == 'Move' and not self.config.onMove
+		then
 			-- if there is no move action defined,
 			-- split a move as delete/create
 			-- layer 1 scripts which want moves events have to
 			-- set onMove simply to 'true'
 			log( 'Delay', 'splitting Move into Delete & Create' )
-			delay( self, 'Delete', time, path,  nil )
-			delay( self, 'Create', time, path2, nil )
-			return
 
+			delay( self, 'Delete', time, path,  nil )
+
+			delay( self, 'Create', time, path2, nil )
+
+			return
 		end
 
 		-- creates the new action
 		local alarm
-		if time and self.config.delay then
+
+		if time and self.config.delay
+		then
 			alarm = time + self.config.delay
 		else
 			alarm = now( )
@@ -1855,8 +1865,8 @@ local Sync = ( function( )
 			path2
 		)
 
-		if nd.etype == 'Init' or nd.etype == 'Blanket' then
-
+		if nd.etype == 'Init' or nd.etype == 'Blanket'
+		then
 			-- always stack init or blanket events on the last event
 			log(
 				'Delay',
@@ -1865,7 +1875,8 @@ local Sync = ( function( )
 				' event.'
 			)
 
-			if self.delays.size > 0 then
+			if self.delays.size > 0
+			then
 				stack( self.delays[ self.delays.last ], nd )
 			end
 
@@ -1873,30 +1884,36 @@ local Sync = ( function( )
 			recurse( )
 
 			return
-
 		end
 
 		-- detects blocks and combos by working from back until
 		-- front through the fifo
-		for il, od in Queue.qpairsReverse( self.delays ) do
-
+		for il, od in Queue.qpairsReverse( self.delays )
+		do
 			-- asks Combiner what to do
 			local ac = Combiner.combine( od, nd )
 
-			if ac then
-				if ac == 'remove' then
+			if ac
+			then
+				if ac == 'remove'
+				then
 					Queue.remove( self.delays, il )
-				elseif ac == 'stack' then
+				elseif ac == 'stack'
+				then
 					stack( od, nd )
 					nd.dpos = Queue.push( self.delays, nd )
-				elseif ac == 'absorb' then
+				elseif ac == 'absorb'
+				then
 					-- nada
-				elseif ac == 'replace' then
+				elseif ac == 'replace'
+				then
 					od.etype = nd.etype
 					od.path  = nd.path
 					od.path2 = nd.path2
-				elseif ac == 'split' then
+				elseif ac == 'split'
+				then
 					delay( self, 'Delete', time, path,  nil )
+
 					delay( self, 'Create', time, path2, nil )
 				else
 					error( 'unknown result of combine()' )
@@ -1908,7 +1925,8 @@ local Sync = ( function( )
 			il = il - 1
 		end
 
-		if nd.path2 then
+		if nd.path2
+		then
 			log( 'Delay','New ',nd.etype,':',nd.path,'->',nd.path2 )
 		else
 			log( 'Delay','New ',nd.etype,':',nd.path )
@@ -1916,6 +1934,7 @@ local Sync = ( function( )
 
 		-- no block or combo
 		nd.dpos = Queue.push( self.delays, nd )
+
 		recurse( )
 	end
 
@@ -1924,16 +1943,21 @@ local Sync = ( function( )
 	--
 	local function getAlarm( self )
 
-		if self.processes:size( ) >= self.config.maxProcesses then
+		if self.processes:size( ) >= self.config.maxProcesses
+		then
 			return false
 		end
 
 		-- first checks if more processes could be spawned
-		if self.processes:size( ) < self.config.maxProcesses then
-
+		if self.processes:size( ) < self.config.maxProcesses
+		then
 			-- finds the nearest delay waiting to be spawned
-			for _, d in Queue.qpairs( self.delays ) do
-				if d.status == 'wait' then return d.alarm end
+			for _, d in Queue.qpairs( self.delays )
+			do
+				if d.status == 'wait'
+				then
+					return d.alarm
+				end
 			end
 
 		end
@@ -1948,29 +1972,39 @@ local Sync = ( function( )
 	-- @param test   function to test each delay
 	--
 	local function getDelays( self, test )
-		local dlist  = { sync = self}
+
+		local dlist  = { sync = self }
+
 		local dlistn = 1
+		
 		local blocks = { }
 
 		--
 		-- inheritly transfers all blocks from delay
 		--
 		local function getBlocks( delay )
+
 			blocks[ delay ] = true
-			if delay.blocks then
-				for i, d in ipairs( delay.blocks ) do
+
+			if delay.blocks
+			then
+				for i, d in ipairs( delay.blocks )
+				do
 					getBlocks( d )
 				end
 			end
 		end
 
-		for i, d in Queue.qpairs( self.delays ) do
+		for i, d in Queue.qpairs( self.delays )
+		do
 			if d.status == 'active' or
 				( test and not test( InletFactory.d2e( d ) ) )
 			then
 				getBlocks( d )
-			elseif not blocks[ d ] then
+			elseif not blocks[ d ]
+			then
 				dlist[ dlistn ] = d
+
 				dlistn = dlistn + 1
 			end
 		end
@@ -2005,28 +2039,33 @@ local Sync = ( function( )
 				and processCount >= uSettings.maxProcesses
 			then
 				log('Alarm', 'at global process limit.')
+
 				return
 			end
 
-			if self.delays.size < self.config.maxDelays then
+			if self.delays.size < self.config.maxDelays
+			then
 				-- time constrains are only concerned if not maxed
 				-- the delay FIFO already.
-				if d.alarm ~= true and timestamp < d.alarm then
+				if d.alarm ~= true and timestamp < d.alarm
+				then
 					-- reached point in stack where delays are in future
 					return
 				end
 			end
 
-			if d.status == 'wait' then
-
+			if d.status == 'wait'
+			then
 				-- found a waiting delay
-				if d.etype ~= 'Init' then
+				if d.etype ~= 'Init'
+				then
 					self.config.action( self.inlet )
 				else
 					self.config.init( InletFactory.d2e( d ) )
 				end
 
-				if self.processes:size( ) >= self.config.maxProcesses then
+				if self.processes:size( ) >= self.config.maxProcesses
+				then
 					-- no further processes
 					return
 				end
@@ -2039,18 +2078,21 @@ local Sync = ( function( )
 	--
 	local function getNextDelay( self, timestamp )
 
-		for i, d in Queue.qpairs( self.delays ) do
-
-			if self.delays.size < self.config.maxDelays then
+		for i, d in Queue.qpairs( self.delays )
+		do
+			if self.delays.size < self.config.maxDelays
+			then
 				-- time constrains are only concerned if not maxed
 				-- the delay FIFO already.
-				if d.alarm ~= true and timestamp < d.alarm then
+				if d.alarm ~= true and timestamp < d.alarm
+				then
 					-- reached point in stack where delays are in future
 					return nil
 				end
 			end
 
-			if d.status == 'wait' then
+			if d.status == 'wait'
+			then
 				-- found a waiting delay
 				return d
 			end
@@ -2063,8 +2105,11 @@ local Sync = ( function( )
 	-- Used as custom marker.
 	--
 	local function addBlanketDelay( self )
+
 		local newd = Delay.new( 'Blanket', self, true, '' )
+
 		newd.dpos = Queue.push( self.delays, newd )
+
 		return newd
 	end
 
@@ -2089,15 +2134,18 @@ local Sync = ( function( )
 		local spaces = '                    '
 
 		f:write( self.config.name, ' source=', self.source, '\n' )
+
 		f:write( 'There are ', self.delays.size, ' delays\n')
 
-		for i, vd in Queue.qpairs( self.delays ) do
+		for i, vd in Queue.qpairs( self.delays )
+		do
 			local st = vd.status
 			f:write( st, string.sub( spaces, 1, 7 - #st ) )
 			f:write( vd.etype, ' ' )
 			f:write( vd.path )
 
-			if vd.path2 then
+			if vd.path2
+			then
 				f:write( ' -> ',vd.path2 )
 			end
 
@@ -2109,11 +2157,14 @@ local Sync = ( function( )
 
 		local nothing = true
 
-		for t, p in pairs( self.excludes.list ) do
+		for t, p in pairs( self.excludes.list )
+		do
 			nothing = false
 			f:write( t,'\n' )
 		end
-		if nothing then
+
+		if nothing
+		then
 			f:write('  nothing.\n')
 		end
 
@@ -2125,7 +2176,8 @@ local Sync = ( function( )
 	--
 	local function new( config )
 
-		local s = {
+		local s =
+		{
 			-- fields
 
 			config = config,
@@ -2154,7 +2206,8 @@ local Sync = ( function( )
 		s.inlet = InletFactory.newInlet( s )
 
 		-- provides a default name if needed
-		if not config.name then
+		if not config.name
+		then
 			config.name = 'Sync' .. nextDefaultName
 		end
 
@@ -2163,13 +2216,15 @@ local Sync = ( function( )
 		nextDefaultName = nextDefaultName + 1
 
 		-- loads exclusions
-		if config.exclude then
-
+		if config.exclude
+		then
 			local te = type( config.exclude )
 
-			if te == 'table' then
+			if te == 'table'
+			then
 				s.excludes:addList( config.exclude )
-			elseif te == 'string' then
+			elseif te == 'string'
+			then
 				s.excludes:add( config.exclude )
 			else
 				error( 'type for exclude must be table or string', 2 )
@@ -2180,17 +2235,16 @@ local Sync = ( function( )
 		if
 			config.delay ~= nil and
 			(
-				type(config.delay) ~= 'number' or
-				config.delay < 0
+				type( config.delay ) ~= 'number'
+				or config.delay < 0
 			)
 		then
 			error( 'delay must be a number and >= 0', 2 )
 		end
 
-		if config.excludeFrom then
-
+		if config.excludeFrom
+		then
 			s.excludes:loadFile( config.excludeFrom )
-
 		end
 
 		return s
@@ -2231,7 +2285,8 @@ local Syncs = ( function( )
 
 		round = round + 1;
 
-		if round > #syncsList then
+		if round > #syncsList
+		then
 			round = 1
 		end
 
