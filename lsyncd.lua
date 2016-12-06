@@ -494,9 +494,9 @@ local Combiner = ( function( )
 
 		log(
 			'Delay',
-			d2.etype, ':',d2.path,
+			d2.etype, ': ',d2.path,
 			' absorbed by ',
-			d1.etype,':',d1.path
+			d1.etype,': ',d1.path
 		)
 
 		return 'absorb'
@@ -509,24 +509,23 @@ local Combiner = ( function( )
 	local function refi( d1, d2 )
 
 		-- but a directory blocks
-		if d2.path:byte( -1 ) == 47 then
-
+		if d2.path:byte( -1 ) == 47
+		then
 			log(
 				'Delay',
-				d2.etype,':',d2.path,
+				d2.etype,': ',d2.path,
 				' blocked by ',
-				d1.etype,':',d1.path
+				d1.etype,': ',d1.path
 			)
 
 			return 'stack'
-
 		end
 
 		log(
 			'Delay',
-			d2.etype, ':', d2.path,
+			d2.etype, ': ', d2.path,
 			' replaces ',
-			d1.etype, ':', d1.path
+			d1.etype, ': ', d1.path
 		)
 
 		return 'replace'
@@ -540,9 +539,9 @@ local Combiner = ( function( )
 
 		log(
 			'Delay',
-			d2.etype, ':', d2.path,
+			d2.etype, ': ', d2.path,
 			' replaces ',
-			d1.etype, ':', d1.path
+			d1.etype, ': ', d1.path
 		)
 
 		return 'replace'
@@ -556,9 +555,9 @@ local Combiner = ( function( )
 
 		log(
 			'Delay',
-			d2.etype,':',d2.path,
+			d2.etype,': ',d2.path,
 			' nullifies ',
-			d1.etype,':',d1.path
+			d1.etype,': ',d1.path
 		)
 
 		return 'remove'
