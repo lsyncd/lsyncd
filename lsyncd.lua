@@ -604,20 +604,22 @@ local Combiner = ( function( )
 	--
 	local function combine( d1, d2 )
 
-		if d1.etype == 'Init' or d1.etype == 'Blanket' then
-
+		if d1.etype == 'Init' or d1.etype == 'Blanket'
+		then
 			-- everything is blocked by init or blanket delays.
-			if d2.path2 then
+			if d2.path2
+			then
 				log(
 					'Delay',
-					d2.etype,':',d2.path,'->',d2.path2,
+					d2.etype,': ',
+					d2.path,'->',d2.path2,
 					' blocked by ',
 					d1.etype,' event'
 				)
 			else
 				log(
 					'Delay',
-					d2.etype,':',d2.path,
+					d2.etype,': ',d2.path,
 					' blocked by ',
 					d1.etype,' event'
 				)
@@ -627,10 +629,12 @@ local Combiner = ( function( )
 		end
 
 		-- two normal events
-		if d1.etype ~= 'Move' and d2.etype ~= 'Move' then
-
-			if d1.path == d2.path then
-				if d1.status == 'active' then
+		if d1.etype ~= 'Move' and d2.etype ~= 'Move'
+		then
+			if d1.path == d2.path
+			then
+				if d1.status == 'active'
+				then
 					return 'stack'
 				end
 
@@ -638,28 +642,28 @@ local Combiner = ( function( )
 			end
 
 			-- if one is a parent directory of another, events are blocking
-			if d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path) or
-			   d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path)
+			if d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path)
+				or d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path)
 			then
 				return 'stack'
 			end
 
 			return nil
-
 		end
 
 		-- non-move event on a move.
 		if d1.etype == 'Move' and d2.etype ~= 'Move' then
 			-- if the from field could be damaged the events are stacked
-			if d1.path == d2.path or
-			   d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path) or
-			   d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path)
+			if d1.path == d2.path
+				or d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path)
+				or d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path)
 			then
 				log(
 					'Delay',
-					d2.etype, ':', d2.path,
+					d2.etype, ': ', d2.path,
 					' blocked by ',
-					'Move :', d1.path,'->', d1.path2
+					'Move: ',
+					d1.path,' -> ', d1.path2
 				)
 
 				return 'stack'
@@ -669,21 +673,26 @@ local Combiner = ( function( )
 
 			if d1.path2 == d2.path then
 
-				if d2.etype == 'Delete' or d2.etype == 'Create' then
-
-					if d1.status == 'active' then
+				if
+					d2.etype == 'Delete'
+					or d2.etype == 'Create'
+				then
+					if d1.status == 'active'
+					then
 						return 'stack'
 					end
 
 					log(
 						'Delay',
-						d2.etype, ':', d2.path,
+						d2.etype, ': ', d2.path,
 						' turns ',
-				        'Move :', d1.path, '->', d1.path2,
+				        'Move: ', d1.path, ' -> ', d1.path2,
 						' into ',
-						'Delete:', d1.path
+						'Delete: ', d1.path
 					)
+
 					d1.etype = 'Delete'
+
 					d1.path2 = nil
 
 					return 'stack'
@@ -694,14 +703,17 @@ local Combiner = ( function( )
 				return 'stack'
 			end
 
-			if d2.path :byte(-1) == 47 and string.starts(d1.path2, d2.path) or
-			   d1.path2:byte(-1) == 47 and string.starts(d2.path,  d1.path2)
+			if
+				d2.path :byte(-1) == 47 and string.starts(d1.path2, d2.path)
+				or
+				d1.path2:byte(-1) == 47 and string.starts(d2.path,  d1.path2)
 			then
 				log(
 					'Delay'
-					,d2.etype, ':', d2.path,
+					,d2.etype, ': ', d2.path,
 					' blocked by ',
-					'Move:', d1.path, '->', d1.path2
+					'Move: ',
+					d1.path, ' -> ', d1.path2
 				)
 
 				return 'stack'
@@ -720,9 +732,10 @@ local Combiner = ( function( )
 			then
 				log(
 					'Delay',
-					'Move:', d2.path, '->', d2.path2,
+					'Move: ',
+					d2.path, ' -> ', d2.path2,
 					' splits on ',
-					d1.etype, ':', d1.path
+					d1.etype, ': ', d1.path
 				)
 				return 'split'
 			end
@@ -749,9 +762,10 @@ local Combiner = ( function( )
 			then
 				log(
 					'Delay',
-					'Move:', d2.path, '->', d1.path2,
-					' splits on Move:',
-					d1.path, '->', d1.path2
+					'Move: ',
+					d2.path, ' -> ', d1.path2,
+					' splits on Move: ',
+					d1.path, ' -> ', d1.path2
 				)
 
 				return 'split'
@@ -1918,7 +1932,9 @@ local Sync = ( function( )
 				else
 					error( 'unknown result of combine()' )
 				end
+
 				recurse( )
+
 				return
 			end
 
@@ -1927,9 +1943,9 @@ local Sync = ( function( )
 
 		if nd.path2
 		then
-			log( 'Delay','New ',nd.etype,':',nd.path,'->',nd.path2 )
+			log( 'Delay','New ',nd.etype,': ',nd.path,' -> ',nd.path2 )
 		else
-			log( 'Delay','New ',nd.etype,':',nd.path )
+			log( 'Delay','New ',nd.etype,': ',nd.path )
 		end
 
 		-- no block or combo
