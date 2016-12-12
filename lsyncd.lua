@@ -12,8 +12,10 @@
 --
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
 -- require('profiler')
 -- profiler.start()
+
 
 --
 -- A security measurement.
@@ -32,6 +34,7 @@ end
 
 lsyncd_version = '2.1.7'
 
+
 --
 -- Hides the core interface from user scripts.
 --
@@ -41,6 +44,7 @@ lsyncd = nil
 local lsyncd = _l
 _l = nil
 
+
 --
 -- Shortcuts (which user is supposed to be able to use them as well)
 --
@@ -49,25 +53,31 @@ terminate = lsyncd.terminate
 now       = lsyncd.now
 readdir   = lsyncd.readdir
 
---
--- Coping globals to ensure userscripts don't change this.
---
-local log       = log
-local terminate = terminate
-local now       = now
 
 --
--- Predeclarations
+-- Coping globals to ensure userscripts cannot change this.
+--
+local log       = log
+
+local terminate = terminate
+
+local now       = now
+
+
+--
+-- Predeclarations.
 --
 local Monitors
 
+
 --
--- Global: total number of processess running
+-- Global: total number of processess running.
 --
 local processCount = 0
 
+
 --
--- all valid entries in a settings{} call
+-- All valid entries in a settings{} call.
 --
 local settingsCheckgauge =
 {
@@ -84,15 +94,18 @@ local settingsCheckgauge =
 	maxDelays      = true,
 }
 
+
 --
 -- Settings specified by command line.
 --
 local clSettings = { }
 
+
 --
 -- Settings specified by config scripts.
 --
 local uSettings = { }
+
 
 --
 -- A copy of the settings function to see if the
@@ -101,20 +114,30 @@ local uSettings = { }
 --
 local settingsSafe
 
+
 --============================================================================
 -- Lsyncd Prototypes
 --============================================================================
+
 
 --
 -- Array tables error if accessed with a non-number.
 --
 local Array = ( function( )
 
-	-- Metatable
+	--
+	-- Metatable.
+	--
 	local mt = { }
 
-	-- on accessing a nil index.
-	mt.__index = function( t, k )
+	--
+	-- On accessing a nil index.
+	--
+	mt.__index = function
+	(
+		t,  -- table accessed
+		k   -- key value accessed
+	)
 		if type(k) ~= 'number'
 		then
 			error( 'Key "'..k..'" invalid for Array', 2 )
@@ -123,8 +146,15 @@ local Array = ( function( )
 		return rawget( t, k )
 	end
 
-	-- on assigning a new index.
-	mt.__newindex = function( t, k, v )
+	--
+	-- On assigning a new index.
+	--
+	mt.__newindex = function
+	(
+		t,  -- table getting a new index assigned
+		k,  -- key value to assign to
+		v   -- value to assign
+	)
 		if type( k ) ~= 'number'
 		then
 			error( 'Key "'..k..'" invalid for Array', 2 )
@@ -133,8 +163,11 @@ local Array = ( function( )
 		rawset( t, k, v )
 	end
 
-	-- creates a new object
-	local function new( )
+	--
+	-- Creates a new object
+	--
+	local function new
+	( )
 		local o = { }
 
 		setmetatable( o, mt )
@@ -146,7 +179,6 @@ local Array = ( function( )
 	-- Public interface
 	--
 	return { new = new }
-
 end )( )
 
 
@@ -172,10 +204,14 @@ local CountArray = ( function( )
 	--
 	-- On accessing a nil index.
 	--
-	mt.__index = function( t, k )
+	mt.__index = function
+	(
+		t,  -- table being accessed
+		k   -- key used to access
+	)
 		if type( k ) ~= 'number'
 		then
-			error( 'Key "'..k..'" invalid for CountArray', 2 )
+			error( 'Key "' .. k .. '" invalid for CountArray', 2 )
 		end
 
 		return t[ k_nt ][ k ]
@@ -184,54 +220,69 @@ local CountArray = ( function( )
 	--
 	-- On assigning a new index.
 	--
-	mt.__newindex = function( t, k, v )
-
-		if type(k) ~= 'number'
+	mt.__newindex = function
+	(
+		t,  -- table getting a new index assigned
+		k,  -- key value to assign to
+		v   -- value to assign
+	)
+		if type( k ) ~= 'number'
 		then
 			error( 'Key "'..k..'" invalid for CountArray', 2 )
 		end
 
 		-- value before
 		local vb = t[ k_nt ][ k ]
-		if v and not vb then
+
+		if v and not vb
+		then
 			t._size = t._size + 1
-		elseif not v and vb then
+		elseif not v and vb
+		then
 			t._size = t._size - 1
 		end
+
 		t[ k_nt ][ k ] = v
 	end
 
 	--
 	-- Walks through all entries in any order.
 	--
-	local function walk( self )
+	local function walk
+	(
+		self  -- the count array
+	)
 		return pairs( self[ k_nt ] )
 	end
 
 	--
-	-- Returns the count
+	-- Returns the count.
 	--
-	local function size( self )
+	local function size
+	(
+		self  -- the count array
+	)
 		return self._size
 	end
 
 	--
 	-- Creates a new count array
 	--
-	local function new( )
-
-		-- k_nt is native table, private for this object.
-		local o = {
+	local function new
+	( )
+		-- k_nt is a native table, private to this object.
+		local o =
+		{
 			_size = 0,
 			walk = walk,
 			size = size,
-			[k_nt] = { }
+			[ k_nt ] = { }
 		}
 
 		setmetatable(o, mt)
+
 		return o
 	end
-
 
 	--
 	-- Public interface
@@ -239,15 +290,18 @@ local CountArray = ( function( )
 	return { new = new }
 end )( )
 
+
 --
--- A queue is optimized for pushing on the right and poping on the left.
+-- A queue is optimized for pushing and poping.
+-- TODO: make this an object
 --
 Queue = ( function( )
 
 	--
 	-- Creates a new queue.
 	--
-	local function new( )
+	local function new
+	( )
 		return {
 			first = 1,
 			last  = 0,
@@ -259,56 +313,70 @@ Queue = ( function( )
 	-- Pushes a value on the queue.
 	-- Returns the last value
 	--
-	local function push( list, value )
-
+	local function push
+	(
+		list,   -- list to push to
+		value   -- value to push
+	)
 		if not value
 		then
 			error('Queue pushing nil value', 2)
 		end
 
 		local last = list.last + 1
+
 		list.last = last
+
 		list[ last ] = value
+
 		list.size = list.size + 1
+
 		return last
 	end
 
 	--
 	-- Removes an item at pos from the Queue.
 	--
-	local function remove( list, pos )
-
-		if list[ pos ] == nil then
-			error('Removing nonexisting item in Queue', 2)
+	local function remove
+	(
+		list,   -- the queue
+		pos
+	)
+		if list[ pos ] == nil
+		then
+			error( 'Removing nonexisting item in Queue', 2 )
 		end
 
 		list[ pos ] = nil
 
 		-- if removing first or last element,
 		-- the queue limits are adjusted.
-		if pos == list.first then
-
+		if pos == list.first
+		then
 			local last = list.last
 
-			while list[ pos ] == nil and pos <= list.last do
+			while list[ pos ] == nil and pos <= list.last
+			do
 				pos = pos + 1
 			end
 
 			list.first = pos
 
-		elseif pos == list.last then
-
-			while list[ pos ] == nil and pos >= list.first do
+		elseif pos == list.last
+		then
+			while list[ pos ] == nil and pos >= list.first
+			do
 				pos = pos - 1
 			end
 
 			list.last = pos
-
 		end
 
 		-- reset the indizies if the queue is empty
-		if list.last < list.first then
+		if list.last < list.first
+		then
 			list.first = 1
+
 			list.last  = 0
 		end
 
@@ -316,17 +384,22 @@ Queue = ( function( )
 	end
 
 	--
-	-- Queue iterator (stateless)
+	-- Queue iterator ( stateless )
 	--
-	local function iter( list, pos )
-
+	local function iter
+	(
+		list,
+		pos
+	)
 		pos = pos + 1
 
-		while list[ pos ] == nil and pos <= list.last do
+		while list[ pos ] == nil and pos <= list.last
+		do
 			pos = pos + 1
 		end
 
-		if pos > list.last then
+		if pos > list.last
+		then
 			return nil
 		end
 
@@ -336,15 +409,21 @@ Queue = ( function( )
 	--
 	-- Reverse queue iterator (stateless)
 	--
-	local function iterReverse( list, pos )
+	local function iterReverse
+	(
+		list,
+		pos
+	)
 
 		pos = pos - 1
 
-		while list[pos] == nil and pos >= list.first do
+		while list[pos] == nil and pos >= list.first
+		do
 			pos = pos - 1
 		end
 
-		if pos < list.first then
+		if pos < list.first
+		then
 			return nil
 		end
 
@@ -376,28 +455,45 @@ Queue = ( function( )
 	}
 end )( )
 
---
--- Locks globals,
--- No more globals can be created after this
---
-local function lockGlobals( )
 
+--
+-- Locks globals.
+--
+-- No more globals can be created after this!
+--
+local function lockGlobals
+( )
 	local t = _G
+
 	local mt = getmetatable( t ) or { }
 
 	-- TODO try to remove the underscore exceptions
-	mt.__index = function( t, k )
-		if k ~= '_' and string.sub(k, 1, 2) ~= '__' then
-			error( 'Access of non-existing global "'..k..'"', 2 )
+	mt.__index = function
+	(
+		t,  -- table being accessed
+		k   -- key used to access
+	)
+		if k ~= '_' and string.sub( k, 1, 2 ) ~= '__'
+		then
+			error( 'Access of non-existing global "' .. k ..'"', 2 )
 		else
 			rawget( t, k )
 		end
 	end
 
-	mt.__newindex = function( t, k, v )
-		if k ~= '_' and string.sub( k, 1, 2 ) ~= '__' then
-			error('Lsyncd does not allow GLOBALS to be created on the fly. '..
-			      'Declare "'..k..'" local or declare global on load.', 2)
+	mt.__newindex = function
+	(
+		t,  -- table getting a new index assigned
+		k,  -- key value to assign to
+		v   -- value to assign
+	)
+		if k ~= '_' and string.sub( k, 1, 2 ) ~= '__'
+		then
+			error(
+				'Lsyncd does not allow GLOBALS to be created on the fly. '
+				.. 'Declare "' .. k.. '" local or declare global on load.',
+				2
+			)
 		else
 			rawset( t, k, v )
 		end
@@ -406,11 +502,12 @@ local function lockGlobals( )
 	setmetatable( t, mt )
 end
 
+
 --
 -- Holds the information about a delayed event for one Sync.
 --
-local Delay = ( function( )
-
+local Delay = ( function
+( )
 	--
 	-- Creates a new delay.
 	--
@@ -482,8 +579,9 @@ local Delay = ( function( )
 
 end )( )
 
+
 --
--- Combines delays
+-- Combines delays.
 --
 local Combiner = ( function( )
 
@@ -500,7 +598,6 @@ local Combiner = ( function( )
 		)
 
 		return 'absorb'
-
 	end
 
 	--
@@ -529,7 +626,6 @@ local Combiner = ( function( )
 		)
 
 		return 'replace'
-
 	end
 
 	--
@@ -545,7 +641,6 @@ local Combiner = ( function( )
 		)
 
 		return 'replace'
-
 	end
 
 	--
@@ -561,7 +656,6 @@ local Combiner = ( function( )
 		)
 
 		return 'remove'
-
 	end
 
 	--
@@ -610,17 +704,17 @@ local Combiner = ( function( )
 			then
 				log(
 					'Delay',
-					d2.etype,': ',
-					d2.path,'->',d2.path2,
+					d2.etype, ': ',
+					d2.path, '->', d2.path2,
 					' blocked by ',
-					d1.etype,' event'
+					d1.etype, ': ', d1.path
 				)
 			else
 				log(
 					'Delay',
-					d2.etype,': ',d2.path,
+					d2.etype, ': ', d2.path,
 					' blocked by ',
-					d1.etype,' event'
+					d1.etype, ': ', d1.path
 				)
 			end
 
@@ -634,16 +728,32 @@ local Combiner = ( function( )
 			then
 				if d1.status == 'active'
 				then
+					log(
+						'Delay',
+						d2.etype, ': ', d2.path,
+						' blocked by active ',
+						d1.etype, ': ', d1.path
+					)
+
 					return 'stack'
 				end
 
+				-- lookups up the function in the combination matrix
+				-- and calls it
 				return combineNoMove[ d1.etype ][ d2.etype ]( d1, d2 )
 			end
 
 			-- if one is a parent directory of another, events are blocking
-			if d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path)
-				or d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path)
+			if d1.path:byte( -1 ) == 47 and string.starts( d2.path, d1.path )
+			or d2.path:byte( -1 ) == 47 and string.starts( d1.path, d2.path )
 			then
+				log(
+					'Delay',
+					d2.etype, ': ', d2.path,
+					' blocked by parenting ',
+					d1.etype, ': ', d1.path
+				)
+
 				return 'stack'
 			end
 
@@ -651,17 +761,17 @@ local Combiner = ( function( )
 		end
 
 		-- non-move event on a move.
-		if d1.etype == 'Move' and d2.etype ~= 'Move' then
-			-- if the from field could be damaged the events are stacked
+		if d1.etype == 'Move' and d2.etype ~= 'Move'
+		then
+			-- if the move source could be damaged the events are stacked
 			if d1.path == d2.path
-				or d2.path:byte(-1) == 47 and string.starts(d1.path, d2.path)
-				or d1.path:byte(-1) == 47 and string.starts(d2.path, d1.path)
+			or d2.path:byte( -1 ) == 47 and string.starts( d1.path, d2.path )
+			or d1.path:byte( -1 ) == 47 and string.starts( d2.path, d1.path )
 			then
 				log(
 					'Delay',
 					d2.etype, ': ', d2.path,
-					' blocked by ',
-					'Move: ',
+					' blocked by Move: ',
 					d1.path,' -> ', d1.path2
 				)
 
@@ -670,14 +780,20 @@ local Combiner = ( function( )
 
 			--  the event does something with the move destination
 
-			if d1.path2 == d2.path then
-
-				if
-					d2.etype == 'Delete'
-					or d2.etype == 'Create'
+			if d1.path2 == d2.path
+			then
+				if d2.etype == 'Delete'
+				or d2.etype == 'Create'
 				then
 					if d1.status == 'active'
 					then
+						log(
+							'Delay',
+							d2.etype,': ',d2.path,
+							' blocked by active Move: ',
+							d1.path,' -> ', d1.path2
+						)
+
 						return 'stack'
 					end
 
@@ -698,20 +814,23 @@ local Combiner = ( function( )
 				end
 
 				-- on 'Attrib' or 'Modify' simply stack on moves
+				log(
+					'Delay',
+					d2.etype,': ',d2.path,
+					' blocked by Move: ',
+					d1.path,' -> ', d1.path2
+				)
 
 				return 'stack'
 			end
 
-			if
-				d2.path :byte(-1) == 47 and string.starts(d1.path2, d2.path)
-				or
-				d1.path2:byte(-1) == 47 and string.starts(d2.path,  d1.path2)
+			if d2.path:byte( -1 ) == 47 and string.starts( d1.path2, d2.path )
+			or d1.path2:byte( -1 ) == 47 and string.starts( d2.path,  d1.path2 )
 			then
 				log(
 					'Delay'
 					,d2.etype, ': ', d2.path,
-					' blocked by ',
-					'Move: ',
+					' blocked by Move: ',
 					d1.path, ' -> ', d1.path2
 				)
 
@@ -722,12 +841,14 @@ local Combiner = ( function( )
 		end
 
 		-- a move upon a non-move event
-		if d1.etype ~= 'Move' and d2.etype == 'Move' then
-			if d1.path == d2.path or d1.path == d2.path2 or
-			   d1.path :byte(-1) == 47 and string.starts(d2.path,  d1.path) or
-			   d1.path :byte(-1) == 47 and string.starts(d2.path2, d1.path) or
-			   d2.path :byte(-1) == 47 and string.starts(d1.path,  d2.path) or
-			   d2.path2:byte(-1) == 47 and string.starts(d1.path,  d2.path2)
+		if d1.etype ~= 'Move' and d2.etype == 'Move'
+		then
+			if d1.path == d2.path
+			or d1.path == d2.path2
+			or d1.path:byte( -1 ) == 47 and string.starts( d2.path, d1.path )
+			or d1.path:byte( -1 ) == 47 and string.starts( d2.path2, d1.path )
+			or d2.path:byte( -1 ) == 47 and string.starts( d1.path, d2.path )
+			or d2.path2:byte( -1 ) == 47 and string.starts( d1.path,  d2.path2 )
 			then
 				log(
 					'Delay',
@@ -736,6 +857,7 @@ local Combiner = ( function( )
 					' splits on ',
 					d1.etype, ': ', d1.path
 				)
+
 				return 'split'
 			end
 
@@ -745,19 +867,22 @@ local Combiner = ( function( )
 		--
 		-- a move event upon a move event
 		--
-		if d1.etype == 'Move' and d2.etype == 'Move' then
+		if d1.etype == 'Move' and d2.etype == 'Move'
+		then
 			-- TODO combine moves,
 
-			if d1.path  == d2.path or d1.path  == d2.path2 or
-			   d1.path2 == d2.path or d2.path2 == d2.path or
-			   d1.path :byte(-1) == 47 and string.starts(d2.path,  d1.path)  or
-			   d1.path :byte(-1) == 47 and string.starts(d2.path2, d1.path)  or
-			   d1.path2:byte(-1) == 47 and string.starts(d2.path,  d1.path2) or
-			   d1.path2:byte(-1) == 47 and string.starts(d2.path2, d1.path2) or
-			   d2.path :byte(-1) == 47 and string.starts(d1.path,  d2.path)  or
-			   d2.path :byte(-1) == 47 and string.starts(d1.path2, d2.path)  or
-			   d2.path2:byte(-1) == 47 and string.starts(d1.path,  d2.path2) or
-			   d2.path2:byte(-1) == 47 and string.starts(d1.path2, d2.path2)
+			if d1.path  == d2.path
+			or d1.path  == d2.path2
+			or d1.path2 == d2.path
+			or d2.path2 == d2.path
+			or d1.path:byte( -1 ) == 47 and string.starts( d2.path,  d1.path )
+			or d1.path:byte( -1 ) == 47 and string.starts( d2.path2, d1.path )
+			or d1.path2:byte( -1 ) == 47 and string.starts( d2.path,  d1.path2 )
+			or d1.path2:byte( -1 ) == 47 and string.starts( d2.path2, d1.path2 )
+			or d2.path:byte( -1 ) == 47 and string.starts( d1.path,  d2.path )
+			or d2.path:byte( -1 ) == 47 and string.starts( d1.path2, d2.path )
+			or d2.path2:byte( -1 ) == 47 and string.starts( d1.path,  d2.path2 )
+			or d2.path2:byte( -1 ) == 47 and string.starts( d1.path2, d2.path2 )
 			then
 				log(
 					'Delay',
@@ -783,6 +908,7 @@ local Combiner = ( function( )
 	return { combine = combine }
 
 end )( )
+
 
 --
 -- Creates inlets for syncs: the user interface for events.
@@ -1002,20 +1128,23 @@ local InletFactory = ( function( )
 	--
 	-- Retrievs event fields for the user script.
 	--
-	local eventMeta = {
-
+	local eventMeta =
+	{
 		__index = function( event, field )
 			local f = eventFields[ field ]
-			if not f then
-				if field == 'move' then
+
+			if not f
+			then
+				if field == 'move'
+				then
 					-- possibly undefined
 					return nil
 				end
-				error( 'event does not have field "'..field..'"', 2 )
+
+				error( 'event does not have field "' .. field .. '"', 2 )
 			end
 			return f( event )
 		end
-
 	}
 
 	--
@@ -1042,11 +1171,12 @@ local InletFactory = ( function( )
 			local result  = { }
 			local resultn = 1
 
-			for k, d in ipairs( dlist ) do
-
+			for k, d in ipairs( dlist )
+			do
 				local s1, s2
 
-				if mutator then
+				if mutator
+				then
 					s1, s2 = mutator( d.etype, d.path, d.path2 )
 				else
 					s1, s2 = d.path, d.path2
@@ -1055,7 +1185,8 @@ local InletFactory = ( function( )
 				result[ resultn ] = s1
 				resultn = resultn + 1
 
-				if s2 then
+				if s2
+				then
 					result[ resultn ] = s2
 					resultn = resultn + 1
 				end
@@ -1069,8 +1200,8 @@ local InletFactory = ( function( )
 	--
 	-- Retrievs event list fields for the user script
 	--
-	local eventListMeta = {
-
+	local eventListMeta =
+	{
 		__index = function( elist, func )
 
 			if func == 'isList'
@@ -1127,8 +1258,11 @@ local InletFactory = ( function( )
 			end
 
 			local event = { }
+
 			setmetatable( event, eventMeta )
+
 			e2d[ event ]  = delay
+
 			e2d2[ delay ] = event
 
 			return event
@@ -1143,7 +1277,7 @@ local InletFactory = ( function( )
 			local event  = { move = 'Fr' }
 			local event2 = { move = 'To' }
 
-			setmetatable( event,  eventMeta )
+			setmetatable( event, eventMeta )
 			setmetatable( event2, eventMeta )
 
 			e2d[ event ]  = delay
@@ -1263,10 +1397,10 @@ local InletFactory = ( function( )
 		end,
 
 		--
-		-- Returns the configuration table specified by sync{}
+		-- Returns the configuration table specified by sync{ }
 		--
 		getConfig = function( sync )
-			-- TODO gives a readonly handler only.
+			-- TODO give a readonly handler only.
 			return sync.config
 		end,
 	}
@@ -1276,8 +1410,11 @@ local InletFactory = ( function( )
 	--
 	local inletMeta = {
 		__index = function( inlet, func )
+
 			local f = inletFuncs[ func ]
-			if not f then
+
+			if not f
+			then
 				error(
 					'inlet does not have function "'..func..'"',
 					2
@@ -1300,7 +1437,9 @@ local InletFactory = ( function( )
 
 		-- sets use access methods
 		setmetatable( inlet, inletMeta )
+
 		inlets[ inlet ] = sync
+
 		return inlet
 	end
 
@@ -1379,7 +1518,8 @@ local Excludes = ( function( )
 	--
 	local function add( self, pattern )
 
-		if self.list[ pattern ] then
+		if self.list[ pattern ]
+		then
 			-- already in the list
 			return
 		end
@@ -1394,7 +1534,8 @@ local Excludes = ( function( )
 	--
 	local function remove( self, pattern )
 
-		if not self.list[ pattern ] then
+		if not self.list[ pattern ]
+		then
 			-- already in the list?
 
 			log(
@@ -1414,7 +1555,8 @@ local Excludes = ( function( )
 	-- Adds a list of patterns to exclude.
 	--
 	local function addList(self, plist)
-		for _, v in ipairs(plist) do
+		for _, v in ipairs(plist)
+		do
 			add(self, v)
 		end
 	end
@@ -1426,7 +1568,8 @@ local Excludes = ( function( )
 
 		f, err = io.open( file )
 
-		if not f then
+		if not f
+		then
 			log(
 				'Error',
 				'Cannot open exclude file "', file,'": ',
@@ -1436,18 +1579,19 @@ local Excludes = ( function( )
 			terminate( -1 )
 		end
 
-	    for line in f:lines() do
-
+	    for line in f:lines()
+		do
 			-- lsyncd 2.0 does not support includes
 
-			if not string.match(line, '^%s*%+') and
-					not string.match(line, '^%s*#') and
-					not string.match(line, '^%s*$') then
-				local p = string.match(
-					line, '%s*-?%s*(.*)'
-				)
-				if p then
-					add(self, p)
+			if not string.match( line, '^%s*%+' )
+			and not string.match( line, '^%s*#' )
+			and not string.match( line, '^%s*$' )
+			then
+				local p = string.match( line, '%s*-?%s*(.*)' )
+
+				if p
+				then
+					add( self, p )
 				end
 			end
 		end
@@ -1460,32 +1604,30 @@ local Excludes = ( function( )
 	--
 	local function test( self, path )
 
-		for _, p in pairs( self.list ) do
-
-			if p:byte( -1 ) == 36 then
+		for _, p in pairs( self.list )
+		do
+			if p:byte( -1 ) == 36
+			then
 				-- ends with $
-
-				if path:match( p ) then
+				if path:match( p )
+				then
 					return true
 				end
-
 			else
-
 				-- ends either end with / or $
-				if path:match(p .. '/') or path:match(p .. '$') then
+				if path:match( p .. '/' )
+				or path:match( p .. '$' )
+				then
 					return true
 				end
-
 			end
 		end
 
 		return false
-
 	end
 
-
 	--
-	-- Cretes a new exclude set
+	-- Cretes a new exclude set.
 	--
 	local function new( )
 
@@ -1499,15 +1641,14 @@ local Excludes = ( function( )
 			remove   = remove,
 			test     = test,
 		}
-
 	end
 
 	--
-	-- Public interface
+	-- Public interface.
 	--
 	return { new = new }
-
 end )( )
+
 
 --
 -- Holds information about one observed directory including subdirs.
@@ -1526,7 +1667,6 @@ local Sync = ( function( )
 	local function addExclude( self, pattern )
 
 		return self.excludes:add( pattern )
-
 	end
 
 	--
@@ -1535,7 +1675,6 @@ local Sync = ( function( )
 	local function rmExclude( self, pattern )
 
 		return self.excludes:remove( pattern )
-
 	end
 
 	--
@@ -1543,7 +1682,8 @@ local Sync = ( function( )
 	--
 	local function removeDelay( self, delay )
 
-		if self.delays[ delay.dpos ] ~= delay then
+		if self.delays[ delay.dpos ] ~= delay
+		then
 			error( 'Queue is broken, delay not a dpos' )
 		end
 
@@ -1552,7 +1692,7 @@ local Sync = ( function( )
 		-- free all delays blocked by this one.
 		if delay.blocks
 		then
-			for i, vd in pairs( delay.blocks )
+			for _, vd in pairs( delay.blocks )
 			do
 				vd.status = 'wait'
 			end
@@ -1716,7 +1856,6 @@ local Sync = ( function( )
 		end
 
 		table.insert( oldDelay.blocks, newDelay )
-
 	end
 
 	--
@@ -1800,7 +1939,6 @@ local Sync = ( function( )
 				)
 
 				return
-
 			elseif not ex1 and ex2
 			then
 				-- splits the move if only partly excluded
@@ -1894,6 +2032,7 @@ local Sync = ( function( )
 			end
 
 			nd.dpos = Queue.push( self.delays, nd )
+
 			recurse( )
 
 			return
@@ -1914,6 +2053,7 @@ local Sync = ( function( )
 				elseif ac == 'stack'
 				then
 					stack( od, nd )
+
 					nd.dpos = Queue.push( self.delays, nd )
 				elseif ac == 'absorb'
 				then
@@ -2003,17 +2143,17 @@ local Sync = ( function( )
 
 			if delay.blocks
 			then
-				for i, d in ipairs( delay.blocks )
+				for _, d in ipairs( delay.blocks )
 				do
 					getBlocks( d )
 				end
 			end
 		end
 
-		for i, d in Queue.qpairs( self.delays )
+		for _, d in Queue.qpairs( self.delays )
 		do
-			if d.status == 'active' or
-				( test and not test( InletFactory.d2e( d ) ) )
+			if d.status == 'active'
+			or ( test and not test( InletFactory.d2e( d ) ) )
 			then
 				getBlocks( d )
 			elseif not blocks[ d ]
@@ -3984,10 +4124,11 @@ function runner.configure( args, monitors )
 					o[ 2 ]( args[ i + 1], args[ i + 2], args[ i + 3] )
 				end
 			end
+
 			i = i + o[1]
 		end
-		i = i + 1
 
+		i = i + 1
 	end
 
 	if clSettings.syncs
@@ -4183,20 +4324,19 @@ function runner.initialize( firstTime )
 	}
 
 	-- translates layer 3 scripts
-	for _, s in Syncs.iwalk() do
-
+	for _, s in Syncs.iwalk()
+	do
 		-- checks if any user functions is a layer 3 string.
 		local config = s.config
 
-		for _, fn in ipairs(ufuncs) do
+		for _, fn in ipairs( ufuncs )
+		do
+			if type(config[fn]) == 'string'
+			then
+				local ft = functionWriter.translate( config[ fn ] )
 
-			if type(config[fn]) == 'string' then
-
-				local ft = functionWriter.translate(config[fn])
-				config[fn] = assert(loadstring('return '..ft))()
-
+				config[ fn ] = assert( loadstring( 'return '..ft ) )( )
 			end
-
 		end
 	end
 
@@ -4455,23 +4595,23 @@ function spawn(
 	--
 	-- checks if a spawn is called on an already active event
 	--
-	if dol.status then
-
+	if dol.status
+	then
 		-- is an event
 
 		if dol.status ~= 'wait' then
 			error('spawn() called on an non-waiting event', 2)
 		end
-
 	else
 		-- is a list
-
-		for _, d in ipairs(dol) do
-			if d.status ~= 'wait' and d.status ~= 'block' then
-				error('spawn() called on an non-waiting event list', 2)
+		for _, d in ipairs( dol )
+		do
+			if d.status ~= 'wait'
+			and d.status ~= 'block'
+			then
+				error( 'spawn() called on an non-waiting event list', 2 )
 			end
 		end
-
 	end
 
 	--
@@ -4479,9 +4619,10 @@ function spawn(
 	--
 	local pid = lsyncd.exec( binary, ... )
 
-	if pid and pid > 0 then
-
+	if pid and pid > 0
+	then
 		processCount = processCount + 1
+
 		if
 			uSettings.maxProcesses and
 			processCount > uSettings.maxProcesses
@@ -4492,22 +4633,20 @@ function spawn(
 		local sync = InletFactory.getSync( agent )
 
 		-- delay or list
-		if dol.status then
-
+		if dol.status
+		then
 			-- is a delay
 			dol.status = 'active'
 			sync.processes[ pid ] = dol
-
 		else
-
 			-- is a list
-			for _, d in ipairs( dol ) do
+			for _, d in ipairs( dol )
+			do
 				d.status = 'active'
 			end
+
 			sync.processes[ pid ] = dol
-
 		end
-
 	end
 end
 
@@ -4529,6 +4668,7 @@ function spawnShell(
 	)
 end
 
+
 --
 -- Observes a filedescriptor.
 --
@@ -4544,6 +4684,7 @@ function observefd(
 	)
 end
 
+
 --
 -- Stops observeing a filedescriptor.
 --
@@ -4553,6 +4694,7 @@ function nonobservefd(
 	return lsyncd.nonobserve_fd( fd )
 end
 
+
 --
 -- Calls func at timestamp.
 --
@@ -4561,6 +4703,7 @@ end
 --
 alarm = UserAlarms.alarm
 
+
 --
 -- Comfort routine also for user.
 -- Returns true if 'String' starts with 'Start'
@@ -4568,8 +4711,8 @@ alarm = UserAlarms.alarm
 function string.starts( String, Start )
 
 	return string.sub( String, 1, #Start )==Start
-
 end
+
 
 --
 -- Comfort routine also for user.
@@ -4578,8 +4721,8 @@ end
 function string.ends( String, End )
 
 	return End == '' or string.sub( String, -#End ) == End
-
 end
+
 
 --
 -- The Lsyncd 2.1 settings call

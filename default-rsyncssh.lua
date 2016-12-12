@@ -112,13 +112,13 @@ rsyncssh.action = function( inlet )
 	-- uses ssh to delete files on remote host
 	-- instead of constructing rsync filters
 
-	if event.etype == 'Delete' then
-
-		if
-			config.delete ~= true and
-			config.delete ~= 'running'
+	if event.etype == 'Delete'
+	then
+		if config.delete ~= true
+		and config.delete ~= 'running'
 		then
-			inlet.discardEvent(event)
+			inlet.discardEvent( event )
+
 			return
 		end
 
@@ -133,7 +133,8 @@ rsyncssh.action = function( inlet )
 		-- returns the paths of the delete list
 		local paths = elist.getPaths(
 			function( etype, path1, path2 )
-				if path2 then
+				if path2
+				then
 					return config.targetdir..path1, config.targetdir..path2
 				else
 					return config.targetdir..path1
@@ -142,10 +143,13 @@ rsyncssh.action = function( inlet )
 		)
 
 		-- ensures none of the paths is '/'
-		for _, v in pairs( paths ) do
-			if string.match(v, '^%s*/+%s*$') then
-				log('Error', 'refusing to `rm -rf /` the target!')
-				terminate(-1) -- ERRNO
+		for _, v in pairs( paths )
+		do
+			if string.match( v, '^%s*/+%s*$' )
+			then
+				log( 'Error', 'cowardly refusing to `rm -rf /` the target!' )
+
+				terminate( -1 ) -- ERRNO
 			end
 		end
 
