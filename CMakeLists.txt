@@ -6,7 +6,7 @@ set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/" )
 
 
 # finding Lua
-find_package(Lua REQUIRED)
+find_package( Lua REQUIRED )
 include_directories ( ${LUA_INCLUDE_DIR} )
 
 
@@ -92,4 +92,4 @@ add_executable( lsyncd ${LSYNCD_SRC} )
 target_link_libraries( lsyncd ${LUA_LIBRARIES} )
 
 install( TARGETS lsyncd RUNTIME DESTINATION bin )
-install( FILES doc/manpage/lsyncd.1 DESTINATION man)
+install( FILES doc/manpage/lsyncd.1 DESTINATION man )
