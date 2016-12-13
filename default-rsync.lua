@@ -111,13 +111,18 @@ rsync.checkgauge = {
 -- Exclusions are already handled by not having
 -- events for them.
 --
-rsync.action = function( inlet )
-
+rsync.action = function
+(
+	inlet
+)
 	--
 	-- gets all events ready for syncing
 	--
 	local elist = inlet.getEvents(
-		function(event)
+		function
+		(
+			event
+		)
 			return event.etype ~= 'Init' and event.etype ~= 'Blanket'
 		end
 	)
@@ -125,8 +130,12 @@ rsync.action = function( inlet )
 	--
 	-- Replaces what rsync would consider filter rules by literals
 	--
-	local function sub( p )
-		if not p then
+	local function sub
+	(
+		p
+	)
+		if not p
+		then
 			return
 		end
 
@@ -142,8 +151,15 @@ rsync.action = function( inlet )
 	-- Deletes create multi match patterns
 	--
 	local paths = elist.getPaths(
-		function( etype, path1, path2 )
-			if string.byte( path1, -1 ) == 47 and etype == 'Delete' then
+		function
+		(
+			etype,
+			path1,
+			path2
+		)
+			if string.byte( path1, -1 ) == 47
+			and etype == 'Delete'
+			then
 				return sub( path1 )..'***', sub( path2 )
 			else
 				return sub( path1 ), sub( path2 )
@@ -164,9 +180,12 @@ rsync.action = function( inlet )
 	--
 	-- Adds one path to the filter
 	--
-	local function addToFilter( path )
-
-		if filterP[ path ] then
+	local function addToFilter
+	(
+		path
+	)
+		if filterP[ path ]
+		then
 			return
 		end
 
@@ -182,21 +201,20 @@ rsync.action = function( inlet )
 	-- so the file for example d1/d2/d3/f1 needs following filters:
 	-- 'd1/', 'd1/d2/', 'd1/d2/d3/' and 'd1/d2/d3/f1'
 	--
-	for _, path in ipairs( paths ) do
-
-		if path and path ~= '' then
-
+	for _, path in ipairs( paths )
+	do
+		if path and path ~= ''
+		then
 			addToFilter(path)
 
 			local pp = string.match( path, '^(.*/)[^/]+/?' )
 
-			while pp do
+			while pp
+			do
 				addToFilter(pp)
 				pp = string.match( pp, '^(.*/)[^/]+/?' )
 			end
-
 		end
-
 	end
 
 	local filterS = table.concat( filterI, '\n'   )
@@ -209,9 +227,12 @@ rsync.action = function( inlet )
 	)
 
 	local config = inlet.getConfig( )
+
 	local delete = nil
 
-	if config.delete == true or config.delete == 'running' then
+	if config.delete == true
+	or config.delete == 'running'
+	then
 		delete = { '--delete', '--ignore-errors' }
 	end
 
@@ -234,14 +255,20 @@ end
 
 
 --
--- Spawns the recursive startup sync
+-- Spawns the recursive startup sync.
 --
-rsync.init = function(event)
-
+rsync.init = function
+(
+	event
+)
 	local config   = event.config
+
 	local inlet    = event.inlet
+
 	local excludes = inlet.getExcludes( )
+
 	local delete   = nil
+
 	local target   = config.target
 
 	if not target
@@ -254,7 +281,8 @@ rsync.init = function(event)
 		target = config.host .. ':' .. config.targetdir
 	end
 
-	if config.delete == true or config.delete == 'startup'
+	if config.delete == true
+	or config.delete == 'startup'
 	then
 		delete = { '--delete', '--ignore-errors' }
 	end
@@ -313,12 +341,12 @@ end
 --
 -- Prepares and checks a syncs configuration on startup.
 --
-rsync.prepare =
-	function(
-		config,    -- the configuration
-		level,     -- additional error level for inherited use ( by rsyncssh )
-		skipTarget -- used by rsyncssh, do not check for target
-	)
+rsync.prepare = function
+(
+	config,    -- the configuration
+	level,     -- additional error level for inherited use ( by rsyncssh )
+	skipTarget -- used by rsyncssh, do not check for target
+)
 
 	-- First let default.prepare test the checkgauge
 	default.prepare( config, level + 6 )
@@ -329,56 +357,6 @@ rsync.prepare =
 			'default.rsync needs "target" configured',
 			level
 		)
-	end
-
-	if config.rsyncOps
-	then
-		error(
-			'"rsyncOps" is outdated please use the new rsync = { ... } syntax.',
-			level
-		)
-	end
-
-	if config.rsyncOpts and config.rsync._extra
-	then
-		error(
-			'"rsyncOpts" is outdated in favor of the new rsync = { ... } syntax\n"' +
-			'for which you provided the _extra attribute as well.\n"' +
-			'Please remove rsyncOpts from your config.',
-			level
-		)
-	end
-
-	if config.rsyncOpts
-	then
-		log(
-			'Warn',
-			'"rsyncOpts" is outdated. Please use the new rsync = { ... } syntax."'
-		)
-
-		config.rsync._extra = config.rsyncOpts
-		config.rsyncOpts = nil
-	end
-
-	if config.rsyncBinary and config.rsync.binary
-	then
-		error(
-			'"rsyncBinary is outdated in favor of the new rsync = { ... } syntax\n"'+
-			'for which you provided the binary attribute as well.\n"' +
-			"Please remove rsyncBinary from your config.'",
-			level
-		)
-	end
-
-	if config.rsyncBinary
-	then
-		log(
-			'Warn',
-			'"rsyncBinary" is outdated. Please use the new rsync = { ... } syntax."'
-		)
-
-		config.rsync.binary = config.rsyncBinary
-		config.rsyncOpts = nil
 	end
 
 	-- checks if the _computed argument exists already
