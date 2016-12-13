@@ -57,21 +57,26 @@ default.checkgauge = {
 --
 -- On default action the user's on*** scripts are called.
 --
-default.action = function( inlet )
-
+default.action = function
+(
+	inlet -- the inlet of the active sync.
+)
 	-- in case of moves getEvent returns the origin and dest of the move
 	local event, event2 = inlet.getEvent( )
+
 	local config = inlet.getConfig( )
 
 	local func = config[ 'on'.. event.etype ]
 
-	if type( func ) == 'function' then
+	if type( func ) == 'function'
+	then
 		func( event, event2 )
 	end
 
 	-- if function didnt change the wait status its not interested
 	-- in this event -> drop it.
-	if event.status == 'wait' then
+	if event.status == 'wait'
+	then
 		inlet.discardEvent( event )
 	end
 
@@ -83,14 +88,20 @@ end
 --
 -- Called when collecting a finished child process
 --
-default.collect = function( agent, exitcode )
-
+default.collect = function
+(
+	agent,    -- event or event list being collected
+	exitcode  -- the exitcode of the spawned process
+)
 	local config = agent.config
+
 	local rc
 
-	if config.exitcodes then
-		rc = config.exitcodes[exitcode]
-	elseif exitcode == 0 then
+	if config.exitcodes
+	then
+		rc = config.exitcodes[ exitcode ]
+	elseif exitcode == 0
+	then
 		rc = 'ok'
 	else
 		rc = 'die'
@@ -111,7 +122,6 @@ default.collect = function( agent, exitcode )
 			)
 
 			return 'ok'
-
 		elseif rc == 'again'
 		then
 			if settings( 'insist' )
@@ -139,7 +149,8 @@ default.collect = function( agent, exitcode )
 
 				terminate( -1 )
 			end
-		elseif rc == 'die' then
+		elseif rc == 'die'
+		then
 			log(
 				'Error',
 				'Failure on startup of ',
@@ -255,16 +266,19 @@ end
 -- Called on the Init event sent
 -- on (re)initialization of Lsyncd for every sync
 --
-default.init = function(event)
+default.init = function
+(
+	event -- the precreated init event.
+)
 	local config = event.config
 
 	local inlet = event.inlet
 
 	-- user functions
 	-- calls a startup if given by user script.
-	if type(config.onStartup) == 'function'
+	if type( config.onStartup ) == 'function'
 	then
-		local startup = config.onStartup(event)
+		config.onStartup( event )
 		-- TODO honor some return codes of startup like "warmstart".
 	end
 
@@ -272,15 +286,15 @@ default.init = function(event)
 	then
 		-- user script did not spawn anything
 		-- thus the blanket event is deleted again.
-		inlet.discardEvent(event)
+		inlet.discardEvent( event )
 	end
 end
 
 
 --
 -- The collapsor tries not to have more than these delays.
--- So it dealy stack does not grow too large,
--- since calculation for stacking events is n*log(n) (or so)
+-- So the delay queue does not grow too large
+-- since calculation for stacking events is n*log( n ) (or so)
 --
 default.maxDelays = 1000
 
@@ -339,8 +353,8 @@ default.rsyncExitCodes = {
 --
 -- Exitcodes of ssh and what to do.
 --
-default.sshExitCodes = {
-
+default.sshExitCodes =
+{
 	--
 	-- if another config provides the same table
 	-- this will not be inherited (merged) into that one
@@ -357,38 +371,39 @@ default.sshExitCodes = {
 
 
 --
--- Minimum seconds between two writes of a status file.
+-- Minimum seconds between two writes of the status file.
 --
 default.statusInterval = 10
 
 
 --
--- checks all keys to be in the checkgauge
+-- Checks all keys to be in the checkgauge.
 --
-
-local function check(
+local function check
+(
 	config,
 	gauge,
 	subtable,
 	level
 )
-	for k, v in pairs( config ) do
-
-		if not gauge[k] then
+	for k, v in pairs( config )
+	do
+		if not gauge[k]
+		then
 			error(
 				'Parameter "'
 				.. subtable
 				.. k
 				.. '" unknown.'
-				.. ' (if this is not a typo add it to checkgauge)',
+				.. ' ( if this is not a typo add it to checkgauge )',
 				level
 			);
 		end
 
-		if type( gauge [ k ] ) == 'table' then
-
-			if type( v ) ~= 'table' then
-
+		if type( gauge [ k ] ) == 'table'
+		then
+			if type( v ) ~= 'table'
+			then
 				error(
 					'Parameter "'
 					.. subtable
@@ -396,7 +411,6 @@ local function check(
 					.. '" must be a table.',
 					level
 				)
-
 			end
 
 			check(
@@ -405,12 +419,16 @@ local function check(
 				subtable .. k .. '.',
 				level + 1
 			)
-
 		end
 	end
 end
 
-default.prepare = function( config, level )
+
+default.prepare = function
+(
+	config, -- the config to prepare for
+	level   -- current callback level for error reporting
+)
 
 	local gauge = config.checkgauge
 
