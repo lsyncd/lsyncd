@@ -2288,8 +2288,10 @@ local Sync = ( function
 		--
 		-- inheritly transfers all blocks from delay
 		--
-		local function getBlocks( delay )
-
+		local function getBlocks
+		(
+			delay
+		)
 			blocks[ delay ] = true
 
 			if delay.blocks
