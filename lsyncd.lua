@@ -189,8 +189,8 @@ end )( )
 -- since Lua's # operator does not work on tables whose key values are not
 -- strictly linear.
 --
-local CountArray = ( function( )
-
+local CountArray = ( function
+( )
 	--
 	-- Metatable
 	--
@@ -279,7 +279,7 @@ local CountArray = ( function( )
 			[ k_nt ] = { }
 		}
 
-		setmetatable(o, mt)
+		setmetatable( o, mt )
 
 		return o
 	end
@@ -505,8 +505,73 @@ end
 --
 -- Holds the information about a delayed event for one Sync.
 --
+-- Valid stati of an delay are:
+--   'wait'    ... the event is ready to be handled.
+--   'active'  ... there is process running catering for this event.
+--   'blocked' ... this event waits for another to be handled first.
+--
 local Delay = ( function
 ( )
+	--
+	-- Metatable.
+	--
+	local mt = { }
+
+	--
+	-- Key to native table
+	--
+	local k_nt = { }
+
+	--
+	-- On accessing a nil index.
+	--
+	mt.__index = function
+	(
+		t,  -- table accessed
+		k   -- key value accessed
+	)
+		return t[ k_nt ][ k ]
+	end
+
+	--
+	-- On assigning a new index.
+	--
+	mt.__newindex = function
+	(
+		t,  -- table getting a new index assigned
+		k,  -- key value to assign to
+		v   -- value to assign
+	)
+		if not t[ k_nt ][ k ]
+		then
+			error( 'Cannot assign new values to Delays' )
+		end
+
+		t[ k_nt ][ k ] = v
+	end
+
+	--
+	-- This delay is being blocked by another delay
+	--
+	local function blockedBy
+	(
+		self,  -- this delay
+		delay  -- the blocking delay
+	)
+		self[ k_nt ].status = 'block'
+
+		if not self[ k_nt ].blocks
+		then
+			blocks = { }
+
+			self[ k_nt ].blocks = blocks
+		else
+			blocks = self[ k_nt ]
+		end
+
+		table.insert( blocks, delay )
+	end
+
 	--
 	-- Creates a new delay.
 	--
@@ -521,32 +586,22 @@ local Delay = ( function
 		path2   -- used only in moves, path and file-/dirname of
 		        -- move destination
 	)
-		return {
-			etype = etype,
-			sync = sync,
-			alarm = alarm,
-			path = path,
-			path2  = path2,
-			--
-			-- Status of the event.
-			-- Valid stati are:
-			--
-			-- 'wait'    ... the event is ready to be handled.
-			--
-			-- 'active'  ... there is process running catering for this event.
-			--
-			-- 'blocked' ... this event waits for another to be handled first.
-			--
-			-- 'done'    ... event has been collected. This should never be
-			--               visible as all references should be droped on
-			--               collection, nevertheless the seperate status is
-			--               used as insurrance everything is running correctly.
-			status = 'wait',
-			--
-			-- Position in the queue
-			--
-			dpos = -1,
-		}
+		local delay =
+			{
+				blockedBy = blockedBy,
+				[ k_nt ] =
+					{
+						etype = etype,
+						sync = sync,
+						alarm = alarm,
+						path = path,
+						path2  = path2,
+					},
+			}
+
+		setmetatable( delay, mt )
+
+		return delay
 	end
 
 	--
@@ -861,7 +916,6 @@ local Combiner = ( function
 		if d1.etype == 'Move' and d2.etype == 'Move'
 		then
 			-- TODO combine moves,
-
 			if d1.path  == d2.path
 			or d1.path  == d2.path2
 			or d1.path2 == d2.path
@@ -992,7 +1046,10 @@ local InletFactory = ( function
 		--
 		-- Can be: 'Attrib', 'Create', 'Delete', 'Modify' or 'Move',
 		--
-		etype = function( event )
+		etype = function
+		(
+			event
+		)
 			return e2d[ event ].etype
 		end,
 
@@ -1752,8 +1809,8 @@ local Excludes = ( function( )
 	--
 	-- Cretes a new exclude set.
 	--
-	local function new( )
-
+	local function new
+	( )
 		return {
 			list = { },
 
@@ -1822,7 +1879,7 @@ local Sync = ( function
 
 		Queue.remove( self.delays, delay.dpos )
 
-		-- free all delays blocked by this one.
+		-- frees all delays blocked by this one.
 		if delay.blocks
 		then
 			for _, vd in pairs( delay.blocks )
@@ -1991,14 +2048,7 @@ local Sync = ( function
 		oldDelay,
 		newDelay
 	)
-		newDelay.status = 'block'
-
-		if not oldDelay.blocks
-		then
-			oldDelay.blocks = { }
-		end
-
-		table.insert( oldDelay.blocks, newDelay )
+		newDelay:blockedBy( oldDelay )
 	end
 
 	--
