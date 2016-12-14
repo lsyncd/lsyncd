@@ -518,9 +518,18 @@ local Delay = ( function
 	local mt = { }
 
 	--
-	-- Key to native table
+	-- Secret key to native table
 	--
 	local k_nt = { }
+
+	local assignAble =
+	{
+		dpos   = true,
+		etype  = true,
+		path   = true,
+		path2  = true,
+		status = true,
+	}
 
 	--
 	-- On accessing a nil index.
@@ -542,9 +551,9 @@ local Delay = ( function
 		k,  -- key value to assign to
 		v   -- value to assign
 	)
-		if not t[ k_nt ][ k ]
+		if not assignAble[ k ]
 		then
-			error( 'Cannot assign new values to Delays' )
+			error( 'Cannot assign new key "' .. k .. '" to Delay' )
 		end
 
 		t[ k_nt ][ k ] = v
@@ -560,13 +569,15 @@ local Delay = ( function
 	)
 		self[ k_nt ].status = 'block'
 
+		local blocks
+
 		if not self[ k_nt ].blocks
 		then
 			blocks = { }
 
 			self[ k_nt ].blocks = blocks
 		else
-			blocks = self[ k_nt ]
+			blocks = self[ k_nt ].blocks
 		end
 
 		table.insert( blocks, delay )
@@ -596,6 +607,7 @@ local Delay = ( function
 						alarm = alarm,
 						path = path,
 						path2  = path2,
+						status = 'wait'
 					},
 			}
 
@@ -2295,8 +2307,10 @@ local Sync = ( function
 	--
 	-- Returns the soonest alarm for this Sync.
 	--
-	local function getAlarm( self )
-
+	local function getAlarm
+	(
+		self
+	)
 		if self.processes:size( ) >= self.config.maxProcesses
 		then
 			return false
@@ -2313,7 +2327,6 @@ local Sync = ( function
 					return d.alarm
 				end
 			end
-
 		end
 
 		-- nothing to spawn
@@ -2322,7 +2335,6 @@ local Sync = ( function
 
 	--
 	-- Gets all delays that are not blocked by active delays.
-	--
 	--
 	local function getDelays
 	(
@@ -3053,12 +3065,7 @@ local Inotify = ( function
 	(
 		path  -- absolute path of directory to observe
 	)
-		log(
-			'Function',
-			'Inotify.addWatch( ',
-				path,
-			' )'
-		)
+		log( 'Function', 'Inotify.addWatch( ', path, ' )' )
 
 		if not Syncs.concerns(path)
 		then
@@ -3832,12 +3839,7 @@ local StatusFile = ( function
 	(
 		timestamp
 	)
-		log(
-			'Function',
-			'write( ',
-				timestamp,
-			' )'
-		)
+		log( 'Function', 'write( ', timestamp, ' )' )
 
 		--
 		-- takes care not write too often
@@ -4035,7 +4037,10 @@ local lastReportedWaiting = false
 --
 -- Logs a backtrace
 --
-function runner.callError( message )
+function runner.callError
+(
+	message
+)
 	log('Error', 'in Lua: ', message )
 
 	-- prints backtrace
@@ -4093,6 +4098,8 @@ end
 function runner.cycle(
 	timestamp   -- the current kernel time (in jiffies)
 )
+	log( 'Function', 'cycle( ', timestamp, ' )' )
+
 	if lsyncdStatus == 'fade'
 	then
 		if processCount > 0
@@ -4117,7 +4124,8 @@ function runner.cycle(
 		end
 	end
 
-	if lsyncdStatus ~= 'run' then
+	if lsyncdStatus ~= 'run'
+	then
 		error( 'runner.cycle() called while not running!' )
 	end
 
@@ -4126,9 +4134,8 @@ function runner.cycle(
 	-- if possibly. But only let Syncs invoke actions if
 	-- not at global limit
 	--
-	if
-		not uSettings.maxProcesses or
-		processCount < uSettings.maxProcesses
+	if not uSettings.maxProcesses
+	or processCount < uSettings.maxProcesses
 	then
 		local start = Syncs.getRound( )
 
@@ -4136,7 +4143,9 @@ function runner.cycle(
 
 		repeat
 			local s = Syncs.get( ir )
+
 			s:invokeActions( timestamp )
+
 			ir = ir + 1
 
 			if ir > Syncs.size( )
@@ -4650,7 +4659,10 @@ end
 --         true  ... immediate action
 --         times ... the alarm time (only read if number is 1)
 --
-function runner.getAlarm( )
+function runner.getAlarm
+( )
+
+	log( 'Function', 'getAlarm( )' )
 
 	if lsyncdStatus ~= 'run'
 	then
@@ -4662,7 +4674,10 @@ function runner.getAlarm( )
 	--
 	-- Checks if 'a' is sooner than the 'alarm' up-value.
 	--
-	local function checkAlarm( a )
+	local function checkAlarm
+	(
+		a
+	)
 		if a == nil
 		then
 			error('got nil alarm')
@@ -4686,12 +4701,12 @@ function runner.getAlarm( )
 	-- checks all syncs for their earliest alarm,
 	-- but only if the global process limit is not yet reached.
 	--
-	if
-		not uSettings.maxProcesses or
-		processCount < uSettings.maxProcesses
+	if not uSettings.maxProcesses
+	or processCount < uSettings.maxProcesses
 	then
-		for _, s in Syncs.iwalk( ) do
-			checkAlarm( s:getAlarm ( ))
+		for _, s in Syncs.iwalk( )
+		do
+			checkAlarm( s:getAlarm( ) )
 		end
 	else
 		log(
