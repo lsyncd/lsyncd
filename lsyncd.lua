@@ -295,19 +295,83 @@ end )( )
 -- A queue is optimized for pushing and poping.
 -- TODO: make this an object
 --
-Queue = ( function( )
+Queue = ( function
+( )
+	--
+	-- Metatable
+	--
+	local mt = { }
+
 
 	--
-	-- Creates a new queue.
+	-- Key to native table
 	--
-	local function new
-	( )
-		return {
-			first = 1,
-			last  = 0,
-			size  = 0
-		};
+	local k_nt = { }
+
+
+	--
+	-- On accessing a nil index.
+	--
+	mt.__index = function
+	(
+		t,  -- table being accessed
+		k   -- key used to access
+	)
+		if type( k ) ~= 'number'
+		then
+			error( 'Key "' .. k .. '" invalid for Queue', 2 )
+		end
+
+		return t[ k_nt ][ k ]
 	end
+
+
+	--
+	-- On assigning a new index.
+	--
+	mt.__newindex = function
+	(
+		t,  -- table getting a new index assigned
+		k,  -- key value to assign to
+		v   -- value to assign
+	)
+		error( 'Queues are not directly assignable.', 2 )
+	end
+
+	--
+	-- Returns the first item of the Queue.
+	--
+	local function first
+	(
+		self
+	)
+		local nt = self[ k_nt ]
+
+		return nt[ nt.first ]
+	end
+	
+	--
+	-- Returns the last item of the Queue.
+	--
+	local function last
+	(
+		self
+	)
+		local nt = self[ k_nt ]
+
+		return nt[ nt.last ]
+	end
+	
+	--
+	-- Returns the size of the queue.
+	--
+	local function size
+	(
+		self
+	)
+		return self[ k_nt ].size
+	end
+
 
 	--
 	-- Pushes a value on the queue.
@@ -315,143 +379,191 @@ Queue = ( function( )
 	--
 	local function push
 	(
-		list,   -- list to push to
+		self,   -- queue to push to
 		value   -- value to push
 	)
 		if not value
 		then
-			error('Queue pushing nil value', 2)
+			error( 'Queue pushing nil value', 2 )
 		end
 
-		local last = list.last + 1
+		local nt = self[ k_nt ]
 
-		list.last = last
+		local last = nt.last + 1
 
-		list[ last ] = value
+		nt.last = last
 
-		list.size = list.size + 1
+		nt[ last ] = value
+
+		nt.size = nt.size + 1
 
 		return last
 	end
+
 
 	--
 	-- Removes an item at pos from the Queue.
 	--
 	local function remove
 	(
-		list,   -- the queue
-		pos
+		self,  -- the queue
+		pos    -- position to remove
 	)
-		if list[ pos ] == nil
+		local nt = self[ k_nt ]
+
+		if nt[ pos ] == nil
 		then
 			error( 'Removing nonexisting item in Queue', 2 )
 		end
 
-		list[ pos ] = nil
+		nt[ pos ] = nil
 
 		-- if removing first or last element,
 		-- the queue limits are adjusted.
-		if pos == list.first
+		if pos == nt.first
 		then
-			local last = list.last
+			local last = nt.last
 
-			while list[ pos ] == nil and pos <= list.last
+			while nt[ pos ] == nil and pos <= last
 			do
 				pos = pos + 1
 			end
 
-			list.first = pos
+			nt.first = pos
 
-		elseif pos == list.last
+		elseif pos == nt.last
 		then
-			while list[ pos ] == nil and pos >= list.first
+			local first = nt.firt
+
+			while nt[ pos ] == nil and pos >= first
 			do
 				pos = pos - 1
 			end
 
-			list.last = pos
+			nt.last = pos
 		end
 
 		-- reset the indizies if the queue is empty
-		if list.last < list.first
+		if nt.last < nt.first
 		then
-			list.first = 1
+			nt.first = 1
 
-			list.last  = 0
+			nt.last = 0
 		end
 
-		list.size = list.size - 1
+		nt.size = nt.size - 1
 	end
+
 
 	--
 	-- Queue iterator ( stateless )
+	-- TODO rename next
 	--
 	local function iter
 	(
-		list,  -- list to iterate
-		pos    -- position in the list
+		self,  -- queue to iterate
+		pos    -- current position
 	)
+		local nt = self[ k_nt ]
+
 		pos = pos + 1
 
-		while list[ pos ] == nil and pos <= list.last
+		while nt[ pos ] == nil and pos <= nt.last
 		do
 			pos = pos + 1
 		end
 
-		if pos > list.last
+		if pos > nt.last
 		then
 			return nil
 		end
 
-		return pos, list[ pos ]
+		return pos, nt[ pos ]
 	end
+
 
 	--
 	-- Reverse queue iterator (stateless)
+	-- TODO rename prev
 	--
 	local function iterReverse
 	(
-		list,  -- list to iterate
-		pos    -- position in the list
+		self,  -- queue to iterate
+		pos    -- current position
 	)
+		local nt = self[ k_nt ]
+
 		pos = pos - 1
 
-		while list[pos] == nil and pos >= list.first
+		while nt[ pos ] == nil and pos >= nt.first
 		do
 			pos = pos - 1
 		end
 
-		if pos < list.first
+		if pos < nt.first
 		then
 			return nil
 		end
 
-		return pos, list[ pos ]
+		return pos, nt[ pos ]
 	end
+
 
 	--
 	-- Iteraters through the queue
 	-- returning all non-nil pos-value entries.
 	--
-	local function qpairs( list )
-		return iter, list, list.first - 1
+	local function qpairs
+	(
+		self
+	)
+		return iter, self, self[ k_nt ].first - 1
 	end
+
 
 	--
 	-- Iteraters backwards through the queue
 	-- returning all non-nil pos-value entries.
 	--
-	local function qpairsReverse( list )
-		return iterReverse, list, list.last + 1
+	local function qpairsReverse
+	(
+		self
+	)
+		return iterReverse, self, self[ k_nt ].last + 1
+	end
+	
+
+	--
+	-- Creates a new queue.
+	--
+	local function new
+	( )
+		local q = {
+			first = first,
+			last = last,
+			push = push,
+			qpairs = qpairs,
+			qpairsReverse = qpairsReverse,
+			remove = remove,
+			size = size,
+
+			[ k_nt ] =
+			{
+				first = 1,
+				last  = 0,
+				size  = 0
+			}
+		}
+
+		setmetatable( q, mt )
+
+		return q
 	end
 
-	return {
-		new = new,
-		push = push,
-		remove = remove,
-		qpairs = qpairs,
-		qpairsReverse = qpairsReverse
-	}
+	--
+	-- Public interface
+	--
+	return { new = new }
 end )( )
 
 
@@ -1886,10 +1998,10 @@ local Sync = ( function
 	)
 		if self.delays[ delay.dpos ] ~= delay
 		then
-			error( 'Queue is broken, delay not a dpos' )
+			error( 'Queue is broken, delay not at dpos' )
 		end
 
-		Queue.remove( self.delays, delay.dpos )
+		self.delays:remove( delay.dpos )
 
 		-- frees all delays blocked by this one.
 		if delay.blocks
@@ -2237,12 +2349,12 @@ local Sync = ( function
 				' event.'
 			)
 
-			if self.delays.size > 0
+			if self.delays:size( ) > 0
 			then
-				stack( self.delays[ self.delays.last ], nd )
+				stack( self.delays:last( ), nd )
 			end
 
-			nd.dpos = Queue.push( self.delays, nd )
+			nd.dpos = self.delays:push( nd )
 
 			recurse( )
 
@@ -2251,7 +2363,7 @@ local Sync = ( function
 
 		-- detects blocks and combos by working from back until
 		-- front through the fifo
-		for il, od in Queue.qpairsReverse( self.delays )
+		for il, od in self.delays:qpairsReverse( )
 		do
 			-- asks Combiner what to do
 			local ac = Combiner.combine( od, nd )
@@ -2260,17 +2372,18 @@ local Sync = ( function
 			then
 				if ac == 'remove'
 				then
-					Queue.remove( self.delays, il )
+					self.delays:remove( il )
 				elseif ac == 'stack'
 				then
 					stack( od, nd )
 
-					nd.dpos = Queue.push( self.delays, nd )
+					nd.dpos = self.delays:push( nd )
 				elseif ac == 'absorb'
 				then
 					-- nada
 				elseif ac == 'replace'
 				then
+					-- TODO make this more elegant
 					od.etype = nd.etype
 					od.path  = nd.path
 					od.path2 = nd.path2
@@ -2299,7 +2412,7 @@ local Sync = ( function
 		end
 
 		-- no block or combo
-		nd.dpos = Queue.push( self.delays, nd )
+		nd.dpos = self.delays:push( nd )
 
 		recurse( )
 	end
@@ -2320,7 +2433,7 @@ local Sync = ( function
 		if self.processes:size( ) < self.config.maxProcesses
 		then
 			-- finds the nearest delay waiting to be spawned
-			for _, d in Queue.qpairs( self.delays )
+			for _, d in self.delays:qpairs( )
 			do
 				if d.status == 'wait'
 				then
@@ -2365,7 +2478,7 @@ local Sync = ( function
 			end
 		end
 
-		for _, d in Queue.qpairs( self.delays )
+		for _, d in self.delays:qpairs( )
 		do
 			if d.status == 'active'
 			or ( test and not test( InletFactory.d2e( d ) ) )
@@ -2404,7 +2517,7 @@ local Sync = ( function
 			return
 		end
 
-		for _, d in Queue.qpairs( self.delays )
+		for _, d in self.delays:qpairs( )
 		do
 			-- if reached the global limit return
 			if uSettings.maxProcesses
@@ -2415,7 +2528,7 @@ local Sync = ( function
 				return
 			end
 
-			if self.delays.size < self.config.maxDelays
+			if self.delays:size( ) < self.config.maxDelays
 			then
 				-- time constrains are only concerned if not maxed
 				-- the delay FIFO already.
@@ -2453,9 +2566,9 @@ local Sync = ( function
 		self,
 		timestamp
 	)
-		for i, d in Queue.qpairs( self.delays )
+		for i, d in self.delays:qpairs( )
 		do
-			if self.delays.size < self.config.maxDelays
+			if self.delays:size( ) < self.config.maxDelays
 			then
 				-- time constrains are only concerned if not maxed
 				-- the delay FIFO already.
@@ -2485,7 +2598,7 @@ local Sync = ( function
 	)
 		local newd = Delay.new( 'Blanket', self, true, '' )
 
-		newd.dpos = Queue.push( self.delays, newd )
+		newd.dpos = self.delays:push( newd )
 
 		return newd
 	end
@@ -2500,7 +2613,7 @@ local Sync = ( function
 	)
 		local newd = Delay.new( 'Init', self, true, '' )
 
-		newd.dpos = Queue.push( self.delays, newd )
+		newd.dpos = self.delays:push( newd )
 
 		return newd
 	end
@@ -2517,11 +2630,12 @@ local Sync = ( function
 
 		f:write( self.config.name, ' source=', self.source, '\n' )
 
-		f:write( 'There are ', self.delays.size, ' delays\n')
+		f:write( 'There are ', self.delays:size( ), ' delays\n')
 
-		for i, vd in Queue.qpairs( self.delays )
+		for i, vd in self.delays:qpairs( )
 		do
 			local st = vd.status
+
 			f:write( st, string.sub( spaces, 1, 7 - #st ) )
 			f:write( vd.etype, ' ' )
 			f:write( vd.path )
