@@ -481,13 +481,13 @@ rsync.prepare = function
 		computed[ computedN ] = '--append'
 		computedN = computedN  + 1
 	end
-	
+
 	if crsync.append_verify
 	then
 		computed[ computedN ] = '--append-verify'
 		computedN = computedN  + 1
 	end
-	
+
 	if crsync.backup_dir
 	then
 		computed[ computedN ] = '--backup-dir=' .. crsync.backup_dir
@@ -511,13 +511,13 @@ rsync.prepare = function
 		computed[ computedN ] = '--chown=' .. crsync.chown
 		computedN = computedN  + 1
 	end
-	
+
 	if crsync.groupmap
 	then
 		computed[ computedN ] = '--groupmap=' .. crsync.groupmap
 		computedN = computedN  + 1
 	end
-	
+
 	if crsync.existing
 	then
 		computed[ computedN ] = '--existing'
@@ -565,7 +565,7 @@ rsync.prepare = function
 		computed[ computedN ] = '--timeout=' .. crsync.timeout
 		computedN = computedN  + 1
 	end
-	
+
 	if crsync.usermap
 	then
 		computed[ computedN ] = '--usermap=' .. crsync.usermap

@@ -72,17 +72,22 @@ rsyncssh.checkgauge = {
 --
 -- Spawns rsync for a list of events
 --
-rsyncssh.action = function( inlet )
-
+rsyncssh.action = function
+(
+	inlet
+)
 	local event, event2 = inlet.getEvent( )
 
 	local config = inlet.getConfig( )
 
 	-- makes move local on target host
 	-- if the move fails, it deletes the source
-	if event.etype == 'Move' then
+	if event.etype == 'Move'
+	then
 		local path1 = config.targetdir .. event.path
+
 		local path2 = config.targetdir .. event2.path
+
 		path1 = "'" .. path1:gsub ('\'', '\'"\'"\'') .. "'"
 		path2 = "'" .. path2:gsub ('\'', '\'"\'"\'') .. "'"
 
@@ -181,10 +186,12 @@ rsyncssh.action = function( inlet )
 	local elist = inlet.getEvents(
 		function( e )
 			-- TODO use a table
-			return e.etype ~= 'Move' and
-			       e.etype ~= 'Delete' and
-				   e.etype ~= 'Init' and
-				   e.etype ~= 'Blanket'
+			return(
+				e.etype ~= 'Move'
+				and e.etype ~= 'Delete'
+				and e.etype ~= 'Init'
+				and e.etype ~= 'Blanket'
+			)
 		end
 	)
 
@@ -193,13 +200,16 @@ rsyncssh.action = function( inlet )
 	--
 	-- removes trailing slashes from dirs.
 	--
-	for k, v in ipairs( paths ) do
-		if string.byte( v, -1 ) == 47 then
+	for k, v in ipairs( paths )
+	do
+		if string.byte( v, -1 ) == 47
+		then
 			paths[k] = string.sub( v, 1, -2 )
 		end
 	end
 
 	local sPaths = table.concat( paths, '\n' )
+
 	local zPaths = table.concat( paths, '\000' )
 
 	log(
@@ -223,59 +233,76 @@ end
 -----
 -- Called when collecting a finished child process
 --
-rsyncssh.collect = function( agent, exitcode )
-
+rsyncssh.collect = function
+(
+	agent,
+	exitcode
+)
 	local config = agent.config
 
-	if not agent.isList and agent.etype == 'Init' then
+	if not agent.isList and agent.etype == 'Init'
+	then
 		local rc = config.rsyncExitCodes[exitcode]
 
-		if rc == 'ok' then
+		if rc == 'ok'
+		then
 			log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
-		elseif rc == 'again' then
-			if settings('insist') then
-				log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
+		elseif rc == 'again'
+		then
+			if settings('insist')
+			then
+				log( 'Normal', 'Retrying startup of "',agent.source,'": ', exitcode )
 			else
-				log('Error', 'Temporary or permanent failure on startup of "',
-				agent.source, '". Terminating since "insist" is not set.');
-				terminate(-1) -- ERRNO
+				log( 'Error', 'Temporary or permanent failure on startup of "',
+				agent.source, '". Terminating since "insist" is not set.' );
+				terminate( -1 ) -- ERRNO
 			end
-
-		elseif rc == 'die' then
-			log('Error', 'Failure on startup of "',agent.source,'": ', exitcode)
+		elseif rc == 'die'
+		then
+			log( 'Error', 'Failure on startup of "',agent.source,'": ', exitcode )
 		else
-			log('Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode)
+			log( 'Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode )
+
 			rc = 'die'
 		end
 
 		return rc
-
 	end
 
-	if agent.isList then
-		local rc = config.rsyncExitCodes[exitcode]
-		if rc == 'ok' then
-			log('Normal', 'Finished (list): ',exitcode)
-		elseif rc == 'again' then
-			log('Normal', 'Retrying (list): ',exitcode)
-		elseif rc == 'die' then
-			log('Error',  'Failure (list): ', exitcode)
+	if agent.isList
+	then
+		local rc = config.rsyncExitCodes[ exitcode ]
+
+		if rc == 'ok'
+		then
+			log( 'Normal', 'Finished (list): ', exitcode )
+		elseif rc == 'again'
+		then
+			log( 'Normal', 'Retrying (list): ', exitcode )
+		elseif rc == 'die'
+		then
+			log( 'Error',  'Failure (list): ', exitcode )
 		else
-			log('Error', 'Unknown exitcode (list): ',exitcode)
+			log( 'Error', 'Unknown exitcode (list): ', exitcode )
+
 			rc = 'die'
 		end
 		return rc
 	else
 		local rc = config.sshExitCodes[exitcode]
 
-		if rc == 'ok' then
-			log('Normal', 'Finished ',agent.etype,' ',agent.sourcePath,': ',exitcode)
-		elseif rc == 'again' then
-			log('Normal', 'Retrying ',agent.etype,' ',agent.sourcePath,': ',exitcode)
-		elseif rc == 'die' then
-			log('Normal', 'Failure ',agent.etype,' ',agent.sourcePath,': ',exitcode)
+		if rc == 'ok'
+		then
+			log( 'Normal', 'Finished ',agent.etype,' ',agent.sourcePath,': ',exitcode )
+		elseif rc == 'again'
+		then
+			log( 'Normal', 'Retrying ',agent.etype,' ',agent.sourcePath,': ',exitcode )
+		elseif rc == 'die'
+		then
+			log( 'Normal', 'Failure ',agent.etype,' ',agent.sourcePath,': ',exitcode )
 		else
-			log('Error', 'Unknown exitcode ',agent.etype,' ',agent.sourcePath,': ',exitcode)
+			log( 'Error', 'Unknown exitcode ',agent.etype,' ',agent.sourcePath,': ',exitcode )
+
 			rc = 'die'
 		end
 
@@ -287,8 +314,11 @@ end
 --
 -- checks the configuration.
 --
-rsyncssh.prepare = function( config, level )
-
+rsyncssh.prepare = function
+(
+	config,
+	level
+)
 	default.rsync.prepare( config, level + 1, true )
 
 	if not config.host
@@ -458,20 +488,20 @@ rsyncssh.sshExitCodes = default.sshExitCodes
 rsyncssh.xargs = {
 
 	--
-	-- the binary called (on target host)
-	binary =
-		'/usr/bin/xargs',
+	-- the binary called ( on target host )
+	--
+	binary = '/usr/bin/xargs',
 
 	--
 	-- delimiter, uses null by default, you might want to override this for older
 	-- by for example '\n'
-	delimiter =
-		'\000',
+	--
+	delimiter = '\000',
 
 	--
 	-- extra parameters
-	_extra =
-		{ '-0', 'rm -rf' }
+	--
+	_extra = { '-0', 'rm -rf' }
 }
 
 --
@@ -484,31 +514,26 @@ rsyncssh.ssh = {
 	--
 	-- the binary called
 	--
-	binary =
-		'/usr/bin/ssh',
+	binary = '/usr/bin/ssh',
 
 	--
 	-- if set adds this key to ssh
 	--
-	identityFile =
-		nil,
+	identityFile = nil,
 
 	--
 	-- if set adds this special options to ssh
 	--
-	options =
-		nil,
+	options = nil,
 
 	--
 	-- if set connect to this port
 	--
-	port =
-		nil,
+	port = nil,
 
 	--
 	-- extra parameters
 	--
-	_extra =
-		{ }
+	_extra = { }
 }
 
