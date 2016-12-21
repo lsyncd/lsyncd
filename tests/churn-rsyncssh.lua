@@ -15,7 +15,7 @@ cwriteln( '( for current user                                             )' )
 local tdir, srcdir, trgdir = mktemps()
 
 -- makes some startup data
-churn( srcdir, 100 )
+churn( srcdir, 10, true )
 
 local logs = {}
 logs =  { '-log', 'Delay' }
@@ -35,7 +35,7 @@ local pid = spawn(
 cwriteln( 'waiting for Lsyncd to startup' )
 posix.sleep( 1 )
 
-churn( srcdir, 100 )
+churn( srcdir, 15, false )
 
 cwriteln( 'waiting for Lsyncd to finish its jobs.' )
 posix.sleep( 10 )

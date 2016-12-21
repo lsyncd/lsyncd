@@ -3,19 +3,24 @@ posix = require( 'posix' )
 
 -- escape codes to colorize output on terminal
 local c1='\027[47;34m'
+
 local c0='\027[0m'
 
 --
--- writes colorized
+-- Writes colorized.
 --
-function cwriteln(...)
+function cwriteln
+(...)
 	io.write( c1, '++ ', ... )
 	io.write( c0, '\n' )
 end
 
 --
--- initializes the pseudo random generator
--- if environemnt 'SEED' is set, use that as seed.
+-- Initializes the pseudo random generator
+--
+-- If environment variable 'SEED' is set,
+-- that one is used seed.
+--
 local seed = os.getenv( 'SEED')  or os.time( )
 
 math.randomseed( seed )
@@ -23,12 +28,12 @@ math.randomseed( seed )
 cwriteln( 'random seed: ', seed )
 
 --
--- creates a tmp directory
+-- Creates a tmp directory.
 --
--- @returns the name of the directory
+-- Returns the name of the directory.
 --
-function mktempd( )
-
+function mktempd
+( )
 	local f = io.popen( 'mktemp -td ltest.XXX', 'r' )
 
 	local s = f:read( '*a' )
@@ -43,15 +48,15 @@ function mktempd( )
 end
 
 --
--- creates a tmp directory with the
--- typical lsyncd test architecture
+-- Creates a tmp directory with the
+-- typical lsyncd test architecture.
 --
--- @returns path of tmpdir
---          path of srcdir
---          path of trgdir
+-- returns path of tmpdir
+--         path of srcdir
+--         path of trgdir
 --
-
-function mktemps( )
+function mktemps
+( )
 	local tdir = mktempd() .. '/'
 
 	cwriteln( 'using ', tdir, ' as test root' )
@@ -71,8 +76,11 @@ end
 -- Writes a file with 'text' in it
 -- and adds a newline.
 --
-function writefile( filename, text )
-
+function writefile
+(
+	filename,
+	text
+)
 	local f = io.open( filename, 'w' )
 
 	if not f
@@ -91,12 +99,12 @@ function writefile( filename, text )
 end
 
 --
--- spawns a subprocess.
+-- Spawns a subprocess.
 --
--- @returns the processes pid
+-- Returns the processes pid.
 --
-function spawn(...)
-
+function spawn
+(...)
 	args = { ... }
 
 	cwriteln( 'spawning: ', table.concat( args, ' ' ) )
@@ -126,11 +134,13 @@ end
 --
 -- Makes a lot of random data
 --
--- @param rootdir ... the directory to make data in
--- @param n       ... roughly how much data action will done
 --
-function churn( rootdir, n )
-
+function churn
+(
+	rootdir,  -- the directory to make data in
+	n,        -- roughly how much data action will be done
+	init      -- if true init random data only, no sleeps or moves
+)
 	-- all dirs created, indexed by integer and path
 	root = { name = '' }
 
@@ -145,7 +155,11 @@ function churn( rootdir, n )
 	--
 	-- name is internal recursive paramter, keep it nil.
 	--
-	local function dirname( dir, name )
+	local function dirname
+	(
+		dir,
+		name
+	)
 		name = name or ''
 
 		if not dir
@@ -159,7 +173,10 @@ function churn( rootdir, n )
 	--
 	-- Picks a random dir.
 	--
-	local function pickDir( notRoot )
+	local function pickDir
+	(
+		notRoot
+	)
 		if notRoot
 		then
 			if #alldirs <= 2
@@ -181,8 +198,8 @@ function churn( rootdir, n )
 	--  * the filename
 	--  * number of files in directory
 	--
-	local function pickFile( )
-
+	local function pickFile
+	( )
 		-- picks the random directory
 		if #dirsWithFileI < 1
 		then
@@ -236,8 +253,8 @@ function churn( rootdir, n )
 	-- @param fn   -- filename
 	-- @param c    -- number of files in dir
 	--
-	local function rmFileReference( dir, fn, c )
-
+	local function rmFileReference
+	( dir, fn, c )
 		dir[fn] = nil
 
 		if c == 1
@@ -261,7 +278,8 @@ function churn( rootdir, n )
 	-- possible randomized behaviour.
 	-- just gives it a pause
 	--
-	local function sleep( )
+	local function sleep
+	( )
 		cwriteln( '..zzz..' )
 
 		posix.sleep( 1 )
@@ -271,8 +289,8 @@ function churn( rootdir, n )
 	-- possible randomized behaviour.
 	-- creates a directory
 	--
-	local function mkdir( )
-
+	local function mkdir
+	( )
 		-- chooses a random directory to create it into
 		local rdir = pickDir( )
 
@@ -299,11 +317,11 @@ function churn( rootdir, n )
 	end
 
 	--
-	-- possible randomized behaviour.
+	-- Possible randomized behaviour:
 	-- Creates a file.
 	--
-	local function mkfile( )
-
+	local function mkfile
+	( )
 		-- chooses a random directory to create it into
 		local rdir = pickDir()
 
@@ -342,8 +360,8 @@ function churn( rootdir, n )
 	-- Possible randomized behaviour:
 	-- Moves a directory.
 	--
-	local function mvdir( )
-
+	local function mvdir
+	( )
 		if #alldirs <= 2
 		then
 			return
@@ -393,7 +411,8 @@ function churn( rootdir, n )
 	-- possible randomized behaviour,
 	-- moves a file.
 	--
-	local function mvfile( )
+	local function mvfile
+	( )
 		local odir, fn, c = pickFile( )
 		
 		if not odir
@@ -425,11 +444,11 @@ function churn( rootdir, n )
 	end
 
 	--
-	-- possible randomized behaviour,
-	-- removes a file.
+	-- Possible randomized behaviour:
+	-- Removes a file.
 	--
-	local function rmfile( )
-
+	local function rmfile
+	( )
 		local dir, fn, c = pickFile( )
 
 		if dir
@@ -444,13 +463,25 @@ function churn( rootdir, n )
 		end
 	end
 
-	local dice = {
-		{ 10,	sleep  },
-		{ 20,   mkfile },
-		{ 20, 	mkdir  },
-		{ 20,   mvdir  },
-		{ 20,   rmfile },
-	}
+	local dice
+	
+	if init
+	then
+		dice =
+		{
+			{ 10,   mkfile },
+			{ 10, 	mkdir  },
+		}
+	else
+		dice =
+		{
+			{ 10,	sleep  },
+			{ 20,   mkfile },
+			{ 20, 	mkdir  },
+			{ 20,   mvdir  },
+			{ 20,   rmfile },
+		}
+	end
 
 	cwriteln( 'making random data' )
 

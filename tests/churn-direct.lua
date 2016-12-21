@@ -3,6 +3,7 @@
 -- makes thousends of random changes to the source tree
 
 require( 'posix' )
+
 dofile( 'tests/testlib.lua' )
 
 cwriteln( '****************************************************************' )
@@ -12,7 +13,7 @@ cwriteln( '****************************************************************' )
 local tdir, srcdir, trgdir = mktemps( )
 
 -- makes some startup data
-churn( srcdir, 10 )
+churn( srcdir, 10, init )
 
 local logs = { }
 --local logs = {'-log', 'Exec', '-log', 'Delay' }
@@ -26,7 +27,7 @@ local pid = spawn(
 cwriteln( 'waiting for Lsyncd to startup' )
 posix.sleep( 1 )
 
-churn( srcdir, 500 )
+churn( srcdir, 500, false )
 
 cwriteln( 'waiting for Lsyncd to finish its jobs.' )
 posix.sleep( 10 )

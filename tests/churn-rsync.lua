@@ -11,7 +11,7 @@ cwriteln( '****************************************************************' )
 local tdir, srcdir, trgdir = mktemps( )
 
 -- makes some startup data
-churn( srcdir, 100 )
+churn( srcdir, 100, true )
 
 local logs = { }
 -- logs =  { "-log", "Delay", "-log", "Fsevents" }
@@ -27,7 +27,7 @@ cwriteln( 'waiting for Lsyncd to startup' )
 
 posix.sleep( 1 )
 
-churn( srcdir, 500 )
+churn( srcdir, 500, false )
 
 cwriteln( 'waiting for Lsyncd to finish its jobs.' )
 
