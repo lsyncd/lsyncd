@@ -30,6 +30,9 @@
 		 are found.
 	fix: Shell injection hole close for default.direct on mv commands. (Marcin Szewczyk)
 	fix: Crash of default-direct when source doesn't exit (Michael Ploujnikov)
+	fix: fixed faulty event replacement,
+	     a race condition noticed by extensive default.rsyncssh testing
+	     changed Delays were not reflected in Events
 
 15-10-2015: 2.1.6
 	enhancement: Lsyncd now locks its pidfile

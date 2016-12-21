@@ -433,7 +433,7 @@ Queue = ( function
 
 		elseif pos == nt.last
 		then
-			local first = nt.firt
+			local first = nt.first
 
 			while nt[ pos ] == nil and pos >= first
 			do
@@ -454,6 +454,24 @@ Queue = ( function
 		nt.size = nt.size - 1
 	end
 
+	--
+	-- Replaces a value.
+	--
+	local function replace
+	(
+		self,  -- the queue
+		pos,   -- position to replace
+		value  -- the new entry
+	)
+		local nt = self[ k_nt ]
+
+		if nt[ pos ] == nil
+		then
+			error( 'Trying to replace an unset Queue entry.' )
+		end
+
+		nt[ pos ] = value
+	end
 
 	--
 	-- Queue iterator ( stateless )
@@ -545,6 +563,7 @@ Queue = ( function
 			qpairs = qpairs,
 			qpairsReverse = qpairsReverse,
 			remove = remove,
+			replace = replace,
 			size = size,
 
 			[ k_nt ] =
@@ -681,18 +700,27 @@ local Delay = ( function
 	)
 		self[ k_nt ].status = 'block'
 
-		local blocks
+		local blocks = delay[ k_nt ].blocks
 
-		if not self[ k_nt ].blocks
+		if not blocks
 		then
 			blocks = { }
 
-			self[ k_nt ].blocks = blocks
-		else
-			blocks = self[ k_nt ].blocks
+			delay[ k_nt ].blocks = blocks
 		end
 
-		table.insert( blocks, delay )
+		table.insert( blocks, self )
+	end
+
+
+	--
+	-- Sets the delay status to 'active'.
+	--
+	local function setActive
+	(
+		self
+	)
+		self[ k_nt ].status = 'active'
 	end
 
 	--
@@ -712,6 +740,7 @@ local Delay = ( function
 		local delay =
 			{
 				blockedBy = blockedBy,
+				setActive = setActive,
 				[ k_nt ] =
 					{
 						etype = etype,
@@ -980,7 +1009,7 @@ local Combiner = ( function
 
 					d1.path2 = nil
 
-					return 'stack'
+					return 'toDelete,stack'
 				end
 
 				-- on 'Attrib' or 'Modify' simply stack on moves
@@ -2196,7 +2225,11 @@ local Sync = ( function
 			' )'
 		)
 
-		-- TODO
+		--
+		-- In case new directories were created
+		-- looks through this directories and makes create events for
+		-- new stuff found in there.
+		--
 		local function recurse
 		( )
 			if etype == 'Create' and path:byte( -1 ) == 47
@@ -2378,15 +2411,23 @@ local Sync = ( function
 					stack( od, nd )
 
 					nd.dpos = self.delays:push( nd )
+				elseif ac == 'toDelete,stack'
+				then
+					-- turns delay1 into a delete
+					-- and stacks delay2
+					local rd = Delay.new( 'Delete', self, od.alarm, od.path )
+
+					self.delays:replace( il, rd )
+
+					rd.dpos = il
 				elseif ac == 'absorb'
 				then
 					-- nada
 				elseif ac == 'replace'
 				then
-					-- TODO make this more elegant
-					od.etype = nd.etype
-					od.path  = nd.path
-					od.path2 = nd.path2
+					self.delays:replace( il, nd )
+
+					nd.dpos = il
 				elseif ac == 'split'
 				then
 					delay( self, 'Delete', time, path,  nil )
@@ -2406,9 +2447,9 @@ local Sync = ( function
 
 		if nd.path2
 		then
-			log( 'Delay','New ',nd.etype,': ',nd.path,' -> ',nd.path2 )
+			log( 'Delay', 'New ', nd.etype, ': ', nd.path, ' -> ', nd.path2 )
 		else
-			log( 'Delay','New ',nd.etype,': ',nd.path )
+			log( 'Delay', 'New ', nd.etype, ': ', nd.path )
 		end
 
 		-- no block or combo
@@ -5004,7 +5045,8 @@ function spawn(
 	then
 		-- is an event
 
-		if dol.status ~= 'wait' then
+		if dol.status ~= 'wait'
+		then
 			error('spawn() called on an non-waiting event', 2)
 		end
 	else
@@ -5041,13 +5083,14 @@ function spawn(
 		if dol.status
 		then
 			-- is a delay
-			dol.status = 'active'
+			dol:setActive( )
+
 			sync.processes[ pid ] = dol
 		else
 			-- is a list
 			for _, d in ipairs( dol )
 			do
-				d.status = 'active'
+				d:setActive( )
 			end
 
 			sync.processes[ pid ] = dol
@@ -5058,7 +5101,8 @@ end
 --
 -- Spawns a child process using the default shell.
 --
-function spawnShell(
+function spawnShell
+(
 	agent,     -- the delay(list) to spawn the command for
 	command,   -- the shell command
 	...        -- additonal arguments
@@ -5077,7 +5121,8 @@ end
 --
 -- Observes a filedescriptor.
 --
-function observefd(
+function observefd
+(
 	fd,     -- file descriptor
 	ready,  -- called when fd is ready to be read
 	writey  -- called when fd is ready to be written
@@ -5093,7 +5138,8 @@ end
 --
 -- Stops observeing a filedescriptor.
 --
-function nonobservefd(
+function nonobservefd
+(
 	fd      -- file descriptor
 )
 	return lsyncd.nonobserve_fd( fd )

@@ -41,8 +41,11 @@ cwriteln( 'waiting for Lsyncd to finish its jobs.' )
 posix.sleep( 10 )
 
 cwriteln( 'killing the Lsyncd daemon' )
+
 posix.kill(pid)
-local _, exitmsg, lexitcode = posix.wait(lpid)
+
+local _, exitmsg, lexitcode = posix.wait( lpid )
+
 cwriteln( 'Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode )
 
 _, result, code = os.execute( 'diff -r ' .. srcdir .. ' ' .. trgdir )
@@ -54,7 +57,7 @@ else
 	cwriteln( 'Signal terminating diff = ', code )
 end
 
-if exitcode ~= 0
+if code ~= 0
 then
 	os.exit( 1 )
 else
