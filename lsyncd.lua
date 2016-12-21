@@ -1015,7 +1015,7 @@ local Combiner = ( function
 		log(
 			'Delay',
 			d2.etype, ': ',
-			d2.path, ' -> ', d2.path2,i
+			d2.path, ' -> ', d2.path2,
 			' splits on ',
 			d1.etype, ': ', d1.path
 		)
