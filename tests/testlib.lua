@@ -475,7 +475,7 @@ function churn
 	else
 		dice =
 		{
-			{ 10,	sleep  },
+			{ 50,	sleep  },
 			{ 20,   mkfile },
 			{ 20, 	mkdir  },
 			{ 20,   mvdir  },

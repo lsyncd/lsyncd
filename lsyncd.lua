@@ -770,24 +770,6 @@ end )( )
 local Combiner = ( function
 ( )
 	--
-	-- The new delay is absorbed by an older one.
-	--
-	local function abso
-	(
-		d1, -- old delay
-		d2  -- new delay
-	)
-		log(
-			'Delay',
-			d2.etype, ': ',d2.path,
-			' absorbed by ',
-			d1.etype,': ',d1.path
-		)
-
-		return 'absorb'
-	end
-
-	--
 	-- The new delay replaces the old one if it's a file
 	--
 	local function refi
@@ -819,77 +801,51 @@ local Combiner = ( function
 	end
 
 	--
-	-- The new delay replaces an older one.
-	--
-	local function repl
-	(
-		d1, -- old delay
-		d2  -- new delay
-	)
-		log(
-			'Delay',
-			d2.etype, ': ', d2.path,
-			' replaces ',
-			d1.etype, ': ', d1.path
-		)
-
-		return 'replace'
-	end
-
-	--
-	-- Two delays nullificate each other.
-	--
-	local function null
-	(
-		d1, -- old delay
-		d2  -- new delay
-	)
-		log(
-			'Delay',
-			d2.etype,': ',d2.path,
-			' nullifies ',
-			d1.etype,': ',d1.path
-		)
-
-		return 'remove'
-	end
-
-	--
 	-- Table on how to combine events that dont involve a move.
 	--
 	local combineNoMove = {
 
 		Attrib = {
-			Attrib = abso,
-			Modify = repl,
-			Create = repl,
-			Delete = repl
+			Attrib = 'absorb',
+			Modify = 'replace',
+			Create = 'replace',
+			Delete = 'replace'
 		},
 
 		Modify = {
-			Attrib = abso,
-			Modify = abso,
-			Create = repl,
-			Delete = repl
+			Attrib = 'absorb',
+			Modify = 'absorb',
+			Create = 'replace',
+			Delete = 'replace'
 		},
 
 		Create = {
-			Attrib = abso,
-			Modify = abso,
-			Create = abso,
-			Delete = repl
+			Attrib = 'absorb',
+			Modify = 'absorb',
+			Create = 'absorb',
+			Delete = 'replace'
 		},
 
 		Delete = {
-			Attrib = abso,
-			Modify = abso,
-			Create = refi,
-			Delete = abso
+			Attrib = 'absorb',
+			Modify = 'absorb',
+			Create = 'replace file,block dir',
+			Delete = 'absorb'
 		},
 	}
 
 	--
-	-- Combines two delays
+	-- Returns the way two Delay should be combined.
+	--
+	-- Result:
+	--    nil               -- They don't affect each other.
+	--    'stack'           -- Old Delay blocks new Delay.
+	--    'replace'         -- Old Delay is replaced by new Delay.
+	--    'absorb'          -- Old Delay absorbs new Delay.
+	--    'toDelete,stack'  -- Old Delay is turned into a Delete
+	--                         and blocks the new Delay.
+	--    'split'           -- New Delay a Move is to be split
+	--                         into a Create and Delete.
 	--
 	local function combine
 	(
@@ -898,25 +854,6 @@ local Combiner = ( function
 	)
 		if d1.etype == 'Init' or d1.etype == 'Blanket'
 		then
-			-- everything is blocked by init or blanket delays.
-			if d2.path2
-			then
-				log(
-					'Delay',
-					d2.etype, ': ',
-					d2.path, '->', d2.path2,
-					' blocked by ',
-					d1.etype, ': ', d1.path
-				)
-			else
-				log(
-					'Delay',
-					d2.etype, ': ', d2.path,
-					' blocked by ',
-					d1.etype, ': ', d1.path
-				)
-			end
-
 			return 'stack'
 		end
 
@@ -925,34 +862,25 @@ local Combiner = ( function
 		then
 			if d1.path == d2.path
 			then
-				if d1.status == 'active'
-				then
-					log(
-						'Delay',
-						d2.etype, ': ', d2.path,
-						' blocked by active ',
-						d1.etype, ': ', d1.path
-					)
-
-					return 'stack'
-				end
-
 				-- lookups up the function in the combination matrix
 				-- and calls it
-				return combineNoMove[ d1.etype ][ d2.etype ]( d1, d2 )
+				local result = combineNoMove[ d1.etype ][ d2.etype ]
+
+				if result == 'replace file,block dir'
+				then
+					if d2.path:byte( -1 ) == 47
+					then
+						return 'stack'
+					else
+						return 'replace'
+					end
+				end
 			end
 
 			-- if one is a parent directory of another, events are blocking
 			if d1.path:byte( -1 ) == 47 and string.starts( d2.path, d1.path )
 			or d2.path:byte( -1 ) == 47 and string.starts( d1.path, d2.path )
 			then
-				log(
-					'Delay',
-					d2.etype, ': ', d2.path,
-					' blocked by parenting ',
-					d1.etype, ': ', d1.path
-				)
-
 				return 'stack'
 			end
 
@@ -967,13 +895,6 @@ local Combiner = ( function
 			or d2.path:byte( -1 ) == 47 and string.starts( d1.path, d2.path )
 			or d1.path:byte( -1 ) == 47 and string.starts( d2.path, d1.path )
 			then
-				log(
-					'Delay',
-					d2.etype, ': ', d2.path,
-					' blocked by Move: ',
-					d1.path,' -> ', d1.path2
-				)
-
 				return 'stack'
 			end
 
@@ -986,53 +907,19 @@ local Combiner = ( function
 				then
 					if d1.status == 'active'
 					then
-						log(
-							'Delay',
-							d2.etype,': ',d2.path,
-							' blocked by active Move: ',
-							d1.path,' -> ', d1.path2
-						)
-
 						return 'stack'
 					end
-
-					log(
-						'Delay',
-						d2.etype, ': ', d2.path,
-						' turns ',
-				        'Move: ', d1.path, ' -> ', d1.path2,
-						' into ',
-						'Delete: ', d1.path
-					)
-
-					d1.etype = 'Delete'
-
-					d1.path2 = nil
 
 					return 'toDelete,stack'
 				end
 
 				-- on 'Attrib' or 'Modify' simply stack on moves
-				log(
-					'Delay',
-					d2.etype,': ',d2.path,
-					' blocked by Move: ',
-					d1.path,' -> ', d1.path2
-				)
-
 				return 'stack'
 			end
 
 			if d2.path:byte( -1 ) == 47 and string.starts( d1.path2, d2.path )
 			or d1.path2:byte( -1 ) == 47 and string.starts( d2.path,  d1.path2 )
 			then
-				log(
-					'Delay'
-					,d2.etype, ': ', d2.path,
-					' blocked by Move: ',
-					d1.path, ' -> ', d1.path2
-				)
-
 				return 'stack'
 			end
 
@@ -1049,14 +936,6 @@ local Combiner = ( function
 			or d2.path:byte( -1 ) == 47 and string.starts( d1.path, d2.path )
 			or d2.path2:byte( -1 ) == 47 and string.starts( d1.path,  d2.path2 )
 			then
-				log(
-					'Delay',
-					'Move: ',
-					d2.path, ' -> ', d2.path2,
-					' splits on ',
-					d1.etype, ': ', d1.path
-				)
-
 				return 'split'
 			end
 
@@ -1082,14 +961,6 @@ local Combiner = ( function
 			or d2.path2:byte( -1 ) == 47 and string.starts( d1.path,  d2.path2 )
 			or d2.path2:byte( -1 ) == 47 and string.starts( d1.path2, d2.path2 )
 			then
-				log(
-					'Delay',
-					'Move: ',
-					d2.path, ' -> ', d1.path2,
-					' splits on Move: ',
-					d1.path, ' -> ', d1.path2
-				)
-
 				return 'split'
 			end
 
@@ -1101,9 +972,158 @@ local Combiner = ( function
 
 
 	--
+	-- The new delay is absorbed by an older one.
+	--
+	local function logAbsorb
+	(
+		d1, -- old delay
+		d2  -- new delay
+	)
+		log(
+			'Delay',
+			d2.etype, ': ',d2.path,
+			' absorbed by ',
+			d1.etype,': ',d1.path
+		)
+	end
+
+	--
+	-- The new delay replaces the old one if it's a file.
+	--
+	local function logReplace
+	(
+		d1, -- old delay
+		d2  -- new delay
+	)
+		log(
+			'Delay',
+			d2.etype, ': ', d2.path,
+			' replaces ',
+			d1.etype, ': ', d1.path
+		)
+	end
+
+	
+	--
+	-- The new delay splits on the old one.
+	--
+	local function logSplit
+	(
+		d1, -- old delay
+		d2  -- new delay
+	)
+		log(
+			'Delay',
+			d2.etype, ': ',
+			d2.path, ' -> ', d2.path2,i
+			' splits on ',
+			d1.etype, ': ', d1.path
+		)
+	end
+
+	--
+	-- The new delay is blocked by the old delay.
+	--
+	local function logStack
+	(
+		d1, -- old delay
+		d2  -- new delay
+	)
+		local active = ''
+
+		if d1.active
+		then
+			active = 'active '
+		end
+
+		if d2.path2
+		then
+			log(
+				'Delay',
+				d2.etype, ': ',
+				d2.path, '->', d2.path2,
+				' blocked by ',
+				active,
+				d1.etype, ': ', d1.path
+			)
+		else
+			log(
+				'Delay',
+				d2.etype, ': ', d2.path,
+				' blocked by ',
+				active,
+				d1.etype, ': ', d1.path
+			)
+		end
+	end
+					
+	
+	--
+	-- The new delay turns the old one (a move) into a delete and is blocked.
+	--
+	local function logToDeleteStack
+	(
+		d1, -- old delay
+		d2  -- new delay
+	)
+		if d1.path2
+		then
+			log(
+				'Delay',
+				d2.etype, ': ', d2.path,
+				' turns ',
+			    d1.etype, ': ', d1.path, ' -> ', d1.path2,
+				' into Delete: ', d1.path
+			)
+		else
+			log(
+				'Delay',
+				d2.etype, ': ', d2.path,
+				' turns ',
+			    d1.etype, ': ', d1.path,
+				' into Delete: ', d1.path
+			)
+		end
+	end
+
+
+	local logFuncs =
+	{
+		absorb               = logAbsorb,
+		replace              = logReplace,
+		split                = logSplit,
+		stack                = logStack,
+		[ 'toDelete,stack' ] = logToDeleteStack
+	}
+
+
+	--
+	-- Prints the log message for a combination result
+	--
+	local function log
+	(
+		result, -- the combination result
+		d1,     -- old delay
+		d2      -- new delay
+	)
+		local lf = logFuncs[ result ]
+
+		if not lf
+		then
+			error( 'unknown combination result: ' .. result )
+		end
+
+		lf( d1, d2 )
+	end
+
+	--
 	-- Public interface
 	--
-	return { combine = combine }
+	return
+	{
+		combine = combine,
+		log = log
+	}
 
 end )( )
 
@@ -2403,6 +2423,8 @@ local Sync = ( function
 
 			if ac
 			then
+				Combiner.log( ac, od, nd )
+
 				if ac == 'remove'
 				then
 					self.delays:remove( il )
