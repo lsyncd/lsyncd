@@ -2442,6 +2442,10 @@ local Sync = ( function
 					self.delays:replace( il, rd )
 
 					rd.dpos = il
+
+					stack( rd, nd )
+
+					nd.dpos = self.delays:push( nd )
 				elseif ac == 'absorb'
 				then
 					-- nada
