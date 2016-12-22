@@ -905,11 +905,6 @@ local Combiner = ( function
 				if d2.etype == 'Delete'
 				or d2.etype == 'Create'
 				then
-					if d1.status == 'active'
-					then
-						return 'stack'
-					end
-
 					return 'toDelete,stack'
 				end
 
@@ -2435,14 +2430,17 @@ local Sync = ( function
 					nd.dpos = self.delays:push( nd )
 				elseif ac == 'toDelete,stack'
 				then
-					-- turns delay1 into a delete
+					if od.status ~= 'active'
+					then
+						-- turns olddelay into a delete
+						local rd = Delay.new( 'Delete', self, od.alarm, od.path )
+
+						self.delays:replace( il, rd )
+
+						rd.dpos = il
+					end
+
 					-- and stacks delay2
-					local rd = Delay.new( 'Delete', self, od.alarm, od.path )
-
-					self.delays:replace( il, rd )
-
-					rd.dpos = il
-
 					stack( rd, nd )
 
 					nd.dpos = self.delays:push( nd )
@@ -2451,9 +2449,16 @@ local Sync = ( function
 					-- nada
 				elseif ac == 'replace'
 				then
-					self.delays:replace( il, nd )
+					if od.status ~= 'active'
+					then
+						self.delays:replace( il, nd )
 
-					nd.dpos = il
+						nd.dpos = il
+					else
+						stack( od, nd )
+
+						nd.dpos = self.delays:push( nd )
+					end
 				elseif ac == 'split'
 				then
 					delay( self, 'Delete', time, path,  nil )
