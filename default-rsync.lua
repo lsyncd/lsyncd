@@ -106,6 +106,61 @@ rsync.checkgauge = {
 
 
 --
+-- Returns true for non Init and Blanket events.
+--
+local eventNotInitBlank =
+	function
+(
+	event
+)
+	return event.etype ~= 'Init' and event.etype ~= 'Blanket'
+end
+
+
+--
+-- Replaces what rsync would consider filter rules by literals.
+--
+local replaceRsyncFilter =
+	function
+(
+	path
+)
+	if not path
+	then
+		return
+	end
+
+	return(
+		path
+		:gsub( '%?', '\\?' )
+		:gsub( '%*', '\\*' )
+		:gsub( '%[', '\\[' )
+	)
+end
+
+
+--
+-- Mutates paths for rsync filter rules,
+-- changes deletes to multi path patterns
+--
+local pathMutator =
+	function
+(
+	etype,
+	path1,
+	path2
+)
+	if string.byte( path1, -1 ) == 47
+	and etype == 'Delete'
+	then
+		return replaceRsyncFilter( path1 ) .. '***', replaceRsyncFilter( path2 )
+	else
+		return replaceRsyncFilter( path1 ), replaceRsyncFilter( path2 )
+	end
+end
+
+
+--
 -- Spawns rsync for a list of events
 --
 -- Exclusions are already handled by not having
@@ -115,71 +170,20 @@ rsync.action = function
 (
 	inlet
 )
-	--
 	-- gets all events ready for syncing
-	--
-	local elist = inlet.getEvents(
-		function
-		(
-			event
-		)
-			return event.etype ~= 'Init' and event.etype ~= 'Blanket'
-		end
-	)
+	local elist = inlet.getEvents( eventNotInitBlank )
 
-	--
-	-- Replaces what rsync would consider filter rules by literals
-	--
-	local function sub
-	(
-		p
-	)
-		if not p
-		then
-			return
-		end
+	-- gets the list of paths for the event list
+	-- deletes create multi match patterns
+	local paths = elist.getPaths( pathMutator )
 
-		return p:
-			gsub( '%?', '\\?' ):
-			gsub( '%*', '\\*' ):
-			gsub( '%[', '\\[' )
-	end
-
-	--
-	-- Gets the list of paths for the event list
-	--
-	-- Deletes create multi match patterns
-	--
-	local paths = elist.getPaths(
-		function
-		(
-			etype,
-			path1,
-			path2
-		)
-			if string.byte( path1, -1 ) == 47
-			and etype == 'Delete'
-			then
-				return sub( path1 )..'***', sub( path2 )
-			else
-				return sub( path1 ), sub( path2 )
-			end
-		end
-	)
-
-	--
 	-- stores all filters by integer index
-	--
 	local filterI = { }
 
-	--
-	-- Stores all filters with path index
-	--
+	-- stores all filters with path index
 	local filterP = { }
 
-	--
-	-- Adds one path to the filter
-	--
+	-- adds one path to the filter
 	local function addToFilter
 	(
 		path
@@ -205,19 +209,20 @@ rsync.action = function
 	do
 		if path and path ~= ''
 		then
-			addToFilter(path)
+			addToFilter( path )
 
 			local pp = string.match( path, '^(.*/)[^/]+/?' )
 
 			while pp
 			do
-				addToFilter(pp)
+				addToFilter( pp )
 				pp = string.match( pp, '^(.*/)[^/]+/?' )
 			end
 		end
 	end
 
-	local filterS = table.concat( filterI, '\n'   )
+	local filterS = table.concat( filterI, '\n' )
+
 	local filter0 = table.concat( filterI, '\000' )
 
 	log(
@@ -250,7 +255,6 @@ rsync.action = function
 		config.source,
 		config.target
 	)
-
 end
 
 
