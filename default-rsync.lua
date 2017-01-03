@@ -170,6 +170,8 @@ rsync.action = function
 (
 	inlet
 )
+	local config = inlet.getConfig( )
+
 	-- gets all events ready for syncing
 	local elist = inlet.getEvents( eventNotInitBlank )
 
@@ -198,13 +200,11 @@ rsync.action = function
 		table.insert( filterI, path )
 	end
 
+	-- adds a path to the filter.
 	--
-	-- Adds a path to the filter.
-	--
-	-- Rsync needs to have entries for all steps in the path,
+	-- rsync needs to have entries for all steps in the path,
 	-- so the file for example d1/d2/d3/f1 needs following filters:
 	-- 'd1/', 'd1/d2/', 'd1/d2/d3/' and 'd1/d2/d3/f1'
-	--
 	for _, path in ipairs( paths )
 	do
 		if path and path ~= ''
@@ -216,6 +216,7 @@ rsync.action = function
 			while pp
 			do
 				addToFilter( pp )
+
 				pp = string.match( pp, '^(.*/)[^/]+/?' )
 			end
 		end
@@ -230,8 +231,6 @@ rsync.action = function
 		'Calling rsync with filter-list of new/modified files/dirs\n',
 		filterS
 	)
-
-	local config = inlet.getConfig( )
 
 	local delete = nil
 

@@ -21,10 +21,12 @@
 	change: _verbatim forced for 'exitcodes' entry.
 	change: manpage is not rebuild by default.
 		it is provided precompiled.
-	change:
-		faulty/deprecated config files that use settings = { ... }, with equal sign
+	change: faulty/deprecated config files that use settings = { ... }, with equal sign
 		are no longer worked around.
 	change: default.direct now calls copy with -p
+	fix: potential race conditions:
+		 default.rsyncssh will now channel deletes also through rsync and treats moves
+		 as blocking events.
 	fix: ']' is not escaped for rsync rules, since rsync only applies
 	     doesn't applie pattern matching if no other pattern chars
 		 are found.

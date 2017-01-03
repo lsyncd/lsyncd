@@ -39,11 +39,11 @@ function mktempd
 	local s = f:read( '*a' )
 
 	f:close( )
-	
+
 	s = s:gsub( '[\n\r]+', ' ' )
-	
+
 	s = s:match( '^%s*(.-)%s*$' )
-	
+
 	return s
 end
 
@@ -414,7 +414,7 @@ function churn
 	local function mvfile
 	( )
 		local odir, fn, c = pickFile( )
-		
+
 		if not odir
 		then
 			return
@@ -464,7 +464,7 @@ function churn
 	end
 
 	local dice
-	
+
 	if init
 	then
 		dice =

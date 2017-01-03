@@ -69,6 +69,71 @@ rsyncssh.checkgauge = {
 	}
 }
 
+
+--
+-- Returns true for non Init, Blanket and Move events.
+--
+local eventNotInitBlankMove =
+	function
+(
+	event
+)
+	-- TODO use a table
+	if event.etype == 'Move'
+	or event.etype == 'Init'
+	or event.etype == 'Blanket'
+	then
+		return 'break'
+	else
+		return true
+	end
+end
+
+
+--
+-- Replaces what rsync would consider filter rules by literals.
+--
+local replaceRsyncFilter =
+	function
+(
+	path
+)
+	if not path
+	then
+		return
+	end
+
+	return(
+		path
+		:gsub( '%?', '\\?' )
+		:gsub( '%*', '\\*' )
+		:gsub( '%[', '\\[' )
+	)
+end
+
+
+--
+-- Mutates paths for rsync filter rules,
+-- changes deletes to multi path patterns
+--
+local pathMutator =
+	function
+(
+	etype,
+	path1,
+	path2
+)
+	if string.byte( path1, -1 ) == 47
+	and etype == 'Delete'
+	then
+		return replaceRsyncFilter( path1 ) .. '***', replaceRsyncFilter( path2 )
+	else
+		return replaceRsyncFilter( path1 ), replaceRsyncFilter( path2 )
+	end
+end
+
+
+
 --
 -- Spawns rsync for a list of events
 --
@@ -76,9 +141,9 @@ rsyncssh.action = function
 (
 	inlet
 )
-	local event, event2 = inlet.getEvent( )
-
 	local config = inlet.getConfig( )
+
+	local event, event2 = inlet.getEvent( )
 
 	-- makes move local on target host
 	-- if the move fails, it deletes the source
@@ -117,114 +182,148 @@ rsyncssh.action = function
 	-- uses ssh to delete files on remote host
 	-- instead of constructing rsync filters
 
-	if event.etype == 'Delete'
-	then
-		if config.delete ~= true
-		and config.delete ~= 'running'
-		then
-			inlet.discardEvent( event )
+--	if event.etype == 'Delete'
+--	then
+--		if config.delete ~= true
+--		and config.delete ~= 'running'
+--		then
+--			inlet.discardEvent( event )
+--
+--			return
+--		end
+--
+--		-- gets all other deletes ready to be
+--		-- executed
+--		local elist = inlet.getEvents(
+--			function( e )
+--				return e.etype == 'Delete'
+--			end
+--		)
+--
+--		-- returns the paths of the delete list
+--		local paths = elist.getPaths(
+--			function( etype, path1, path2 )
+--				if path2
+--				then
+--					return config.targetdir..path1, config.targetdir..path2
+--				else
+--					return config.targetdir..path1
+--				end
+--			end
+--		)
+--
+--		-- ensures none of the paths is '/'
+--		for _, v in pairs( paths )
+--		do
+--			if string.match( v, '^%s*/+%s*$' )
+--			then
+--				log( 'Error', 'cowardly refusing to `rm -rf /` the target!' )
+--
+--				terminate( -1 ) -- ERRNO
+--			end
+--		end
+--
+--		log(
+--			'Normal',
+--			'Deleting list\n',
+--			table.concat( paths, '\n' )
+--		)
+--
+--		local params = { }
+--
+--		spawn(
+--			elist,
+--			config.ssh.binary,
+--			'<', table.concat(paths, config.xargs.delimiter),
+--			params,
+--			config.ssh._computed,
+--			config.host,
+--			config.xargs.binary,
+--			config.xargs._extra
+--		)
+--
+--		return
+--	end
 
+	-- otherwise a rsync is spawned
+	local elist = inlet.getEvents( eventNotInitBlankMove )
+
+	-- gets the list of paths for the event list
+	-- deletes create multi match patterns
+	local paths = elist.getPaths( pathMutator )
+
+	-- stores all filters by integer index
+	local filterI = { }
+
+	-- stores all filters with path index
+	local filterP = { }
+
+	-- adds one path to the filter
+	local function addToFilter
+	(
+		path
+	)
+		if filterP[ path ]
+		then
 			return
 		end
 
-		-- gets all other deletes ready to be
-		-- executed
-		local elist = inlet.getEvents(
-			function( e )
-				return e.etype == 'Delete'
-			end
-		)
+		filterP[ path ] = true
 
-		-- returns the paths of the delete list
-		local paths = elist.getPaths(
-			function( etype, path1, path2 )
-				if path2
-				then
-					return config.targetdir..path1, config.targetdir..path2
-				else
-					return config.targetdir..path1
-				end
-			end
-		)
-
-		-- ensures none of the paths is '/'
-		for _, v in pairs( paths )
-		do
-			if string.match( v, '^%s*/+%s*$' )
-			then
-				log( 'Error', 'cowardly refusing to `rm -rf /` the target!' )
-
-				terminate( -1 ) -- ERRNO
-			end
-		end
-
-		log(
-			'Normal',
-			'Deleting list\n',
-			table.concat( paths, '\n' )
-		)
-
-		local params = { }
-
-		spawn(
-			elist,
-			config.ssh.binary,
-			'<', table.concat(paths, config.xargs.delimiter),
-			params,
-			config.ssh._computed,
-			config.host,
-			config.xargs.binary,
-			config.xargs._extra
-		)
-
-		return
+		table.insert( filterI, path )
 	end
 
+	-- adds a path to the filter.
 	--
-	-- for everything else a rsync is spawned
-	--
-	local elist = inlet.getEvents(
-		function( e )
-			-- TODO use a table
-			return(
-				e.etype ~= 'Move'
-				and e.etype ~= 'Delete'
-				and e.etype ~= 'Init'
-				and e.etype ~= 'Blanket'
-			)
-		end
-	)
-
-	local paths = elist.getPaths( )
-
-	--
-	-- removes trailing slashes from dirs.
-	--
-	for k, v in ipairs( paths )
+	-- rsync needs to have entries for all steps in the path,
+	-- so the file for example d1/d2/d3/f1 needs following filters:
+	-- 'd1/', 'd1/d2/', 'd1/d2/d3/' and 'd1/d2/d3/f1'
+	for _, path in ipairs( paths )
 	do
-		if string.byte( v, -1 ) == 47
+		if path and path ~= ''
 		then
-			paths[k] = string.sub( v, 1, -2 )
+			addToFilter( path )
+
+			local pp = string.match( path, '^(.*/)[^/]+/?' )
+
+			while pp
+			do
+				addToFilter( pp )
+
+				pp = string.match( pp, '^(.*/)[^/]+/?' )
+			end
 		end
 	end
 
-	local sPaths = table.concat( paths, '\n' )
+	local filterS = table.concat( filterI, '\n' )
 
-	local zPaths = table.concat( paths, '\000' )
+	local filter0 = table.concat( filterI, '\000' )
 
 	log(
 		'Normal',
 		'Rsyncing list\n',
-		sPaths
+		filterS
 	)
+
+	local delete = nil
+
+	if config.delete == true
+	or config.delete == 'running'
+	then
+		delete = { '--delete', '--ignore-errors' }
+	end
 
 	spawn(
 		elist,
 		config.rsync.binary,
-		'<', zPaths,
+		'<', filter0,
 		config.rsync._computed,
+		'-r',
+		delete,
+		'--force',
 		'--from0',
-		'--files-from=-',
+		'--include-from=-',
+		'--exclude=*',
 		config.source,
 		config.host .. ':' .. config.targetdir
 	)
@@ -348,6 +447,14 @@ rsyncssh.prepare = function
 	then
 		error(
 			'please do not use the internal rsync._computed parameter',
+			level
+		)
+	end
+
+	if config.maxProcesses ~= 1
+	then
+		error(
+			'default.rsyncssh must have maxProcesses set to 1.',
 			level
 		)
 	end

@@ -1705,12 +1705,10 @@ local InletFactory = ( function
 		--
 		-- Gets all events that are not blocked by active events.
 		--
-		-- @param if not nil a function to test each delay
-		--
 		getEvents = function
 		(
-			sync,
-			test
+			sync, -- the sync of the inlet
+			test  -- if not nil use this function to test if to include an event
 		)
 			local dlist = sync:getDelays( test )
 
@@ -2555,8 +2553,19 @@ local Sync = ( function
 
 		for _, d in self.delays:qpairs( )
 		do
-			if d.status == 'active'
-			or ( test and not test( InletFactory.d2e( d ) ) )
+			local tr = true
+
+			if test
+			then
+				tr = test( InletFactory.d2e( d ) )
+			end
+
+			if tr == 'break'
+			then
+				break
+			end
+
+			if d.status == 'active' or not tr
 			then
 				getBlocks( d )
 			elseif not blocks[ d ]
