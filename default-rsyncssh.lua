@@ -60,13 +60,6 @@ rsyncssh.checkgauge = {
 		port         =  true,
 		_extra       =  true
 	},
-
-	-- xargs settings
-	xargs = {
-		binary      =  true,
-		delimiter   =  true,
-		_extra      =  true
-	}
 }
 
 
@@ -178,72 +171,6 @@ rsyncssh.action = function
 
 		return
 	end
-
-	-- uses ssh to delete files on remote host
-	-- instead of constructing rsync filters
-
---	if event.etype == 'Delete'
---	then
---		if config.delete ~= true
---		and config.delete ~= 'running'
---		then
---			inlet.discardEvent( event )
---
---			return
---		end
---
---		-- gets all other deletes ready to be
---		-- executed
---		local elist = inlet.getEvents(
---			function( e )
---				return e.etype == 'Delete'
---			end
---		)
---
---		-- returns the paths of the delete list
---		local paths = elist.getPaths(
---			function( etype, path1, path2 )
---				if path2
---				then
---					return config.targetdir..path1, config.targetdir..path2
---				else
---					return config.targetdir..path1
---				end
---			end
---		)
---
---		-- ensures none of the paths is '/'
---		for _, v in pairs( paths )
---		do
---			if string.match( v, '^%s*/+%s*$' )
---			then
---				log( 'Error', 'cowardly refusing to `rm -rf /` the target!' )
---
---				terminate( -1 ) -- ERRNO
---			end
---		end
---
---		log(
---			'Normal',
---			'Deleting list\n',
---			table.concat( paths, '\n' )
---		)
---
---		local params = { }
---
---		spawn(
---			elist,
---			config.ssh.binary,
---			'<', table.concat(paths, config.xargs.delimiter),
---			params,
---			config.ssh._computed,
---			config.host,
---			config.xargs.binary,
---			config.xargs._extra
---		)
---
---		return
---	end
 
 	-- otherwise a rsync is spawned
 	local elist = inlet.getEvents( eventNotInitBlankMove )
@@ -590,30 +517,6 @@ rsyncssh.rsyncExitCodes = default.rsyncExitCodes
 --
 rsyncssh.sshExitCodes = default.sshExitCodes
 
---
--- xargs calls configuration
---
--- xargs is used to delete multiple remote files, when ssh access is
--- available this is simpler than to build filters for rsync for this.
---
-rsyncssh.xargs = {
-
-	--
-	-- the binary called ( on target host )
-	--
-	binary = '/usr/bin/xargs',
-
-	--
-	-- delimiter, uses null by default, you might want to override this for older
-	-- by for example '\n'
-	--
-	delimiter = '\000',
-
-	--
-	-- extra parameters
-	--
-	_extra = { '-0', 'rm -rf' }
-}
 
 --
 -- ssh calls configuration
