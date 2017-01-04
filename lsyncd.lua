@@ -1283,7 +1283,14 @@ local InletFactory = ( function
 		(
 			event
 		)
-			return getPath( event )
+			local p = getPath( event )
+
+			if string.byte( path, 1 ) == 47
+			then
+				p = string.sub( p, 2, -1 )
+			end
+
+			return p
 		end,
 
 		--
@@ -1294,7 +1301,14 @@ local InletFactory = ( function
 		(
 			event
 		)
-			return string.match( getPath( event ), '^(.*/)[^/]+/?' ) or ''
+			local p = getPath( event )
+
+			if string.byte( path, 1 ) == 47
+			then
+				p = string.sub( p, 2, -1 )
+			end
+
+			return string.match( p, '^(.*/)[^/]+/?' ) or ''
 		end,
 
 		--
@@ -1305,7 +1319,14 @@ local InletFactory = ( function
 		(
 			event
 		)
-			return cutSlash( getPath( event ) )
+			local p = getPath( event )
+
+			if string.byte( path, 1 ) == 47
+			then
+				p = string.sub( p, 2, -1 )
+			end
+
+			return cutSlash( p )
 		end,
 
 		--
