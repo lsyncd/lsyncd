@@ -19,12 +19,12 @@ log = {'-log', 'all'}
 writefile(cfgfile, [[
 settings {
 	logfile = ']]..logfile..[[',
-	nodaemon = true,
-	delay = 3,
+	nodaemon = true
 }
 
 sync {
 	default.rsyncssh,
+	delay = 3,
 	host = 'localhost',
 	source = ']]..srcdir..[[',
 	targetdir = ']]..trgdir..[[',
