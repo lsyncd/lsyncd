@@ -71,25 +71,25 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
  <tr><td> append
 </td><td> =
 </td><td> true
-</td><td> (Lsyncd >= 2.1.7)
+</td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> append-verify
 </td><td> =
 </td><td> true
-</td><td> (Lsyncd >= 2.1.7)
+</td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> backup
 </td><td> =
 </td><td> true
-</td><td> (Lsyncd >= 2.1.7)
+</td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> backup_dir
 </td><td> =
 </td><td> DIR
-</td><td> (Lsyncd >= 2.1.7)
+</td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> binary
@@ -107,13 +107,13 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
  <tr><td> chmod
 </td><td> =
 </td><td> STRING
-</td><td> (Lsyncd >= 2.1.7)
+</td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> chown
 </td><td> =
 </td><td> USER:GROUP
-</td><td> (Lsyncd >= 2.1.7)
+</td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> compress
@@ -125,7 +125,7 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
  <tr><td> copy_dirlinks
 </td><td> =
 </td><td> true
-</td><td> (Lsyncd >= 2.1.7)
+</td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> copy_links
@@ -167,13 +167,13 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
  <tr><td> existing
 </td><td> =
 </td><td> true
-</td><td> (Lsyncd >= 2.1.7)
+</td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> groupmap
 </td><td> =
 </td><td> STRING
-</td><td> (Lsyncd >= 2.1.7)
+</td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> hard_links
@@ -275,7 +275,7 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
  <tr><td> suffix
 </td><td> =
 </td><td> SUFFIX
-</td><td> (Lsyncd >= 2.1.7)
+</td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> temp_dir
@@ -299,7 +299,7 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
  <tr><td> usermap
 </td><td> =
 </td><td> STRING
-</td><td> (Lsyncd >= 2.1.7)
+</td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> verbose
