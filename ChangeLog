@@ -1,4 +1,4 @@
-04-01-2017: 2.2.0
+2017-01-04: 2.2.0
 	enhancement: add rsync options:
 		"append",
 		"append_verify",
@@ -37,7 +37,7 @@
 	     a race condition noticed by extensive default.rsyncssh testing
 	     changed Delays were not reflected in Events
 
-15-10-2015: 2.1.6
+2015-10-15: 2.1.6
 	enhancement: Lsyncd now locks its pidfile
 	enhancement: added ssh.identifyFile and ssh.options options
 	enhancement: added rsync inplace option
@@ -51,7 +51,7 @@
 	change: now removes its pidfile on INT and TERM signals
 	change: changed build system from autotools to cmake
 
-07-06-2013: 2.1.5
+2013-06-07: 2.1.5
 	enhancement: Added rsync options: bwlimit, timeout
 	fix: Specifying ssh port no longer overwrites the last rsync option
 	fix: rsync option password_file is now accepted
@@ -64,22 +64,22 @@
 	change: a2x is no longer checked by configure script.
 			should not be needed when building from tarball
 
-24-11-2012: 2.1.4
+2012-11-24: 2.1.4
 	fix: making ssh custom port changes work with ssh and rsync
 
-23-11-2012: 2.1.3
+2012-11-23: 2.1.3
 	fix: fixed 2 crash conditions due to failure to read 'uSettings'
 
-03-11-2012: 2.1.2
+2012-11-03: 2.1.2
 	fix: added excludeFrom to checkgauge (thx to DavidWittman)
 	fix: fixed rsync option computation
 	enhancement: added password_file file option to rsync
 
-27-10-2012: 2.1.1
+2012-10-27: 2.1.1
 	fix: fix rsync.rsh, rsync.rsync_path, rsync.tmp_dir, rsync._extra parameters
 		 thanks go to Birger Schmidt for this fix.
 
-23-10-2012: 2.1.0
+2012-10-23: 2.1.0
 	fix: fail startup if settings.inist is false and one of the target hosts fails
 	fix: in case of waiting for processes during restart only logs this state now once a minute
 	     rather than filling the log crazy about it
@@ -94,7 +94,7 @@
 	change: Lsyncd now exits with exitcode 143 on TERM signal
 	change: settings is now be used as call like settings{...} instead of settings = {...}
 
-04-04-2012: 2.0.7
+2012-04-04: 2.0.7
 	fix: closed a memory leak due to not correct configured weak tables
 	fix: default.direct, do not use on OSX unrecognized option -t on modify
 	fix: default.direct, typo leading to compile error
@@ -104,7 +104,7 @@
 	change: removed --with-default-runner since it was broken, and will be replaced by something
 	        more generic in future
 
-16-02-2012: 2.0.6
+2012-02-16: 2.0.6
 	fix: no longer stops syslogging on HUP signals
 	fix: OSX event watcher no longer misses moves into and out of the watch tree
 	fix: not refinding a relative path to the config file in case of HUP.
@@ -135,7 +135,7 @@
 		default.rsyncssh: does not add --delete to rsync, and does not use rm via ssh tunnel
 		default.direct:   does not add --delete to startup rsync and does not use rm
 
-25-08-2011: 2.0.5
+2011-08-25: 2.0.5
 	fix: Lsyncd will now terminate if it inotify watching exceeds
 		its preset limit.
 	fix: rsync error exit code 12 now results in retries.
@@ -164,14 +164,14 @@
 	enhancement: readdir(path) is available to userscripts, reads the contents
 		of a directory.
 
-27-03-2011: 2.0.4
+2011-03-27: 2.0.4
 	enhancement: new setting options logident, logfacility
 	fix: moving filenames with spaces through ssh
 	fix: excludes containing chars % $ ( ) . [ ] + -
 	fix: various typos
 	change: api, settings.statusInterval instead of settings.statusIntervall
 
-25-02-2011: 2.0.3
+2011-02-25: 2.0.3
 	enhancement: new default target --direct using /bin/ binaries
 	             to keep to local dirs in sync (and by default
 				 not preserving ownership)
@@ -186,7 +186,7 @@
 	change: leave lua apichecking enabled by default.
 
 
-20-01-2011: 2.0.2
+2011-01-20: 2.0.2
 	fix: exclude rules not terminated with '/' now match a file
 	     or dir named exactly the same not starting with.
 	fix: pass exclude rules to the startup sync
@@ -194,7 +194,7 @@
 	     partial path than on syncs
 	fix: properly close pipes that needed more than one write.
 
-11-01-2011: 2.0.1
+2011-01-11: 2.0.1
 	fix: write pidfile after daemonize()
 	fix: fixed weak tables that allowed  garbage collector to collect
 	     event lists too eraly.
@@ -202,7 +202,7 @@
 	change: added OSX fsevents interface, disabled in autoconf by default
 	        since still very experimental and limited to OSX 10.5 only.
 
-02-12-2010: 2.0.0
+2010-12-02: 2.0.0
 	a complete recoding!
 
 	change:      format of command line arguments changed completly.
@@ -224,7 +224,7 @@
 	change:      manpage is now written in asciidoc
 	change:      most more complex logic of Lsyncd is now written in Lua.
 
-04-10-2010:  1.39
+2010-10-04:  1.39
 	enhancement: call action for multiple targets simultanously
 	fix: correctly accept <file-filter/> from config xml
 	fix: correctly close and free the inotify file descriptor in case of restart
@@ -232,7 +232,7 @@
 	fix: when delay=0 a bug always called rsync file filter even when in
 	     directory mode
 
-01-09-2010:  1.38
+2010-09-01:  1.38
 	enhancement: implemented file filters for singular operations
 	enhancement: added --singular parameter for single file calls
 	fix: fixed --dryrun messages
@@ -240,7 +240,7 @@
 	             being kill -HUPed
 	internal: printout the actual binary called when --debug specified
 
-05-08-2010:  1.37
+2010-08-05:  1.37
 	enhancement: react on HUP signals (interpreted as complete restart)
 	enhancement: inotifies are configureable
 	enhancement: --no-startup skips the startup calls
@@ -251,22 +251,22 @@
 	internal: removed the need of the "tosync" stack
 	internal: use more pointers instead of indexes
 
-11-07-2010:  1.34
+2010-07-11:  1.34
 	fix: logging segfault on 64bit systems
 	changed: man page location, spellings
 
-05-06-2010:  1.33
+2010-06-05:  1.33
 	fix: exlude file argument passing to rsync
 	fix: allow exlude files specified for individual sources
 	fix/enhancement: exlusions will be compared with extended
 	                 path files allowing sub dirs to be excluded.
 	enhancement: allow delays and call aggregation
 
-05-01-2009:  Release of lsyncd 1.26
+2009-01-05:  Release of lsyncd 1.26
 	fix: segfault on multitargets
 	changed meaning of "version" tag in lsyncd.conf.xml
 
-14-12-2008:  Release of lsyncd 1.25
+2008-12-14:  Release of lsyncd 1.25
 	fix: mv dir and cp -r working
 	fix: working with reiserfs
 	enhancement: config files
@@ -277,5 +277,5 @@
 	lots of smaller stuff here and there ...
 	Thanks to all contributers!
 
-05-12-2007:  Release of lsyncd 1.0
+2007-12-05:  Release of lsyncd 1.0
 
