@@ -12,10 +12,10 @@ local cfgfile = tdir .. "config.lua"
 local logs =  {"-log", "all" }
 
 writefile(cfgfile, [[
-settings = {
-    logfile = "]]..logfile..[[",
+settings {
+	logfile = "]]..logfile..[[",
 	log = all,
-    nodaemon = true,
+	nodaemon = true,
 	maxProcesses = 1
 }
 
