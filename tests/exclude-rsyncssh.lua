@@ -17,7 +17,7 @@ local log = {}
 log = {'-log', 'all'}
 
 writefile(cfgfile, [[
-settings = {
+settings {
 	logfile = ']]..logfile..[[',
 	nodaemon = true,
 	delay = 3,
