@@ -74,8 +74,8 @@ The action to be taken is specified as a Lua string. Thus actions can be delimit
 Any action starting with a "/" instructs Lsyncd to directly call the binary file at the beginning instead of spawning an additional shell. For example
 
 {% highlight lua %}
-   onCreate = "/usr/bin/zip /usr/var/all.zip ^sourceName"
-   onModify = "/usr/bin/zip /usr/var/all.zip ^sourceName"
+   onCreate = "/usr/bin/zip /usr/var/all.zip ^sourcePath"
+   onModify = "/usr/bin/zip /usr/var/all.zip ^sourcePath"
 {% endhighlight %}
 
 will add any newly created and modified files to /usr/var/all.zip using absolute path names. Any action not starting with a "/" will result in Lsyncd spawning a shell to execute the action as command.
@@ -87,14 +87,14 @@ Variable arguments are specified with the caret symbol ^. It has been chosen ove
 Note that variables will always be implicitly quoted in double quotes, so if you want them to be a part of another double-quoted string, you will have to go one layer deeper, e.g. 
 
 {% highlight lua %}
-    onCreate   = '[[ su user -c "/usr/bin/zip /usr/var/all.zip ^o.sourceName " ]],
+    onCreate   = '[[ su user -c "/usr/bin/zip /usr/var/all.zip ^o.sourcePath " ]],
 {% endhighlight %}
 
 will expand to ```su user -c "/usr/bin/zip /usr/var/all.zip "source""``` which is incorrect and will break. You have to rewrite the above statement one layer deeper as 
 
 {% highlight lua %}
   onCreate = function(event)
-    spawnShell('[[ su user -c "/usr/bin/zip /usr/var/all.zip \"$1\"" ]], event.sourceName)
+    spawnShell('[[ su user -c "/usr/bin/zip /usr/var/all.zip \"$1\"" ]], event.sourcePath)
   end
 {% endhighlight %}
 
@@ -118,6 +118,7 @@ All possible variables
  <tr><td> ^pathname
 </td><td> the relative path of the file or directory to the observed directory; directories have no slash at the end.
 </td></tr>
+
 
  <tr><td> ^sourcePath
 </td><td> the absolute path of the observed source directory and the relative path of the file or directory; this equals the absolute local path of the file or directory. Directories have a slash at the end.
