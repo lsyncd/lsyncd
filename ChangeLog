@@ -14,6 +14,7 @@
 		"suffix,"
 		"usermap",
 	enhancement: settings{ } now checks for unknown entries and errors if so.
+	change: Level3 scripts ^path,^pathdir and ^pathname now don't start with a slash.
 	change: Lsyncd now writes a startup log message before daemonizing
 		does in case logging fails, it is recognized before it cannot
 		message anything about it, since it deamonized
