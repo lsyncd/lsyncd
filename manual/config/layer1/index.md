@@ -8,18 +8,21 @@ Layer 2 allows you to create one process per one event. However, as with default
 For example this is the action used by default.rsync:
 
 {% highlight lua %}
-action = function(inlet)
-   local elist = inlet.getEvents()
-   local config = inlet.getConfig()
-   local paths = elist.getPaths()
-   log("Normal", "rsyncing list\n", paths)
-   spawn(elist, "/usr/bin/rsync",
-       "<", paths,
-       "--delete",
-       config.rsyncOpts .. "d",
-       "--include-from=-",
-       "--exclude=*",
-       config.source, config.target)
+action = function( inlet )
+   local elist = inlet.getEvents( )
+   local config = inlet.getConfig( )
+   local paths = elist.getPaths( )
+   log( "Normal", "rsyncing list\n", table.concat( paths, '\n' ) )
+   spawn(elist, '/usr/bin/rsync',
+       '<', table.concat( paths, '\000' ),
+       '--delete',
+       config.rsync._computed,
+       '--from0',
+       '--include-from=-',
+       '--exclude=*',
+       config.source,
+       config.target
+   )
 end
 {% endhighlight %}
 
@@ -52,18 +55,20 @@ Layer 2 functions is nothing else than following layer 1 action loaded by the de
 -----
 -- Default action calls user scripts on**** functions.
 --
-action = function(inlet)
+action = function( inlet )
     -- in case of moves getEvent returns the origin and destination of the move
-    local event, event2 = inlet.getEvent()
-    local config = inlet.getConfig()
-    local func = config["on".. event.etype]
-    if func then
-        func(event, event2)
+    local event, event2 = inlet.getEvent( )
+    local config = inlet.getConfig( )
+    local func = config[ 'on'.. event.etype ]
+    if func
+    then
+        func( event, event2 )
     end 
     -- if function didnt change the wait status its not interested
     -- in this event -> drop it.
-    if event.status == "wait" then
-        inlet.discardEvent(event)
+    if event.status == "wait"
+    then
+        inlet.discardEvent( event )
     end 
 end,
 {% endhighlight %}
@@ -76,16 +81,18 @@ Other than `action` Lsyncd calls `init` for each sync{} on initialization. This 
 -----
 -- called on (re)initalizing of lsyncd.
 --
-init = function(inlet)
-    local config = inlet.getConfig()
+init = function( inlet )
+    local config = inlet.getConfig( )
     -- calls a startup if provided by user script.
-    if type(config.onStartup) == "function" then
-        local event = inlet.createBlanketEvent()
-        config.onStartup(event)
-        if event.status == "wait" then
+    if type( config.onStartup ) == "function"
+    then
+        local event = inlet.createBlanketEvent( )
+        config.onStartup( event )
+        if event.status == 'wait'
+	then
             -- user script did not spawn anything
             -- thus the blanket event is deleted again.
-            inlet.discardEvent(event)
+            inlet.discardEvent( event )
         end 
     end 
 end,
@@ -97,19 +104,24 @@ As another example this is the init of `default.rsync`. As specialty it changes 
 -----
 -- Spawns the recursive startup sync
 -- 
-init = function(inlet)
-    local config = inlet.getConfig()
-    local event = inlet.createBlanketEvent()
-    if string.sub(config.target, -1) ~= "/" then
+init = function( inlet )
+    local config = inlet.getConfig( )
+    local event = inlet.createBlanketEvent( )
+    if string.sub(config.target, -1) ~= "/"
+    then
         config.target = config.target .. "/" 
     end 
+    
     log("Normal", "recursive startup rsync: ", config.source,
         " -> ", config.target)
-    spawn(event, "/usr/bin/rsync", 
+	
+    spawn(event,
+        "/usr/bin/rsync", 
         "--delete",
-        config.rsyncOpts .. "r", 
+        config.rsync._computed .. "r", 
         config.source, 
-        config.target)
+        config.target
+    )
 end,
 {% endhighlight %}
 
