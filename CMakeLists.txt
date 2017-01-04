@@ -1,7 +1,7 @@
 # preamble
 project( Lsyncd )
 cmake_minimum_required( VERSION 2.8 )
-set( LSYNCD_VERSION 2.1.7 )
+set( LSYNCD_VERSION 2.2.0 )
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/" )
 
 
@@ -80,12 +80,11 @@ add_custom_command( OUTPUT defaults.out
 )
 
 # the manpage
-add_custom_command( OUTPUT doc/manpage/lsyncd.1
+add_custom_target( manpage
 	COMMAND ${CMAKE_COMMAND} -E echo "Updating the manpage"
 	COMMAND a2x --format=manpage doc/manpage/lsyncd.1.txt
 	DEPENDS doc/manpage/lsyncd.1.txt
 )
-add_custom_target( manpage DEPENDS doc/manpage/lsyncd.1 )
 
 # compiling and linking it all together
 add_executable( lsyncd ${LSYNCD_SRC} )

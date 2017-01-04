@@ -3,8 +3,8 @@ lsyncd(1)
 :doctype: manpage
 :man source: Lsyncd
 :man manual: Lsyncd
-:man version: 2.1.5
-:date: June 2016
+:man version: 2.2.0
+:date: June 2017
 
 NAME
 ----
@@ -80,11 +80,12 @@ OPTIONS
 
 EXIT STATUS
 -----------
-*0*::
-    Terminated on a TERM signal(7)
+*(128+SIGNUM)*::
+	Terminated by Signal (143 by TERM)
 
 *-1*::
 	Failure (syntax, unrecoverable error condition, internal failure)
+
 
 SEE ALSO
 --------
@@ -92,15 +93,15 @@ Online Manual: https://axkibe.github.io/lsyncd/
 
 VERSION
 ------
-This man page is for lsyncd(1) version 2.1.5
+This man page is for lsyncd(1) version 2.2.0
 
 AUTHOR
 ------
-Axel Kittenberger, <axkibe@gmail.com> 2010-2016
+Axel Kittenberger, <axkibe@gmail.com> 2010-2017
 
 COPYING
 -------
-Copyright \(C) 2010-2016 Axel Kittenberger. Free use of this software is granted
+Copyright \(C) 2010-2017 Axel Kittenberger. Free use of this software is granted
 under the terms of the GNU General Public License (GPL) version 2, or any later
 version. Free redistrubition of this Documentation (/doc directory) is granted
 under the terms of the Creative Commons 3.0 Attribution License (CC-3.0-BY).

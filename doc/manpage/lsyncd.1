@@ -2,12 +2,12 @@
 .\"     Title: lsyncd
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
-.\"      Date: June 2016
+.\"      Date: June 2017
 .\"    Manual: Lsyncd
-.\"    Source: Lsyncd 2.1.5
+.\"    Source: Lsyncd 2.2.0
 .\"  Language: English
 .\"
-.TH "LSYNCD" "1" "June 2016" "Lsyncd 2\&.1\&.5" "Lsyncd"
+.TH "LSYNCD" "1" "June 2017" "Lsyncd 2\&.2\&.0" "Lsyncd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -134,9 +134,9 @@ Writes version information and exits\&.
 .RE
 .SH "EXIT STATUS"
 .PP
-\fB0\fR
+\fB(128+SIGNUM)\fR
 .RS 4
-Terminated on a TERM signal(7)
+Terminated by Signal (143 by TERM)
 .RE
 .PP
 \fB\-1\fR
@@ -148,10 +148,10 @@ Failure (syntax, unrecoverable error condition, internal failure)
 Online Manual: https://axkibe\&.github\&.io/lsyncd/
 .SH "VERSION"
 .sp
-This man page is for lsyncd(1) version 2\&.1\&.5
+This man page is for lsyncd(1) version 2\&.2\&.0
 .SH "AUTHOR"
 .sp
-Axel Kittenberger, <axkibe@gmail\&.com> 2010\-2016
+Axel Kittenberger, <axkibe@gmail\&.com> 2010\-2017
 .SH "COPYING"
 .sp
-Copyright (C) 2010\-2016 Axel Kittenberger\&. Free use of this software is granted under the terms of the GNU General Public License (GPL) version 2, or any later version\&. Free redistrubition of this Documentation (/doc directory) is granted under the terms of the Creative Commons 3\&.0 Attribution License (CC\-3\&.0\-BY)\&.
+Copyright (C) 2010\-2017 Axel Kittenberger\&. Free use of this software is granted under the terms of the GNU General Public License (GPL) version 2, or any later version\&. Free redistrubition of this Documentation (/doc directory) is granted under the terms of the Creative Commons 3\&.0 Attribution License (CC\-3\&.0\-BY)\&.
