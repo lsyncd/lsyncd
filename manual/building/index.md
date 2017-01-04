@@ -6,7 +6,7 @@ title: Building
 ## Requirements
 
 ### Lua >= 5.1
-Lsyncd depends on Lua 5.1 or greater; that is Lua 5.1, 5.2 or 5.3. For Lua versions beyond 5.1 you need an update Lsnycd version. For most distributions you need to install the liblua??, the liblua??-dev and the lua?? package, with ?? being the respective Lua version.
+Lsyncd depends on Lua 5.1 or greater; that is Lua 5.1, 5.2 or 5.3. For Lua versions beyond 5.1 you need an uptodate Lsnycd version. For most distributions you need to install the liblua??, the liblua??-dev and the lua?? package, with ?? being the respective Lua version.
 
 ### cmake >= 2.8
 
