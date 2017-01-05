@@ -3,8 +3,8 @@ lsyncd(1)
 :doctype: manpage
 :man source: Lsyncd
 :man manual: Lsyncd
-:man version: 2.2.0
-:date: June 2017
+:man version: 2.2.1
+:date: January 2017
 
 NAME
 ----

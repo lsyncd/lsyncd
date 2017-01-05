@@ -1,7 +1,7 @@
 # preamble
 project( Lsyncd )
 cmake_minimum_required( VERSION 2.8 )
-set( LSYNCD_VERSION 2.2.1-dev )
+set( LSYNCD_VERSION 2.2.1 )
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/" )
 
 
