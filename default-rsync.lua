@@ -188,13 +188,10 @@ rsync.action = function
 		end
 	end
 
-	local pathsS = table.concat( paths, '\n' )
-	local paths0 = table.concat( paths, '\000' )
-
 	log(
 		'Normal',
 		'Calling rsync with filter-list of new/modified files/dirs\n',
-		filterS
+		table.concat( paths, '\n' )
 	)
 
 	local delete = nil
@@ -208,7 +205,7 @@ rsync.action = function
 	spawn(
 		elist,
 		config.rsync.binary,
-		'<', filter0,
+		'<', table.concat( paths, '\000' ),
 		config.rsync._computed,
 		'-r',
 		delete,

@@ -35,7 +35,7 @@ local pid = spawn(
 cwriteln( 'waiting for Lsyncd to startup' )
 posix.sleep( 1 )
 
-churn( srcdir, 50, false )
+churn( srcdir, 150, false )
 
 cwriteln( 'waiting for Lsyncd to finish its jobs.' )
 posix.sleep( 10 )
