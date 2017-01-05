@@ -86,6 +86,21 @@ add_custom_target( manpage
 	DEPENDS doc/manpage/lsyncd.1.txt
 )
 
+add_custom_target( tests
+	COMMAND echo "Running the tests"
+	COMMAND echo "Note you are expected to:"
+	COMMAND echo "  * have lua-posix installed"
+	COMMAND echo "  * have a passwordless ssh access to localhost"
+	COMMAND tests/schedule.lua
+	COMMAND tests/l4rsyncdata.lua
+	COMMAND tests/exclude-rsync.lua
+	COMMAND tests/exclude-rsyncssh.lua
+	COMMAND tests/churn-rsync.lua
+	COMMAND tests/churn-rsyncssh.lua
+	COMMAND tests/churn-direct.lua
+	COMMAND echo "Finished all successfull!"
+)
+
 # compiling and linking it all together
 add_executable( lsyncd ${LSYNCD_SRC} )
 target_link_libraries( lsyncd ${LUA_LIBRARIES} )
