@@ -1285,7 +1285,7 @@ local InletFactory = ( function
 		)
 			local p = getPath( event )
 
-			if string.byte( path, 1 ) == 47
+			if string.byte( p, 1 ) == 47
 			then
 				p = string.sub( p, 2, -1 )
 			end
@@ -1303,7 +1303,7 @@ local InletFactory = ( function
 		)
 			local p = getPath( event )
 
-			if string.byte( path, 1 ) == 47
+			if string.byte( p, 1 ) == 47
 			then
 				p = string.sub( p, 2, -1 )
 			end
@@ -1321,7 +1321,7 @@ local InletFactory = ( function
 		)
 			local p = getPath( event )
 
-			if string.byte( path, 1 ) == 47
+			if string.byte( p, 1 ) == 47
 			then
 				p = string.sub( p, 2, -1 )
 			end
