@@ -174,7 +174,7 @@ rsyncssh.action = function
 	spawn(
 		elist,
 		config.rsync.binary,
-		'<', table.concat( filterI, '\000' ),
+		'<', table.concat( paths, '\000' ),
 		config.rsync._computed,
 		'-r',
 		delete,
