@@ -140,27 +140,6 @@ end
 
 
 --
--- Mutates paths for rsync filter rules,
--- changes deletes to multi path patterns
---
--- local pathMutator =
---	function
---(
---	etype,
---	path1,
---	path2
---)
---	if string.byte( path1, -1 ) == 47
---	and etype == 'Delete'
---	then
---		return replaceRsyncFilter( path1 ) .. '***', replaceRsyncFilter( path2 )
---	else
---		return replaceRsyncFilter( path1 ), replaceRsyncFilter( path2 )
---	end
---end
-
-
---
 -- Spawns rsync for a list of events
 --
 -- Exclusions are already handled by not having
