@@ -143,21 +143,21 @@ end
 -- Mutates paths for rsync filter rules,
 -- changes deletes to multi path patterns
 --
-local pathMutator =
-	function
-(
-	etype,
-	path1,
-	path2
-)
-	if string.byte( path1, -1 ) == 47
-	and etype == 'Delete'
-	then
-		return replaceRsyncFilter( path1 ) .. '***', replaceRsyncFilter( path2 )
-	else
-		return replaceRsyncFilter( path1 ), replaceRsyncFilter( path2 )
-	end
-end
+-- local pathMutator =
+--	function
+--(
+--	etype,
+--	path1,
+--	path2
+--)
+--	if string.byte( path1, -1 ) == 47
+--	and etype == 'Delete'
+--	then
+--		return replaceRsyncFilter( path1 ) .. '***', replaceRsyncFilter( path2 )
+--	else
+--		return replaceRsyncFilter( path1 ), replaceRsyncFilter( path2 )
+--	end
+--end
 
 
 --
@@ -177,54 +177,19 @@ rsync.action = function
 
 	-- gets the list of paths for the event list
 	-- deletes create multi match patterns
-	local paths = elist.getPaths( pathMutator )
+	local paths = elist.getPaths( )
 
-	-- stores all filters by integer index
-	local filterI = { }
-
-	-- stores all filters with path index
-	local filterP = { }
-
-	-- adds one path to the filter
-	local function addToFilter
-	(
-		path
-	)
-		if filterP[ path ]
-		then
-			return
-		end
-
-		filterP[ path ] = true
-
-		table.insert( filterI, path )
-	end
-
-	-- adds a path to the filter.
-	--
-	-- rsync needs to have entries for all steps in the path,
-	-- so the file for example d1/d2/d3/f1 needs following filters:
-	-- 'd1/', 'd1/d2/', 'd1/d2/d3/' and 'd1/d2/d3/f1'
-	for _, path in ipairs( paths )
+	-- removes trailing slashes from dirs.
+	for k, v in ipairs( paths )
 	do
-		if path and path ~= ''
+		if string.byte( v, -1 ) == 47
 		then
-			addToFilter( path )
-
-			local pp = string.match( path, '^(.*/)[^/]+/?' )
-
-			while pp
-			do
-				addToFilter( pp )
-
-				pp = string.match( pp, '^(.*/)[^/]+/?' )
-			end
+			paths[ k ] = string.sub( v, 1, -2 )
 		end
 	end
 
-	local filterS = table.concat( filterI, '\n' )
-
-	local filter0 = table.concat( filterI, '\000' )
+	local pathsS = table.concat( paths, '\n' )
+	local paths0 = table.concat( paths, '\000' )
 
 	log(
 		'Normal',
@@ -237,7 +202,7 @@ rsync.action = function
 	if config.delete == true
 	or config.delete == 'running'
 	then
-		delete = { '--delete', '--ignore-errors' }
+		delete = { '--delete-missing-args', '--ignore-errors' }
 	end
 
 	spawn(
@@ -249,8 +214,7 @@ rsync.action = function
 		delete,
 		'--force',
 		'--from0',
-		'--include-from=-',
-		'--exclude=*',
+		'--files-from=-',
 		config.source,
 		config.target
 	)
