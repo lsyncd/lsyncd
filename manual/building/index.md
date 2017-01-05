@@ -12,8 +12,8 @@ Lsyncd depends on Lua 5.1 or greater; that is Lua 5.1, 5.2 or 5.3. For Lua versi
 
 To configure Lsyncd to your system, cmake >= 2.8 is required
 
-### rsync >= 3.0
-During runtime Lsyncd needs rsync > 3.0 installed both on source and target systems.
+### rsync >= 3.1
+During runtime Lsyncd needs rsync > 3.1 installed both on source and target systems.
 
 ## Compiling
 
