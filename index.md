@@ -11,6 +11,8 @@ Rsync+ssh is an advanced action configuration that uses a SSH to act file and di
 
 Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/). This way simple, powerful and flexible configurations can be acheived.
 
+Lsyncd 2.2.1 requires rsync >= 3.1 on all source and target machines.
+
 License: [GPLv2](http://www.fsf.org/licensing/licenses/info/GPLv2.html) or any later GPL version.
 
 When to use
@@ -22,6 +24,8 @@ Other synchronization tools
 [DRBD](http://www.drbd.org) operates on block device level. This makes it useful for synchronizing systems that are under heavy load. Lsyncd on the other hand does not require you to change block devices and/or mount points, allows you to change uid/gid of the transferred files, separates the receiver through the one-way nature of rsync. DRBD is likely the better option if you are syncing databases.
 
 [GlusterFS](http://www.gluster.org) and [BindFS](http://bindfs.org/) use a FUSE-Filesystem to interject kernel/userspace filesystem events.
+
+[Mirror](https://github.com/stephenh/mirror) is an asynchronous synchronisation tool that takes use of the inotify notifications much like Lsyncd. The main differences are: it is developed specifically for master-master use, thus running on a daemon on both systems, uses its own transportation layer instead of rsync and is Java instead of Lsyncd's C core with Lua scripting.
 
 Lsyncd usage examples
 ---------------------
