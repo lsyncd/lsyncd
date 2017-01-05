@@ -70,7 +70,7 @@ else
 	cwriteln( 'Signal terminating diff = "', code, '"')
 end
 
-if result ~= 'exit' or exitcode ~= 0
+if result ~= 'exit' or code ~= 0
 then
 	os.exit( 1 )
 else
