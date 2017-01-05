@@ -186,7 +186,6 @@ rsync.action = function
 		config.rsync.binary,
 		'<', table.concat( paths, '\000' ),
 		config.rsync._computed,
-		'-r',
 		delete,
 		'--force',
 		'--from0',

@@ -1852,13 +1852,13 @@ local Excludes = ( function( )
 		p = string.gsub( p, '%[%^/%]%*%[%^/%]%*', '.*' )
 		p = string.gsub( p, '^/', '^/'    )
 
-		if p:sub( 1, 2 ) ~= '^/'
-		then
-			-- if does not begin with '^/'
-			-- then all matches should begin with '/'.
-			p = '/' .. p;
-		end
-
+--		if p:sub( 1, 2 ) ~= '^/'
+--		then
+--			-- if does not begin with '^/'
+--			-- then all matches should begin with '/'.
+--			p = '/' .. p;
+--		end
+--
 		log(
 			'Exclude',
 			'toLuaPattern "',

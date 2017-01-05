@@ -157,6 +157,15 @@ rsyncssh.action = function
 	-- deletes create multi match patterns
 	local paths = elist.getPaths( )
 
+	-- removes trailing slashes from dirs.
+	for k, v in ipairs( paths )
+	do
+		if string.byte( v, -1 ) == 47
+		then
+			paths[ k ] = string.sub( v, 1, -2 )
+		end
+	end
+
 	log(
 		'Normal',
 		'Rsyncing list\n',
@@ -176,7 +185,6 @@ rsyncssh.action = function
 		config.rsync.binary,
 		'<', table.concat( paths, '\000' ),
 		config.rsync._computed,
-		'-r',
 		delete,
 		'--force',
 		'--from0',
