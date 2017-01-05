@@ -48,7 +48,7 @@ else
 	cwriteln( 'Signal terminating diff = ', code )
 end
 
-if exitcode ~= 0
+if code ~= 0
 then
 	os.exit( 1 )
 else
