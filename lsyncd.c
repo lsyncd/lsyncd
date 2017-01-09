@@ -677,7 +677,8 @@ non_block_fd( int fd )
 | Writes a pid file.
 */
 static void
-write_pidfile(
+write_pidfile
+(
 	lua_State *L,
 	const char *pidfile
 )
@@ -970,12 +971,13 @@ user_obs_tidy( struct observance *obs )
 }
 
 
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
-(     Library calls for the runner          )
- *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/******************************.
+* Library calls for the runner *
+'******************************/
 
 
-static void daemonize( lua_State *L );
+static void daemonize( lua_State *L, const char *pidfile );
+
 int l_stackdump( lua_State* L );
 
 
@@ -1612,16 +1614,11 @@ l_configure( lua_State *L )
 			openlog( log_ident, 0, settings.log_facility );
 		}
 
-		if( settings.pidfile )
-		{
-			write_pidfile( L, settings.pidfile );
-		}
-
 		if( !settings.nodaemon && !is_daemon )
 		{
 			logstring( "Normal", "--- Startup, daemonizing ---" );
 
-			daemonize( L );
+			daemonize( L, settings.pidfile );
 		}
 		else
 		{
@@ -2053,7 +2050,10 @@ load_runner_func(
 |      might actually close the monitors fd!
 */
 static void
-daemonize( lua_State *L )
+daemonize(
+	lua_State *L,       // the lua state
+	const char *pidfile // if not NULL write pidfile
+)
 {
 	pid_t pid, sid;
 
@@ -2070,14 +2070,21 @@ daemonize( lua_State *L )
 		exit( -1 );
 	}
 
-	if (pid > 0)
+	if( pid > 0 )
 	{
 		 // parent process returns to shell
 	 	exit( 0 );
 	}
 
+	if( pidfile )
+	{
+		write_pidfile( L, pidfile );
+	}
+
+
 	// detaches the new process from the parent process
 	sid = setsid( );
+
 	if( sid < 0 )
 	{
 		printlogf(

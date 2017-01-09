@@ -4967,7 +4967,8 @@ runner.fsEventsEvent = Fsevents.event
 --
 -- Collector for every child process that finished in startup phase
 --
-function runner.collector(
+function runner.collector
+(
 	pid,       -- pid of the child process
 	exitcode   -- exitcode of the child process
 )
