@@ -1852,13 +1852,13 @@ local Excludes = ( function( )
 		p = string.gsub( p, '%[%^/%]%*%[%^/%]%*', '.*' )
 		p = string.gsub( p, '^/', '^/'    )
 
---		if p:sub( 1, 2 ) ~= '^/'
---		then
---			-- if does not begin with '^/'
---			-- then all matches should begin with '/'.
---			p = '/' .. p;
---		end
---
+		if p:sub( 1, 2 ) ~= '^/'
+		then
+			-- if does not begin with '^/'
+			-- then all matches should begin with '/'.
+			p = '/' .. p;
+		end
+
 		log(
 			'Exclude',
 			'toLuaPattern "',
@@ -1971,6 +1971,11 @@ local Excludes = ( function( )
 		self,  -- self
 		path   -- the path to test
 	)
+		if path:byte( 1 ) ~= 47
+		then
+			error( 'Paths for exlusion tests must start with \'/\'' )
+		end
+
 		for _, p in pairs( self.list )
 		do
 			if p:byte( -1 ) == 36

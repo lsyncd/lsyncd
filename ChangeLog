@@ -1,5 +1,6 @@
 ????-??-??: 2.2.2
 	 fix: checkgauge 'insist'
+	 fix: no partial path exlusion tests
 
 2017-01-05: 2.2.1
 	enhancement: now always using filter lists with rysnc
