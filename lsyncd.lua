@@ -88,7 +88,7 @@ local settingsCheckgauge =
 	statusInterval = true,
 	logfacility    = true,
 	logident       = true,
-	insisit        = true,
+	insist         = true,
 	inotifyMode    = true,
 	maxProcesses   = true,
 	maxDelays      = true,
@@ -2091,9 +2091,8 @@ local Sync = ( function
 		end
 
 		-- a sub dir and not concerned about subdirs
-		if
-			self.config.subdirs == false
-			and path:sub( #self.source, -1 ):match( '[^/]+/?' )
+		if self.config.subdirs == false
+		and path:sub( #self.source, -1 ):match( '[^/]+/?' )
 		then
 			return false
 		end
@@ -2297,7 +2296,7 @@ local Sync = ( function
 		if not path2
 		then
 			-- simple test for single path events
-			if self.excludes:test(path)
+			if self.excludes:test( path )
 			then
 				log(
 					'Exclude',
@@ -3174,7 +3173,9 @@ local Syncs = ( function
 	-- Tests if any sync is interested in a path.
 	--
 	local function concerns
-	( path )
+	(
+		path
+	)
 		for _, s in ipairs( syncsList )
 		do
 			if s:concerns( path )
@@ -3286,9 +3287,9 @@ local Inotify = ( function
 	)
 		log( 'Function', 'Inotify.addWatch( ', path, ' )' )
 
-		if not Syncs.concerns(path)
+		if not Syncs.concerns( path )
 		then
-			log('Inotify', 'not concerning "',path,'"')
+			log('Inotify', 'not concerning "', path, '"')
 
 			return
 		end
@@ -3296,11 +3297,12 @@ local Inotify = ( function
 		-- registers the watch
 		local inotifyMode = ( uSettings and uSettings.inotifyMode ) or '';
 
-		local wd = lsyncd.inotify.addwatch( path, inotifyMode) ;
+		local wd = lsyncd.inotify.addwatch( path, inotifyMode ) ;
 
 		if wd < 0
 		then
 			log( 'Inotify','Unable to add watch "', path, '"' )
+
 			return
 		end
 

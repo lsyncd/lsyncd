@@ -1,4 +1,7 @@
-2017-01-05: 2.1.1
+????-??-??: 2.2.2
+	 fix: checkgauge 'insist'
+
+2017-01-05: 2.2.1
 	enhancement: now always using filter lists with rysnc
 		instead of include/exclude lists taking advantage of the new --delete-missing-args
 		parameter to delete files on target.
