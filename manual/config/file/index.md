@@ -68,7 +68,7 @@ Valid keys for settings are:
 </td><td> syslog identification (tag), default "lsyncd"
 </td></tr>
 
- <tr><td> insisit
+ <tr><td> insist
 </td><td> =
 </td><td> true
 </td><td> keep running at startup altough one or more targets failed due to not being reachable.
