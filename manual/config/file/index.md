@@ -71,7 +71,7 @@ Valid keys for settings are:
  <tr><td> insist
 </td><td> =
 </td><td> true
-</td><td> keep running at startup altough one or more targets failed due to not being reachable.
+</td><td> keep running at startup although one or more targets failed due to not being reachable.
 </td></tr>
 
  <tr><td> inotifyMode
