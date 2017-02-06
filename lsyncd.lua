@@ -724,6 +724,19 @@ local Delay = ( function
 	end
 
 	--
+	-- Sets the delay status to 'wait'
+	--
+	local function wait
+	(
+		self,   -- this delay
+		alarm   -- alarm for the delay
+	)
+		self[ k_nt ].status = 'wait'
+
+		self[ k_nt ].alarm = alarm
+	end
+
+	--
 	-- Creates a new delay.
 	--
 	local function new
@@ -741,6 +754,7 @@ local Delay = ( function
 			{
 				blockedBy = blockedBy,
 				setActive = setActive,
+				wait = wait,
 				[ k_nt ] =
 					{
 						etype = etype,
@@ -2129,7 +2143,7 @@ local Sync = ( function
 
 			if delay.status ~= 'active'
 			then
-				error('collecting a non-active process')
+				error( 'collecting a non-active process' )
 			end
 
 			local rc = self.config.collect(
@@ -2142,12 +2156,11 @@ local Sync = ( function
 				log( 'Error', 'Critical exitcode.' )
 
 				terminate( -1 )
-			end
-
-			if rc ~= 'again'
+			elseif rc ~= 'again'
 			then
 				-- if its active again the collecter restarted the event
 				removeDelay( self, delay )
+
 				log(
 					'Delay',
 					'Finish of ',
@@ -2159,8 +2172,6 @@ local Sync = ( function
 				)
 			else
 				-- sets the delay on wait again
-				delay.status = 'wait'
-
 				local alarm = self.config.delay
 
 				-- delays at least 1 second
@@ -2169,7 +2180,7 @@ local Sync = ( function
 					alarm = 1
 				end
 
-				delay.alarm = now( ) + alarm
+				delay:wait( now( ) + alarm )
 			end
 		else
 			log(
@@ -2187,13 +2198,9 @@ local Sync = ( function
 				log( 'Error', 'Critical exitcode.' );
 
 				terminate( -1 )
-			end
-
-			if rc == 'again'
+			elseif rc == 'again'
 			then
 				-- sets the delay on wait again
-				delay.status = 'wait'
-
 				local alarm = self.config.delay
 
 				-- delays at least 1 second
@@ -2206,18 +2213,12 @@ local Sync = ( function
 
 				for _, d in ipairs( delay )
 				do
-					d.alarm = alarm
-					d.status = 'wait'
+					d:wait( alarm )
 				end
-			end
-
-			for _, d in ipairs( delay )
-			do
-				if rc ~= 'again'
-				then
+			else
+				for _, d in ipairs( delay )
+				do
 					removeDelay( self, d )
-				else
-					d.status = 'wait'
 				end
 			end
 

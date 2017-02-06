@@ -2081,7 +2081,6 @@ daemonize(
 		write_pidfile( L, pidfile );
 	}
 
-
 	// detaches the new process from the parent process
 	sid = setsid( );
 

@@ -124,9 +124,9 @@ l_addwatch( lua_State *L )
 	// kernel call to create the inotify watch
 	int wd = inotify_add_watch( inotify_fd, path, mask );
 
-	if (wd < 0)
+	if( wd < 0 )
 	{
-		if (errno == ENOSPC)
+		if( errno == ENOSPC )
 		{
 			printlogf(
 				L, "Error",
@@ -154,18 +154,18 @@ l_addwatch( lua_State *L )
 
 
 /*
- * Removes an inotify watch.
- *
- * param dir (Lua stack) numeric watch descriptor
- *
- * return    nil
- */
+* Removes an inotify watch.
+*
+* param dir (Lua stack) numeric watch descriptor
+*
+* return    nil
+*/
 static int
-l_rmwatch(lua_State *L)
+l_rmwatch( lua_State *L )
 {
-	int wd = luaL_checkinteger(L, 1);
-	inotify_rm_watch(inotify_fd, wd);
-	printlogf(L, "Inotify", "rmwatch()<-%d", wd);
+	int wd = luaL_checkinteger( L, 1 );
+	inotify_rm_watch( inotify_fd, wd );
+	printlogf( L, "Inotify", "rmwatch()<-%d", wd );
 	return 0;
 }
 
@@ -173,7 +173,8 @@ l_rmwatch(lua_State *L)
 /*
 | Lsyncd's core's inotify functions.
 */
-static const luaL_Reg linotfylib[] = {
+static const luaL_Reg linotfylib[ ] =
+{
 	{ "addwatch",   l_addwatch   },
 	{ "rmwatch",    l_rmwatch    },
 	{ NULL, NULL}
@@ -215,6 +216,7 @@ handle_event(
 
 	// used to execute two events in case of unmatched MOVE_FROM buffer
 	struct inotify_event *after_buf = NULL;
+
 	if( event && ( IN_Q_OVERFLOW & event->mask ) )
 	{
 		// and overflow happened, tells the runner
@@ -224,8 +226,11 @@ handle_event(
 		{
 			exit( -1 );
 		}
+
 		lua_pop( L, 1 );
+
 		hup = 1;
+
 		return;
 	}
 
@@ -251,10 +256,10 @@ handle_event(
 		move_event = false;
 	}
 	else if(
-		move_event &&
-		(
-			!( IN_MOVED_TO & event->mask ) ||
-			event->cookie != move_event_buf->cookie
+		move_event
+		&& (
+			!( IN_MOVED_TO & event->mask )
+			|| event->cookie != move_event_buf->cookie
 		)
 	)
 	{
@@ -263,18 +268,21 @@ handle_event(
 		logstring(
 			"Inotify",
 			"icore, changing unary MOVE_FROM into DELETE"
-		)
+		);
+
 		after_buf = event;
+
 		event = move_event_buf;
+
 		event_type = "Delete";
+
 		move_event = false;
 	}
 	else if(
-		move_event &&
-		(
-			IN_MOVED_TO & event->mask ) &&
-			event->cookie == move_event_buf->cookie
-		)
+		move_event
+		&& ( IN_MOVED_TO & event->mask )
+		&& event->cookie == move_event_buf->cookie
+	)
 	{
 		// this is indeed a matched move */
 		event_type = "Move";
@@ -290,10 +298,14 @@ handle_event(
 		if( move_event_buf_size < el )
 		{
 			move_event_buf_size = el;
+
 			move_event_buf = s_realloc( move_event_buf, el );
 		}
+
 		memcpy( move_event_buf, event, el );
+
 		move_event = true;
+
 		return;
 
 	}
@@ -346,6 +358,7 @@ handle_event(
 	}
 
 	lua_pushstring( L, event_type );
+
 	if( event_type != MOVE )
 	{
 		lua_pushnumber( L, event->wd );
@@ -390,6 +403,7 @@ handle_event(
 | buffer to read inotify events into
 */
 static size_t readbuf_size = 2048;
+
 static char * readbuf = NULL;
 
 
@@ -511,11 +525,14 @@ inotify_tidy( struct observance *obs )
 			"Error",
 			"internal failure: inotify_fd != ob->fd"
 		);
+
 		exit( -1 );
 	}
 
 	close( inotify_fd );
+
 	free( readbuf );
+
 	readbuf = NULL;
 }
 
