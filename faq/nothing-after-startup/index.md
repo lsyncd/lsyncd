@@ -1,6 +1,6 @@
 ---
 layout: default
-title: "FAQ: The startup sync works but after that Lsyncd doesn't do anything"
+title: "FAQ: The startup sync works but after that Lsyncd doesn't do anything!"
 ---
 This almost always caused by the fact you specified a network mounted directory as source.
 
