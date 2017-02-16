@@ -80,6 +80,12 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
+ <tr><td> archive
+</td><td> =
+</td><td> true
+</td><td>
+</td></tr>
+
  <tr><td> backup
 </td><td> =
 </td><td> true
