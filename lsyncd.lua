@@ -32,7 +32,7 @@ then
 	lsyncd.terminate( -1 )
 end
 
-lsyncd_version = '2.2.1'
+lsyncd_version = '2.2.2'
 
 
 --
@@ -1012,7 +1012,7 @@ local Combiner = ( function
 		)
 	end
 
-	
+
 	--
 	-- The new delay splits on the old one.
 	--
@@ -1065,8 +1065,8 @@ local Combiner = ( function
 			)
 		end
 	end
-					
-	
+
+
 	--
 	-- The new delay turns the old one (a move) into a delete and is blocked.
 	--

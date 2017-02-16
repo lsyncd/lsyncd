@@ -3,7 +3,7 @@ require("posix")
 dofile("tests/testlib.lua")
 
 cwriteln('****************************************************************' )
-cwriteln(' Testing excludes' )
+cwriteln(' Testing excludes (rsync)' )
 cwriteln('****************************************************************' )
 
 local tdir, srcdir, trgdir = mktemps( )

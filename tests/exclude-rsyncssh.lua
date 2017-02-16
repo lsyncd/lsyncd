@@ -4,7 +4,7 @@ require( 'posix' )
 dofile( 'tests/testlib.lua' )
 
 cwriteln( '****************************************************************' );
-cwriteln( ' Testing excludes'                                                );
+cwriteln( ' Testing excludes (rsyncssh)'                                     );
 cwriteln( '****************************************************************' );
 cwriteln( ' (this test needs passwordless ssh localhost access '             );
 cwriteln( '  for current user)'                                              );
