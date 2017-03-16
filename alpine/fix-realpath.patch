@@ -1,0 +1,20 @@
+--- lsyncd.c
++++ lsyncd.c
+@@ -185,19 +185,7 @@
+ get_realpath( const char * rpath )
+ {
+ 	// uses c-library to get the absolute path
+-#ifdef __GLIBC__
+-	// in case of GLIBC the task is easy.
+ 	return realpath( rpath, NULL );
+-#else
+-#	warning having to use old style realpath()
+-	// otherwise less so and requires PATH_MAX limit
+-	char buf[ PATH_MAX] ;
+-	char *asw = realpath( rpath, buf );
+-	if( !asw )
+-		{ return NULL; }
+-
+-	return s_strdup( asw );
+-#endif
+ }
