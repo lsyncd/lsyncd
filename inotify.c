@@ -35,6 +35,8 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+// Defines
+#define MOVE_WAIT 1000
 
 /*
 | Event types.
@@ -488,7 +490,10 @@ inotify_ready(
 		{
 			// give it a pause if not endangering splitting a move
 			break;
-		}
+		} else {
+                        // Wait some more time for a matching MOVE_TO event
+                        usleep (MOVE_WAIT);
+                }
 	}
 
 	// checks if there is an unary MOVE_FROM left in the buffer
