@@ -481,7 +481,7 @@ Two additional parameters can be specified to sync{}:
 
 Exclusion rules are modeled after rsync's exclusion patterns but are a bit simpler. Lsyncd supports these features:
 
- * Generally if any part of the pathname (see below Layer 3) of an event matches the text, it is excluded. E.g. the file "/bin/foo/bar" matches the rule "foo".
+ * Generally if any segment of the pathname (see below Layer 3) of an event matches the text, it is excluded. E.g. the file "/bin/foo/bar" matches the rule "foo".
  * If the rule starts with a slash, it will only be matched at the beginning of the pathname
  * If the rule ends with a slash, it will only be matched at the end of a pathname
  * ? matches any character that is not a slash.
