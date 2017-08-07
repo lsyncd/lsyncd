@@ -41,7 +41,7 @@ Fine-grained customization can be achieved through the CONFIG-FILE.  Custom
 action configs can even be written from scratch in cascading layers ranging
 from shell scripts to code written in the LUA(1) language.  This way simplicity
 can be balanced with powerfulness.  See the online manual for details on the
-CONFIG-FILE https://axkibe.github.io/lsyncd/config/file/ .
+CONFIG-FILE https://axkibe.github.io/lsyncd/manual/config/file/ .
 
 Note that under normal configuration Lsyncd will delete pre-existing files in
 the target directories that are not present in the respective source directory.
