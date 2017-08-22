@@ -16,7 +16,9 @@
 -- make sure exclusion rules match when doing it manually. It will *pull* from
 -- the target bucket to the local dir (the opposite of the regular behavior)
 -- then exit immediately.
-
+--
+-- Author: Daniel Miranda <danielkza2@gmail.com>
+--
 s3 = {}
 
 s3.checkgauge = {
