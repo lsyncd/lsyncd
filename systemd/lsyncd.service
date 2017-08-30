@@ -1,0 +1,11 @@
+[Unit]
+Description=daemon to synchronize local directories using rsync
+ConditionPathExists=/etc/lsyncd/lsyncd.conf.lua
+
+[Service]
+Type=simple
+PIDFile=/run/lsyncd.pid
+ExecStart=/usr/bin/lsyncd /etc/lsyncd/lsyncd.conf.lua
+
+[Install]
+WantedBy=multi-user.target
