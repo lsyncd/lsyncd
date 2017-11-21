@@ -40,7 +40,7 @@ Valid keys for settings are:
 
  <tr><td> nodaemon
 </td><td> =
-</td><td> true
+</td><td> false
 </td><td> does not detach
 </td></tr>
 
