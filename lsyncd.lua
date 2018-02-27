@@ -349,7 +349,7 @@ Queue = ( function
 
 		return nt[ nt.first ]
 	end
-	
+
 	--
 	-- Returns the last item of the Queue.
 	--
@@ -361,7 +361,7 @@ Queue = ( function
 
 		return nt[ nt.last ]
 	end
-	
+
 	--
 	-- Returns the size of the queue.
 	--
@@ -549,7 +549,6 @@ Queue = ( function
 	)
 		return iterReverse, self, self[ k_nt ].last + 1
 	end
-	
 
 	--
 	-- Creates a new queue.
@@ -1582,10 +1581,7 @@ local InletFactory = ( function
 
 		if delay.etype ~= 'Move'
 		then
-			if eu
-			then
-				return eu
-			end
+			if eu then return eu end
 
 			local event = { }
 
@@ -1598,10 +1594,7 @@ local InletFactory = ( function
 			return event
 		else
 			-- moves have 2 events - origin and destination
-			if eu
-			then
-				return eu[1], eu[2]
-			end
+			if eu then return eu[1], eu[2] end
 
 			local event  = { move = 'Fr' }
 			local event2 = { move = 'To' }
@@ -1628,10 +1621,7 @@ local InletFactory = ( function
 	)
 		local eu = e2d2[ dlist ]
 
-		if eu
-		then
-			return eu
-		end
+		if eu then return eu end
 
 		local elist = { }
 
@@ -1773,10 +1763,7 @@ local InletFactory = ( function
 
 			if not f
 			then
-				error(
-					'inlet does not have function "'..func..'"',
-					2
-				)
+				error( 'inlet does not have function "'..func..'"', 2 )
 			end
 
 			return function( ... )
@@ -1837,7 +1824,7 @@ end )( )
 
 
 --
--- A set of exclude patterns
+-- A set of exclude patterns.
 --
 local Excludes = ( function( )
 
@@ -1850,6 +1837,7 @@ local Excludes = ( function( )
 		p  --  the rsync like pattern
 	)
 		local o = p
+
 		p = string.gsub( p, '%%', '%%%%'  )
 		p = string.gsub( p, '%^', '%%^'   )
 		p = string.gsub( p, '%$', '%%$'   )
@@ -1873,11 +1861,7 @@ local Excludes = ( function( )
 			p = '/' .. p;
 		end
 
-		log(
-			'Exclude',
-			'toLuaPattern "',
-			o, '" = "', p, '"'
-		)
+		log( 'Exclude', 'toLuaPattern "', o, '" = "', p, '"' )
 
 		return p
 	end
@@ -1908,7 +1892,6 @@ local Excludes = ( function( )
 		self,    -- self
 		pattern  -- the pattern to remove
 	)
-
 		if not self.list[ pattern ]
 		then -- already in the list?
 			log(
@@ -1930,9 +1913,9 @@ local Excludes = ( function( )
 		self,
 		plist
 	)
-		for _, v in ipairs(plist)
+		for _, v in ipairs( plist )
 		do
-			add(self, v)
+			add( self, v )
 		end
 	end
 
@@ -1948,11 +1931,7 @@ local Excludes = ( function( )
 
 		if not f
 		then
-			log(
-				'Error',
-				'Cannot open exclude file "', file,'": ',
-				err
-			)
+			log( 'Error', 'Cannot open exclude file "', file,'": ', err )
 
 			terminate( -1 )
 		end
@@ -2281,10 +2260,7 @@ local Sync = ( function
 					do
 						local pd = path .. dirname
 
-						if isdir
-						then
-							pd = pd..'/'
-						end
+						if isdir then pd = pd..'/' end
 
 						log(
 							'Delay',
@@ -3082,13 +3058,16 @@ local Syncs = ( function
 			config.prepare( config, 4 )
 		end
 
-		if not config[ 'source' ] then
+		if not config[ 'source' ]
+		then
 			local info = debug.getinfo( 3, 'Sl' )
+
 			log(
 				'Error',
 				info.short_src,':',
 				info.currentline,': source missing from sync.'
 			)
+
 			terminate( -1 )
 		end
 
@@ -3104,6 +3083,7 @@ local Syncs = ( function
 				'Cannot access source directory: ',
 				config.source
 			)
+
 			terminate( -1 )
 		end
 
@@ -3118,6 +3098,7 @@ local Syncs = ( function
 		and not config.onMove
 		then
 			local info = debug.getinfo( 3, 'Sl' )
+
 			log(
 				'Error',
 				info.short_src, ':',
@@ -3553,13 +3534,11 @@ end)( )
 --
 local Fsevents = ( function
 ( )
-
 	--
 	-- A list indexed by syncs yielding
 	-- the root path the sync is interested in.
 	--
 	local syncRoots = { }
-
 
 	--
 	-- Adds a Sync to receive events.
@@ -4036,8 +4015,6 @@ end )( )
 --
 local StatusFile = ( function
 ( )
-
-
 	--
 	-- Timestamp when the status file has been written.
 	--

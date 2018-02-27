@@ -12,7 +12,7 @@
 #define LSYNCD_H
 
 // some older machines need this to see pselect
-#define _BSD_SOURCE 1
+#define _DEFAULT_SOURCE 1
 #define _XOPEN_SOURCE 700
 #define _DARWIN_C_SOURCE 1
 

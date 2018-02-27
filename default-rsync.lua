@@ -647,11 +647,13 @@ rsync.prepare = function
 	end
 
 	-- appends a / to target if not present
-	if not skipTarget and string.sub(config.target, -1) ~= '/'
+	-- and not a ':' for home dir.
+	if not skipTarget
+	and string.sub( config.target, -1 ) ~= '/'
+	and string.sub( config.target, -1 ) ~= ':'
 	then
 		config.target = config.target..'/'
 	end
-
 end
 
 

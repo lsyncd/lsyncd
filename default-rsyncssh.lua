@@ -91,10 +91,7 @@ local replaceRsyncFilter =
 (
 	path
 )
-	if not path
-	then
-		return
-	end
+	if not path then return end
 
 	return(
 		path
@@ -161,9 +158,7 @@ rsyncssh.action = function
 	-- Replaces what rsync would consider filter rules by literals
 	--
 	local function sub( p )
-		if not p then
-			return
-		end
+		if not p then return end
 
 		return p:
 			gsub( '%?', '\\?' ):
@@ -195,11 +190,7 @@ rsyncssh.action = function
 
 	-- adds one path to the filter
 	local function addToFilter( path )
-
-		if filterP[ path ]
-		then
-			return
-		end
+		if filterP[ path ] then return end
 
 		filterP[ path ] = true
 
@@ -372,7 +363,7 @@ rsyncssh.collect = function
 
 		if rc == 'ok'
 		then
-			log('Normal', 'Startup of "', agent.source, '" finished: ', exitcode)
+			log( 'Normal', 'Startup of "', agent.source, '" finished: ', exitcode )
 		elseif rc == 'again'
 		then
 			if settings('insist')
@@ -382,16 +373,16 @@ rsyncssh.collect = function
 				log(
 					'Error',
 					'Temporary or permanent failure on startup of "',
-					agent.source, '". Terminating since "insist" is not set.' 
+					agent.source, '". Terminating since "insist" is not set.'
 				)
 
 				terminate( -1 ) -- ERRNO
 			end
 		elseif rc == 'die'
 		then
-			log( 'Error', 'Failure on startup of "',agent.source,'": ', exitcode )
+			log( 'Error', 'Failure on startup of "', agent.source, '": ', exitcode )
 		else
-			log( 'Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode )
+			log( 'Error', 'Unknown exitcode on startup of "', agent.source, ': "', exitcode )
 
 			rc = 'die'
 		end
@@ -431,7 +422,7 @@ rsyncssh.collect = function
 		then
 			log( 'Normal', 'Failure ', agent.etype, ' ', agent.sourcePath, ': ', exitcode )
 		else
-			log( 'Error', 'Unknown exitcode ',agent.etype,' ',agent.sourcePath,': ',exitcode )
+			log( 'Error', 'Unknown exitcode ', agent.etype,' ', agent.sourcePath,': ', exitcode )
 
 			rc = 'die'
 		end
@@ -453,18 +444,12 @@ rsyncssh.prepare = function
 
 	if not config.host
 	then
-		error(
-			'default.rsyncssh needs "host" configured',
-			level
-		)
+		error( 'default.rsyncssh needs "host" configured', level )
 	end
 
 	if not config.targetdir
 	then
-		error(
-			'default.rsyncssh needs "targetdir" configured',
-			level
-		)
+		error( 'default.rsyncssh needs "targetdir" configured', level )
 	end
 
 	--
@@ -472,18 +457,12 @@ rsyncssh.prepare = function
 	--
 	if config.ssh._computed
 	then
-		error(
-			'please do not use the internal rsync._computed parameter',
-			level
-		)
+		error( 'please do not use the internal rsync._computed parameter', level )
 	end
 
 	if config.maxProcesses ~= 1
 	then
-		error(
-			'default.rsyncssh must have maxProcesses set to 1.',
-			level
-		)
+		error( 'default.rsyncssh must have maxProcesses set to 1.', level )
 	end
 
 	local cssh = config.ssh;
@@ -578,10 +557,11 @@ rsyncssh.prepare = function
 	end
 
 	-- appends a slash to the targetdir if missing
+	-- and is not ':' for home dir
 	if string.sub( config.targetdir, -1 ) ~= '/'
+	and string.sub( config.targetdir, -1 ) ~= ':'
 	then
-		config.targetdir =
-			config.targetdir .. '/'
+		config.targetdir = config.targetdir .. '/'
 	end
 
 end
