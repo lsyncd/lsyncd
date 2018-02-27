@@ -1,6 +1,7 @@
 2018-??-??: 2.2.3
 	change: if the target/targetdir ands with a ':' do not append
 			a trailing '/' to it, since that would change it from homedir to rootdir!
+	add: example for Amazon S3 Bucket (Daniel Miranda)
 
 2017-02-16: 2.2.2
 	fix: checkgauge 'insist'
