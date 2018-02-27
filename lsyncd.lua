@@ -1650,6 +1650,19 @@ local InletFactory = ( function
 			sync:addExclude( pattern )
 		end,
 
+
+		--
+		-- Appens a filter.
+		--
+		appendFilter = function
+		(
+			sync,   -- the sync of the inlet
+			rule,   -- '+' or '-'
+			pattern -- exlusion pattern to add
+		)
+			sync:appendFilter( rule, pattern )
+		end,
+
 		--
 		-- Removes an exclude.
 		--
@@ -1663,7 +1676,7 @@ local InletFactory = ( function
 
 		--
 		-- Gets the list of excludes in their
-		-- rsynlike patterns form.
+		-- rsync-like patterns form.
 		--
 		getExcludes = function
 		(
@@ -1680,6 +1693,48 @@ local InletFactory = ( function
 			end
 
 			return e;
+		end,
+
+		--
+		-- Gets the list of filters and excldues
+		-- as rsync-like filter/patterns form.
+		--
+		getFilters = function
+		(
+			sync -- the sync of the inlet
+		)
+			-- creates a copy
+			local e = { }
+			local en = 1;
+
+			-- first takes the filters
+			if sync.filters
+			then
+				for _, entry in ipairs( sync.filters.list )
+				do
+					e[ en ] = entry.rule .. ' ' .. entry.pattern;
+					en = en + 1;
+				end
+			end
+
+			-- then the excludes
+			for k, _ in pairs( sync.excludes.list )
+			do
+				e[ en ] = '- ' .. k;
+				en = en + 1;
+			end
+
+			return e;
+		end,
+
+		--
+		-- Returns true if the sync has filters
+		--
+		hasFilters = function
+		(
+			sync -- the sync of the inlet
+		)
+			return not not sync.filters
 		end,
 
 		--
@@ -1892,8 +1947,9 @@ local Excludes = ( function( )
 		self,    -- self
 		pattern  -- the pattern to remove
 	)
+		-- already in the list?
 		if not self.list[ pattern ]
-		then -- already in the list?
+		then
 			log(
 				'Normal',
 				'Removing not excluded exclude "' .. pattern .. '"'
@@ -2017,6 +2073,180 @@ end )( )
 
 
 --
+-- A set of filter patterns.
+--
+-- Filters allow excludes and includes
+--
+local Filters = ( function( )
+
+	--
+	-- Turns a rsync like file pattern to a lua pattern.
+	-- ( at best it can )
+	--
+	local function toLuaPattern
+	(
+		p  --  the rsync like pattern
+	)
+		local o = p
+
+		p = string.gsub( p, '%%', '%%%%'  )
+		p = string.gsub( p, '%^', '%%^'   )
+		p = string.gsub( p, '%$', '%%$'   )
+		p = string.gsub( p, '%(', '%%('   )
+		p = string.gsub( p, '%)', '%%)'   )
+		p = string.gsub( p, '%.', '%%.'   )
+		p = string.gsub( p, '%[', '%%['   )
+		p = string.gsub( p, '%]', '%%]'   )
+		p = string.gsub( p, '%+', '%%+'   )
+		p = string.gsub( p, '%-', '%%-'   )
+		p = string.gsub( p, '%?', '[^/]'  )
+		p = string.gsub( p, '%*', '[^/]*' )
+		-- this was a ** before
+		p = string.gsub( p, '%[%^/%]%*%[%^/%]%*', '.*' )
+		p = string.gsub( p, '^/', '^/'    )
+
+		if p:sub( 1, 2 ) ~= '^/'
+		then
+			-- if does not begin with '^/'
+			-- then all matches should begin with '/'.
+			p = '/' .. p;
+		end
+
+		log( 'Filter', 'toLuaPattern "', o, '" = "', p, '"' )
+
+		return p
+	end
+
+	--
+	-- Appends a filter pattern
+	--
+	local function append
+	(
+		self,    -- the filters object
+		line     -- filter line
+	)
+		local rule, pattern = string.match( line, '%s*([+|-])%s*(.*)' )
+
+		if not rule or not pattern
+		then
+			log( 'Error', 'Unknown filter rule: "', line, '"' )
+			terminate( -1 )
+		end
+
+		local lp = toLuaPattern( pattern )
+
+		table.insert( self. list, { rule = rule, pattern = pattern, lp = lp } )
+	end
+
+	--
+	-- Adds a list of patterns to exclude.
+	--
+	local function appendList
+	(
+		self,
+		plist
+	)
+		for _, v in ipairs( plist )
+		do
+			append( self, v )
+		end
+	end
+
+	--
+	-- Loads the filters from a file.
+	--
+	local function loadFile
+	(
+		self,  -- self
+		file   -- filename to load from
+	)
+		f, err = io.open( file )
+
+		if not f
+		then
+			log( 'Error', 'Cannot open filter file "', file, '": ', err )
+
+			terminate( -1 )
+		end
+
+	    for line in f:lines( )
+		do
+			if string.match( line, '^%s*#' )
+			or string.match( line, '^%s*$' )
+			then
+				-- a comment or empty line: ignore
+			else
+				append( self, line )
+			end
+		end
+
+		f:close( )
+	end
+
+	--
+	-- Tests if 'path' is excluded.
+	--
+	local function test
+	(
+		self,  -- self
+		path   -- the path to test
+	)
+		if path:byte( 1 ) ~= 47
+		then
+			error( 'Paths for exlusion tests must start with \'/\'' )
+		end
+
+		for _, entry in ipairs( self.list )
+		do
+			local rule = entry.rule
+			local lp = entry.lp -- lua pattern
+
+			if lp:byte( -1 ) == 36
+			then
+				-- ends with $
+				if path:match( lp )
+				then
+					return rule == '-'
+				end
+			else
+				-- ends either end with / or $
+				if path:match( lp .. '/' )
+				or path:match( lp .. '$' )
+				then
+					return rule == '-'
+				end
+			end
+		end
+
+		return true
+	end
+
+	--
+	-- Cretes a new filter set.
+	--
+	local function new
+	( )
+		return {
+			list = { },
+			-- functions
+			append     = append,
+			appendList = appendList,
+			loadFile   = loadFile,
+			test       = test,
+		}
+	end
+
+
+	--
+	-- Public interface.
+	--
+	return { new = new }
+
+end )( )
+
+
+
+--
 -- Holds information about one observed directory including subdirs.
 --
 local Sync = ( function
@@ -2036,6 +2266,17 @@ local Sync = ( function
 		pattern
 	)
 		return self.excludes:add( pattern )
+	end
+
+	local function appendFilter
+	(
+		self,
+		rule,
+		pattern
+	)
+		if not self.filters then self.filters = Filters.new( ) end
+
+		return self.filters:append( rule, pattern )
 	end
 
 	--
@@ -2280,14 +2521,8 @@ local Sync = ( function
 			-- simple test for single path events
 			if self.excludes:test( path )
 			then
-				log(
-					'Exclude',
-					'excluded ',
-					etype,
-					' on "',
-					path,
-					'"'
-				)
+				log( 'Exclude', 'excluded ', etype, ' on "', path, '"' )
+
 				return
 			end
 		else
@@ -2298,16 +2533,7 @@ local Sync = ( function
 
 			if ex1 and ex2
 			then
-				log(
-					'Exclude',
-					'excluded "',
-					etype,
-					' on "',
-					path,
-					'" -> "',
-					path2,
-					'"'
-				)
+				log( 'Exclude', 'excluded "', etype, ' on "', path, '" -> "', path2, '"' )
 
 				return
 			elseif not ex1 and ex2
@@ -2321,13 +2547,7 @@ local Sync = ( function
 					path
 				)
 
-				delay(
-					self,
-					'Delete',
-					time,
-					path,
-					nil
-				)
+				 delay( self, 'Delete', time, path, nil )
 
 				return
 			elseif ex1 and not ex2
@@ -2341,13 +2561,7 @@ local Sync = ( function
 					path2
 				)
 
-				delay(
-					self,
-					'Create',
-					time,
-					path2,
-					nil
-				)
+				delay( self, 'Create', time, path2, nil )
 
 				return
 			end
@@ -2379,13 +2593,7 @@ local Sync = ( function
 		end
 
 		-- new delay
-		local nd = Delay.new(
-			etype,
-			self,
-			alarm,
-			path,
-			path2
-		)
+		local nd = Delay.new( etype, self, alarm, path, path2 )
 
 		if nd.etype == 'Init' or nd.etype == 'Blanket'
 		then
@@ -2562,10 +2770,7 @@ local Sync = ( function
 				tr = test( InletFactory.d2e( d ) )
 			end
 
-			if tr == 'break'
-			then
-				break
-			end
+			if tr == 'break' then break end
 
 			if d.status == 'active' or not tr
 			then
@@ -2767,12 +2972,14 @@ local Sync = ( function
 			source = config.source,
 			processes = CountArray.new( ),
 			excludes = Excludes.new( ),
+			filters = nil,
 
 			-- functions
 
 			addBlanketDelay = addBlanketDelay,
 			addExclude      = addExclude,
 			addInitDelay    = addInitDelay,
+			appendFilter    = appendFilter,
 			collect         = collect,
 			concerns        = concerns,
 			delay           = delay,
@@ -2797,6 +3004,25 @@ local Sync = ( function
 		-- so Sync{n} will be the n-th call to sync{}
 		nextDefaultName = nextDefaultName + 1
 
+		-- loads filters
+		if config.filter
+		then
+			local te = type( config.filter )
+
+			s.filters = Filters.new( )
+
+			if te == 'table'
+			then
+				s.filters:appendList( config.filter )
+			elseif te == 'string'
+			then
+				s.filters:append( config.filter )
+			else
+				error( 'type for filter must be table or string', 2 )
+			end
+
+		end
+
 		-- loads exclusions
 		if config.exclude
 		then
@@ -2814,14 +3040,17 @@ local Sync = ( function
 
 		end
 
-		if
-			config.delay ~= nil and
-			(
-				type( config.delay ) ~= 'number'
-				or config.delay < 0
-			)
+		if config.delay ~= nil
+		and ( type( config.delay ) ~= 'number' or config.delay < 0 )
 		then
 			error( 'delay must be a number and >= 0', 2 )
+		end
+
+		if config.filterFrom
+		then
+			if not s.filters then s.filters = Filters.new( ) end
+
+			s.filters:loadFile( config.filterFrom )
 		end
 
 		if config.excludeFrom
@@ -3847,13 +4076,12 @@ local functionWriter = ( function( )
 			local as = ''
 			local first = true
 
-			for _, v in ipairs( a ) do
+			for _, v in ipairs( a )
+			do
+				if not first then as = as..' .. ' end
 
-				if not first then
-					as = as..' .. '
-				end
-
-				if v[ 1 ] then
+				if v[ 1 ]
+				then
 					as = as .. '"' .. v[ 2 ] .. '"'
 				else
 					as = as .. v[ 2 ]
@@ -3866,6 +4094,7 @@ local functionWriter = ( function( )
 		end
 
 		local ft
+
 		if not haveEvent2
 		then
 			ft = 'function( event )\n'
