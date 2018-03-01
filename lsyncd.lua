@@ -20,10 +20,7 @@
 if lsyncd_version
 then
 	-- ensures the runner is not being loaded twice
-	lsyncd.log(
-		'Error',
-		'You cannot use the lsyncd runner as configuration file!'
-	)
+	lsyncd.log( 'Error', 'You cannot use the lsyncd runner as configuration file!' )
 
 	lsyncd.terminate( -1 )
 end
@@ -3813,20 +3810,10 @@ local Fsevents = ( function
 		then
 			path = path .. '/'
 
-			if path2
-			then
-				path2 = path2 .. '/'
-			end
+			if path2 then path2 = path2 .. '/' end
 		end
 
-		log(
-			'Fsevents',
-			etype, ',',
-			isdir, ',',
-			time,  ',',
-			path,  ',',
-			path2
-		)
+		log( 'Fsevents', etype, ',', isdir, ',', time,  ',', path, ',', path2 )
 
 		for _, sync in Syncs.iwalk()
 		do repeat
@@ -3858,11 +3845,7 @@ local Fsevents = ( function
 			then
 				if not relative2
 				then
-					log(
-						'Normal',
-						'Transformed Move to Delete for ',
-						sync.config.name
-					)
+					log( 'Normal', 'Transformed Move to Delete for ', sync.config.name )
 
 					etyped = 'Delete'
 
@@ -3872,11 +3855,7 @@ local Fsevents = ( function
 
 					relative2 = nil
 
-					log(
-						'Normal',
-						'Transformed Move to Create for ',
-						sync.config.name
-					)
+					log( 'Normal', 'Transformed Move to Create for ', sync.config.name )
 
 					etyped = 'Create'
 				end
@@ -3925,7 +3904,8 @@ Monitors = ( function
 	--
 	-- The default event monitor.
 	--
-	local function default( )
+	local function default
+	( )
 		return list[ 1 ]
 	end
 
@@ -4049,33 +4029,39 @@ local functionWriter = ( function( )
 		-- true if there is a second event
 		local haveEvent2 = false
 
-		for ia, iv in ipairs( args ) do
-
+		for ia, iv in ipairs( args )
+		do
 			-- a list of arguments this arg is being split into
 			local a = { { true, iv } }
 
 			-- goes through all translates
-			for _, v in ipairs( transVars ) do
+			for _, v in ipairs( transVars )
+			do
 				local ai = 1
-				while ai <= #a do
-					if a[ ai ][ 1 ] then
+				while ai <= #a
+				do
+					if a[ ai ][ 1 ]
+					then
 						local pre, post =
 							string.match( a[ ai ][ 2 ], '(.*)'..v[1]..'(.*)' )
 
-						if pre then
-
-							if v[3] > 1 then
+						if pre
+						then
+							if v[3] > 1
+							then
 								haveEvent2 = true
 							end
 
-							if pre ~= '' then
+							if pre ~= ''
+							then
 								table.insert( a, ai, { true, pre } )
 								ai = ai + 1
 							end
 
 							a[ ai ] = { false, v[ 2 ] }
 
-							if post ~= '' then
+							if post ~= ''
+							then
 								table.insert( a, ai + 1, { true, post } )
 							end
 						end
@@ -4155,17 +4141,14 @@ local functionWriter = ( function( )
 			cmd = string.gsub(
 				cmd,
 				v[ 1 ],
-				function( )
+				function
+				( )
 					occur = true
 					return '"$' .. argn .. '"'
 				end
 			)
 
-			lc = string.gsub(
-				lc,
-				v[1],
-				']]..' .. v[2] .. '..[['
-			)
+			lc = string.gsub( lc, v[1], ']]..' .. v[2] .. '..[[' )
 
 			if occur
 			then
@@ -4218,6 +4201,7 @@ local functionWriter = ( function( )
 		str = string.match( str, '^%s*(.-)%s*$' )
 
 		local ft
+
 		if string.byte( str, 1, 1 ) == 47
 		then
 			-- starts with /
@@ -4230,13 +4214,7 @@ local functionWriter = ( function( )
 			 ft = translateShell( str )
 		end
 
-		log(
-			'FWrite',
-			'translated "',
-			str,
-			'" to \n',
-			ft
-		)
+		log( 'FWrite', 'translated "', str, '" to \n', ft )
 
 		return ft
 	end
@@ -4294,14 +4272,7 @@ local StatusFile = ( function
 			-- already waiting?
 			if alarm and timestamp < alarm
 			then
-				log(
-					'Statusfile',
-					'waiting(',
-					timestamp,
-					' < ',
-					alarm,
-					')'
-				)
+				log( 'Statusfile', 'waiting(', timestamp, ' < ', alarm, ')' )
 
 				return
 			end
@@ -4309,17 +4280,11 @@ local StatusFile = ( function
 			-- determines when a next write will be possible
 			if not alarm
 			then
-				local nextWrite =
-					lastWritten and timestamp
-					+ uSettings.statusInterval
+				local nextWrite = lastWritten and timestamp + uSettings.statusInterval
 
 				if nextWrite and timestamp < nextWrite
 				then
-					log(
-						'Statusfile',
-						'setting alarm: ',
-						nextWrite
-					)
+					log( 'Statusfile', 'setting alarm: ', nextWrite )
 					alarm = nextWrite
 
 					return
@@ -4400,7 +4365,8 @@ local UserAlarms = ( function
 			end
 		end
 
-		local a = {
+		local a =
+		{
 			timestamp = timestamp,
 			func = func,
 			extra = extra
@@ -4432,10 +4398,12 @@ local UserAlarms = ( function
 	--
 	-- Calls user alarms.
 	--
-	local function invoke( timestamp )
-		while
-			#alarms > 0 and
-			alarms[ 1 ].timestamp <= timestamp
+	local function invoke
+	(
+		timestamp
+	)
+		while #alarms > 0
+		and alarms[ 1 ].timestamp <= timestamp
 		do
 			alarms[ 1 ].func( alarms[ 1 ].timestamp, alarms[ 1 ].extra )
 			table.remove( alarms, 1 )
@@ -4486,7 +4454,7 @@ function runner.callError
 (
 	message
 )
-	log('Error', 'in Lua: ', message )
+	log( 'Error', 'in Lua: ', message )
 
 	-- prints backtrace
 	local level = 2
@@ -4517,18 +4485,22 @@ end
 -- Called from core whenever a child process has finished and
 -- the zombie process was collected by core.
 --
-function runner.collectProcess( pid, exitcode )
-
+function runner.collectProcess
+(
+	pid,       -- process id
+	exitcode   -- exitcode
+)
 	processCount = processCount - 1
 
-	if processCount < 0 then
+	if processCount < 0
+	then
 		error( 'negative number of processes!' )
 	end
 
-	for _, s in Syncs.iwalk() do
-		if s:collect(pid, exitcode) then return end
+	for _, s in Syncs.iwalk( )
+	do
+		if s:collect( pid, exitcode ) then return end
 	end
-
 end
 
 --
@@ -4683,119 +4655,119 @@ function runner.configure( args, monitors )
 	--
 	-- second paramter is the function to call
 	--
-	local options = {
-
+	local options =
+	{
 		-- log is handled by core already.
 
 		delay =
-			{
-				1,
-				function( secs )
-					clSettings.delay = secs + 0
-				end
-			},
+		{
+			1,
+			function( secs )
+				clSettings.delay = secs + 0
+			end
+		},
 
 		insist =
-			{
-				0,
-				function( )
-					clSettings.insist = true
-				end
-			},
+		{
+			0,
+			function( )
+				clSettings.insist = true
+			end
+		},
 
 		log =
-			{
-				1,
-				nil
-			},
+		{
+			1,
+			nil
+		},
 
 		logfile =
-			{
-				1,
-				function( file )
-					clSettings.logfile = file
-				end
-			},
+		{
+			1,
+			function( file )
+				clSettings.logfile = file
+			end
+		},
 
 		monitor =
-			{
-				-1,
-				function( monitor )
-					if not monitor then
-						io.stdout:write( 'This Lsyncd supports these monitors:\n' )
-						for _, v in ipairs(Monitors.list) do
-							io.stdout:write('   ',v,'\n')
-						end
-
-						io.stdout:write('\n')
-
-						lsyncd.terminate(-1)
-					else
-						clSettings.monitor = monitor
+		{
+			-1,
+			function( monitor )
+				if not monitor then
+					io.stdout:write( 'This Lsyncd supports these monitors:\n' )
+					for _, v in ipairs(Monitors.list) do
+						io.stdout:write('   ',v,'\n')
 					end
+
+					io.stdout:write('\n')
+
+					lsyncd.terminate(-1)
+				else
+					clSettings.monitor = monitor
 				end
-			},
+			end
+		},
 
 		nodaemon =
-			{
-				0,
-				function( )
-					clSettings.nodaemon = true
-				end
-			},
+		{
+			0,
+			function( )
+				clSettings.nodaemon = true
+			end
+		},
 
 		pidfile =
-			{
-				1,
-				function( file )
-					clSettings.pidfile=file
-				end
-			},
+		{
+			1,
+			function( file )
+				clSettings.pidfile=file
+			end
+		},
 
 		rsync    =
-			{
-				2,
-				function( src, trg )
-					clSettings.syncs = clSettings.syncs or { }
-					table.insert(
-						clSettings.syncs,
-						{ 'rsync', src, trg }
-					)
-				end
-			},
+		{
+			2,
+			function( src, trg )
+				clSettings.syncs = clSettings.syncs or { }
+				table.insert(
+					clSettings.syncs,
+					{ 'rsync', src, trg }
+				)
+			end
+		},
 
 		rsyncssh =
-			{
-				3,
-				function( src, host, tdir )
-					clSettings.syncs = clSettings.syncs or { }
-					table.insert(
-						clSettings.syncs,
-						{ 'rsyncssh', src, host, tdir }
-					)
-				end
-			},
+		{
+			3,
+			function( src, host, tdir )
+				clSettings.syncs = clSettings.syncs or { }
+				table.insert(
+					clSettings.syncs,
+					{ 'rsyncssh', src, host, tdir }
+				)
+			end
+		},
 
 		direct =
-			{
-				2,
-				function( src, trg )
-					clSettings.syncs = clSettings.syncs or { }
-					table.insert(
-						clSettings.syncs,
-						{ 'direct', src, trg }
-					)
-				end
-			},
+		{
+			2,
+			function( src, trg )
+				clSettings.syncs = clSettings.syncs or { }
+				table.insert(
+					clSettings.syncs,
+					{ 'direct', src, trg }
+				)
+			end
+		},
 
 		version =
-			{
-				0,
-				function( )
-					io.stdout:write( 'Version: ', lsyncd_version, '\n' )
-					os.exit( 0 )
-				end
-			}
+		{
+			0,
+			function( )
+				io.stdout:write( 'Version: ', lsyncd_version, '\n' )
+				os.exit( 0 )
+			end
+		}
 	}
 
 	-- non-opts is filled with all args that were no part dash options
@@ -4803,14 +4775,17 @@ function runner.configure( args, monitors )
 	local nonopts = { }
 
 	local i = 1
-	while i <= #args do
 
+	while i <= #args
+	do
 		local a = args[ i ]
 
-		if a:sub( 1, 1 ) ~= '-' then
+		if a:sub( 1, 1 ) ~= '-'
+		then
 			table.insert( nonopts, args[ i ] )
 		else
-			if a:sub( 1, 2 ) == '--' then
+			if a:sub( 1, 2 ) == '--'
+			then
 				a = a:sub( 3 )
 			else
 				a = a:sub( 2 )
@@ -4820,11 +4795,8 @@ function runner.configure( args, monitors )
 
 			if not o
 			then
-				log(
-					'Error',
-					'unknown option command line option ',
-					args[i]
-				)
+				log( 'Error', 'unknown option command line option ', args[ i ] )
+
 				os.exit( -1 )
 			end
 
@@ -4865,10 +4837,8 @@ function runner.configure( args, monitors )
 	then
 		if #nonopts ~= 0
 		then
-			log(
-				'Error',
-				'There cannot be command line syncs and a config file together.'
-			)
+			log( 'Error', 'There cannot be command line syncs and a config file together.' )
+
 			os.exit( -1 )
 		end
 
@@ -4882,10 +4852,7 @@ function runner.configure( args, monitors )
 			return nonopts[ 1 ]
 		else
 			-- TODO make this possible
-			log(
-				'Error',
-				'There can only be one config file in the command line.'
-			)
+			log( 'Error', 'There can only be one config file in the command line.' )
 
 			os.exit( -1 )
 		end
@@ -4910,7 +4877,7 @@ function runner.initialize( firstTime )
 		log(
 			'Error',
 			'Do not use settings = { ... }\n'..
-			'      please use settings{ ... } (without the equal sign)'
+			'      please use settings{ ... } ( without the equal sign )'
 		)
 
 		os.exit( -1 )
@@ -4922,26 +4889,6 @@ function runner.initialize( firstTime )
 	-- From this point on, no globals may be created anymore
 	--
 	lockGlobals( )
-
-	--
-	-- copies simple settings with numeric keys to 'key = true' settings.
-	--
-	-- FIXME this can be removed when
-	-- Lsyncd 2.0.x backwards compatibility is dropped
-	--
---	for k, v in ipairs( uSettings )
---	do
---		if uSettings[ v ]
---		then
---			log(
---				'Error',
---				'Double setting "' .. v.. '"'
---			)
---			os.exit( -1 )
---		end
---
---		uSettings[ v ]= true
---	end
 
 	--
 	-- all command line settings overwrite config file settings
@@ -5031,10 +4978,7 @@ function runner.initialize( firstTime )
 	-- makes sure the user gave Lsyncd anything to do
 	if Syncs.size() == 0
 	then
-		log(
-			'Error',
-			'Nothing to watch!'
-		)
+		log( 'Error', 'Nothing to watch!' ) 
 
 		os.exit( -1 )
 	end
@@ -5044,7 +4988,8 @@ function runner.initialize( firstTime )
 
 	lsyncd.configure( 'running' );
 
-	local ufuncs = {
+	local ufuncs =
+	{
 		'onAttrib',
 		'onCreate',
 		'onDelete',
@@ -5094,7 +5039,6 @@ function runner.initialize( firstTime )
 			s:addInitDelay( )
 		end
 	end
-
 end
 
 --
@@ -5106,13 +5050,9 @@ end
 --
 function runner.getAlarm
 ( )
-
 	log( 'Function', 'getAlarm( )' )
 
-	if lsyncdStatus ~= 'run'
-	then
-		return false
-	end
+	if lsyncdStatus ~= 'run' then return false end
 
 	local alarm = false
 
@@ -5121,12 +5061,9 @@ function runner.getAlarm
 	--
 	local function checkAlarm
 	(
-		a
+		a  -- alarm time
 	)
-		if a == nil
-		then
-			error('got nil alarm')
-		end
+		if a == nil then error( 'got nil alarm' ) end
 
 		if alarm == true or not a
 		then
@@ -5166,14 +5103,9 @@ function runner.getAlarm
 	-- checks for an userAlarm
 	checkAlarm( UserAlarms.getAlarm( ) )
 
-	log(
-		'Alarm',
-		'runner.getAlarm returns: ',
-		alarm
-	)
+	log( 'Alarm', 'runner.getAlarm returns: ', alarm )
 
 	return alarm
-
 end
 
 
@@ -5193,12 +5125,7 @@ function runner.collector
 )
 	if exitcode ~= 0
 	then
-		log(
-			'Error',
-			'Startup process',
-			pid,
-			' failed'
-		)
+		log( 'Error', 'Startup process', pid, ' failed' )
 
 		terminate( -1 )
 	end
@@ -5209,54 +5136,41 @@ end
 --
 -- Called by core when an overflow happened.
 --
-function runner.overflow( )
-
-	log(
-		'Normal',
-		'--- OVERFLOW in event queue ---'
-	)
+function runner.overflow
+( )
+	log( 'Normal', '--- OVERFLOW in event queue ---' )
 
 	lsyncdStatus = 'fade'
-
 end
 
 --
 -- Called by core on a hup signal.
 --
-function runner.hup( )
-
-	log(
-		'Normal',
-		'--- HUP signal, resetting ---'
-	)
+function runner.hup
+( )
+	log( 'Normal', '--- HUP signal, resetting ---' )
 
 	lsyncdStatus = 'fade'
-
 end
 
 --
 -- Called by core on a term signal.
 --
-function runner.term( sigcode )
-
-	local sigtexts = {
-		[ 2 ] =
-			'INT',
-
-		[ 15 ] =
-			'TERM'
+function runner.term
+(
+	sigcode  -- signal code
+)
+	local sigtexts =
+	{
+		[ 2 ] = 'INT',
+		[ 15 ] = 'TERM'
 	};
 
 	local sigtext = sigtexts[ sigcode ];
 
-	if not sigtext then
-		sigtext = 'UNKNOWN'
-	end
+	if not sigtext then sigtext = 'UNKNOWN' end
 
-	log(
-		'Normal',
-		'--- ', sigtext, ' signal, fading ---'
-	)
+	log( 'Normal', '--- ', sigtext, ' signal, fading ---' )
 
 	lsyncdStatus = 'fade'
 
@@ -5294,38 +5208,28 @@ function spawn(
 	binary, -- binary to call
 	...     -- arguments
 )
-	if
-		agent == nil or
-		type( agent ) ~= 'table'
+	if agent == nil
+	or type( agent ) ~= 'table'
 	then
-		error(
-			'spawning with an invalid agent',
-			2
-		)
+		error( 'spawning with an invalid agent', 2 )
 	end
 
-	if lsyncdStatus == 'fade' then
-		log(
-			'Normal',
-			'ignored process spawning while fading'
-		)
+	if lsyncdStatus == 'fade'
+	then
+		log( 'Normal', 'ignored process spawning while fading' )
 		return
 	end
 
-	if type( binary ) ~= 'string' then
-		error(
-			'calling spawn(agent, binary, ...): binary is not a string',
-			2
-		)
+	if type( binary ) ~= 'string'
+	then
+		error( 'calling spawn(agent, binary, ...): binary is not a string', 2 )
 	end
 
 	local dol = InletFactory.getDelayOrList( agent )
 
-	if not dol then
-		error(
-			'spawning with an unknown agent',
-			2
-		)
+	if not dol
+	then
+		error( 'spawning with an unknown agent', 2 )
 	end
 
 	--
@@ -5360,9 +5264,8 @@ function spawn(
 	then
 		processCount = processCount + 1
 
-		if
-			uSettings.maxProcesses and
-			processCount > uSettings.maxProcesses
+		if uSettings.maxProcesses
+		and processCount > uSettings.maxProcesses
 		then
 			error( 'Spawned too much processes!' )
 		end
@@ -5397,14 +5300,7 @@ function spawnShell
 	command,   -- the shell command
 	...        -- additonal arguments
 )
-	return spawn(
-		agent,
-		'/bin/sh',
-		'-c',
-		command,
-		'/bin/sh',
-		...
-	)
+	return spawn( agent, '/bin/sh', '-c', command, '/bin/sh', ... )
 end
 
 
@@ -5417,11 +5313,7 @@ function observefd
 	ready,  -- called when fd is ready to be read
 	writey  -- called when fd is ready to be written
 )
-	return lsyncd.observe_fd(
-		fd,
-		ready,
-		writey
-	)
+	return lsyncd.observe_fd( fd, ready, writey )
 end
 
 
@@ -5493,24 +5385,14 @@ function settings
 		then
 			if not settingsCheckgauge[ k ]
 			then
-				error(
-					'setting "'
-					..k
-					..'" unknown.',
-					2
-				)
+				error( 'setting "'..k..'" unknown.', 2 )
 			end
 
 			uSettings[ k ] = v
 		else
 			if not settingsCheckgauge[ v ]
 			then
-				error(
-					'setting "'
-					..v
-					..'" unknown.',
-					2
-				)
+				error( 'setting "'..v..'" unknown.', 2 )
 			end
 
 			uSettings[ v ] = true
