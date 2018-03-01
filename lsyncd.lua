@@ -4662,7 +4662,10 @@ function runner.configure( args, monitors )
 		delay =
 		{
 			1,
-			function( secs )
+			function
+			(
+				secs
+			)
 				clSettings.delay = secs + 0
 			end
 		},
@@ -4670,7 +4673,8 @@ function runner.configure( args, monitors )
 		insist =
 		{
 			0,
-			function( )
+			function
+			( )
 				clSettings.insist = true
 			end
 		},
@@ -4684,7 +4688,10 @@ function runner.configure( args, monitors )
 		logfile =
 		{
 			1,
-			function( file )
+			function
+			(
+				file
+			)
 				clSettings.logfile = file
 			end
 		},
@@ -4692,16 +4699,21 @@ function runner.configure( args, monitors )
 		monitor =
 		{
 			-1,
-			function( monitor )
-				if not monitor then
+			function
+			(
+				monitor
+			)
+				if not monitor
+				then
 					io.stdout:write( 'This Lsyncd supports these monitors:\n' )
-					for _, v in ipairs(Monitors.list) do
-						io.stdout:write('   ',v,'\n')
+					for _, v in ipairs( Monitors.list )
+					do
+						io.stdout:write( '   ', v, '\n' )
 					end
 
 					io.stdout:write('\n')
 
-					lsyncd.terminate(-1)
+					lsyncd.terminate( -1 )
 				else
 					clSettings.monitor = monitor
 				end
@@ -4711,7 +4723,8 @@ function runner.configure( args, monitors )
 		nodaemon =
 		{
 			0,
-			function( )
+			function
+			( )
 				clSettings.nodaemon = true
 			end
 		},
@@ -4719,52 +4732,63 @@ function runner.configure( args, monitors )
 		pidfile =
 		{
 			1,
-			function( file )
+			function
+			(
+				file
+			)
 				clSettings.pidfile=file
 			end
 		},
 
-		rsync    =
+		rsync =
 		{
 			2,
-			function( src, trg )
+			function
+			(
+				src,
+				trg
+			)
 				clSettings.syncs = clSettings.syncs or { }
-				table.insert(
-					clSettings.syncs,
-					{ 'rsync', src, trg }
-				)
+				table.insert( clSettings.syncs, { 'rsync', src, trg } )
 			end
 		},
 
 		rsyncssh =
 		{
 			3,
-			function( src, host, tdir )
+			function
+			(
+				src,
+				host,
+				tdir
+			)
 				clSettings.syncs = clSettings.syncs or { }
-				table.insert(
-					clSettings.syncs,
-					{ 'rsyncssh', src, host, tdir }
-				)
+
+				table.insert( clSettings.syncs, { 'rsyncssh', src, host, tdir } )
 			end
 		},
 
 		direct =
 		{
 			2,
-			function( src, trg )
+			function
+			(
+				src,
+				trg
+			)
 				clSettings.syncs = clSettings.syncs or { }
-				table.insert(
-					clSettings.syncs,
-					{ 'direct', src, trg }
-				)
+
+				table.insert( clSettings.syncs, { 'direct', src, trg } )
 			end
 		},
 
 		version =
 		{
 			0,
-			function( )
+			function
+			( )
 				io.stdout:write( 'Version: ', lsyncd_version, '\n' )
+
 				os.exit( 0 )
 			end
 		}
@@ -4841,9 +4865,7 @@ function runner.configure( args, monitors )
 
 			os.exit( -1 )
 		end
-
 	else
-
 		if #nonopts == 0
 		then
 			runner.help( args[ 0 ] )
@@ -4856,7 +4878,6 @@ function runner.configure( args, monitors )
 
 			os.exit( -1 )
 		end
-
 	end
 end
 
