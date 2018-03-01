@@ -13,10 +13,6 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
--- require('profiler')
--- profiler.start()
-
-
 --
 -- A security measurement.
 -- The core will exit if version ids mismatch.
@@ -2181,7 +2177,7 @@ local Filters = ( function
 	end
 
 	--
-	-- Tests if 'path' is excluded.
+	-- Tests if 'path' is filtered.
 	--
 	local function test
 	(
@@ -2190,7 +2186,7 @@ local Filters = ( function
 	)
 		if path:byte( 1 ) ~= 47
 		then
-			error( 'Paths for exlusion tests must start with \'/\'' )
+			error( 'Paths for filter tests must start with \'/\'' )
 		end
 
 		for _, entry in ipairs( self.list )
@@ -2215,7 +2211,10 @@ local Filters = ( function
 			end
 		end
 
-		return true
+		-- nil means neither a positivie
+		-- or negative hit, thus excludes have to
+		-- be queried
+		return nil
 	end
 
 	--
@@ -2311,14 +2310,35 @@ local Sync = ( function
 			end
 		end
 	end
+	
+	
+	--
+	-- Returns true if the relative path is excluded or filtered
+	-- 
+	local function testFilter
+	(
+		self,   -- the Sync
+		path    -- the relative path
+	)
+		-- never filter the relative root itself
+		-- ( that would make zero sense )
+		if path == '/' then return false end
+
+		local filter = self.filters and self.filters:test( path )
+
+		if filter ~= nil then return filter end
+
+		-- otherwise check excludes if concerned
+		return self.excludes:test( path )
+	end
 
 	--
 	-- Returns true if this Sync concerns about 'path'.
 	--
 	local function concerns
 	(
-		self,
-		path
+		self,    -- the Sync
+		path     -- the absolute path
 	)
 		-- not concerned if watch rootdir doesn't match
 		if not path:starts( self.source )
@@ -2333,8 +2353,7 @@ local Sync = ( function
 			return false
 		end
 
-		-- concerned if not excluded
-		return not self.excludes:test( path:sub( #self.source ) )
+		return not testFilter( self, path:sub( #self.source ) )
 	end
 
 	--
@@ -2348,11 +2367,8 @@ local Sync = ( function
 	)
 		local delay = self.processes[ pid ]
 
-		if not delay
-		then
-			-- not a child of this sync.
-			return
-		end
+		-- not a child of this sync?
+		if not delay then return end
 
 		if delay.status
 		then
@@ -2414,11 +2430,8 @@ local Sync = ( function
 				-- sets the delay on wait again
 				local alarm = self.config.delay
 
-				-- delays at least 1 second
-				if alarm < 1
-				then
-					alarm = 1
-				end
+				-- delays are at least 1 second
+				if alarm < 1 then alarm = 1 end
 
 				alarm = now() + alarm
 
@@ -2506,29 +2519,33 @@ local Sync = ( function
 		if not path2
 		then
 			-- simple test for single path events
-			if self.excludes:test( path )
+			if testFilter( self, path )
 			then
-				log( 'Exclude', 'excluded ', etype, ' on "', path, '"' )
+				log( 'Filter', 'filtered ', etype, ' on "', path, '"' )
 
 				return
 			end
 		else
 			-- for double paths ( move ) it might result into a split
-			local ex1 = self.excludes:test( path  )
+			local ex1 = testFilter( self, path )
 
-			local ex2 = self.excludes:test( path2 )
+			local ex2 = testFilter( self, path2 )
 
 			if ex1 and ex2
 			then
-				log( 'Exclude', 'excluded "', etype, ' on "', path, '" -> "', path2, '"' )
+				log(
+					'Filter',
+					'filtered "', etype, ' on "', path,
+					'" -> "', path2, '"'
+				)
 
 				return
 			elseif not ex1 and ex2
 			then
 				-- splits the move if only partly excluded
 				log(
-					'Exclude',
-					'excluded destination transformed ',
+					'Filter',
+					'filtered destination transformed ',
 					etype,
 					' to Delete ',
 					path
@@ -2541,8 +2558,8 @@ local Sync = ( function
 			then
 				-- splits the move if only partly excluded
 				log(
-					'Exclude',
-					'excluded origin transformed ',
+					'Filter',
+					'filtered origin transformed ',
 					etype,
 					' to Create.',
 					path2
@@ -2554,7 +2571,8 @@ local Sync = ( function
 			end
 		end
 
-		if etype == 'Move' and not self.config.onMove
+		if etype == 'Move'
+		and not self.config.onMove
 		then
 			-- if there is no move action defined,
 			-- split a move as delete/create
@@ -2926,14 +2944,30 @@ local Sync = ( function
 
 		end
 
-		f:write( 'Excluding:\n' )
+		f:write( 'Filtering:\n' )
 
 		local nothing = true
 
-		for t, p in pairs( self.excludes.list )
-		do
-			nothing = false
-			f:write( t,'\n' )
+		if self.filters
+		then
+			for _, e in pairs( self.filters.list )
+			do
+				nothing = false
+
+				f:write( e.rule, ' ', e.pattern,'\n' )
+			end
+		end
+
+		if #self.excludes.list > 0
+		then
+			f:write( 'From excludes:\n' )
+
+			for t, p in pairs( self.excludes.list )
+			do
+				nothing = false
+
+				f:write( '- ', t,'\n' )
+			end
 		end
 
 		if nothing
@@ -2947,12 +2981,13 @@ local Sync = ( function
 	--
 	-- Creates a new Sync.
 	--
-	local function new( config )
-
+	local function new
+	(
+		config
+	)
 		local s =
 		{
 			-- fields
-
 			config = config,
 			delays = Queue.new( ),
 			source = config.source,
