@@ -16,16 +16,9 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-if not default
-then
-	error( 'default not loaded' )
-end
+if not default then error( 'default not loaded' ) end
 
-
-if default.rsync
-then
-	error( 'default-rsync already loaded' )
-end
+if default.rsync then error( 'default-rsync already loaded' ) end
 
 
 local rsync = { }
@@ -186,7 +179,6 @@ rsync.action = function
 	(
 		path
 	)
-
 		if filterP[ path ] then return end
 
 		filterP[ path ] = true

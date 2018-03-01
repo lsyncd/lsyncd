@@ -58,11 +58,9 @@ readdir   = lsyncd.readdir
 -- Coping globals to ensure userscripts cannot change this.
 --
 local log       = log
-
 local terminate = terminate
-
 local now       = now
-
+local readdir   = readdir
 
 --
 -- Predeclarations.
@@ -123,8 +121,8 @@ local settingsSafe
 --
 -- Array tables error if accessed with a non-number.
 --
-local Array = ( function( )
-
+local Array = ( function
+( )
 	--
 	-- Metatable.
 	--
@@ -1881,8 +1879,8 @@ end )( )
 --
 -- A set of exclude patterns.
 --
-local Excludes = ( function( )
-
+local Excludes = ( function
+( )
 	--
 	-- Turns a rsync like file pattern to a lua pattern.
 	-- ( at best it can )
@@ -2068,7 +2066,6 @@ local Excludes = ( function( )
 	-- Public interface.
 	--
 	return { new = new }
-
 end )( )
 
 
@@ -2077,8 +2074,8 @@ end )( )
 --
 -- Filters allow excludes and includes
 --
-local Filters = ( function( )
-
+local Filters = ( function
+( )
 	--
 	-- Turns a rsync like file pattern to a lua pattern.
 	-- ( at best it can )
@@ -2395,18 +2392,12 @@ local Sync = ( function
 				local alarm = self.config.delay
 
 				-- delays at least 1 second
-				if alarm < 1
-				then
-					alarm = 1
-				end
+				if alarm < 1 then alarm = 1 end
 
 				delay:wait( now( ) + alarm )
 			end
 		else
-			log(
-				'Delay',
-				'collected a list'
-			)
+			log( 'Delay', 'collected a list' )
 
 			local rc = self.config.collect(
 				InletFactory.dl2el( delay ),
@@ -2503,11 +2494,7 @@ local Sync = ( function
 
 						if isdir then pd = pd..'/' end
 
-						log(
-							'Delay',
-							'Create creates Create on ',
-							pd
-						)
+						log( 'Delay', 'Create creates Create on ', pd )
 
 						delay( self, 'Create', time, pd, nil )
 					end
@@ -2876,7 +2863,6 @@ local Sync = ( function
 				return d
 			end
 		end
-
 	end
 
 	--
@@ -2975,7 +2961,6 @@ local Sync = ( function
 			filters = nil,
 
 			-- functions
-
 			addBlanketDelay = addBlanketDelay,
 			addExclude      = addExclude,
 			addInitDelay    = addInitDelay,
@@ -3065,7 +3050,6 @@ local Sync = ( function
 	-- Public interface
 	--
 	return { new = new }
-
 end )( )
 
 
@@ -3148,14 +3132,14 @@ local Syncs = ( function
 		do
 			if
 				(
-					type( k ) ~= 'number' or
-					verbatim or
-					cs._verbatim == true
+					type( k ) ~= 'number'
+					or verbatim
+					or cs._verbatim == true
 				)
 				and
 				(
-					type( cs._merge ) ~= 'table' or
-					cs._merge[ k ] == true
+					type( cs._merge ) ~= 'table'
+					or cs._merge[ k ] == true
 				)
 			then
 				inheritKV( cd, k, v )
@@ -3166,11 +3150,8 @@ local Syncs = ( function
 		-- ( for non-verbatim tables )
 		if cs._verbatim ~= true
 		then
-			local n = nil
-
 			for k, v in ipairs( cs )
 			do
-				n = k
 				if type( v ) == 'table'
 				then
 					inherit( cd, v )
@@ -3193,10 +3174,7 @@ local Syncs = ( function
 		)
 
 		-- don't merge inheritance controls
-		if k == '_merge' or k == '_verbatim'
-		then
-			return
-		end
+		if k == '_merge' or k == '_verbatim' then return end
 
 		local dtype = type( cd [ k ] )
 
@@ -3212,7 +3190,6 @@ local Syncs = ( function
 			then
 				inherit( cd[ k ], v, k == 'exitcodes' )
 			end
-
 		elseif dtype == 'nil'
 		then
 			cd[ k ] = v
@@ -5259,17 +5236,16 @@ end
 --
 -- Returns an Inlet to that sync.
 --
-function sync( opts )
-
-	if lsyncdStatus ~= 'init' then
-		error(
-			'Sync can only be created during initialization.',
-			2
-		)
+function sync
+(
+	opts
+)
+	if lsyncdStatus ~= 'init'
+	then
+		error( 'Sync can only be created during initialization.', 2 )
 	end
 
 	return Syncs.add( opts ).inlet
-
 end
 
 
