@@ -222,10 +222,7 @@ handle_event(
 		// and overflow happened, tells the runner
 		load_runner_func( L, "overflow" );
 
-		if( lua_pcall( L, 0, 0, -2 ) )
-		{
-			exit( -1 );
-		}
+		if( lua_pcall( L, 0, 0, -2 ) ) exit( -1 );
 
 		lua_pop( L, 1 );
 
@@ -384,10 +381,7 @@ handle_event(
 		lua_pushnil( L );
 	}
 
-	if( lua_pcall( L, 7, 0, -9 ) )
-	{
-		exit( -1 );
-	}
+	if( lua_pcall( L, 7, 0, -9 ) ) exit( -1 );
 
 	lua_pop( L, 1 );
 
@@ -421,10 +415,7 @@ inotify_ready(
 	// sanity check
 	if( obs->fd != inotify_fd )
 	{
-		logstring(
-			"Error",
-			"internal failure, inotify_fd != ob->fd"
-		);
+		logstring( "Error", "internal failure, inotify_fd != obs->fd" );
 		exit( -1 );
 	}
 
@@ -574,13 +565,6 @@ open_inotify( lua_State *L )
 
 	close_exec_fd( inotify_fd );
 	non_block_fd( inotify_fd );
-
-	observe_fd(
-		inotify_fd,
-		inotify_ready,
-		NULL,
-		inotify_tidy,
-		NULL
-	);
+	observe_fd( inotify_fd, inotify_ready, NULL, inotify_tidy, NULL );
 }
 
