@@ -107,3 +107,4 @@ target_link_libraries( lsyncd ${LUA_LIBRARIES} )
 
 install( TARGETS lsyncd RUNTIME DESTINATION bin )
 install( FILES doc/manpage/lsyncd.1 DESTINATION man )
+

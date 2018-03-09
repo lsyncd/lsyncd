@@ -27,22 +27,16 @@
 # (To distribute this file outside of CMake, substitute the full
 #  License text for the above reference.)
 #
-# The required version of Lua can be specified using the
-# standard syntax, e.g. FIND_PACKAGE(Lua 5.2)
-# Otherwise the module will search for any available Lua implementation
+# This module will try to find the newest Lua version down to 5.2
 
 # Always search for non-versioned lua first (recommended)
 SET(_POSSIBLE_LUA_INCLUDE include include/lua)
-SET(_POSSIBLE_LUA_EXECUTABLE lua)
-SET(_POSSIBLE_LUA_COMPILER luac)
-SET(_POSSIBLE_LUA_LIBRARY lua)
+#SET(_POSSIBLE_LUA_EXECUTABLE lua)
+#SET(_POSSIBLE_LUA_COMPILER luac)
+#SET(_POSSIBLE_LUA_LIBRARY lua)
 
 # Determine possible naming suffixes (there is no standard for this)
-IF(Lua_FIND_VERSION_MAJOR AND Lua_FIND_VERSION_MINOR)
-  SET(_POSSIBLE_SUFFIXES "${Lua_FIND_VERSION_MAJOR}${Lua_FIND_VERSION_MINOR}" "${Lua_FIND_VERSION_MAJOR}.${Lua_FIND_VERSION_MINOR}" "-${Lua_FIND_VERSION_MAJOR}.${Lua_FIND_VERSION_MINOR}")
-ELSE(Lua_FIND_VERSION_MAJOR AND Lua_FIND_VERSION_MINOR)
-  SET(_POSSIBLE_SUFFIXES "53" "5.3" "-5.3" "52" "5.2" "-5.2")
-ENDIF(Lua_FIND_VERSION_MAJOR AND Lua_FIND_VERSION_MINOR)
+SET(_POSSIBLE_SUFFIXES "53" "5.3" "-5.3" "52" "5.2" "-5.2" "")
 
 # Set up possible search names and locations
 FOREACH(_SUFFIX ${_POSSIBLE_SUFFIXES})
@@ -59,7 +53,7 @@ FIND_PROGRAM(LUA_EXECUTABLE
 
 # Find the lua executable
 FIND_PROGRAM(LUA_COMPILER
-  NAMES ${_POSSIBLE_LUA_COMPILER}
+  NAMES luac5.3 ${_POSSIBLE_LUA_COMPILER}
 )
 
 # Find the lua header
