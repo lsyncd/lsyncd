@@ -1,7 +1,7 @@
 # Locate Lua library
 # This module defines
 #  LUA_EXECUTABLE, if found
-#  LUA_FOUND, if false, do not try to link to Lua 
+#  LUA_FOUND, if false, do not try to link to Lua
 #  LUA_LIBRARIES
 #  LUA_INCLUDE_DIR, where to find lua.h
 #  LUA_VERSION_STRING, the version of Lua found (since CMake 2.8.8)
@@ -28,7 +28,7 @@
 #  License text for the above reference.)
 #
 # The required version of Lua can be specified using the
-# standard syntax, e.g. FIND_PACKAGE(Lua 5.1)
+# standard syntax, e.g. FIND_PACKAGE(Lua 5.2)
 # Otherwise the module will search for any available Lua implementation
 
 # Always search for non-versioned lua first (recommended)
@@ -41,7 +41,7 @@ SET(_POSSIBLE_LUA_LIBRARY lua)
 IF(Lua_FIND_VERSION_MAJOR AND Lua_FIND_VERSION_MINOR)
   SET(_POSSIBLE_SUFFIXES "${Lua_FIND_VERSION_MAJOR}${Lua_FIND_VERSION_MINOR}" "${Lua_FIND_VERSION_MAJOR}.${Lua_FIND_VERSION_MINOR}" "-${Lua_FIND_VERSION_MAJOR}.${Lua_FIND_VERSION_MINOR}")
 ELSE(Lua_FIND_VERSION_MAJOR AND Lua_FIND_VERSION_MINOR)
-  SET(_POSSIBLE_SUFFIXES "53" "5.3" "-5.3" "52" "5.2" "-5.2" "51" "5.1" "-5.1")
+  SET(_POSSIBLE_SUFFIXES "53" "5.3" "-5.3" "52" "5.2" "-5.2")
 ENDIF(Lua_FIND_VERSION_MAJOR AND Lua_FIND_VERSION_MINOR)
 
 # Set up possible search names and locations
@@ -79,7 +79,7 @@ FIND_PATH(LUA_INCLUDE_DIR lua.h
 )
 
 # Find the lua library
-FIND_LIBRARY(LUA_LIBRARY 
+FIND_LIBRARY(LUA_LIBRARY
   NAMES ${_POSSIBLE_LUA_LIBRARY}
   HINTS
   $ENV{LUA_DIR}
@@ -115,7 +115,7 @@ IF(LUA_INCLUDE_DIR AND EXISTS "${LUA_INCLUDE_DIR}/lua.h")
 ENDIF()
 
 INCLUDE(FindPackageHandleStandardArgs)
-# handle the QUIETLY and REQUIRED arguments and set LUA_FOUND to TRUE if 
+# handle the QUIETLY and REQUIRED arguments and set LUA_FOUND to TRUE if
 # all listed variables are TRUE
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(Lua
                                   REQUIRED_VARS LUA_LIBRARIES LUA_INCLUDE_DIR

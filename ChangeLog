@@ -1,8 +1,10 @@
 2018-??-??: 2.2.3
 	enhaencement: supporting includes with new filter and filterFrom options
+	change: needing at least Lua 5.2 (was 5.1)
 	change: if the target/targetdir ands with a ':' do not append
 			a trailing '/' to it, since that would change it from homedir to rootdir!
 	add: example for Amazon S3 Bucket (Daniel Miranda)
+	fix: setting stdout/stderr to linebuffer mode.
 
 2017-02-16: 2.2.2
 	fix: checkgauge 'insist'
@@ -18,7 +20,7 @@
 	enhancement: now always using filter lists with rysnc
 		instead of include/exclude lists taking advantage of the new --delete-missing-args
 		parameter to delete files on target.
-		>>> Thus Lsyncd 2.1.1 needs rsync >= 3.1.0
+		>>> Thus Lsyncd 2.2.1 needs rsync >= 3.1.0
 	change: added "tests" make target to run all the tests.
 	fix: crash due to typo in changed ^path, ^pathdir, ^pathname
 
