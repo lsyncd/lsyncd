@@ -36,7 +36,7 @@ SET(_POSSIBLE_LUA_INCLUDE include include/lua)
 #SET(_POSSIBLE_LUA_LIBRARY lua)
 
 # Determine possible naming suffixes (there is no standard for this)
-SET(_POSSIBLE_SUFFIXES "53" "5.3" "-5.3" "52" "5.2" "-5.2" "")
+SET(_POSSIBLE_SUFFIXES "52" "5.2" "-5.2" "53" "5.3" "-5.3" "")
 
 # Set up possible search names and locations
 FOREACH(_SUFFIX ${_POSSIBLE_SUFFIXES})
