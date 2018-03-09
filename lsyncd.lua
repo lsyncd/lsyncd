@@ -13,10 +13,6 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
--- require('profiler')
--- profiler.start()
-
-
 --
 -- A security measurement.
 -- The core will exit if version ids mismatch.
@@ -24,10 +20,7 @@
 if lsyncd_version
 then
 	-- ensures the runner is not being loaded twice
-	lsyncd.log(
-		'Error',
-		'You cannot use the lsyncd runner as configuration file!'
-	)
+	lsyncd.log( 'Error', 'You cannot use the lsyncd runner as configuration file!' )
 
 	lsyncd.terminate( -1 )
 end
@@ -58,11 +51,9 @@ readdir   = lsyncd.readdir
 -- Coping globals to ensure userscripts cannot change this.
 --
 local log       = log
-
 local terminate = terminate
-
 local now       = now
-
+local readdir   = readdir
 
 --
 -- Predeclarations.
@@ -123,8 +114,8 @@ local settingsSafe
 --
 -- Array tables error if accessed with a non-number.
 --
-local Array = ( function( )
-
+local Array = ( function
+( )
 	--
 	-- Metatable.
 	--
@@ -349,7 +340,7 @@ Queue = ( function
 
 		return nt[ nt.first ]
 	end
-	
+
 	--
 	-- Returns the last item of the Queue.
 	--
@@ -361,7 +352,7 @@ Queue = ( function
 
 		return nt[ nt.last ]
 	end
-	
+
 	--
 	-- Returns the size of the queue.
 	--
@@ -549,7 +540,6 @@ Queue = ( function
 	)
 		return iterReverse, self, self[ k_nt ].last + 1
 	end
-	
 
 	--
 	-- Creates a new queue.
@@ -1582,10 +1572,7 @@ local InletFactory = ( function
 
 		if delay.etype ~= 'Move'
 		then
-			if eu
-			then
-				return eu
-			end
+			if eu then return eu end
 
 			local event = { }
 
@@ -1598,10 +1585,7 @@ local InletFactory = ( function
 			return event
 		else
 			-- moves have 2 events - origin and destination
-			if eu
-			then
-				return eu[1], eu[2]
-			end
+			if eu then return eu[1], eu[2] end
 
 			local event  = { move = 'Fr' }
 			local event2 = { move = 'To' }
@@ -1628,10 +1612,7 @@ local InletFactory = ( function
 	)
 		local eu = e2d2[ dlist ]
 
-		if eu
-		then
-			return eu
-		end
+		if eu then return eu end
 
 		local elist = { }
 
@@ -1660,6 +1641,19 @@ local InletFactory = ( function
 			sync:addExclude( pattern )
 		end,
 
+
+		--
+		-- Appens a filter.
+		--
+		appendFilter = function
+		(
+			sync,   -- the sync of the inlet
+			rule,   -- '+' or '-'
+			pattern -- exlusion pattern to add
+		)
+			sync:appendFilter( rule, pattern )
+		end,
+
 		--
 		-- Removes an exclude.
 		--
@@ -1673,7 +1667,7 @@ local InletFactory = ( function
 
 		--
 		-- Gets the list of excludes in their
-		-- rsynlike patterns form.
+		-- rsync-like patterns form.
 		--
 		getExcludes = function
 		(
@@ -1690,6 +1684,48 @@ local InletFactory = ( function
 			end
 
 			return e;
+		end,
+
+		--
+		-- Gets the list of filters and excldues
+		-- as rsync-like filter/patterns form.
+		--
+		getFilters = function
+		(
+			sync -- the sync of the inlet
+		)
+			-- creates a copy
+			local e = { }
+			local en = 1;
+
+			-- first takes the filters
+			if sync.filters
+			then
+				for _, entry in ipairs( sync.filters.list )
+				do
+					e[ en ] = entry.rule .. ' ' .. entry.pattern;
+					en = en + 1;
+				end
+			end
+
+			-- then the excludes
+			for k, _ in pairs( sync.excludes.list )
+			do
+				e[ en ] = '- ' .. k;
+				en = en + 1;
+			end
+
+			return e;
+		end,
+
+		--
+		-- Returns true if the sync has filters
+		--
+		hasFilters = function
+		(
+			sync -- the sync of the inlet
+		)
+			return not not sync.filters
 		end,
 
 		--
@@ -1773,10 +1809,7 @@ local InletFactory = ( function
 
 			if not f
 			then
-				error(
-					'inlet does not have function "'..func..'"',
-					2
-				)
+				error( 'inlet does not have function "'..func..'"', 2 )
 			end
 
 			return function( ... )
@@ -1837,10 +1870,10 @@ end )( )
 
 
 --
--- A set of exclude patterns
+-- A set of exclude patterns.
 --
-local Excludes = ( function( )
-
+local Excludes = ( function
+( )
 	--
 	-- Turns a rsync like file pattern to a lua pattern.
 	-- ( at best it can )
@@ -1850,6 +1883,7 @@ local Excludes = ( function( )
 		p  --  the rsync like pattern
 	)
 		local o = p
+
 		p = string.gsub( p, '%%', '%%%%'  )
 		p = string.gsub( p, '%^', '%%^'   )
 		p = string.gsub( p, '%$', '%%$'   )
@@ -1873,11 +1907,7 @@ local Excludes = ( function( )
 			p = '/' .. p;
 		end
 
-		log(
-			'Exclude',
-			'toLuaPattern "',
-			o, '" = "', p, '"'
-		)
+		log( 'Exclude', 'toLuaPattern "', o, '" = "', p, '"' )
 
 		return p
 	end
@@ -1908,9 +1938,9 @@ local Excludes = ( function( )
 		self,    -- self
 		pattern  -- the pattern to remove
 	)
-
+		-- already in the list?
 		if not self.list[ pattern ]
-		then -- already in the list?
+		then
 			log(
 				'Normal',
 				'Removing not excluded exclude "' .. pattern .. '"'
@@ -1930,9 +1960,9 @@ local Excludes = ( function( )
 		self,
 		plist
 	)
-		for _, v in ipairs(plist)
+		for _, v in ipairs( plist )
 		do
-			add(self, v)
+			add( self, v )
 		end
 	end
 
@@ -1948,11 +1978,7 @@ local Excludes = ( function( )
 
 		if not f
 		then
-			log(
-				'Error',
-				'Cannot open exclude file "', file,'": ',
-				err
-			)
+			log( 'Error', 'Cannot open exclude file "', file,'": ', err )
 
 			terminate( -1 )
 		end
@@ -2033,8 +2059,184 @@ local Excludes = ( function( )
 	-- Public interface.
 	--
 	return { new = new }
+end )( )
+
+
+--
+-- A set of filter patterns.
+--
+-- Filters allow excludes and includes
+--
+local Filters = ( function
+( )
+	--
+	-- Turns a rsync like file pattern to a lua pattern.
+	-- ( at best it can )
+	--
+	local function toLuaPattern
+	(
+		p  --  the rsync like pattern
+	)
+		local o = p
+
+		p = string.gsub( p, '%%', '%%%%'  )
+		p = string.gsub( p, '%^', '%%^'   )
+		p = string.gsub( p, '%$', '%%$'   )
+		p = string.gsub( p, '%(', '%%('   )
+		p = string.gsub( p, '%)', '%%)'   )
+		p = string.gsub( p, '%.', '%%.'   )
+		p = string.gsub( p, '%[', '%%['   )
+		p = string.gsub( p, '%]', '%%]'   )
+		p = string.gsub( p, '%+', '%%+'   )
+		p = string.gsub( p, '%-', '%%-'   )
+		p = string.gsub( p, '%?', '[^/]'  )
+		p = string.gsub( p, '%*', '[^/]*' )
+		-- this was a ** before
+		p = string.gsub( p, '%[%^/%]%*%[%^/%]%*', '.*' )
+		p = string.gsub( p, '^/', '^/'    )
+
+		if p:sub( 1, 2 ) ~= '^/'
+		then
+			-- if does not begin with '^/'
+			-- then all matches should begin with '/'.
+			p = '/' .. p;
+		end
+
+		log( 'Filter', 'toLuaPattern "', o, '" = "', p, '"' )
+
+		return p
+	end
+
+	--
+	-- Appends a filter pattern
+	--
+	local function append
+	(
+		self,    -- the filters object
+		line     -- filter line
+	)
+		local rule, pattern = string.match( line, '%s*([+|-])%s*(.*)' )
+
+		if not rule or not pattern
+		then
+			log( 'Error', 'Unknown filter rule: "', line, '"' )
+			terminate( -1 )
+		end
+
+		local lp = toLuaPattern( pattern )
+
+		table.insert( self. list, { rule = rule, pattern = pattern, lp = lp } )
+	end
+
+	--
+	-- Adds a list of patterns to exclude.
+	--
+	local function appendList
+	(
+		self,
+		plist
+	)
+		for _, v in ipairs( plist )
+		do
+			append( self, v )
+		end
+	end
+
+	--
+	-- Loads the filters from a file.
+	--
+	local function loadFile
+	(
+		self,  -- self
+		file   -- filename to load from
+	)
+		f, err = io.open( file )
+
+		if not f
+		then
+			log( 'Error', 'Cannot open filter file "', file, '": ', err )
+
+			terminate( -1 )
+		end
+
+	    for line in f:lines( )
+		do
+			if string.match( line, '^%s*#' )
+			or string.match( line, '^%s*$' )
+			then
+				-- a comment or empty line: ignore
+			else
+				append( self, line )
+			end
+		end
+
+		f:close( )
+	end
+
+	--
+	-- Tests if 'path' is filtered.
+	--
+	local function test
+	(
+		self,  -- self
+		path   -- the path to test
+	)
+		if path:byte( 1 ) ~= 47
+		then
+			error( 'Paths for filter tests must start with \'/\'' )
+		end
+
+		for _, entry in ipairs( self.list )
+		do
+			local rule = entry.rule
+			local lp = entry.lp -- lua pattern
+
+			if lp:byte( -1 ) == 36
+			then
+				-- ends with $
+				if path:match( lp )
+				then
+					return rule == '-'
+				end
+			else
+				-- ends either end with / or $
+				if path:match( lp .. '/' )
+				or path:match( lp .. '$' )
+				then
+					return rule == '-'
+				end
+			end
+		end
+
+		-- nil means neither a positivie
+		-- or negative hit, thus excludes have to
+		-- be queried
+		return nil
+	end
+
+	--
+	-- Cretes a new filter set.
+	--
+	local function new
+	( )
+		return {
+			list = { },
+			-- functions
+			append     = append,
+			appendList = appendList,
+			loadFile   = loadFile,
+			test       = test,
+		}
+	end
+
+
+	--
+	-- Public interface.
+	--
+	return { new = new }
 
 end )( )
+
 
 
 --
@@ -2057,6 +2259,17 @@ local Sync = ( function
 		pattern
 	)
 		return self.excludes:add( pattern )
+	end
+
+	local function appendFilter
+	(
+		self,
+		rule,
+		pattern
+	)
+		if not self.filters then self.filters = Filters.new( ) end
+
+		return self.filters:append( rule, pattern )
 	end
 
 	--
@@ -2094,14 +2307,35 @@ local Sync = ( function
 			end
 		end
 	end
+	
+	
+	--
+	-- Returns true if the relative path is excluded or filtered
+	-- 
+	local function testFilter
+	(
+		self,   -- the Sync
+		path    -- the relative path
+	)
+		-- never filter the relative root itself
+		-- ( that would make zero sense )
+		if path == '/' then return false end
+
+		local filter = self.filters and self.filters:test( path )
+
+		if filter ~= nil then return filter end
+
+		-- otherwise check excludes if concerned
+		return self.excludes:test( path )
+	end
 
 	--
 	-- Returns true if this Sync concerns about 'path'.
 	--
 	local function concerns
 	(
-		self,
-		path
+		self,    -- the Sync
+		path     -- the absolute path
 	)
 		-- not concerned if watch rootdir doesn't match
 		if not path:starts( self.source )
@@ -2116,8 +2350,7 @@ local Sync = ( function
 			return false
 		end
 
-		-- concerned if not excluded
-		return not self.excludes:test( path:sub( #self.source ) )
+		return not testFilter( self, path:sub( #self.source ) )
 	end
 
 	--
@@ -2131,11 +2364,8 @@ local Sync = ( function
 	)
 		local delay = self.processes[ pid ]
 
-		if not delay
-		then
-			-- not a child of this sync.
-			return
-		end
+		-- not a child of this sync?
+		if not delay then return end
 
 		if delay.status
 		then
@@ -2175,18 +2405,12 @@ local Sync = ( function
 				local alarm = self.config.delay
 
 				-- delays at least 1 second
-				if alarm < 1
-				then
-					alarm = 1
-				end
+				if alarm < 1 then alarm = 1 end
 
 				delay:wait( now( ) + alarm )
 			end
 		else
-			log(
-				'Delay',
-				'collected a list'
-			)
+			log( 'Delay', 'collected a list' )
 
 			local rc = self.config.collect(
 				InletFactory.dl2el( delay ),
@@ -2203,11 +2427,8 @@ local Sync = ( function
 				-- sets the delay on wait again
 				local alarm = self.config.delay
 
-				-- delays at least 1 second
-				if alarm < 1
-				then
-					alarm = 1
-				end
+				-- delays are at least 1 second
+				if alarm < 1 then alarm = 1 end
 
 				alarm = now() + alarm
 
@@ -2281,16 +2502,9 @@ local Sync = ( function
 					do
 						local pd = path .. dirname
 
-						if isdir
-						then
-							pd = pd..'/'
-						end
+						if isdir then pd = pd..'/' end
 
-						log(
-							'Delay',
-							'Create creates Create on ',
-							pd
-						)
+						log( 'Delay', 'Create creates Create on ', pd )
 
 						delay( self, 'Create', time, pd, nil )
 					end
@@ -2302,35 +2516,24 @@ local Sync = ( function
 		if not path2
 		then
 			-- simple test for single path events
-			if self.excludes:test( path )
+			if testFilter( self, path )
 			then
-				log(
-					'Exclude',
-					'excluded ',
-					etype,
-					' on "',
-					path,
-					'"'
-				)
+				log( 'Filter', 'filtered ', etype, ' on "', path, '"' )
+
 				return
 			end
 		else
 			-- for double paths ( move ) it might result into a split
-			local ex1 = self.excludes:test( path  )
+			local ex1 = testFilter( self, path )
 
-			local ex2 = self.excludes:test( path2 )
+			local ex2 = testFilter( self, path2 )
 
 			if ex1 and ex2
 			then
 				log(
-					'Exclude',
-					'excluded "',
-					etype,
-					' on "',
-					path,
-					'" -> "',
-					path2,
-					'"'
+					'Filter',
+					'filtered "', etype, ' on "', path,
+					'" -> "', path2, '"'
 				)
 
 				return
@@ -2338,46 +2541,35 @@ local Sync = ( function
 			then
 				-- splits the move if only partly excluded
 				log(
-					'Exclude',
-					'excluded destination transformed ',
+					'Filter',
+					'filtered destination transformed ',
 					etype,
 					' to Delete ',
 					path
 				)
 
-				delay(
-					self,
-					'Delete',
-					time,
-					path,
-					nil
-				)
+				 delay( self, 'Delete', time, path, nil )
 
 				return
 			elseif ex1 and not ex2
 			then
 				-- splits the move if only partly excluded
 				log(
-					'Exclude',
-					'excluded origin transformed ',
+					'Filter',
+					'filtered origin transformed ',
 					etype,
 					' to Create.',
 					path2
 				)
 
-				delay(
-					self,
-					'Create',
-					time,
-					path2,
-					nil
-				)
+				delay( self, 'Create', time, path2, nil )
 
 				return
 			end
 		end
 
-		if etype == 'Move' and not self.config.onMove
+		if etype == 'Move'
+		and not self.config.onMove
 		then
 			-- if there is no move action defined,
 			-- split a move as delete/create
@@ -2403,13 +2595,7 @@ local Sync = ( function
 		end
 
 		-- new delay
-		local nd = Delay.new(
-			etype,
-			self,
-			alarm,
-			path,
-			path2
-		)
+		local nd = Delay.new( etype, self, alarm, path, path2 )
 
 		if nd.etype == 'Init' or nd.etype == 'Blanket'
 		then
@@ -2586,10 +2772,7 @@ local Sync = ( function
 				tr = test( InletFactory.d2e( d ) )
 			end
 
-			if tr == 'break'
-			then
-				break
-			end
+			if tr == 'break' then break end
 
 			if d.status == 'active' or not tr
 			then
@@ -2695,7 +2878,6 @@ local Sync = ( function
 				return d
 			end
 		end
-
 	end
 
 	--
@@ -2759,14 +2941,30 @@ local Sync = ( function
 
 		end
 
-		f:write( 'Excluding:\n' )
+		f:write( 'Filtering:\n' )
 
 		local nothing = true
 
-		for t, p in pairs( self.excludes.list )
-		do
-			nothing = false
-			f:write( t,'\n' )
+		if self.filters
+		then
+			for _, e in pairs( self.filters.list )
+			do
+				nothing = false
+
+				f:write( e.rule, ' ', e.pattern,'\n' )
+			end
+		end
+
+		if #self.excludes.list > 0
+		then
+			f:write( 'From excludes:\n' )
+
+			for t, p in pairs( self.excludes.list )
+			do
+				nothing = false
+
+				f:write( '- ', t,'\n' )
+			end
 		end
 
 		if nothing
@@ -2780,23 +2978,25 @@ local Sync = ( function
 	--
 	-- Creates a new Sync.
 	--
-	local function new( config )
-
+	local function new
+	(
+		config
+	)
 		local s =
 		{
 			-- fields
-
 			config = config,
 			delays = Queue.new( ),
 			source = config.source,
 			processes = CountArray.new( ),
 			excludes = Excludes.new( ),
+			filters = nil,
 
 			-- functions
-
 			addBlanketDelay = addBlanketDelay,
 			addExclude      = addExclude,
 			addInitDelay    = addInitDelay,
+			appendFilter    = appendFilter,
 			collect         = collect,
 			concerns        = concerns,
 			delay           = delay,
@@ -2821,6 +3021,25 @@ local Sync = ( function
 		-- so Sync{n} will be the n-th call to sync{}
 		nextDefaultName = nextDefaultName + 1
 
+		-- loads filters
+		if config.filter
+		then
+			local te = type( config.filter )
+
+			s.filters = Filters.new( )
+
+			if te == 'table'
+			then
+				s.filters:appendList( config.filter )
+			elseif te == 'string'
+			then
+				s.filters:append( config.filter )
+			else
+				error( 'type for filter must be table or string', 2 )
+			end
+
+		end
+
 		-- loads exclusions
 		if config.exclude
 		then
@@ -2838,14 +3057,17 @@ local Sync = ( function
 
 		end
 
-		if
-			config.delay ~= nil and
-			(
-				type( config.delay ) ~= 'number'
-				or config.delay < 0
-			)
+		if config.delay ~= nil
+		and ( type( config.delay ) ~= 'number' or config.delay < 0 )
 		then
 			error( 'delay must be a number and >= 0', 2 )
+		end
+
+		if config.filterFrom
+		then
+			if not s.filters then s.filters = Filters.new( ) end
+
+			s.filters:loadFile( config.filterFrom )
 		end
 
 		if config.excludeFrom
@@ -2860,7 +3082,6 @@ local Sync = ( function
 	-- Public interface
 	--
 	return { new = new }
-
 end )( )
 
 
@@ -2943,14 +3164,14 @@ local Syncs = ( function
 		do
 			if
 				(
-					type( k ) ~= 'number' or
-					verbatim or
-					cs._verbatim == true
+					type( k ) ~= 'number'
+					or verbatim
+					or cs._verbatim == true
 				)
 				and
 				(
-					type( cs._merge ) ~= 'table' or
-					cs._merge[ k ] == true
+					type( cs._merge ) ~= 'table'
+					or cs._merge[ k ] == true
 				)
 			then
 				inheritKV( cd, k, v )
@@ -2961,11 +3182,8 @@ local Syncs = ( function
 		-- ( for non-verbatim tables )
 		if cs._verbatim ~= true
 		then
-			local n = nil
-
 			for k, v in ipairs( cs )
 			do
-				n = k
 				if type( v ) == 'table'
 				then
 					inherit( cd, v )
@@ -2988,10 +3206,7 @@ local Syncs = ( function
 		)
 
 		-- don't merge inheritance controls
-		if k == '_merge' or k == '_verbatim'
-		then
-			return
-		end
+		if k == '_merge' or k == '_verbatim' then return end
 
 		local dtype = type( cd [ k ] )
 
@@ -3007,7 +3222,6 @@ local Syncs = ( function
 			then
 				inherit( cd[ k ], v, k == 'exitcodes' )
 			end
-
 		elseif dtype == 'nil'
 		then
 			cd[ k ] = v
@@ -3082,13 +3296,16 @@ local Syncs = ( function
 			config.prepare( config, 4 )
 		end
 
-		if not config[ 'source' ] then
+		if not config[ 'source' ]
+		then
 			local info = debug.getinfo( 3, 'Sl' )
+
 			log(
 				'Error',
 				info.short_src,':',
 				info.currentline,': source missing from sync.'
 			)
+
 			terminate( -1 )
 		end
 
@@ -3104,6 +3321,7 @@ local Syncs = ( function
 				'Cannot access source directory: ',
 				config.source
 			)
+
 			terminate( -1 )
 		end
 
@@ -3118,6 +3336,7 @@ local Syncs = ( function
 		and not config.onMove
 		then
 			local info = debug.getinfo( 3, 'Sl' )
+
 			log(
 				'Error',
 				info.short_src, ':',
@@ -3553,13 +3772,11 @@ end)( )
 --
 local Fsevents = ( function
 ( )
-
 	--
 	-- A list indexed by syncs yielding
 	-- the root path the sync is interested in.
 	--
 	local syncRoots = { }
-
 
 	--
 	-- Adds a Sync to receive events.
@@ -3593,20 +3810,10 @@ local Fsevents = ( function
 		then
 			path = path .. '/'
 
-			if path2
-			then
-				path2 = path2 .. '/'
-			end
+			if path2 then path2 = path2 .. '/' end
 		end
 
-		log(
-			'Fsevents',
-			etype, ',',
-			isdir, ',',
-			time,  ',',
-			path,  ',',
-			path2
-		)
+		log( 'Fsevents', etype, ',', isdir, ',', time,  ',', path, ',', path2 )
 
 		for _, sync in Syncs.iwalk()
 		do repeat
@@ -3638,11 +3845,7 @@ local Fsevents = ( function
 			then
 				if not relative2
 				then
-					log(
-						'Normal',
-						'Transformed Move to Delete for ',
-						sync.config.name
-					)
+					log( 'Normal', 'Transformed Move to Delete for ', sync.config.name )
 
 					etyped = 'Delete'
 
@@ -3652,11 +3855,7 @@ local Fsevents = ( function
 
 					relative2 = nil
 
-					log(
-						'Normal',
-						'Transformed Move to Create for ',
-						sync.config.name
-					)
+					log( 'Normal', 'Transformed Move to Create for ', sync.config.name )
 
 					etyped = 'Create'
 				end
@@ -3705,7 +3904,8 @@ Monitors = ( function
 	--
 	-- The default event monitor.
 	--
-	local function default( )
+	local function default
+	( )
 		return list[ 1 ]
 	end
 
@@ -3829,33 +4029,39 @@ local functionWriter = ( function( )
 		-- true if there is a second event
 		local haveEvent2 = false
 
-		for ia, iv in ipairs( args ) do
-
+		for ia, iv in ipairs( args )
+		do
 			-- a list of arguments this arg is being split into
 			local a = { { true, iv } }
 
 			-- goes through all translates
-			for _, v in ipairs( transVars ) do
+			for _, v in ipairs( transVars )
+			do
 				local ai = 1
-				while ai <= #a do
-					if a[ ai ][ 1 ] then
+				while ai <= #a
+				do
+					if a[ ai ][ 1 ]
+					then
 						local pre, post =
 							string.match( a[ ai ][ 2 ], '(.*)'..v[1]..'(.*)' )
 
-						if pre then
-
-							if v[3] > 1 then
+						if pre
+						then
+							if v[3] > 1
+							then
 								haveEvent2 = true
 							end
 
-							if pre ~= '' then
+							if pre ~= ''
+							then
 								table.insert( a, ai, { true, pre } )
 								ai = ai + 1
 							end
 
 							a[ ai ] = { false, v[ 2 ] }
 
-							if post ~= '' then
+							if post ~= ''
+							then
 								table.insert( a, ai + 1, { true, post } )
 							end
 						end
@@ -3868,13 +4074,12 @@ local functionWriter = ( function( )
 			local as = ''
 			local first = true
 
-			for _, v in ipairs( a ) do
+			for _, v in ipairs( a )
+			do
+				if not first then as = as..' .. ' end
 
-				if not first then
-					as = as..' .. '
-				end
-
-				if v[ 1 ] then
+				if v[ 1 ]
+				then
 					as = as .. '"' .. v[ 2 ] .. '"'
 				else
 					as = as .. v[ 2 ]
@@ -3887,6 +4092,7 @@ local functionWriter = ( function( )
 		end
 
 		local ft
+
 		if not haveEvent2
 		then
 			ft = 'function( event )\n'
@@ -3935,17 +4141,14 @@ local functionWriter = ( function( )
 			cmd = string.gsub(
 				cmd,
 				v[ 1 ],
-				function( )
+				function
+				( )
 					occur = true
 					return '"$' .. argn .. '"'
 				end
 			)
 
-			lc = string.gsub(
-				lc,
-				v[1],
-				']]..' .. v[2] .. '..[['
-			)
+			lc = string.gsub( lc, v[1], ']]..' .. v[2] .. '..[[' )
 
 			if occur
 			then
@@ -3998,6 +4201,7 @@ local functionWriter = ( function( )
 		str = string.match( str, '^%s*(.-)%s*$' )
 
 		local ft
+
 		if string.byte( str, 1, 1 ) == 47
 		then
 			-- starts with /
@@ -4010,13 +4214,7 @@ local functionWriter = ( function( )
 			 ft = translateShell( str )
 		end
 
-		log(
-			'FWrite',
-			'translated "',
-			str,
-			'" to \n',
-			ft
-		)
+		log( 'FWrite', 'translated "', str, '" to \n', ft )
 
 		return ft
 	end
@@ -4036,8 +4234,6 @@ end )( )
 --
 local StatusFile = ( function
 ( )
-
-
 	--
 	-- Timestamp when the status file has been written.
 	--
@@ -4076,14 +4272,7 @@ local StatusFile = ( function
 			-- already waiting?
 			if alarm and timestamp < alarm
 			then
-				log(
-					'Statusfile',
-					'waiting(',
-					timestamp,
-					' < ',
-					alarm,
-					')'
-				)
+				log( 'Statusfile', 'waiting(', timestamp, ' < ', alarm, ')' )
 
 				return
 			end
@@ -4091,17 +4280,11 @@ local StatusFile = ( function
 			-- determines when a next write will be possible
 			if not alarm
 			then
-				local nextWrite =
-					lastWritten and timestamp
-					+ uSettings.statusInterval
+				local nextWrite = lastWritten and timestamp + uSettings.statusInterval
 
 				if nextWrite and timestamp < nextWrite
 				then
-					log(
-						'Statusfile',
-						'setting alarm: ',
-						nextWrite
-					)
+					log( 'Statusfile', 'setting alarm: ', nextWrite )
 					alarm = nextWrite
 
 					return
@@ -4182,7 +4365,8 @@ local UserAlarms = ( function
 			end
 		end
 
-		local a = {
+		local a =
+		{
 			timestamp = timestamp,
 			func = func,
 			extra = extra
@@ -4214,10 +4398,12 @@ local UserAlarms = ( function
 	--
 	-- Calls user alarms.
 	--
-	local function invoke( timestamp )
-		while
-			#alarms > 0 and
-			alarms[ 1 ].timestamp <= timestamp
+	local function invoke
+	(
+		timestamp
+	)
+		while #alarms > 0
+		and alarms[ 1 ].timestamp <= timestamp
 		do
 			alarms[ 1 ].func( alarms[ 1 ].timestamp, alarms[ 1 ].extra )
 			table.remove( alarms, 1 )
@@ -4268,7 +4454,7 @@ function runner.callError
 (
 	message
 )
-	log('Error', 'in Lua: ', message )
+	log( 'Error', 'in Lua: ', message )
 
 	-- prints backtrace
 	local level = 2
@@ -4299,18 +4485,22 @@ end
 -- Called from core whenever a child process has finished and
 -- the zombie process was collected by core.
 --
-function runner.collectProcess( pid, exitcode )
-
+function runner.collectProcess
+(
+	pid,       -- process id
+	exitcode   -- exitcode
+)
 	processCount = processCount - 1
 
-	if processCount < 0 then
+	if processCount < 0
+	then
 		error( 'negative number of processes!' )
 	end
 
-	for _, s in Syncs.iwalk() do
-		if s:collect(pid, exitcode) then return end
+	for _, s in Syncs.iwalk( )
+	do
+		if s:collect( pid, exitcode ) then return end
 	end
-
 end
 
 --
@@ -4465,119 +4655,143 @@ function runner.configure( args, monitors )
 	--
 	-- second paramter is the function to call
 	--
-	local options = {
-
+	local options =
+	{
 		-- log is handled by core already.
 
 		delay =
-			{
-				1,
-				function( secs )
-					clSettings.delay = secs + 0
-				end
-			},
+		{
+			1,
+			function
+			(
+				secs
+			)
+				clSettings.delay = secs + 0
+			end
+		},
 
 		insist =
-			{
-				0,
-				function( )
-					clSettings.insist = true
-				end
-			},
+		{
+			0,
+			function
+			( )
+				clSettings.insist = true
+			end
+		},
 
 		log =
-			{
-				1,
-				nil
-			},
+		{
+			1,
+			nil
+		},
 
 		logfile =
-			{
-				1,
-				function( file )
-					clSettings.logfile = file
-				end
-			},
+		{
+			1,
+			function
+			(
+				file
+			)
+				clSettings.logfile = file
+			end
+		},
 
 		monitor =
-			{
-				-1,
-				function( monitor )
-					if not monitor then
-						io.stdout:write( 'This Lsyncd supports these monitors:\n' )
-						for _, v in ipairs(Monitors.list) do
-							io.stdout:write('   ',v,'\n')
-						end
-
-						io.stdout:write('\n')
-
-						lsyncd.terminate(-1)
-					else
-						clSettings.monitor = monitor
+		{
+			-1,
+			function
+			(
+				monitor
+			)
+				if not monitor
+				then
+					io.stdout:write( 'This Lsyncd supports these monitors:\n' )
+					for _, v in ipairs( Monitors.list )
+					do
+						io.stdout:write( '   ', v, '\n' )
 					end
+
+					io.stdout:write('\n')
+
+					lsyncd.terminate( -1 )
+				else
+					clSettings.monitor = monitor
 				end
-			},
+			end
+		},
 
 		nodaemon =
-			{
-				0,
-				function( )
-					clSettings.nodaemon = true
-				end
-			},
+		{
+			0,
+			function
+			( )
+				clSettings.nodaemon = true
+			end
+		},
 
 		pidfile =
-			{
-				1,
-				function( file )
-					clSettings.pidfile=file
-				end
-			},
+		{
+			1,
+			function
+			(
+				file
+			)
+				clSettings.pidfile=file
+			end
+		},
 
-		rsync    =
-			{
-				2,
-				function( src, trg )
-					clSettings.syncs = clSettings.syncs or { }
-					table.insert(
-						clSettings.syncs,
-						{ 'rsync', src, trg }
-					)
-				end
-			},
+		rsync =
+		{
+			2,
+			function
+			(
+				src,
+				trg
+			)
+				clSettings.syncs = clSettings.syncs or { }
+				table.insert( clSettings.syncs, { 'rsync', src, trg } )
+			end
+		},
 
 		rsyncssh =
-			{
-				3,
-				function( src, host, tdir )
-					clSettings.syncs = clSettings.syncs or { }
-					table.insert(
-						clSettings.syncs,
-						{ 'rsyncssh', src, host, tdir }
-					)
-				end
-			},
+		{
+			3,
+			function
+			(
+				src,
+				host,
+				tdir
+			)
+				clSettings.syncs = clSettings.syncs or { }
+
+				table.insert( clSettings.syncs, { 'rsyncssh', src, host, tdir } )
+			end
+		},
 
 		direct =
-			{
-				2,
-				function( src, trg )
-					clSettings.syncs = clSettings.syncs or { }
-					table.insert(
-						clSettings.syncs,
-						{ 'direct', src, trg }
-					)
-				end
-			},
+		{
+			2,
+			function
+			(
+				src,
+				trg
+			)
+				clSettings.syncs = clSettings.syncs or { }
+
+				table.insert( clSettings.syncs, { 'direct', src, trg } )
+			end
+		},
 
 		version =
-			{
-				0,
-				function( )
-					io.stdout:write( 'Version: ', lsyncd_version, '\n' )
-					os.exit( 0 )
-				end
-			}
+		{
+			0,
+			function
+			( )
+				io.stdout:write( 'Version: ', lsyncd_version, '\n' )
+
+				os.exit( 0 )
+			end
+		}
 	}
 
 	-- non-opts is filled with all args that were no part dash options
@@ -4585,14 +4799,17 @@ function runner.configure( args, monitors )
 	local nonopts = { }
 
 	local i = 1
-	while i <= #args do
 
+	while i <= #args
+	do
 		local a = args[ i ]
 
-		if a:sub( 1, 1 ) ~= '-' then
+		if a:sub( 1, 1 ) ~= '-'
+		then
 			table.insert( nonopts, args[ i ] )
 		else
-			if a:sub( 1, 2 ) == '--' then
+			if a:sub( 1, 2 ) == '--'
+			then
 				a = a:sub( 3 )
 			else
 				a = a:sub( 2 )
@@ -4602,11 +4819,8 @@ function runner.configure( args, monitors )
 
 			if not o
 			then
-				log(
-					'Error',
-					'unknown option command line option ',
-					args[i]
-				)
+				log( 'Error', 'unknown option command line option ', args[ i ] )
+
 				os.exit( -1 )
 			end
 
@@ -4647,15 +4861,11 @@ function runner.configure( args, monitors )
 	then
 		if #nonopts ~= 0
 		then
-			log(
-				'Error',
-				'There cannot be command line syncs and a config file together.'
-			)
+			log( 'Error', 'There cannot be command line syncs and a config file together.' )
+
 			os.exit( -1 )
 		end
-
 	else
-
 		if #nonopts == 0
 		then
 			runner.help( args[ 0 ] )
@@ -4664,14 +4874,10 @@ function runner.configure( args, monitors )
 			return nonopts[ 1 ]
 		else
 			-- TODO make this possible
-			log(
-				'Error',
-				'There can only be one config file in the command line.'
-			)
+			log( 'Error', 'There can only be one config file in the command line.' )
 
 			os.exit( -1 )
 		end
-
 	end
 end
 
@@ -4692,7 +4898,7 @@ function runner.initialize( firstTime )
 		log(
 			'Error',
 			'Do not use settings = { ... }\n'..
-			'      please use settings{ ... } (without the equal sign)'
+			'      please use settings{ ... } ( without the equal sign )'
 		)
 
 		os.exit( -1 )
@@ -4704,26 +4910,6 @@ function runner.initialize( firstTime )
 	-- From this point on, no globals may be created anymore
 	--
 	lockGlobals( )
-
-	--
-	-- copies simple settings with numeric keys to 'key = true' settings.
-	--
-	-- FIXME this can be removed when
-	-- Lsyncd 2.0.x backwards compatibility is dropped
-	--
---	for k, v in ipairs( uSettings )
---	do
---		if uSettings[ v ]
---		then
---			log(
---				'Error',
---				'Double setting "' .. v.. '"'
---			)
---			os.exit( -1 )
---		end
---
---		uSettings[ v ]= true
---	end
 
 	--
 	-- all command line settings overwrite config file settings
@@ -4813,10 +4999,7 @@ function runner.initialize( firstTime )
 	-- makes sure the user gave Lsyncd anything to do
 	if Syncs.size() == 0
 	then
-		log(
-			'Error',
-			'Nothing to watch!'
-		)
+		log( 'Error', 'Nothing to watch!' ) 
 
 		os.exit( -1 )
 	end
@@ -4826,7 +5009,8 @@ function runner.initialize( firstTime )
 
 	lsyncd.configure( 'running' );
 
-	local ufuncs = {
+	local ufuncs =
+	{
 		'onAttrib',
 		'onCreate',
 		'onDelete',
@@ -4876,7 +5060,6 @@ function runner.initialize( firstTime )
 			s:addInitDelay( )
 		end
 	end
-
 end
 
 --
@@ -4888,13 +5071,9 @@ end
 --
 function runner.getAlarm
 ( )
-
 	log( 'Function', 'getAlarm( )' )
 
-	if lsyncdStatus ~= 'run'
-	then
-		return false
-	end
+	if lsyncdStatus ~= 'run' then return false end
 
 	local alarm = false
 
@@ -4903,12 +5082,9 @@ function runner.getAlarm
 	--
 	local function checkAlarm
 	(
-		a
+		a  -- alarm time
 	)
-		if a == nil
-		then
-			error('got nil alarm')
-		end
+		if a == nil then error( 'got nil alarm' ) end
 
 		if alarm == true or not a
 		then
@@ -4948,14 +5124,9 @@ function runner.getAlarm
 	-- checks for an userAlarm
 	checkAlarm( UserAlarms.getAlarm( ) )
 
-	log(
-		'Alarm',
-		'runner.getAlarm returns: ',
-		alarm
-	)
+	log( 'Alarm', 'runner.getAlarm returns: ', alarm )
 
 	return alarm
-
 end
 
 
@@ -4975,12 +5146,7 @@ function runner.collector
 )
 	if exitcode ~= 0
 	then
-		log(
-			'Error',
-			'Startup process',
-			pid,
-			' failed'
-		)
+		log( 'Error', 'Startup process', pid, ' failed' )
 
 		terminate( -1 )
 	end
@@ -4991,54 +5157,41 @@ end
 --
 -- Called by core when an overflow happened.
 --
-function runner.overflow( )
-
-	log(
-		'Normal',
-		'--- OVERFLOW in event queue ---'
-	)
+function runner.overflow
+( )
+	log( 'Normal', '--- OVERFLOW in event queue ---' )
 
 	lsyncdStatus = 'fade'
-
 end
 
 --
 -- Called by core on a hup signal.
 --
-function runner.hup( )
-
-	log(
-		'Normal',
-		'--- HUP signal, resetting ---'
-	)
+function runner.hup
+( )
+	log( 'Normal', '--- HUP signal, resetting ---' )
 
 	lsyncdStatus = 'fade'
-
 end
 
 --
 -- Called by core on a term signal.
 --
-function runner.term( sigcode )
-
-	local sigtexts = {
-		[ 2 ] =
-			'INT',
-
-		[ 15 ] =
-			'TERM'
+function runner.term
+(
+	sigcode  -- signal code
+)
+	local sigtexts =
+	{
+		[ 2 ] = 'INT',
+		[ 15 ] = 'TERM'
 	};
 
 	local sigtext = sigtexts[ sigcode ];
 
-	if not sigtext then
-		sigtext = 'UNKNOWN'
-	end
+	if not sigtext then sigtext = 'UNKNOWN' end
 
-	log(
-		'Normal',
-		'--- ', sigtext, ' signal, fading ---'
-	)
+	log( 'Normal', '--- ', sigtext, ' signal, fading ---' )
 
 	lsyncdStatus = 'fade'
 
@@ -5053,17 +5206,16 @@ end
 --
 -- Returns an Inlet to that sync.
 --
-function sync( opts )
-
-	if lsyncdStatus ~= 'init' then
-		error(
-			'Sync can only be created during initialization.',
-			2
-		)
+function sync
+(
+	opts
+)
+	if lsyncdStatus ~= 'init'
+	then
+		error( 'Sync can only be created during initialization.', 2 )
 	end
 
 	return Syncs.add( opts ).inlet
-
 end
 
 
@@ -5077,38 +5229,28 @@ function spawn(
 	binary, -- binary to call
 	...     -- arguments
 )
-	if
-		agent == nil or
-		type( agent ) ~= 'table'
+	if agent == nil
+	or type( agent ) ~= 'table'
 	then
-		error(
-			'spawning with an invalid agent',
-			2
-		)
+		error( 'spawning with an invalid agent', 2 )
 	end
 
-	if lsyncdStatus == 'fade' then
-		log(
-			'Normal',
-			'ignored process spawning while fading'
-		)
+	if lsyncdStatus == 'fade'
+	then
+		log( 'Normal', 'ignored process spawning while fading' )
 		return
 	end
 
-	if type( binary ) ~= 'string' then
-		error(
-			'calling spawn(agent, binary, ...): binary is not a string',
-			2
-		)
+	if type( binary ) ~= 'string'
+	then
+		error( 'calling spawn(agent, binary, ...): binary is not a string', 2 )
 	end
 
 	local dol = InletFactory.getDelayOrList( agent )
 
-	if not dol then
-		error(
-			'spawning with an unknown agent',
-			2
-		)
+	if not dol
+	then
+		error( 'spawning with an unknown agent', 2 )
 	end
 
 	--
@@ -5143,9 +5285,8 @@ function spawn(
 	then
 		processCount = processCount + 1
 
-		if
-			uSettings.maxProcesses and
-			processCount > uSettings.maxProcesses
+		if uSettings.maxProcesses
+		and processCount > uSettings.maxProcesses
 		then
 			error( 'Spawned too much processes!' )
 		end
@@ -5180,14 +5321,7 @@ function spawnShell
 	command,   -- the shell command
 	...        -- additonal arguments
 )
-	return spawn(
-		agent,
-		'/bin/sh',
-		'-c',
-		command,
-		'/bin/sh',
-		...
-	)
+	return spawn( agent, '/bin/sh', '-c', command, '/bin/sh', ... )
 end
 
 
@@ -5200,11 +5334,7 @@ function observefd
 	ready,  -- called when fd is ready to be read
 	writey  -- called when fd is ready to be written
 )
-	return lsyncd.observe_fd(
-		fd,
-		ready,
-		writey
-	)
+	return lsyncd.observe_fd( fd, ready, writey )
 end
 
 
@@ -5276,24 +5406,14 @@ function settings
 		then
 			if not settingsCheckgauge[ k ]
 			then
-				error(
-					'setting "'
-					..k
-					..'" unknown.',
-					2
-				)
+				error( 'setting "'..k..'" unknown.', 2 )
 			end
 
 			uSettings[ k ] = v
 		else
 			if not settingsCheckgauge[ v ]
 			then
-				error(
-					'setting "'
-					..v
-					..'" unknown.',
-					2
-				)
+				error( 'setting "'..v..'" unknown.', 2 )
 			end
 
 			uSettings[ v ] = true

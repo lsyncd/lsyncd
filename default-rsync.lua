@@ -16,16 +16,9 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-if not default
-then
-	error( 'default not loaded' )
-end
+if not default then error( 'default not loaded' ) end
 
-
-if default.rsync
-then
-	error( 'default-rsync already loaded' )
-end
+if default.rsync then error( 'default-rsync already loaded' ) end
 
 
 local rsync = { }
@@ -49,6 +42,8 @@ rsync.checkgauge = {
 	delete      =  true,
 	exclude     =  true,
 	excludeFrom =  true,
+	filter      =  true,
+	filterFrom  =  true,
 	target      =  true,
 
 	rsync  = {
@@ -118,28 +113,6 @@ end
 
 
 --
--- Replaces what rsync would consider filter rules by literals.
---
-local replaceRsyncFilter =
-	function
-(
-	path
-)
-	if not path
-	then
-		return
-	end
-
-	return(
-		path
-		:gsub( '%?', '\\?' )
-		:gsub( '%*', '\\*' )
-		:gsub( '%[', '\\[' )
-	)
-end
-
-
---
 -- Spawns rsync for a list of events
 --
 -- Exclusions are already handled by not having
@@ -161,10 +134,11 @@ rsync.action = function
 	--
 	-- Replaces what rsync would consider filter rules by literals
 	--
-	local function sub( p )
-		if not p then
-			return
-		end
+	local function sub
+	(
+		p  -- pattern
+	)
+		if not p then return end
 
 		return p:
 			gsub( '%?', '\\?' ):
@@ -179,8 +153,14 @@ rsync.action = function
 	-- Deletes create multi match patterns
 	--
 	local paths = elist.getPaths(
-		function( etype, path1, path2 )
-			if string.byte( path1, -1 ) == 47 and etype == 'Delete' then
+		function
+		(
+			etype,  -- event type
+			path1,  -- path
+			path2   -- path to for move events
+		)
+			if string.byte( path1, -1 ) == 47 and etype == 'Delete'
+			then
 				return sub( path1 )..'***', sub( path2 )
 			else
 				return sub( path1 ), sub( path2 )
@@ -195,11 +175,11 @@ rsync.action = function
 	local filterP = { }
 
 	-- adds one path to the filter
-	local function addToFilter( path )
-
-		if filterP[ path ] then
-			return
-		end
+	local function addToFilter
+	(
+		path
+	)
+		if filterP[ path ] then return end
 
 		filterP[ path ] = true
 
@@ -211,21 +191,21 @@ rsync.action = function
 	-- rsync needs to have entries for all steps in the path,
 	-- so the file for example d1/d2/d3/f1 needs following filters:
 	-- 'd1/', 'd1/d2/', 'd1/d2/d3/' and 'd1/d2/d3/f1'
-	for _, path in ipairs( paths ) do
-
-		if path and path ~= '' then
-
-			addToFilter(path)
+	for _, path in ipairs( paths )
+	do
+		if path and path ~= ''
+		then
+			addToFilter( path )
 
 			local pp = string.match( path, '^(.*/)[^/]+/?' )
 
-			while pp do
-				addToFilter(pp)
+			while pp
+			do
+				addToFilter( pp )
+
 				pp = string.match( pp, '^(.*/)[^/]+/?' )
 			end
-
 		end
-
 	end
 
 	log(
@@ -334,6 +314,8 @@ rsync.init = function
 
 	local excludes = inlet.getExcludes( )
 
+	local filters = inlet.hasFilters( ) and inlet.getFilters( )
+
 	local delete   = nil
 
 	local target   = config.target
@@ -354,9 +336,9 @@ rsync.init = function
 		delete = { '--delete', '--ignore-errors' }
 	end
 
-	if #excludes == 0
+	if not filters and #excludes == 0
 	then
-		-- starts rsync without any excludes
+		-- starts rsync without any filters or excludes
 		log(
 			'Normal',
 			'recursive startup rsync: ',
@@ -375,7 +357,8 @@ rsync.init = function
 			target
 		)
 
-	else
+	elseif not filters
+	then
 		-- starts rsync providing an exclusion list
 		-- on stdin
 		local exS = table.concat( excludes, '\n' )
@@ -395,6 +378,32 @@ rsync.init = function
 			config.rsync.binary,
 			'<', exS,
 			'--exclude-from=-',
+			delete,
+			config.rsync._computed,
+			'-r',
+			config.source,
+			target
+		)
+	else
+		-- starts rsync providing a filter list
+		-- on stdin
+		local fS = table.concat( filters, '\n' )
+
+		log(
+			'Normal',
+			'recursive startup rsync: ',
+			config.source,
+			' -> ',
+			target,
+			' filtering\n',
+			fS
+		)
+
+		spawn(
+			event,
+			config.rsync.binary,
+			'<', fS,
+			'--filter=. -',
 			delete,
 			config.rsync._computed,
 			'-r',
@@ -647,11 +656,13 @@ rsync.prepare = function
 	end
 
 	-- appends a / to target if not present
-	if not skipTarget and string.sub(config.target, -1) ~= '/'
+	-- and not a ':' for home dir.
+	if not skipTarget
+	and string.sub( config.target, -1 ) ~= '/'
+	and string.sub( config.target, -1 ) ~= ':'
 	then
 		config.target = config.target..'/'
 	end
-
 end
 
 

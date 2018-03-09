@@ -388,13 +388,10 @@ local function check
 )
 	for k, v in pairs( config )
 	do
-		if not gauge[k]
+		if not gauge[ k ]
 		then
 			error(
-				'Parameter "'
-				.. subtable
-				.. k
-				.. '" unknown.'
+				'Parameter "' .. subtable .. k .. '" unknown.'
 				.. ' ( if this is not a typo add it to checkgauge )',
 				level
 			);
@@ -405,10 +402,7 @@ local function check
 			if type( v ) ~= 'table'
 			then
 				error(
-					'Parameter "'
-					.. subtable
-					.. k
-					.. '" must be a table.',
+					'Parameter "' .. subtable .. k .. '" must be a table.',
 					level
 				)
 			end
@@ -432,10 +426,7 @@ default.prepare = function
 
 	local gauge = config.checkgauge
 
-	if not gauge
-	then
-		return
-	end
+	if not gauge then return end
 
 	check( config, gauge, '', level + 1 )
 end
