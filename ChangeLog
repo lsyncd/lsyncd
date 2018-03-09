@@ -1,7 +1,7 @@
-2018-??-??: 2.2.3
+2018-03-09: 2.2.3
 	enhaencement: supporting includes with new filter and filterFrom options
 	change: needing now at least Lua 5.2 (Lua 5.1 no longer supported, Lua5.3 supported)
-	change: if the target/targetdir ands with a ':' do not append
+	change: if the target/targetdir ends with a ':' do not append
 			a trailing '/' to it, since that would change it from homedir to rootdir!
 	add: example for Amazon S3 Bucket (Daniel Miranda)
 	fix: setting stdout/stderr to linebuffer mode.
