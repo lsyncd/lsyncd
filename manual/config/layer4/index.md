@@ -64,31 +64,31 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 
  <tr><td> acls
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> append
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> append-verify
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> archive
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> backup
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
@@ -106,7 +106,7 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 
  <tr><td> checksum
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
@@ -124,31 +124,31 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 
  <tr><td> compress
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> copy_dirlinks
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> copy_links
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> cvs_exclude
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> dry_run
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
@@ -166,13 +166,13 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 
  <tr><td> executability
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> existing
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
@@ -184,49 +184,49 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 
  <tr><td> hard_links
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> ignore_times
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> inplace
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> (Lsyncd >= 2.1.6)
 </td></tr>
 
  <tr><td> ipv4
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> 
 </td></tr>
 
  <tr><td> ipv6
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> 
 </td></tr>
 
  <tr><td> links
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> (set by Lsyncd by default)
 </td></tr>
 
  <tr><td> one_file_system
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> owner
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
@@ -238,25 +238,25 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 
  <tr><td> perms
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> protect_args
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> (set by Lsyncd by default)
 </td></tr>
 
  <tr><td> prune_empty_dirs
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> quiet
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
@@ -274,7 +274,7 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 
  <tr><td> sparse
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
@@ -292,13 +292,13 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 
  <tr><td> times
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> (set by Lsyncd by default)
 </td></tr>
 
  <tr><td> update
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
@@ -310,19 +310,19 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 
  <tr><td> verbose
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> whole_file
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 
  <tr><td> xattrs
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td>
 </td></tr>
 

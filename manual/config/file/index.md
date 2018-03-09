@@ -40,7 +40,7 @@ Valid keys for settings are:
 
  <tr><td> nodaemon
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> does not detach
 </td></tr>
 
@@ -70,7 +70,7 @@ Valid keys for settings are:
 
  <tr><td> insist
 </td><td> =
-</td><td> true
+</td><td> BOOL
 </td><td> keep running at startup although one or more targets failed due to not being reachable.
 </td></tr>
 
