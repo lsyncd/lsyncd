@@ -1,4 +1,3 @@
-#!/usr/bin/lua
 require( 'posix' )
 dofile( 'tests/testlib.lua' )
 

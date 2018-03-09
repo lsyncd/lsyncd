@@ -1,4 +1,3 @@
-#!/usr/bin/lua
 -- a heavy duty test.
 -- makes thousends of random changes to the source tree
 

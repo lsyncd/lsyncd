@@ -2,46 +2,43 @@ require( 'posix' )
 dofile( 'tests/testlib.lua' )
 
 cwriteln( '****************************************************************' )
-cwriteln( ' Testing excludes (rsync)' )
-cwriteln(' ****************************************************************' )
+cwriteln( ' Testing filters (rsync)' )
+cwriteln( '****************************************************************' )
 
 local tdir, srcdir, trgdir = mktemps( )
-local logfile = tdir .. 'log'
-local cfgfile = tdir .. 'config.lua'
+local logfile = tdir .. "log"
+local cfgfile = tdir .. "config.lua"
 local range = 5
-local log = { '-log', 'all' }
+local log = {"-log", "all"}
 
 writefile(cfgfile, [[
 settings {
-	logfile = "]]..logfile..[[",
+	logfile = ']]..logfile..[[',
 	nodaemon = true,
 }
 
 sync {
 	default.rsync,
-	source = "]]..srcdir..[[",
-	target = "]]..trgdir..[[",
+	source = ']]..srcdir..[[',
+	target = ']]..trgdir..[[',
 	delay = 3,
-	exclude = {
-		"erf",
-		"/eaf",
-		"erd/",
-		"/ead/",
+	filter = {
+		'- /ab**',
+		'+ /a**',
+		'- /**',
 	},
 }]])
 
 -- writes all files
 local function writefiles
 ( )
-	posix.mkdir( srcdir .. 'd' )
-	writefile( srcdir .. 'erf', 'erf' )
-	writefile( srcdir .. 'eaf', 'erf' )
-	writefile( srcdir .. 'erd', 'erd' )
-	writefile( srcdir .. 'ead', 'ead' )
-	writefile( srcdir .. 'd/erf', 'erf' )
-	writefile( srcdir .. 'd/eaf', 'erf' )
-	writefile( srcdir .. 'd/erd', 'erd' )
-	writefile( srcdir .. 'd/ead', 'ead' )
+	writefile( srcdir .. 'abc', 'abc' )
+	writefile( srcdir .. 'acc', 'acc' )
+	writefile( srcdir .. 'baa', 'baa' )
+	posix.mkdir( srcdir .. 'abx' )
+	writefile( srcdir .. 'abx/a', 'abxa' )
+	posix.mkdir( srcdir .. 'acx' )
+	writefile( srcdir .. 'acx/x', 'acxx' )
 end
 
 --
@@ -57,14 +54,14 @@ local function testfile
 
 	if stat and not expect
 	then
-		cwriteln( 'failure: ', filename, ' should be excluded')
+		cwriteln( 'failure: ', filename, ' should be filtered')
 
 		os.exit( 1 )
 	end
 
 	if not stat and expect
 	then
-		cwriteln( 'failure: ', filename, ' should not be excluded' )
+		cwriteln( 'failure: ', filename, ' should not be filtered' )
 		os.exit( 1 )
 	end
 end
@@ -72,18 +69,15 @@ end
 -- test all files
 local function testfiles
 ( )
-	testfile( trgdir .. 'erf', false )
-	testfile( trgdir .. 'eaf', false )
-	testfile( trgdir .. 'erd', true )
-	testfile( trgdir .. 'ead', true )
-	testfile( trgdir .. 'd/erf', false )
-	testfile( trgdir .. 'd/eaf', true )
-	testfile( trgdir .. 'd/erd', true )
-	testfile( trgdir .. 'd/ead', true )
+	testfile( trgdir .. 'abc', false )
+	testfile( trgdir .. 'acc', true )
+	testfile( trgdir .. 'baa', false )
+	testfile( trgdir .. 'abx/a', false )
+	testfile( trgdir .. 'acx/x', true )
 end
 
 
-cwriteln( 'testing startup excludes' )
+cwriteln( 'testing startup filters' )
 
 writefiles( )
 
@@ -95,7 +89,7 @@ cwriteln( 'waiting for Lsyncd to start' )
 
 posix.sleep( 3 )
 
-cwriteln( 'testing excludes after startup' )
+cwriteln( 'testing filters after startup' )
 
 testfiles( )
 

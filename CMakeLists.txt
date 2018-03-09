@@ -93,6 +93,7 @@ add_custom_target( tests
 	COMMAND echo "  * have a passwordless ssh access to localhost"
 	COMMAND ${LUA_EXECUTABLE} tests/schedule.lua
 	COMMAND ${LUA_EXECUTABLE} tests/l4rsyncdata.lua
+	COMMAND ${LUA_EXECUTABLE} tests/filter-rsync.lua
 	COMMAND ${LUA_EXECUTABLE} tests/exclude-rsync.lua
 	COMMAND ${LUA_EXECUTABLE} tests/exclude-rsyncssh.lua
 	COMMAND ${LUA_EXECUTABLE} tests/churn-rsync.lua
