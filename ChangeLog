@@ -1,6 +1,6 @@
 2017-02-16: 2.2.2
 	 fix: checkgauge 'insist'
-	 fix: no partial path exlusion tests
+	 fix: no partial path exclusion tests
 	 fix: write pid of forked process in pidfile
 	 fix: crash on not reachable target
 	 workaround:
@@ -12,7 +12,7 @@
 	enhancement: now always using filter lists with rysnc
 		instead of include/exclude lists taking advantage of the new --delete-missing-args
 		parameter to delete files on target.
-		>>> Thus Lsyncd 2.1.1 needs rsync >= 3.1.0
+		>>> Thus Lsyncd 2.2.1 needs rsync >= 3.1.0
 	change: added "tests" make target to run all the tests.
 	fix: crash due to typo in changed ^path, ^pathdir, ^pathname
 

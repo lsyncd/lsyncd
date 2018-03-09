@@ -2889,6 +2889,9 @@ main( int argc, char * argv[ ] )
 	// gets a kernel parameter
 	clocks_per_sec = sysconf( _SC_CLK_TCK );
 
+	setlinebuf( stdout );
+	setlinebuf( stderr );
+
 	while( !term ) {
 		main1( argc, argv );
 	}
