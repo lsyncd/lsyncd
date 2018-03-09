@@ -21,7 +21,7 @@ local pid = spawn(
 	'./lsyncd',
 	'-nodaemon',
 	'-direct', srcdir, trgdir,
-	unpack( logs )
+	table.unpack( logs )
 )
 
 cwriteln( 'waiting for Lsyncd to startup' )

@@ -28,7 +28,7 @@ local pid =
 		'-nodaemon',
 		'-delay', '5',
 		"-rsync", srcdir, trgdir,
-		unpack( logs )
+		table.unpack( logs )
 	)
 
 cwriteln( 'waiting for lsyncd to start' )

@@ -91,13 +91,13 @@ add_custom_target( tests
 	COMMAND echo "Note you are expected to:"
 	COMMAND echo "  * have lua-posix installed"
 	COMMAND echo "  * have a passwordless ssh access to localhost"
-	COMMAND tests/schedule.lua
-	COMMAND tests/l4rsyncdata.lua
-	COMMAND tests/exclude-rsync.lua
-	COMMAND tests/exclude-rsyncssh.lua
-	COMMAND tests/churn-rsync.lua
-	COMMAND tests/churn-rsyncssh.lua
-	COMMAND tests/churn-direct.lua
+	COMMAND ${LUA_EXECUTABLE} tests/schedule.lua
+	COMMAND ${LUA_EXECUTABLE} tests/l4rsyncdata.lua
+	COMMAND ${LUA_EXECUTABLE} tests/exclude-rsync.lua
+	COMMAND ${LUA_EXECUTABLE} tests/exclude-rsyncssh.lua
+	COMMAND ${LUA_EXECUTABLE} tests/churn-rsync.lua
+	COMMAND ${LUA_EXECUTABLE} tests/churn-rsyncssh.lua
+	COMMAND ${LUA_EXECUTABLE} tests/churn-direct.lua
 	COMMAND echo "Finished all successfull!"
 )
 

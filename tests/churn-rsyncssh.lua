@@ -29,7 +29,7 @@ local pid = spawn(
 	srcdir,
 	'localhost',
 	trgdir,
-	unpack(logs)
+	table.unpack(logs)
 )
 
 cwriteln( 'waiting for Lsyncd to startup' )

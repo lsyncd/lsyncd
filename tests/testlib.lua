@@ -58,17 +58,11 @@ end
 function mktemps
 ( )
 	local tdir = mktempd() .. '/'
-
 	cwriteln( 'using ', tdir, ' as test root' )
-
 	local srcdir = tdir..'src/'
-
 	local trgdir = tdir..'trg/'
-
 	posix.mkdir( srcdir )
-
 	posix.mkdir( trgdir )
-
 	return tdir, srcdir, trgdir
 end
 
@@ -90,9 +84,7 @@ function writefile
 	end
 
 	f:write( text )
-
 	f:write( '\n' )
-
 	f:close( )
 
 	return true
@@ -143,11 +135,8 @@ function churn
 )
 	-- all dirs created, indexed by integer and path
 	root = { name = '' }
-
 	alldirs = { root }
-
 	dirsWithFileI = { }
-
 	dirsWithFileD = { }
 
 	--

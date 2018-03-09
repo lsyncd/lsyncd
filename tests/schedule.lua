@@ -1,10 +1,10 @@
 #!/usr/bin/lua
-require("posix")
-dofile("tests/testlib.lua")
+require( 'posix' )
+dofile( 'tests/testlib.lua' )
 
-cwriteln("****************************************************************")
-cwriteln(" Testing Lsyncd scheduler                                       ")
-cwriteln("****************************************************************")
+cwriteln( '****************************************************************' )
+cwriteln( ' Testing Lsyncd scheduler                                       ' )
+cwriteln( '****************************************************************' )
 
 local tdir, srcdir, trgdir = mktemps()
 local logfile = tdir .. "log"
@@ -47,30 +47,36 @@ sync {ccircuit, source ="]]..srcdir..[[", target = "]]..trgdir..[["}
 
 
 -- test if the filename exists, fails if this is different to expect
-local function testfile(filename)
+local function testfile
+(
+	filename
+)
 	local stat, err = posix.stat(filename)
-	if not stat then
-		cwriteln("failure: ",filename," missing")
-		os.exit(1)
+	
+	if not stat
+	then
+		cwriteln( 'failure: ', filename, ' missing' )
+		os.exit( 1 )
 	end
 end
 
-cwriteln("starting Lsyncd")
-local pid = spawn("./lsyncd", cfgfile, unpack(logs))
-cwriteln("waiting for Lsyncd to do a few cycles")
-posix.sleep(30)
-cwriteln("look if every circle got a chance to run")
-testfile(srcdir.."a")
-testfile(srcdir.."b")
-testfile(srcdir.."c")
-cwriteln("killing started Lsyncd")
-posix.kill(pid)
-local _, exitmsg, lexitcode = posix.wait(lpid)
-cwriteln("Exitcode of Lsyncd = ", exitmsg, " ", lexitcode)
+cwriteln( 'starting Lsyncd' )
+local pid = spawn( './lsyncd', cfgfile, table.unpack( logs ) )
+cwriteln( 'waiting for Lsyncd to do a few cycles' )
+posix.sleep( 30 )
+cwriteln( 'look if every circle got a chance to run' )
+testfile( srcdir..'a' )
+testfile( srcdir..'b' )
+testfile( srcdir..'c' )
+cwriteln( 'killing started Lsyncd' )
+posix.kill( pid )
+local _, exitmsg, lexitcode = posix.wait( lpid )
+cwriteln( 'Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode)
 posix.sleep(1);
 
-if lexitcode == 143 then
-	cwriteln("OK")
+if lexitcode == 143
+then
+	cwriteln( 'OK' )
 	os.exit( 0 )
 else
 	os.exit( 1 )

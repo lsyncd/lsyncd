@@ -1,14 +1,14 @@
 2018-??-??: 2.2.3
 	enhaencement: supporting includes with new filter and filterFrom options
-	change: needing at least Lua 5.2 (was 5.1)
+	change: needing now at least Lua 5.2 (Lua 5.1 no longer supported, Lua5.3 supported)
 	change: if the target/targetdir ands with a ':' do not append
 			a trailing '/' to it, since that would change it from homedir to rootdir!
 	add: example for Amazon S3 Bucket (Daniel Miranda)
 	fix: setting stdout/stderr to linebuffer mode.
 	fix: Lua5.3 compatiblity, using load() instead of loadstring()
-	     Lua5.1 support was thus dropped
 	fix: cmake lua detection, will resort to "lua" and "luac" binaries only if
 	     more specific suffixes (e.g. luac5.3) are not available
+	fix: test suit, Lua5.3 compatibility (table.unpack)
 
 2017-02-16: 2.2.2
 	fix: checkgauge 'insist'

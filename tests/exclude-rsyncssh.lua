@@ -88,7 +88,7 @@ end
 cwriteln( 'testing startup excludes' )
 writefiles( )
 cwriteln( 'starting Lsyncd' )
-local pid = spawn( './lsyncd', cfgfile, unpack( log ) )
+local pid = spawn( './lsyncd', cfgfile, table.unpack( log ) )
 cwriteln( 'waiting for Lsyncd to start' )
 posix.sleep( 10 )
 cwriteln( 'testing excludes after startup' )
