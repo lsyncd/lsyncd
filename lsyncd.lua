@@ -5031,7 +5031,7 @@ function runner.initialize( firstTime )
 			then
 				local ft = functionWriter.translate( config[ fn ] )
 
-				config[ fn ] = assert( loadstring( 'return '..ft ) )( )
+				config[ fn ] = assert( load( 'return '..ft ) )( )
 			end
 		end
 	end
