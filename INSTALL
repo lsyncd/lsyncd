@@ -15,22 +15,22 @@ Prerequisites
   Lua
 
     For building Lsyncd the Lua interpreter 'lua'
-	and the Lua compiler 'luac' are needed.
-	They aren't needed in the deployed binary though.
-	
-	Use Lua 5.1 or Lua 5.2 at your choice.
+    and the Lua compiler 'luac' are needed.
+    They aren't needed in the deployed binary though.
+
+    Use Lua 5.2 or later.
 
   Liblua
 
     The lua library.
 	
-	Note that you likely need the package "liblua-dev"
-	or something like that.
+    Note that you likely need the package "liblua-dev"
+    or something like that.
 
-	Use Lua 5.1 or Lua 5.2 at your choice.
+    Use Lua 5.2 or later.
 
-	Note, this has to be exactly the same Version as the
-	lua compiler used above!
+    Note, this has to be exactly the same Version as the
+    lua compiler used above!
 
 
 Building
@@ -41,16 +41,16 @@ Building
     mkdir build
     cd build
     cmake ..
-	make
+    make
     sudo make install
 
   Building intree:
     cmake .
-	make
+    make
 
   On OSX you yet need to get the xnu sources.
   For example:
     cmake -DWITH_INOTIFY=OFF -DWITH_FSEVENTS=ON -DXNU_DIR=/path/to/xnu-VERSION
-	make
+    make
 
 FIXME make install not yet done
