@@ -61,12 +61,12 @@ sync {
 Below is a table of options for the ```rsync``` parameter. Please have a look at the Rsync documentation for an in depth explanation.
 
 <table>
- <tr><th> parameter
-</th><th> =
-</th><th> TYPE
-</th><th> default value
-</th><th> comment
-</th></tr>
+<tr><td> <b>parameter</b>
+</td><td> <b>=</b>
+</td><td> <b>TYPE</b>
+</td><td> <b>default value</b>
+</td><td> <b>comment</b>
+</td></tr>
    
  <tr><td> acls
 </td><td> =
