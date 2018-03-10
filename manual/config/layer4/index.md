@@ -61,82 +61,101 @@ sync {
 Below is a table of options for the ```rsync``` parameter. Please have a look at the Rsync documentation for an in depth explanation.
 
 <table>
-
+ <th><td> parameter
+</td><td> =
+</td><td> TYPE
+</td><td> default value
+</td><td> comment
+</td></th>
+   
  <tr><td> acls
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> append
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> append-verify
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> archive
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> backup
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> backup_dir
 </td><td> =
 </td><td> DIR
+</td><td> false
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> binary
 </td><td> =
 </td><td> FILENAME
-</td><td> Lsyncd calls this binary as rsync (default: /usr/bin/rsync)
+</td><td> "/usr/bin/rsync"
+</td><td> Lsyncd calls this binary as rsync
 </td></tr>
 
  <tr><td> checksum
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> chmod
 </td><td> =
 </td><td> STRING
+</td><td> 
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> chown
 </td><td> =
 </td><td> USER:GROUP
+</td><td> 
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> compress
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> copy_dirlinks
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> copy_links
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
@@ -149,12 +168,14 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
  <tr><td> dry_run
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> exclude
 </td><td> =
 </td><td> PATTERN
+</td><td> 
 </td><td> TABLE of PATTERNs also allowed
 </td></tr>
 
@@ -162,101 +183,118 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> =
 </td><td> FILENAME
 </td><td>
+</td><td>   
 </td></tr>
 
  <tr><td> executability
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> existing
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> groupmap
 </td><td> =
 </td><td> STRING
+</td><td> 
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> hard_links
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> ignore_times
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> inplace
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td> (Lsyncd >= 2.1.6)
 </td></tr>
 
  <tr><td> ipv4
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td> 
 </td></tr>
 
  <tr><td> ipv6
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td> 
 </td></tr>
 
  <tr><td> links
 </td><td> =
 </td><td> BOOL
-</td><td> (set by Lsyncd by default)
+</td><td> true
+</td><td> 
 </td></tr>
 
  <tr><td> one_file_system
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> owner
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> password_file
 </td><td> =
 </td><td> FILENAME
+</td><td> 
 </td><td> (Lsyncd >= 2.1.2)
 </td></tr>
 
  <tr><td> perms
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> protect_args
 </td><td> =
 </td><td> BOOL
-</td><td> (set by Lsyncd by default)
+</td><td> true
+</td><td>
 </td></tr>
 
  <tr><td> prune_empty_dirs
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> quiet
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
@@ -264,71 +302,83 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> =
 </td><td> COMMAND
 </td><td> 
+</td><td> 
 </td></tr>
 
  <tr><td> rsync_path
 </td><td> =
 </td><td> PATH
+</td><td> 
 </td><td> (path to rsync on remote host)
 </td></tr>
 
  <tr><td> sparse
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> suffix
 </td><td> =
 </td><td> SUFFIX
+</td><td> 
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> temp_dir
 </td><td> =
 </td><td> DIR
+</td><td> 
 </td><td>
 </td></tr>
 
  <tr><td> times
 </td><td> =
 </td><td> BOOL
-</td><td> (set by Lsyncd by default)
+</td><td> true
+</td><td> 
 </td></tr>
 
  <tr><td> update
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> usermap
 </td><td> =
 </td><td> STRING
+</td><td>
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> verbose
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> whole_file
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> xattrs
 </td><td> =
 </td><td> BOOL
+</td><td> false
 </td><td>
 </td></tr>
 
  <tr><td> _extra
 </td><td> =
 </td><td> TABLE of STRINGS.
+</td><td> 
 </td><td> If absolutely needed, additional arguments can be specified as a TABLE of STRINGS(example: <tt>{ "--omit-dir-times", "--omit-link-times" }</tt>). Note that the underscore highlights this as workaround. If you need something that is not covered by the above options, please request it via a feature request on the project website. Most notably, do not add -r for recursive or -a which implies recursive, since Lsyncd will handle that by itself. Additionally do not add -R for relative, which will ruin Lsyncd &lt;-&gt; Rsync communication.
 </td></tr>
 
@@ -495,7 +545,7 @@ sync {
     default.rsync,
     source    = "/home/user/src/",
     targetdir = "/home/user/dst/",
-    exclude = { '.bak' , '.tmp' }
+    exclude = { '*.bak' , '*.tmp' }
 }
 {% endhighlight %}
 
