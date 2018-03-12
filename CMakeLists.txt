@@ -11,7 +11,7 @@ include_directories ( ${LUA_INCLUDE_DIR} )
 
 
 # setting Lsyncd sources
-set( LSYNCD_SRC core.c runner.c defaults.c )
+set( LSYNCD_SRC core.c luacode.c )
 
 # tell systemd via the sd-daemon library about the status of Lsyncd
 option( WITH_SYSTEMD "Communicate Lsyncd status to systemd" ON )
@@ -33,38 +33,25 @@ include_directories("${PROJECT_BINARY_DIR}")
 
 # building and compiling the part of lsyncd written in Lua
 # also called "runner"
-add_custom_command( OUTPUT runner.c
-	COMMAND ${CMAKE_COMMAND} -E echo "Generating built-in runner linkable"
-	COMMAND ${LUA_EXECUTABLE} ${PROJECT_SOURCE_DIR}/bin2carray.lua runner.out runner runner.c
-	DEPENDS runner.out
-)
 
-# this supposes the Lua compiler 'luac' is sitting right next to the Lua interpreter 'lua'
-add_custom_command( OUTPUT runner.out
-	COMMAND ${CMAKE_COMMAND} -E echo "Compiling built-in runner"
-	COMMAND ${LUA_COMPILER} -o runner.out ${PROJECT_SOURCE_DIR}/lsyncd.lua
-	DEPENDS ${PROJECT_SOURCE_DIR}/lsyncd.lua
-)
-
-# building and compiling the built-in default configs:
-#   rsync rysnc-ssh and direct
-add_custom_command( OUTPUT defaults.c
-	COMMAND ${CMAKE_COMMAND} -E echo "Generating built-in default configs"
-	COMMAND ${LUA_EXECUTABLE} ${PROJECT_SOURCE_DIR}/bin2carray.lua defaults.out defaults defaults.c
-	DEPENDS defaults.out
-)
-
-set( DEFAULT_CONFIGS
+set( LUA_CODE
+	${PROJECT_SOURCE_DIR}/lsyncd.lua
 	${PROJECT_SOURCE_DIR}/default.lua
 	${PROJECT_SOURCE_DIR}/default-rsync.lua
 	${PROJECT_SOURCE_DIR}/default-rsyncssh.lua
 	${PROJECT_SOURCE_DIR}/default-direct.lua
 )
 
-add_custom_command( OUTPUT defaults.out
-	COMMAND ${CMAKE_COMMAND} -E echo "Compiling built-in default configs"
-	COMMAND ${LUA_COMPILER} -o defaults.out ${DEFAULT_CONFIGS}
-	DEPENDS ${DEFAULT_CONFIGS}
+add_custom_command( OUTPUT luacode.c
+	COMMAND ${CMAKE_COMMAND} -E echo "Generating luacode linkable"
+	COMMAND ${LUA_EXECUTABLE} ${PROJECT_SOURCE_DIR}/bin2carray.lua luacode.out luacode luacode.c
+	DEPENDS luacode.out
+)
+
+add_custom_command( OUTPUT luacode.out
+	COMMAND ${CMAKE_COMMAND} -E echo "Compiling luacode"
+	COMMAND ${LUA_COMPILER} -o luacode.out ${LUA_CODE}
+	DEPENDS ${LUA_CODE}
 )
 
 # the manpage

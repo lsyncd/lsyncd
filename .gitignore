@@ -19,5 +19,4 @@ install_manifest.txt
 
 # generated C code
 
-defaults.c
-runner.c
+luacode.c

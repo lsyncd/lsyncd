@@ -48,11 +48,8 @@
 /*
 | The Lua part of Lsyncd
 */
-extern const char runner_out[];
-extern size_t runner_size;
-
-extern const char defaults_out[];
-extern size_t defaults_size;
+extern const char luacode_out[];
+extern size_t luacode_size;
 
 /*
 | Makes sure there is one file system monitor.
@@ -2311,24 +2308,21 @@ main1( int argc, char *argv[] )
 	if( check_logcat( "Debug" ) <= settings.log_level )
 	{
 		// printlogf doesnt support %ld :-(
-		printf(
-			"kernels clocks_per_sec=%ld\n",
-			clocks_per_sec
-		);
+		printf( "kernels clocks_per_sec=%ld\n", clocks_per_sec );
 	}
 
 	// loads the lsyncd runner
-	if( luaL_loadbuffer( L, runner_out, runner_size, "runner" ) )
+	if( luaL_loadbuffer( L, loadcode_out, luacode_size, "luacode" ) )
 	{
-		printlogf( L, "Error", "error loading precompiled runner: %s", lua_tostring( L, -1 ) );
+		printlogf( L, "Error", "error loading luacode: %s", lua_tostring( L, -1 ) );
 		exit( -1 );
 	}
 
-	// prepares the runner executing the script
+	// prepares the luacode executing the script
 	{
 		if( lua_pcall( L, 0, LUA_MULTRET, 0 ) )
 		{
-			printlogf( L, "Error", "preparing runner: %s", lua_tostring( L, -1 ) );
+			printlogf( L, "Error", "preparing luacode: %s", lua_tostring( L, -1 ) );
 			exit( -1 );
 		}
 
@@ -2367,7 +2361,7 @@ main1( int argc, char *argv[] )
 		{
 			printlogf(
 				L, "Error",
-				"Version mismatch runner is '%s', but core is '%s'",
+				"Version mismatch luacode is '%s', but core is '%s'",
 				lversion, PACKAGE_VERSION
 			);
 
