@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  {% if page.url != "/" %}
+  <title>Lsyncd - {{ page.title }}</title>
+  {% else %}
+  <title>{{ page.title }}</title>
+  {% endif %}
+  <!-- link to main stylesheet -->
+  <link rel="stylesheet" type="text/css" href="{{ site.url }}/css/main.css">
+  <link rel="stylesheet" type="text/css" href="{{ site.url }}/css/syntax.css">
+</head>
+<body>
+  <div id="note3"><b>Note, this manual is for upcoming Lsyncd 3 and currently in development.</b></div>
+  <div id="pillar">
+  <nav>
+  <div id="menu">
+    {% for section in site.data.docs %}
+    <h4>{{section.title}}</h4>
+     <ul>
+     {% for doc in section.docs %}
+       {% assign doc_url = doc %}
+	   {% if doc_url != "/" %}
+         {% assign doc_url = doc | append: "/" %}
+       {% endif %}
+       {% assign p = site.pages | where:"url", doc_url | first %}
+       {% if page.tab %}
+         {% assign tab = page.tab | prepend:"/" | append:"/" %} 
+       {% endif %}
+       {% if p.short %}
+         {% assign title = p.short %} 
+       {% else %}
+         {% assign title = p.title %}
+       {% endif %}
+       <li><a {% if doc_url == page.url or doc_url == tab %}class="current"{% endif %} href="{{ site.url | append: p.url }}">{{ title }}</a></li>
+     {% endfor %}
+     </ul>
+    {% endfor %}
+    <div id="menufooter"></div>
+  </div>
+  <div id="ribbonwrap"><a href="https://github.com/axkibe/lsyncd" id="ribbon"></a></div>
+  </nav>
+  <div id="container">
+  <a href="https://github.com/axkibe/lsyncd/edit/gh-pages{{ page.url }}index.md" id="improvethis"></a>
+  <h1>{{ page.title }}</h1>
+  {{ content }}
+
+  {% assign docs = site.data.docs | map: 'docs' | join: ',' | split: ',' %}
+  {% for doc in docs %}
+    {% assign doc_url = doc %}
+    {% if doc_url != "/" %}
+       {% assign doc_url = doc_url | append: "/" %}
+    {% endif %}
+    {% if doc_url == page.url %}
+      <div id="footnav" class="prenext">
+         {% if forloop.first %}
+         {% else %}
+           {% assign previous = forloop.index0 | minus: 1 %}
+           {% assign previous_page = docs[previous] %}
+           <a href="{{ site.url | append: previous_page }}" class="prev"></a>
+         {% endif %}
+
+         {% if forloop.last %}
+         {% else %}
+           {% assign next = forloop.index0 | plus: 1 %}
+           {% assign next_page = docs[next] %}
+           <a href="{{ site.url | append: next_page }}" class="next"></a>
+         {% endif %}
+      </div>
+      <div class="clear"></div>
+      {% break %}
+    {% endif %}
+  {% endfor %}
+
+  </div>
+  </div>
+</body>
+</html>

@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: default3
 title: "The Configuration File"
 short: "Config File"
 ---

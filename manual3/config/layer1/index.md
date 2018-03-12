@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: default3
 title: "Config Layer 1: Inlets"
 short: "Config Layer 1"
 ---

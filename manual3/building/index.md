@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: default3
 title: Building
 ---
 

@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: default3
 title: "Example: Auto-Image-Magic"
 tab: "manual/examples"
 ---
