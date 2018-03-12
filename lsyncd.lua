@@ -4465,17 +4465,7 @@ function runner.help( )
 [[
 
 USAGE:
-  runs a config file:
-    lsyncd [OPTIONS] [CONFIG-FILE]
-
-  default rsync behaviour:
-    lsyncd [OPTIONS] -rsync [SOURCE] [TARGET]
-
-  default rsync with mv's through ssh:
-    lsyncd [OPTIONS] -rsyncssh [SOURCE] [HOST] [TARGETDIR]
-
-  default local copying mechanisms (cp|mv|rm):
-    lsyncd [OPTIONS] -direct [SOURCE] [TARGETDIR]
+ lsyncd [OPTIONS] [CONFIG-FILE]
 
 OPTIONS:
   -delay SECS         Overrides default delay times
@@ -4491,13 +4481,8 @@ LICENSE:
   GPLv2 or any later version.
 
 SEE:
-  `man lsyncd` for further information.
-
+  `man lsyncd` or visit https://axkibe.github.io/lsyncd/ for further information.
 ]])
-
---
---  -monitor NAME       Uses operating systems event montior NAME
---                      (currently only inotify)
 
 	os.exit( -1 )
 end
@@ -4548,11 +4533,7 @@ function runner.configure( args, monitors )
 			end
 		},
 
-		log =
-		{
-			1,
-			nil
-		},
+		log = { 1, nil },
 
 		logfile =
 		{
@@ -4562,72 +4543,6 @@ function runner.configure( args, monitors )
 				file
 			)
 				clSettings.logfile = file
-			end
-		},
-
-		monitor =
-		{
-			-1,
-			function
-			(
-				monitor
-			)
-				if not monitor
-				then
-					io.stdout:write( 'This Lsyncd supports these monitors:\n' )
-					for _, v in ipairs( Monitors.list )
-					do
-						io.stdout:write( '   ', v, '\n' )
-					end
-
-					io.stdout:write('\n')
-
-					lsyncd.terminate( -1 )
-				else
-					clSettings.monitor = monitor
-				end
-			end
-		},
-
-		rsync =
-		{
-			2,
-			function
-			(
-				src,
-				trg
-			)
-				clSettings.syncs = clSettings.syncs or { }
-				table.insert( clSettings.syncs, { 'rsync', src, trg } )
-			end
-		},
-
-		rsyncssh =
-		{
-			3,
-			function
-			(
-				src,
-				host,
-				tdir
-			)
-				clSettings.syncs = clSettings.syncs or { }
-
-				table.insert( clSettings.syncs, { 'rsyncssh', src, host, tdir } )
-			end
-		},
-
-		direct =
-		{
-			2,
-			function
-			(
-				src,
-				trg
-			)
-				clSettings.syncs = clSettings.syncs or { }
-
-				table.insert( clSettings.syncs, { 'direct', src, trg } )
 			end
 		},
 
@@ -4706,27 +4621,17 @@ function runner.configure( args, monitors )
 		i = i + 1
 	end
 
-	if clSettings.syncs
+	if #nonopts == 0
 	then
-		if #nonopts ~= 0
-		then
-			log( 'Error', 'There cannot be command line syncs and a config file together.' )
-
-			os.exit( -1 )
-		end
+		runner.help( args[ 0 ] )
+	elseif #nonopts == 1
+	then
+		return nonopts[ 1 ]
 	else
-		if #nonopts == 0
-		then
-			runner.help( args[ 0 ] )
-		elseif #nonopts == 1
-		then
-			return nonopts[ 1 ]
-		else
-			-- TODO make this possible
-			log( 'Error', 'There can only be one config file in the command line.' )
+		-- TODO make this possible
+		log( 'Error', 'There can only be one config file in the command line.' )
 
-			os.exit( -1 )
-		end
+		os.exit( -1 )
 	end
 end
 
@@ -4777,39 +4682,6 @@ function runner.initialize( firstTime )
 	if not firstTime
 	then
 		uSettings.insist = true
-	end
-
-	--
-	-- adds syncs specified by command line.
-	--
-	if clSettings.syncs
-	then
-		for _, s in ipairs( clSettings.syncs )
-		do
-			if s[ 1 ] == 'rsync'
-			then
-				sync{
-					default.rsync,
-					source = s[ 2 ],
-					target = s[ 3 ]
-				}
-			elseif s[ 1 ] == 'rsyncssh'
-			then
-				sync{
-					default.rsyncssh,
-					source = s[ 2 ],
-					host   = s[ 3 ],
-					targetdir=s[ 4 ]
-				}
-			elseif s[ 1 ] == 'direct'
-			then
-				sync{
-					default.direct,
-					source=s[ 2 ],
-					target=s[ 3 ]
-				}
-			end
-		end
 	end
 
 	if uSettings.logfile
