@@ -3,8 +3,8 @@ lsyncd(1)
 :doctype: manpage
 :man source: Lsyncd
 :man manual: Lsyncd
-:man version: 2.2.1
-:date: January 2017
+:man version: 3.0.0-devel
+:date: March 2018
 
 NAME
 ----
@@ -66,15 +66,6 @@ OPTIONS
 	Turns on a specific debug message. E.g. *-log Exec* will log
 	all processes as they are spawned.
 
-*-nodaemon*::
-	Lsyncd will not detach from the invoker and log as well to stdout/err.
-
-*-pidfile* 'FILE'::
-	Lsyncd will write its process ID in 'FILE'.
-
-*-runner* 'FILE'::
-	Makes the Lsyncd core load the part of Lsyncd written in Lua from 'FILE'.
-
 *-version*::
 	Writes version information and exits.
 
@@ -93,15 +84,15 @@ Online Manual: https://axkibe.github.io/lsyncd/
 
 VERSION
 ------
-This man page is for lsyncd(1) version 2.2.0
+This man page is for lsyncd(1) version 3.3.0-devel
 
 AUTHOR
 ------
-Axel Kittenberger, <axkibe@gmail.com> 2010-2017
+Axel Kittenberger, <axkibe@gmail.com> 2010-2018
 
 COPYING
 -------
-Copyright \(C) 2010-2017 Axel Kittenberger. Free use of this software is granted
+Copyright \(C) 2010-2018 Axel Kittenberger. Free use of this software is granted
 under the terms of the GNU General Public License (GPL) version 2, or any later
 version. Free redistrubition of this Documentation (/doc directory) is granted
 under the terms of the Creative Commons 3.0 Attribution License (CC-3.0-BY).

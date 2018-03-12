@@ -119,7 +119,6 @@ static bool first_time = true;
 volatile sig_atomic_t hup  = 0;
 volatile sig_atomic_t term = 0;
 volatile sig_atomic_t sigcode = 0;
-int pidfile_fd = 0;
 
 
 /*
@@ -590,9 +589,9 @@ pipe_tidy( struct observance * observance )
 }
 
 
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
-(           Helper Routines                 )
- *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/*:::::::::::::::::::.
+::  Helper Routines
+'::::::::::::::::::::*/
 
 
 /*
@@ -662,57 +661,10 @@ non_block_fd( int fd )
 	}
 }
 
-/*
-| Writes a pid file.
-*/
-static void
-write_pidfile
-(
-	lua_State *L,
-	const char *pidfile
-)
-{
-	pidfile_fd = open( pidfile, O_CREAT | O_RDWR, 0644 );
 
-	fcntl( pidfile_fd, F_SETFD, FD_CLOEXEC );
-
-	char buf[ 127 ];
-
-	if( pidfile_fd < 0 )
-	{
-		printlogf(
-			L, "Error",
-			"Cannot create pidfile; '%s'",
-			pidfile
-		);
-
-		exit( -1 );
-	}
-
-	int rc = lockf( pidfile_fd, F_TLOCK, 0 );
-
-	if( rc < 0 )
-	{
-		printlogf(
-			L, "Error",
-			"Cannot lock pidfile; '%s'",
-			pidfile
-		);
-
-		exit( -1 );
-	}
-
-	snprintf( buf, sizeof( buf ), "%i\n", getpid( ) );
-
-	write( pidfile_fd, buf, strlen( buf ) );
-
-	//fclose( f );
-}
-
-
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
-(             Observances                   )
- *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/*::::::::::::::::.
+::  Observances
+':::::::::::::::::*/
 
 
 /*
@@ -777,10 +729,7 @@ observe_fd(
 	if( observance_action )
 	{
 		// FIXME
-		logstring(
-			"Error",
-			"New observances in ready/writey handlers not yet supported"
-		);
+		logstring( "Error", "New observances in ready/writey handlers not yet supported" );
 
 		exit( -1 );
 	}
@@ -856,10 +805,7 @@ nonobserve_fd( int fd )
 
 	if( pos >= observances_len )
 	{
-		logstring(
-			"Error",
-			"internal fail, not observance file descriptor in nonobserve"
-		);
+		logstring( "Error", "internal fail, not observance file descriptor in nonobserve" );
 
 		exit( -1 );
 	}
@@ -960,9 +906,9 @@ user_obs_tidy( struct observance *obs )
 }
 
 
-/******************************.
-* Library calls for the runner *
-'******************************/
+/*:::::::::::::::::::::::::::::::.
+::  Library calls for the runner
+'::::::::::::::::::::::::::::::::*/
 
 
 int l_stackdump( lua_State* L );
@@ -1163,7 +1109,7 @@ l_exec( lua_State *L )
 		// replaces midfile 0 chars by linefeed
 		size_t len = 0;
 		const char * cs = lua_tolstring( L, -1, &len );
-		char * s = s_calloc( len + 1, sizeof( char ) ); 
+		char * s = s_calloc( len + 1, sizeof( char ) );
 
 		for( i = 0; i < len; i++ )
 		{
@@ -1589,10 +1535,6 @@ l_configure( lua_State *L )
 		logstring( "Normal", "--- Startup ---" );
 
 	}
-	else if( !strcmp( command, "nodaemon" ) )
-	{
-		settings.nodaemon = true;
-	}
 	else if( !strcmp( command, "logfile" ) )
 	{
 		const char * file = luaL_checkstring( L, 2 );
@@ -1604,17 +1546,6 @@ l_configure( lua_State *L )
 
 		settings.log_file =
 			s_strdup( file );
-	}
-	else if( !strcmp( command, "pidfile" ) )
-	{
-		const char * file = luaL_checkstring( L, 2 );
-
-		if( settings.pidfile )
-		{
-			free( settings.pidfile );
-		}
-
-		settings.pidfile = s_strdup( file );
 	}
 	else if( !strcmp( command, "logfacility" ) )
 	{
@@ -2295,9 +2226,6 @@ main1( int argc, char *argv[] )
 	// the Lua interpreter
 	lua_State * L;
 
-	// the runner file
-	char * lsyncd_runner_file = NULL;
-
 	int argp = 1;
 
 	// load Lua
@@ -2389,80 +2317,18 @@ main1( int argc, char *argv[] )
 		);
 	}
 
-	// checks if the user overrode the default runner file
-	if(
-		argp < argc &&
-		!strcmp( argv[ argp ], "--runner" )
-	)
+	// loads the lsyncd runner
+	if( luaL_loadbuffer( L, runner_out, runner_size, "runner" ) )
 	{
-		if (argp + 1 >= argc)
-		{
-			logstring(
-				"Error",
-				"Lsyncd Lua-runner file missing after --runner "
-			);
-
-			exit( -1 );
-		}
-
-		lsyncd_runner_file = argv[ argp + 1 ];
-		argp += 2;
-	}
-
-	if( lsyncd_runner_file )
-	{
-		// checks if the runner file exists
-		struct stat st;
-
-		if( stat( lsyncd_runner_file, &st ) )
-		{
-			printlogf(
-				L, "Error",
-				"Cannot see a runner at '%s'.",
-				lsyncd_runner_file
-			);
-			exit( -1 );
-		}
-
-		// loads the runner file
-		if( luaL_loadfile(L, lsyncd_runner_file ) )
-		{
-			printlogf(
-				L, "Error",
-				"error loading '%s': %s",
-				lsyncd_runner_file,
-				lua_tostring( L, -1 )
-			);
-
-			exit( -1 );
-		}
-
-	}
-	else
-	{
-		// loads the runner from binary
-		if( luaL_loadbuffer( L, runner_out, runner_size, "runner" ) )
-		{
-			printlogf(
-				L, "Error",
-				"error loading precompiled runner: %s",
-				lua_tostring( L, -1 )
-			);
-
-			exit( -1 );
-		}
+		printlogf( L, "Error", "error loading precompiled runner: %s", lua_tostring( L, -1 ) );
+		exit( -1 );
 	}
 
 	// prepares the runner executing the script
 	{
 		if( lua_pcall( L, 0, LUA_MULTRET, 0 ) )
 		{
-			printlogf(
-				L, "Error",
-				"preparing runner: %s",
-				lua_tostring( L, -1 )
-			);
-
+			printlogf( L, "Error", "preparing runner: %s", lua_tostring( L, -1 ) );
 			exit( -1 );
 		}
 
@@ -2501,8 +2367,7 @@ main1( int argc, char *argv[] )
 		{
 			printlogf(
 				L, "Error",
-				"Version mismatch '%s' is '%s', but core is '%s'",
-				lsyncd_runner_file ? lsyncd_runner_file : "( internal runner )",
+				"Version mismatch runner is '%s', but core is '%s'",
 				lversion, PACKAGE_VERSION
 			);
 
@@ -2516,23 +2381,14 @@ main1( int argc, char *argv[] )
 	{
 		if( luaL_loadbuffer( L, defaults_out, defaults_size, "defaults" ) )
 		{
-			printlogf(
-				L, "Error",
-				"loading defaults: %s",
-				lua_tostring( L, -1 )
-			);
-
+			printlogf( L, "Error", "loading defaults: %s", lua_tostring( L, -1 ) );
 			exit( -1 );
 		}
 
 		// prepares the defaults
 		if( lua_pcall( L, 0, 0, 0 ) )
 		{
-			printlogf(
-				L, "Error",
-				"preparing defaults: %s",
-				lua_tostring( L, -1 )
-			);
+			printlogf( L, "Error", "preparing defaults: %s", lua_tostring( L, -1 ) );
 			exit( -1 );
 		}
 	}
@@ -2542,19 +2398,14 @@ main1( int argc, char *argv[] )
 		int i;
 		for( i = argp; i < argc; i++ )
 		{
-			if (
-				!strcmp( argv[ i ],  "-help" ) ||
-				!strcmp( argv[ i ], "--help" )
-			)
+			if ( !strcmp( argv[ i ],  "-help" ) || !strcmp( argv[ i ], "--help" ) )
 			{
 				load_runner_func( L, "help" );
 
-				if( lua_pcall( L, 0, 0, -2 ) )
-				{
-					exit( -1 );
-				}
+				if( lua_pcall( L, 0, 0, -2 ) ) exit( -1 );
 
 				lua_pop( L, 1 );
+
 				exit( 0 );
 			}
 		}
@@ -2571,9 +2422,9 @@ main1( int argc, char *argv[] )
 
 		while( argp < argc )
 		{
-			lua_pushnumber ( L, idx++          );
-			lua_pushstring ( L, argv[ argp++ ] );
-			lua_settable   ( L, -3             );
+			lua_pushnumber( L, idx++ );
+			lua_pushstring( L, argv[ argp++ ] );
+			lua_settable( L, -3 );
 		}
 
 		// creates a table with the cores event monitor interfaces
@@ -2582,15 +2433,12 @@ main1( int argc, char *argv[] )
 
 		while( monitors[ idx ] )
 		{
-			lua_pushnumber ( L, idx + 1           );
-			lua_pushstring ( L, monitors[ idx++ ] );
-			lua_settable   ( L, -3                );
+			lua_pushnumber( L, idx + 1 );
+			lua_pushstring( L, monitors[ idx++ ] );
+			lua_settable( L, -3 );
 		}
 
-		if( lua_pcall( L, 2, 1, -4 ) )
-		{
-			exit( -1 );
-		}
+		if( lua_pcall( L, 2, 1, -4 ) ) exit( -1 );
 
 		if( first_time )
 		{
@@ -2601,6 +2449,7 @@ main1( int argc, char *argv[] )
 				lsyncd_config_file = s_strdup( s );
 			}
 		}
+
 		lua_pop( L, 2 );
 	}
 
@@ -2614,25 +2463,18 @@ main1( int argc, char *argv[] )
 		char * apath = get_realpath( lsyncd_config_file );
 		if( !apath )
 		{
-			printlogf(
-				L, "Error",
-				"Cannot find config file at '%s'.",
-				lsyncd_config_file
-			);
+			printlogf( L, "Error", "Cannot find config file at '%s'.", lsyncd_config_file );
 
 			exit( -1 );
 		}
 
 		free( lsyncd_config_file );
+
 		lsyncd_config_file = apath;
 
 		if( stat( lsyncd_config_file, &st ) )
 		{
-			printlogf(
-				L, "Error",
-				"Cannot find config file at '%s'.",
-				lsyncd_config_file
-			);
+			printlogf( L, "Error", "Cannot find config file at '%s'.", lsyncd_config_file );
 
 			exit( -1 );
 		}
@@ -2688,10 +2530,7 @@ main1( int argc, char *argv[] )
 		load_runner_func( L, "initialize" );
 		lua_pushboolean( L, first_time );
 
-		if( lua_pcall( L, 1, 0, -3 ) )
-		{
-			exit( -1 );
-		}
+		if( lua_pcall( L, 1, 0, -3 ) ) exit( -1 );
 
 		lua_pop( L, 1 );
 	}
@@ -2739,6 +2578,7 @@ main1( int argc, char *argv[] )
 	}
 
 	lua_close( L );
+
 	return 0;
 }
 
@@ -2755,21 +2595,13 @@ main( int argc, char * argv[ ] )
 	setlinebuf( stdout );
 	setlinebuf( stderr );
 
-	while( !term ) {
+	while( !term )
+	{
 		main1( argc, argv );
 	}
 
-	if( pidfile_fd > 0 )
-	{
-		close( pidfile_fd );
-	}
-
-	if( settings.pidfile )
-	{
-		remove( settings.pidfile );
-	}
-
 	// exits with error code responding to the signal it died for
+	// FIXME this no longer holds true to systemd recommendations
 	return 128 + sigcode;
 }
 

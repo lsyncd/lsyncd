@@ -73,8 +73,6 @@ local processCount = 0
 local settingsCheckgauge =
 {
 	logfile        = true,
-	pidfile        = true,
-	nodaemon	   = true,
 	statusFile     = true,
 	statusInterval = true,
 	logfacility    = true,
@@ -4294,9 +4292,11 @@ local UserAlarms = ( function
 
 end )( )
 
+
 --============================================================================
 -- Lsyncd runner's plugs. These functions are called from core.
 --============================================================================
+
 
 --
 -- Current status of Lsyncd.
@@ -4485,9 +4485,6 @@ OPTIONS:
   -log    scarce      Logs errors only
   -log    [Category]  Turns on logging for a debug category
   -logfile FILE       Writes log to FILE (DEFAULT: uses syslog)
-  -nodaemon           Does not detach and logs to stdout/stderr
-  -pidfile FILE       Writes Lsyncds PID into FILE
-  -runner FILE        Loads Lsyncds lua part from FILE
   -version            Prints versions and exits
 
 LICENSE:
@@ -4589,26 +4586,6 @@ function runner.configure( args, monitors )
 				else
 					clSettings.monitor = monitor
 				end
-			end
-		},
-
-		nodaemon =
-		{
-			0,
-			function
-			( )
-				clSettings.nodaemon = true
-			end
-		},
-
-		pidfile =
-		{
-			1,
-			function
-			(
-				file
-			)
-				clSettings.pidfile=file
 			end
 		},
 
@@ -4835,11 +4812,6 @@ function runner.initialize( firstTime )
 		end
 	end
 
-	if uSettings.nodaemon
-	then
-		lsyncd.configure( 'nodaemon' )
-	end
-
 	if uSettings.logfile
 	then
 		lsyncd.configure( 'logfile', uSettings.logfile )
@@ -4855,11 +4827,6 @@ function runner.initialize( firstTime )
 		lsyncd.configure( 'logfacility', uSettings.logfacility )
 	end
 
-	if uSettings.pidfile
-	then
-		lsyncd.configure( 'pidfile', uSettings.pidfile )
-	end
-
 	--
 	-- Transfers some defaults to uSettings
 	--
@@ -4871,8 +4838,7 @@ function runner.initialize( firstTime )
 	-- makes sure the user gave Lsyncd anything to do
 	if Syncs.size() == 0
 	then
-		log( 'Error', 'Nothing to watch!' ) 
-
+		log( 'Error', 'Nothing to watch!' )
 		os.exit( -1 )
 	end
 
