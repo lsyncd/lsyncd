@@ -12,7 +12,6 @@
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
-|
 */
 
 #include "lsyncd.h"
@@ -59,9 +58,7 @@ extern size_t defaults_size;
 | Makes sure there is one file system monitor.
 */
 #ifndef WITH_INOTIFY
-#ifndef WITH_FSEVENTS
 #	error "needing at least one notification system. please rerun cmake"
-#endif
 #endif
 
 /*
@@ -85,15 +82,15 @@ struct settings settings = {
 	.log_syslog   = false,
 	.log_ident    = NULL,
 	.log_facility = LOG_USER,
-	.log_level    = LOG_NOTICE,
-	.nodaemon     = false,
+	.log_level    = LOG_NOTICE
 };
 
 
 /*
-| True when Lsyncd daemonized itself.
+| True if stdout and stderr are detected to
+| be directed to /dev/null.
 */
-static bool is_daemon = false;
+static bool no_output = false;
 
 
 /*
@@ -131,18 +128,18 @@ int pidfile_fd = 0;
 static long clocks_per_sec;
 
 
-/**
- * signal handler
- */
+/*
+| signal handler
+*/
 void
 sig_child(int sig) {
 	// nothing
 }
 
 
-/**
- * signal handler
- */
+/*
+| signal handler
+*/
 void
 sig_handler( int sig )
 {
@@ -348,7 +345,7 @@ logstring0(
 	}
 
 	// writes on console if not daemonized
-	if( !is_daemon )
+	if( !no_output )
 	{
 		char ct[ 255 ];
 		// gets current timestamp hour:minute:second
@@ -360,11 +357,7 @@ logstring0(
 
 		FILE * flog = priority <= LOG_ERR ? stderr : stdout;
 
-		fprintf(
-			flog,
-			"%s %s: %s\n",
-			ct, cat, message
-		);
+		fprintf( flog, "%s %s: %s\n", ct, cat, message );
 	}
 
 	// writes to file if configured so
@@ -972,8 +965,6 @@ user_obs_tidy( struct observance *obs )
 '******************************/
 
 
-static void daemonize( lua_State *L, const char *pidfile );
-
 int l_stackdump( lua_State* L );
 
 
@@ -1253,35 +1244,23 @@ l_exec( lua_State *L )
 
 		// if lsyncd runs as a daemon and has a logfile it will redirect
 		// stdout/stderr of child processes to the logfile.
-		if( is_daemon && settings.log_file )
+		if( settings.log_file )
 		{
 			if( !freopen( settings.log_file, "a", stdout ) )
 			{
-				printlogf(
-					L, "Error",
-					"cannot redirect stdout to '%s'.",
-					settings.log_file
-				);
+				printlogf( L, "Error", "cannot redirect stdout to '%s'.", settings.log_file );
 			}
 
 			if( !freopen( settings.log_file, "a", stderr ) )
 			{
-				printlogf(
-					L, "Error",
-					"cannot redirect stderr to '%s'.",
-					settings.log_file
-				);
+				printlogf( L, "Error", "cannot redirect stderr to '%s'.", settings.log_file );
 			}
 		}
 
 		execv( binary, ( char ** ) argv );
 
 		// in a sane world execv does not return!
-		printlogf(
-			L, "Error",
-			"Failed executing [ %s ]!",
-			binary
-		);
+		printlogf( L, "Error", "Failed executing [ %s ]!", binary );
 
 		exit( -1 );
 	}
@@ -1598,28 +1577,16 @@ l_configure( lua_State *L )
 		// stdout/stderr
 		first_time = false;
 
-		if( !settings.nodaemon && !settings.log_file )
+		if( !settings.log_file )
 		{
 			settings.log_syslog = true;
 
-			const char * log_ident =
-				settings.log_ident
-				? settings.log_ident
-				: "lsyncd";
+			const char * log_ident = settings.log_ident ? settings.log_ident : "lsyncd";
 
 			openlog( log_ident, 0, settings.log_facility );
 		}
 
-		if( !settings.nodaemon && !is_daemon )
-		{
-			logstring( "Normal", "--- Startup, daemonizing ---" );
-
-			daemonize( L, settings.pidfile );
-		}
-		else
-		{
-			logstring( "Normal", "--- Startup ---" );
-		}
+		logstring( "Normal", "--- Startup ---" );
 
 	}
 	else if( !strcmp( command, "nodaemon" ) )
@@ -2033,102 +2000,6 @@ load_runner_func(
 	lua_pushstring( L, name );
 	lua_gettable( L, -2 );
 	lua_remove( L, -2 );
-}
-
-
-/*
-| Daemonizes.
-|
-| Lsyncds own implementation over daemon(0, 0) since
-|   a) OSX keeps bugging about it being deprecated
-|   b) for a reason, since blindly closing stdin/out/err
-|      is unsafe, since they might not have existed and
-|      might actually close the monitors fd!
-*/
-static void
-daemonize(
-	lua_State *L,       // the lua state
-	const char *pidfile // if not NULL write pidfile
-)
-{
-	pid_t pid, sid;
-
-	pid = fork( );
-
-	if( pid < 0 )
-	{
-		printlogf(
-			L, "Error",
-			"Failure in daemonize at fork: %s",
-			strerror( errno )
-		);
-
-		exit( -1 );
-	}
-
-	if( pid > 0 )
-	{
-		 // parent process returns to shell
-	 	exit( 0 );
-	}
-
-	if( pidfile )
-	{
-		write_pidfile( L, pidfile );
-	}
-
-	// detaches the new process from the parent process
-	sid = setsid( );
-
-	if( sid < 0 )
-	{
-		printlogf(
-			L, "Error",
-			"Failure in daemonize at setsid: %s",
-			strerror( errno )
-		);
-
-		exit( -1 );
-	}
-
-	// goes to root dir
-	if( chdir( "/" ) < 0 )
-	{
-		printlogf(
-			L, "Error",
-			"Failure in daemonize at chdir( \"/\" ): %s",
-			strerror( errno )
-		);
-
-		exit( -1 );
-	}
-
-	// does what clibs daemon( 0, 0 ) cannot do,
-	// checks if there were no stdstreams and it might close used fds
-	if( observances_len && observances->fd < 3 )
-	{
-		printlogf(
-			L, "Normal",
-			"daemonize not closing stdin/out/err, since there seem to none."
-		);
-
-		return;
-	}
-
-	// disconnects stdstreams
-	if (
-		!freopen( "/dev/null", "r", stdin  ) ||
-		!freopen( "/dev/null", "w", stdout ) ||
-		!freopen( "/dev/null", "w", stderr )
-	)
-	{
-		printlogf(
-			L, "Error",
-			"Failure in daemonize at freopen( /dev/null, std[in|out|err] )"
-		);
-	}
-
-	is_daemon = true;
 }
 
 

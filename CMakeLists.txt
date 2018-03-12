@@ -11,8 +11,10 @@ include_directories ( ${LUA_INCLUDE_DIR} )
 
 
 # setting Lsyncd sources
-set( LSYNCD_SRC lsyncd.c runner.c defaults.c )
+set( LSYNCD_SRC core.c runner.c defaults.c )
 
+# tell systemd via the sd-daemon library about the status of Lsyncd
+option( WITH_SYSTEMD "Communicate Lsyncd status to systemd" ON )
 
 # selecting the file notification mechanisms to compile against
 option( WITH_INOTIFY "Compile with inotify file notifications (Linux)" ON )
