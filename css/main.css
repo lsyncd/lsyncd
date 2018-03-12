@@ -1,6 +1,6 @@
 html {
 	height: 100%;
-    overflow-y: scroll;
+	overflow-y: scroll;
 }
 
 body {
@@ -247,7 +247,7 @@ tr:last-child td:last-child { border-bottom-right-radius: 1em; }
 
 
 #improvethis::before {
-	content : "\f040\00a0Improve\00a0this\00a0page";
+	content : "\270E\00a0Improve\00a0this\00a0page";
 }
 
 .highlighter-rouge {
