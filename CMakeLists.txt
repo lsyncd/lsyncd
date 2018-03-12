@@ -16,24 +16,10 @@ set( LSYNCD_SRC lsyncd.c runner.c defaults.c )
 
 # selecting the file notification mechanisms to compile against
 option( WITH_INOTIFY "Compile with inotify file notifications (Linux)" ON )
-option( WITH_FSEVENTS "Compile with inotify file notifications (OSX)" OFF )
 
 if( WITH_INOTIFY )
 	set( LSYNCD_SRC ${LSYNCD_SRC} inotify.c )
 endif( WITH_INOTIFY )
-
-if( WITH_FSEVENTS )
-	set( LSYNCD_SRC ${LSYNCD_SRC} fsevents.c )
-
-	option( XNU_DIR "Path to the xnu sources" )
-
-#	if( NOT XNU_DIR/bsd/sys/fsevents.h )
-#		message( SEND_ERROR "Cannot find bsd/sys/fsevents.h in XNU_DIR" )
-#	endif( )
-
-	include_directories( ${XNU_DIR} )
-endif( WITH_FSEVENTS )
-
 
 # generating the config.h file
 configure_file (

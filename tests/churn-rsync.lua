@@ -14,7 +14,6 @@ local tdir, srcdir, trgdir = mktemps( )
 churn( srcdir, 100, true )
 
 local logs = { }
--- logs =  { "-log", "Delay", "-log", "Fsevents" }
 local pid = spawn(
 	'./lsyncd',
 	'-nodaemon',

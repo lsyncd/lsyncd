@@ -73,10 +73,6 @@ static char *monitors[] = {
 	"inotify",
 #endif
 
-#ifdef WITH_FSEVENTS
-	"fsevents",
-#endif
-
 	NULL,
 };
 
@@ -2798,10 +2794,6 @@ main1( int argc, char *argv[] )
 
 #ifdef WITH_INOTIFY
 	open_inotify( L );
-#endif
-
-#ifdef WITH_FSEVENTS
-	open_fsevents( L );
 #endif
 
 	// adds signal handlers

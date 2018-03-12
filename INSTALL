@@ -6,7 +6,7 @@ Prerequisites
 
   CMake
     
-    Lsyncd now uses CMake as configuration tool
+    Lsyncd uses CMake as configuration tool
 
   Common compiler stuff
    
@@ -46,11 +46,6 @@ Building
 
   Building intree:
     cmake .
-    make
-
-  On OSX you yet need to get the xnu sources.
-  For example:
-    cmake -DWITH_INOTIFY=OFF -DWITH_FSEVENTS=ON -DXNU_DIR=/path/to/xnu-VERSION
     make
 
 FIXME make install not yet done

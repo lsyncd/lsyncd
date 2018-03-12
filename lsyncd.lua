@@ -3354,7 +3354,6 @@ local Syncs = ( function
 			Monitors.default( )
 
 		if config.monitor ~= 'inotify'
-		and config.monitor ~= 'fsevents'
 		then
 			local info = debug.getinfo( 3, 'Sl' )
 
@@ -3760,133 +3759,6 @@ local Inotify = ( function
 	}
 
 end)( )
-
-
---
--- Interface to OSX /dev/fsevents
---
--- This watches all the filesystems at once,
--- but needs root access.
---
--- All fsevents specific implementation are enclosed here.
---
-local Fsevents = ( function
-( )
-	--
-	-- A list indexed by syncs yielding
-	-- the root path the sync is interested in.
-	--
-	local syncRoots = { }
-
-	--
-	-- Adds a Sync to receive events.
-	--
-	local function addSync
-	(
-		sync,  -- object to receive events
-		dir    -- dir to watch
-	)
-		if syncRoots[ sync ]
-		then
-			error( 'duplicate sync in Fanotify.addSync()' )
-		end
-
-		syncRoots[ sync ] = dir
-
-	end
-
-	--
-	-- Called when an event has occured.
-	--
-	local function event
-	(
-		etype,  --  'Attrib', 'Modify', 'Create', 'Delete', 'Move'
-		isdir,  --  true if filename is a directory
-		time,   --  time of event
-		path,   --  path of file
-		path2   --  path of target in case of 'Move'
-	)
-		if isdir
-		then
-			path = path .. '/'
-
-			if path2 then path2 = path2 .. '/' end
-		end
-
-		log( 'Fsevents', etype, ',', isdir, ',', time,  ',', path, ',', path2 )
-
-		for _, sync in Syncs.iwalk()
-		do repeat
-
-			local root = sync.source
-
-			-- TODO combine ifs
-			if not path:starts( root )
-			then
-				if not path2 or not path2:starts( root )
-				then
-					break  -- continue
-				end
-			end
-
-			local relative = splitPath( path, root )
-
-			local relative2
-
-			if path2
-			then
-				relative2 = splitPath( path2, root )
-			end
-
-			-- possibly change etype for this iteration only
-			local etyped = etype
-
-			if etyped == 'Move'
-			then
-				if not relative2
-				then
-					log( 'Normal', 'Transformed Move to Delete for ', sync.config.name )
-
-					etyped = 'Delete'
-
-				elseif not relative
-				then
-					relative = relative2
-
-					relative2 = nil
-
-					log( 'Normal', 'Transformed Move to Create for ', sync.config.name )
-
-					etyped = 'Create'
-				end
-			end
-
-			sync:delay( etyped, time, relative, relative2 )
-
-		until true end
-
-	end
-
-
-	--
-	-- Writes a status report about fsevents to a filedescriptor.
-	--
-	local function statusReport
-	(
-		f
-	)
-		-- TODO
-	end
-
-	--
-	-- Public interface
-	--
-	return {
-		addSync      = addSync,
-		event        = event,
-		statusReport = statusReport
-	}
-end )( )
 
 
 --
@@ -4628,7 +4500,7 @@ SEE:
 
 --
 --  -monitor NAME       Uses operating systems event montior NAME
---                      (inotify/fanotify/fsevents)
+--                      (currently only inotify)
 
 	os.exit( -1 )
 end
@@ -5042,9 +4914,6 @@ function runner.initialize( firstTime )
 		if s.config.monitor == 'inotify'
 		then
 			Inotify.addSync( s, s.source )
-		elseif s.config.monitor == 'fsevents'
-		then
-			Fsevents.addSync( s, s.source )
 		else
 			error(
 				'sync ' ..
@@ -5134,7 +5003,6 @@ end
 -- Called when an file system monitor events arrive
 --
 runner.inotifyEvent = Inotify.event
-runner.fsEventsEvent = Fsevents.event
 
 --
 -- Collector for every child process that finished in startup phase
