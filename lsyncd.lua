@@ -25,7 +25,7 @@ then
 	lsyncd.terminate( -1 )
 end
 
-lsyncd_version = '2.2.3'
+lsyncd_version = '3.0.0-devel'
 
 
 --

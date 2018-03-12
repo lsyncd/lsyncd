@@ -1,3 +1,6 @@
+????-??-??: 3.0.0
+	change: switched to systemd-style daemon (that is Lsyncd will no longer fork itself)
+
 2018-03-09: 2.2.3
 	enhaencement: supporting includes with new filter and filterFrom options
 	change: needing now at least Lua 5.2 (Lua 5.1 no longer supported, Lua5.3 supported)
