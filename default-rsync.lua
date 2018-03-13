@@ -423,7 +423,6 @@ rsync.prepare = function
 	level,     -- additional error level for inherited use ( by rsyncssh )
 	skipTarget -- used by rsyncssh, do not check for target
 )
-
 	-- First let default.prepare test the checkgauge
 	default.prepare( config, level + 6 )
 
@@ -693,3 +692,4 @@ rsync.rsync =
 -- Default delay
 --
 rsync.delay = 15
+

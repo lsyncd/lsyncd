@@ -8,10 +8,9 @@
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --============================================================================
 
-if default
-then
-	error( 'default already loaded' )
-end
+
+if default then error( 'default already loaded' ) end
+
 
 default = { }
 
@@ -20,7 +19,8 @@ default = { }
 -- Only this items are inherited from the default
 -- table
 --
-default._merge = {
+default._merge =
+{
 	action          = true,
 	checkgauge      = true,
 	collect         = true,
@@ -34,7 +34,8 @@ default._merge = {
 --
 -- used to ensure there aren't typos in the keys
 --
-default.checkgauge = {
+default.checkgauge =
+{
 	action        =  true,
 	checkgauge    =  true,
 	collect       =  true,
@@ -115,9 +116,7 @@ default.collect = function
 			log(
 				'Normal',
 				'Startup of ',
-				agent.source,
-				' -> ',
-				agent.target,
+				agent.source, ' -> ', agent.target,
 				' finished.'
 			)
 
@@ -129,11 +128,8 @@ default.collect = function
 				log(
 					'Normal',
 					'Retrying startup of ',
-					agent.source,
-					' -> ',
-					agent.target,
-					': ',
-					exitcode
+					agent.source, ' -> ', agent.target,
+					': ', exitcode
 				)
 
 				return 'again'
@@ -141,9 +137,7 @@ default.collect = function
 				log(
 					'Error',
 					'Temporary or permanent failure on startup of ',
-					agent.source,
-					' -> ',
-					agent.target,
+					agent.source, ' -> ', agent.target,
 					'. Terminating since "insist" is not set.'
 				)
 
@@ -154,23 +148,16 @@ default.collect = function
 			log(
 				'Error',
 				'Failure on startup of ',
-				agent.source,
-				' -> ',
-				agent.target,
-				'.'
+				agent.source, ' -> ', agent.target
 			)
 
 			terminate( -1 )
 		else
 			log(
 				'Error',
-				'Unknown exitcode "',
-				exitcode,
+				'Unknown exitcode "', exitcode,
 				'" on startup of ',
-				agent.source,
-				' -> ',
-				agent.target,
-				'.'
+				agent.source, ' -> ', agent.target
 			)
 			return 'die'
 		end
@@ -180,30 +167,15 @@ default.collect = function
 	then
 		if rc == 'ok'
 		then
-			log(
-				'Normal',
-				'Finished a list after exitcode: ',
-				exitcode
-			)
+			log( 'Normal', 'Finished a list after exitcode: ', exitcode )
 		elseif rc == 'again'
 		then
-			log(
-				'Normal',
-				'Retrying a list after exitcode = ',
-				exitcode
-			)
+			log( 'Normal', 'Retrying a list after exitcode = ', exitcode )
 		elseif rc == 'die'
 		then
-			log(
-				'Error',
-				'Failure with a list with exitcode = ',
-				exitcode
-			)
+			log( 'Error', 'Failure with a list with exitcode = ', exitcode )
 		else
-			log(
-				'Error',
-				'Unknown exitcode "',exitcode,'" with a list'
-			)
+			log( 'Error', 'Unknown exitcode "',exitcode,'" with a list' )
 
 			rc = 'die'
 		end
@@ -212,46 +184,28 @@ default.collect = function
 		then
 			log(
 				'Normal',
-				'Finished ',
-				agent.etype,
-				' on ',
-				agent.sourcePath,
-				' = ',
-				exitcode
+				'Finished ', agent.etype,
+				' on ', agent.sourcePath, ' = ', exitcode
 			)
 		elseif rc == 'again'
 		then
 			log(
 				'Normal',
-				'Retrying ',
-				agent.etype,
-				' on ',
-				agent.sourcePath,
-				' = ',
-				exitcode
+				'Retrying ', agent.etype,
+				' on ', agent.sourcePath, ' = ', exitcode
 			)
 		elseif rc == 'die'
 		then
-			log(
-				'Error',
-				'Failure with ',
-				agent.etype,
-				' on ',
-				agent.sourcePath,
-				' = ',
-				exitcode
+			log( 'Error',
+				'Failure with ', agent.etype,
+				' on ', agent.sourcePath, ' = ', exitcode
 			)
 		else
 			log(
 				'Normal',
-				'Unknown exitcode "',
-				exitcode,
-				'" with ',
-				agent.etype,
-				' on ',
-				agent.sourcePath,
-				' = ',
-				exitcode
+				'Unknown exitcode "', exitcode,
+				'" with ', agent.etype,
+				' on ', agent.sourcePath, ' = ', exitcode
 			)
 
 			rc = 'die'

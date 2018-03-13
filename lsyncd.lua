@@ -3484,15 +3484,9 @@ local Inotify = ( function
 	)
 		local wd = pathwds[ path ]
 
-		if not wd
-		then
-			return
-		end
+		if not wd then return end
 
-		if core
-		then
-			lsyncd.inotify.rmwatch( wd )
-		end
+		if core then lsyncd.inotify.rmwatch( wd ) end
 
 		wdpaths[ wd   ] = nil
 		pathwds[ path ] = nil
@@ -5133,3 +5127,4 @@ settingsSafe = settings
 -- Returns the core the runners function interface.
 --
 return runner
+

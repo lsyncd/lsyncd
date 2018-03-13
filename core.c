@@ -1325,6 +1325,7 @@ l_realdir( lua_State *L )
 	return 1;
 }
 
+
 /*
 | Dumps the Lua stack.
 | For debugging purposes.
@@ -1724,7 +1725,7 @@ l_nonobserve_fd( lua_State *L )
 /*
 | The Lsnycd's core library
 */
-static const luaL_Reg lsyncdlib[] =
+static const luaL_Reg corelib[] =
 {
 	{ "configure",      l_configure     },
 	{ "exec",           l_exec          },
@@ -1854,9 +1855,9 @@ l_jiffies_le(lua_State *L)
 | Registers the Lsyncd's core library.
 */
 void
-register_lsyncd( lua_State *L )
+register_core( lua_State *L )
 {
-	lua_compat_register( L, LSYNCD_LIBNAME, lsyncdlib );
+	lua_compat_register( L, LSYNCD_LIBNAME, corelib );
 	lua_setglobal( L, LSYNCD_LIBNAME );
 
 	// creates the metatable for the jiffies ( timestamps ) userdata
@@ -1891,19 +1892,16 @@ register_lsyncd( lua_State *L )
 
 	if( lua_gettop( L ) )
 	{
-		logstring(
-			"Error",
-			"internal, stack not empty in lsyncd_register( )"
-		);
+		logstring( "Error", "internal, stack not empty in lsyncd_register( )" );
 
 		exit( -1 );
 	}
 }
 
 
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
-(             Lsyncd Core                   )
- *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/*:::::::::::::::.
+::  Lsyncd Core
+'::::::::::::::::*/
 
 
 /*
@@ -2008,10 +2006,7 @@ masterloop(lua_State *L)
 			}
 			else
 			{
-				logstring(
-					"Masterloop",
-					"going into select ( no timeout )"
-				);
+				logstring( "Masterloop", "going into select ( no timeout )" );
 			}
 
 			// time for Lsyncd to try to put itself to rest into the big select( )
@@ -2033,15 +2028,9 @@ masterloop(lua_State *L)
 				for( pi = 0; pi < observances_len; pi++ )
 				{
 					struct observance *obs = observances + pi;
-					if ( obs->ready  )
-					{
-						FD_SET( obs->fd, &rfds );
-					}
+					if ( obs->ready  ) FD_SET( obs->fd, &rfds );
 
-					if ( obs->writey )
-					{
-						FD_SET( obs->fd, &wfds );
-					}
+					if ( obs->writey ) FD_SET( obs->fd, &wfds );
 				}
 
 				if( !observances_len )
@@ -2131,11 +2120,8 @@ masterloop(lua_State *L)
 			int status;
 			pid_t pid = waitpid( 0, &status, WNOHANG );
 
-			if (pid <= 0)
-			{
-				// no more zombies
-				break;
-			}
+			// no more zombies
+			if (pid <= 0) break;
 
 			// calls the runner to handle the collection
 			load_runner_func( L, "collectProcess" );
@@ -2153,10 +2139,7 @@ masterloop(lua_State *L)
 		{
 			load_runner_func( L, "hup" );
 
-			if( lua_pcall( L, 0, 0, -2 ) )
-			{
-				exit( -1 );
-			}
+			if( lua_pcall( L, 0, 0, -2 ) ) exit( -1 );
 
 			lua_pop( L, 1 );
 
@@ -2170,10 +2153,7 @@ masterloop(lua_State *L)
 
 			lua_pushnumber( L, sigcode );
 
-			if( lua_pcall( L, 1, 0, -3 ) )
-			{
-				exit( -1 );
-			}
+			if( lua_pcall( L, 1, 0, -3 ) ) exit( -1 );
 
 			lua_pop( L, 1 );
 
@@ -2186,10 +2166,7 @@ masterloop(lua_State *L)
 
 		l_now( L );
 
-		if( lua_pcall( L, 1, 1, -3 ) )
-		{
-			exit( -1 );
-		}
+		if( lua_pcall( L, 1, 1, -3 ) ) exit( -1 );
 
 		if( !lua_toboolean( L, -1 ) )
 		{
@@ -2236,29 +2213,17 @@ main1( int argc, char *argv[] )
 		lua_getglobal( L, "_VERSION" );
 		version = luaL_checkstring( L, -1 );
 
-		if(
-			sscanf(
-				version,
-				"Lua %d.%d",
-				&major, &minor
-			) != 2
-		)
+		if( sscanf( version, "Lua %d.%d", &major, &minor ) != 2 )
 		{
-			fprintf(
-				stderr,
-				"cannot parse lua library version!\n"
-			);
+			fprintf( stderr, "cannot parse lua library version!\n" );
+
 			exit (-1 );
 		}
 
-		if(
-			major < 5 ||
-			(major == 5 && minor < 1)
-		) {
-			fprintf(
-				stderr,
-				"Lua library is too old. Needs 5.1 at least"
-			);
+		if( major < 5 || ( major == 5 && minor < 2 ) )
+		{
+			fprintf( stderr, "Lua library is too old. Needs 5.2 at least" );
+
 			exit( -1 );
 		}
 
@@ -2274,21 +2239,15 @@ main1( int argc, char *argv[] )
 
 		while( i < argc )
 		{
-			if(
-				strcmp( argv[ i ], "-log"  ) &&
-				strcmp( argv[ i ], "--log" )
-			)
+			if( strcmp( argv[ i ], "-log"  ) && strcmp( argv[ i ], "--log" ) )
 			{
 				// arg is neither -log or --log
 				i++;
 				continue;
 			}
 
-			if( ++i >= argc )
-			{
-				// -(-)log was last argument
-				break;
-			}
+			// -(-)log was last argument
+			if( ++i >= argc ) break;
 
 			if( !add_logcat( argv[ i ], LOG_NOTICE ) )
 			{
@@ -2297,13 +2256,14 @@ main1( int argc, char *argv[] )
 					"'%s' is not a valid logging category",
 					argv[ i ]
 				);
+
 				exit( -1 );
 			}
 		}
 	}
 
 	// registers Lsycnd's core library
-	register_lsyncd( L );
+	register_core( L );
 
 	if( check_logcat( "Debug" ) <= settings.log_level )
 	{
@@ -2312,7 +2272,7 @@ main1( int argc, char *argv[] )
 	}
 
 	// loads the lsyncd runner
-	if( luaL_loadbuffer( L, loadcode_out, luacode_size, "luacode" ) )
+	if( luaL_loadbuffer( L, luacode_out, luacode_size, "luacode" ) )
 	{
 		printlogf( L, "Error", "error loading luacode: %s", lua_tostring( L, -1 ) );
 		exit( -1 );
@@ -2369,22 +2329,6 @@ main1( int argc, char *argv[] )
 		}
 
 		lua_pop( L, 1 );
-	}
-
-	// loads the defaults from binary
-	{
-		if( luaL_loadbuffer( L, defaults_out, defaults_size, "defaults" ) )
-		{
-			printlogf( L, "Error", "loading defaults: %s", lua_tostring( L, -1 ) );
-			exit( -1 );
-		}
-
-		// prepares the defaults
-		if( lua_pcall( L, 0, 0, 0 ) )
-		{
-			printlogf( L, "Error", "preparing defaults: %s", lua_tostring( L, -1 ) );
-			exit( -1 );
-		}
 	}
 
 	// checks if there is a "-help" or "--help"
