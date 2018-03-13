@@ -32,20 +32,18 @@ lsyncd_version = '3.0.0-devel'
 -- Hides the core interface from user scripts.
 --
 local _l = core
-lsyncd = nil
+core = nil
 
--- FIXME
-local lsyncd = _l
+local core = _l
 _l = nil
-
 
 --
 -- Shortcuts (which user is supposed to be able to use them as well)
 --
-log       = lsyncd.log
-terminate = lsyncd.terminate
-now       = lsyncd.now
-readdir   = lsyncd.readdir
+log       = core.log
+terminate = core.terminate
+now       = core.now
+readdir   = core.readdir
 
 
 --
@@ -2493,7 +2491,7 @@ local Sync = ( function
 		( )
 			if etype == 'Create' and path:byte( -1 ) == 47
 			then
-				local entries = lsyncd.readdir( self.source .. path )
+				local entries = core.readdir( self.source .. path )
 
 				if entries
 				then
@@ -3311,7 +3309,7 @@ local Syncs = ( function
 		--
 		-- absolute path of source
 		--
-		local realsrc = lsyncd.realdir( config.source )
+		local realsrc = core.realdir( config.source )
 
 		if not realsrc
 		then
@@ -3487,7 +3485,7 @@ local Inotify = ( function
 
 		if not wd then return end
 
-		if core then lsyncd.inotify.rmwatch( wd ) end
+		if core then core.inotify.rmwatch( wd ) end
 
 		wdpaths[ wd   ] = nil
 		pathwds[ path ] = nil
@@ -3514,7 +3512,7 @@ local Inotify = ( function
 		-- registers the watch
 		local inotifyMode = ( uSettings and uSettings.inotifyMode ) or '';
 
-		local wd = lsyncd.inotify.addwatch( path, inotifyMode ) ;
+		local wd = core.inotify.addwatch( path, inotifyMode ) ;
 
 		if wd < 0
 		then
@@ -3539,7 +3537,7 @@ local Inotify = ( function
 		wdpaths[ wd   ] = path
 
 		-- registers and adds watches for all subdirectories
-		local entries = lsyncd.readdir( path )
+		local entries = core.readdir( path )
 
 		if not entries
 		then
@@ -3579,7 +3577,7 @@ local Inotify = ( function
 	local function event
 	(
 		etype,     -- 'Attrib', 'Modify', 'Create', 'Delete', 'Move'
-		wd,        --  watch descriptor, matches lsyncd.inotifyadd()
+		wd,        --  watch descriptor, matches core.inotifyadd()
 		isdir,     --  true if filename is a directory
 		time,      --  time of event
 		filename,  --  string filename without path
@@ -4306,7 +4304,8 @@ local lsyncdStatus = 'init'
 -- The cores interface to the runner.
 --
 runner = { }
-lsyncd.interface( runner )
+
+core.interface( runner )
 
 
 --
@@ -4680,17 +4679,17 @@ function runner.initialize( firstTime )
 
 	if uSettings.logfile
 	then
-		lsyncd.configure( 'logfile', uSettings.logfile )
+		core.configure( 'logfile', uSettings.logfile )
 	end
 
 	if uSettings.logident
 	then
-		lsyncd.configure( 'logident', uSettings.logident )
+		core.configure( 'logident', uSettings.logident )
 	end
 
 	if uSettings.logfacility
 	then
-		lsyncd.configure( 'logfacility', uSettings.logfacility )
+		core.configure( 'logfacility', uSettings.logfacility )
 	end
 
 	--
@@ -4711,7 +4710,7 @@ function runner.initialize( firstTime )
 	-- from now on use logging as configured instead of stdout/err.
 	lsyncdStatus = 'run';
 
-	lsyncd.configure( 'running' );
+	core.configure( 'running' );
 
 	local ufuncs =
 	{
@@ -4979,7 +4978,7 @@ function spawn(
 	--
 	-- tries to spawn the process
 	--
-	local pid = lsyncd.exec( binary, ... )
+	local pid = core.exec( binary, ... )
 
 	if pid and pid > 0
 	then
@@ -5034,7 +5033,7 @@ function observefd
 	ready,  -- called when fd is ready to be read
 	writey  -- called when fd is ready to be written
 )
-	return lsyncd.observe_fd( fd, ready, writey )
+	return core.observe_fd( fd, ready, writey )
 end
 
 
@@ -5045,7 +5044,7 @@ function nonobservefd
 (
 	fd      -- file descriptor
 )
-	return lsyncd.nonobserve_fd( fd )
+	return core.nonobserve_fd( fd )
 end
 
 

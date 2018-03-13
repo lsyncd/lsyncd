@@ -1850,7 +1850,8 @@ l_jiffies_le(lua_State *L)
 void
 register_core( lua_State *L )
 {
-	lua_compat_register( L, LSYNCD_CORE_LIBNAME, corelib );
+	lua_newtable( L );
+	luaL_setfuncs( L, corelib, 0 );
 	lua_setglobal( L, LSYNCD_CORE_LIBNAME );
 
 	// creates the metatable for the jiffies ( timestamps ) userdata
@@ -1878,7 +1879,7 @@ register_core( lua_State *L )
 
 	lua_getglobal( L, LSYNCD_CORE_LIBNAME );
 	register_inotify( L );
-	lua_setfield( L, -2, LSYNCD_INOTIFYLIBNAME );
+	lua_setfield( L, -2, LSYNCD_INOTIFY_LIBNAME );
 	lua_pop( L, 1 );
 
 #endif
@@ -1888,6 +1889,8 @@ register_core( lua_State *L )
 		logstring( "Error", "internal, stack not empty in lsyncd_register( )" );
 		exit( -1 );
 	}
+
+	fprintf(stderr, "X3\n" );
 }
 
 

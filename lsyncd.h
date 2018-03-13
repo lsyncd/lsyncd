@@ -30,7 +30,7 @@
 #include <lua.h>
 
 #define LSYNCD_CORE_LIBNAME "core"
-#define LSYNCD_INOTIFYLIBNAME "inotify"
+#define LSYNCD_INOTIFY_LIBNAME "inotify"
 
 /*
 | Workaround to register a library for different lua versions.

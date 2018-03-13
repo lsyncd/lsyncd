@@ -47,8 +47,8 @@ static const char * MOVE   = "Move";
 
 
 /*
- * The inotify file descriptor.
- */
+| The inotify file descriptor.
+*/
 static int inotify_fd = -1;
 
 
@@ -56,15 +56,15 @@ static int inotify_fd = -1;
 | Standard inotify events to listen to.
 */
 static const uint32_t standard_event_mask =
-	IN_ATTRIB      |
-	IN_CLOSE_WRITE |
-	IN_CREATE      |
-	IN_DELETE      |
-	IN_DELETE_SELF |
-	IN_MOVED_FROM  |
-	IN_MOVED_TO    |
-	IN_DONT_FOLLOW |
-	IN_ONLYDIR;
+	IN_ATTRIB
+	| IN_CLOSE_WRITE
+	| IN_CREATE
+	| IN_DELETE
+	| IN_DELETE_SELF
+	| IN_MOVED_FROM
+	| IN_MOVED_TO
+	| IN_DONT_FOLLOW
+	| IN_ONLYDIR;
 
 
 /*
@@ -104,19 +104,14 @@ l_addwatch( lua_State *L )
 		else if ( ! strcmp( imode, "CloseWrite after Modify") )
 		{
 			// might be done in future
-			printlogf(
-				L, "Error",
-				"'CloseWrite after Modify' not implemented."
-			);
+			printlogf( L, "Error", "'CloseWrite after Modify' not implemented." );
+
 			exit(-1);
 		}
 		else
 		{
-			printlogf(
-				L, "Error",
-				"'%s' not a valid inotfiyMode.",
-				imode
-			);
+			printlogf( L, "Error", "'%s' not a valid inotfiyMode.", imode );
+
 			exit(-1);
 		}
 	}
@@ -145,8 +140,9 @@ l_addwatch( lua_State *L )
 	}
 	else
 	{
-		printlogf(L, "Inotify", "addwatch( %s )-> %d ", path, wd );
+		printlogf( L, "Inotify", "addwatch( %s )-> %d ", path, wd );
 	}
+
 	lua_pushinteger( L, wd );
 
 	return 1;
@@ -173,7 +169,7 @@ l_rmwatch( lua_State *L )
 /*
 | Lsyncd's core's inotify functions.
 */
-static const luaL_Reg linotfylib[ ] =
+static const luaL_Reg inotifylib[ ] =
 {
 	{ "addwatch",   l_addwatch   },
 	{ "rmwatch",    l_rmwatch    },
@@ -334,10 +330,7 @@ handle_event(
 	}
 	else
 	{
-		logstring(
-			"Inotify",
-			"skipped some inotify event."
-		);
+		logstring( "Inotify", "skipped some inotify event.");
 		return;
 	}
 
@@ -346,10 +339,7 @@ handle_event(
 
 	if( !event_type )
 	{
-		logstring(
-			"Error",
-			"internal failure: unknown event in handle_event()"
-		);
+		logstring( "Error", "internal failure: unknown event in handle_event()" );
 
 		exit( -1 );
 	}
@@ -386,9 +376,10 @@ handle_event(
 	lua_pop( L, 1 );
 
 	// if there is a buffered event, executes it
-	if (after_buf) {
-		logstring("Inotify", "icore, handling buffered event.");
-		handle_event(L, after_buf);
+	if (after_buf)
+	{
+		logstring( "Inotify", "icore, handling buffered event." );
+		handle_event( L, after_buf );
 	}
 }
 
@@ -423,7 +414,8 @@ inotify_ready(
 	{
 		ptrdiff_t len;
 		int err;
-		do {
+		do
+		{
 			len = read( inotify_fd, readbuf, readbuf_size );
 			err = errno;
 			if( len < 0 && err == EINVAL )
@@ -447,18 +439,14 @@ inotify_ready(
 
 		if (len < 0)
 		{
-			if (err == EAGAIN) {
-				// nothing more inotify
-				break;
-			}
-			else
+			if( err != EAGAIN )
 			{
-				printlogf(
-					L, "Error",
-					"Read fail on inotify"
-				);
+				printlogf( L, "Error", "Read fail on inotify" );
 				exit( -1 );
 			}
+
+			// nothing more on inotify
+			break;
 		}
 
 		{
@@ -496,11 +484,14 @@ inotify_ready(
 
 /*
 | Registers the inotify functions.
+|
+| Leaves a table of the inotify functions on Lua stack.
 */
 extern void
 register_inotify( lua_State *L )
 {
-	lua_compat_register( L, LSYNCD_INOTIFYLIBNAME, linotfylib );
+	lua_newtable( L );
+	luaL_setfuncs( L, inotifylib, 0 );
 }
 
 
@@ -512,18 +503,12 @@ inotify_tidy( struct observance *obs )
 {
 	if( obs->fd != inotify_fd )
 	{
-		logstring(
-			"Error",
-			"internal failure: inotify_fd != ob->fd"
-		);
-
+		logstring( "Error", "internal failure: inotify_fd != ob->fd" );
 		exit( -1 );
 	}
 
 	close( inotify_fd );
-
 	free( readbuf );
-
 	readbuf = NULL;
 }
 
@@ -535,10 +520,7 @@ open_inotify( lua_State *L )
 {
 	if( readbuf )
 	{
-		logstring(
-			"Error",
-			"internal failure, inotify readbuf != NULL in open_inotify()"
-		)
+		logstring( "Error", "internal failure, inotify readbuf != NULL in open_inotify()" )
 		exit(-1);
 	}
 
@@ -549,19 +531,13 @@ open_inotify( lua_State *L )
 	if( inotify_fd < 0 )
 	{
 		printlogf(
-			L,
-			"Error",
-			"Cannot access inotify monitor! ( %d : %s )",
-			errno, strerror(errno)
+			L, "Error",
+			"Cannot access inotify monitor! ( %d : %s )", errno, strerror( errno )
 		);
 		exit( -1 );
 	}
 
-	printlogf(
-		L, "Inotify",
-		"inotify fd = %d",
-		inotify_fd
-	);
+	printlogf( L, "Inotify", "inotify fd = %d", inotify_fd );
 
 	close_exec_fd( inotify_fd );
 	non_block_fd( inotify_fd );
