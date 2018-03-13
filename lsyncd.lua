@@ -31,9 +31,10 @@ lsyncd_version = '3.0.0-devel'
 --
 -- Hides the core interface from user scripts.
 --
-local _l = lsyncd
+local _l = core
 lsyncd = nil
 
+-- FIXME
 local lsyncd = _l
 _l = nil
 
@@ -4304,7 +4305,9 @@ local lsyncdStatus = 'init'
 --
 -- The cores interface to the runner.
 --
-local runner = { }
+runner = { }
+lsyncd.interface( runner )
+
 
 --
 -- Last time said to be waiting for more child processes
@@ -4329,10 +4332,7 @@ function runner.callError
 	do
 		local info = debug.getinfo( level, 'Sl' )
 
-		if not info
-		then
-			terminate( -1 )
-		end
+		if not info then terminate( -1 ) end
 
 		log(
 			'Error',
@@ -4962,7 +4962,7 @@ function spawn(
 
 		if dol.status ~= 'wait'
 		then
-			error('spawn() called on an non-waiting event', 2)
+			error( 'spawn() called on an non-waiting event', 2 )
 		end
 	else
 		-- is a list
@@ -5121,10 +5121,7 @@ function settings
 	end
 end
 
+
 settingsSafe = settings
 
---
--- Returns the core the runners function interface.
---
-return runner
-
+-- EOF

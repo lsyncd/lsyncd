@@ -182,17 +182,17 @@ get_realpath( const char * rpath )
 	// otherwise less so and requires PATH_MAX limit
 	char buf[ PATH_MAX] ;
 	char *asw = realpath( rpath, buf );
-	if( !asw )
-		{ return NULL; }
+	if( !asw ) return NULL;
 
 	return s_strdup( asw );
 #endif
 }
 
 
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
-(              Logging                      )
- *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+/*:::::::::::.
+::  Logging
+'::::::::::::*/
 
 
 /*
@@ -221,18 +221,15 @@ check_logcat( const char *name )
 {
 	struct logcat *lc;
 
-	if( name[ 0 ] < 'A' || name[ 0 ] > 'Z')
-		{ return 99; }
+	if( name[ 0 ] < 'A' || name[ 0 ] > 'Z') return 99;
 
 	lc = logcats[ name[ 0 ] - 'A' ];
 
-	if( !lc )
-		{ return 99; }
+	if( !lc ) return 99;
 
 	while( lc->name )
 	{
-		if( !strcmp( lc->name, name ) )
-			{ return lc->priority; }
+		if( !strcmp( lc->name, name ) ) return lc->priority;
 
 		lc++;
 	}
@@ -266,10 +263,7 @@ add_logcat( const char *name, int priority )
 	}
 
 	// categories must start with a capital letter.
-	if( name[ 0 ] < 'A' || name[ 0 ] > 'Z' )
-	{
-		return false;
-	}
+	if( name[ 0 ] < 'A' || name[ 0 ] > 'Z' ) return false;
 
 	if( !logcats[ name[ 0 ]- 'A' ] )
 	{
@@ -282,24 +276,17 @@ add_logcat( const char *name, int priority )
 		int ll = 0;
 
 		// counts list length
-		for( lc = logcats[name[0]-'A']; lc->name; lc++ )
-			{ ll++; }
+		for( lc = logcats[ name[ 0 ] - 'A' ]; lc->name; lc++, ll++ );
 
 		// enlarges list
 		logcats[ name[ 0 ] - 'A'] =
-			s_realloc(
-				logcats[ name[ 0 ]-'A' ],
-				( ll + 2 ) * sizeof( struct logcat )
-			);
+			s_realloc( logcats[ name[ 0 ]-'A' ], ( ll + 2 ) * sizeof( struct logcat ) );
 
 		// goes to the list end
 		for( lc = logcats[ name[ 0 ] - 'A']; lc->name; lc++ )
 		{
-			if( !strcmp( name, lc->name ) )
-			{
-				// already there
-				return true;
-			}
+			// already there?
+			if( !strcmp( name, lc->name ) ) return true;
 		}
 	}
 
@@ -375,20 +362,12 @@ logstring0(
 
 		if( flog == NULL )
 		{
-			fprintf(
-				stderr,
-				"Cannot open logfile [%s]!\n",
-				settings.log_file
-			);
+			fprintf( stderr, "Cannot open logfile [%s]!\n", settings.log_file );
 
 			exit( -1 );
 		}
 
-		fprintf(
-			flog,
-			"%s %s: %s\n",
-			ct, cat, message
-		);
+		fprintf( flog, "%s %s: %s\n", ct, cat, message );
 
 		fclose( flog );
 	}
@@ -423,9 +402,9 @@ printlogf0(lua_State *L,
 }
 
 
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
-(       Simple memory management            )
- *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/*:::::::::::::::::::::::::::.
+::  Simple memory management
+'::::::::::::::::::::::::::::*/
 
 
 // FIXME call the Lua garbace collector in case of out of memory
@@ -440,12 +419,7 @@ s_calloc( size_t nmemb, size_t size )
 
 	if( r == NULL )
 	{
-		logstring0(
-			LOG_ERR,
-			"Error",
-			"Out of memory!"
-		);
-
+		logstring0( LOG_ERR, "Error", "Out of memory!" );
 		exit( -1 );
 	}
 
@@ -463,12 +437,7 @@ s_malloc( size_t size )
 
 	if( r == NULL )
 	{
-		logstring0(
-			LOG_ERR,
-			"Error",
-			"Out of memory!"
-		);
-
+		logstring0( LOG_ERR, "Error", "Out of memory!" );
 		exit( -1 );
 	}
 
@@ -486,12 +455,7 @@ s_realloc( void * ptr, size_t size )
 
 	if( r == NULL )
 	{
-		logstring0(
-			LOG_ERR,
-			"Error",
-			"Out of memory!"
-		);
-
+		logstring0( LOG_ERR, "Error", "Out of memory!" );
 		exit( -1 );
 	}
 
@@ -509,12 +473,7 @@ s_strdup( const char *src )
 
 	if( s == NULL )
 	{
-		logstring0(
-			LOG_ERR,
-			"Error",
-			"Out of memory!"
-		);
-
+		logstring0( LOG_ERR, "Error", "Out of memory!" );
 		exit( -1 );
 	}
 
@@ -522,9 +481,9 @@ s_strdup( const char *src )
 }
 
 
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
-(           Pipes  Management               )
- *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/*:::::::::::::::::::::.
+::  Pipes  Management
+'::::::::::::::::::::::*/
 
 
 /*
@@ -536,6 +495,7 @@ struct pipemsg
 	int tlen;      // length of text
 	int pos;       // position in message
 };
+
 
 /*
 | Called by the core whenever a pipe becomes
@@ -551,11 +511,7 @@ pipe_writey(
 
 	struct pipemsg *pm = (struct pipemsg * ) observance->extra;
 
-	int len = write(
-		fd,
-		pm->text + pm->pos,
-		pm->tlen - pm->pos
-	);
+	int len = write( fd, pm->text + pm->pos, pm->tlen - pm->pos );
 
 	pm->pos += len;
 
@@ -592,15 +548,18 @@ pipe_tidy( struct observance * observance )
 
 
 /*
-| Dummy variable of which it's address is used as
+| Variable which address is used as
 | the cores index in the lua registry to
 | the lua runners function table in the lua registry.
+|
+| Its value is used to determined if the
+| luacode interface has registered itself already.
 */
-static int runner;
+static int runner = 0;
 
 
 /*
-| Dummy variable of which it's address is used as
+| Dummy variable which address is used as
 | the cores index n the lua registry to
 | the lua runners error handler.
 */
@@ -848,10 +807,7 @@ user_obs_ready(
 	lua_pushnumber( L, fd );
 
 	// calls the user function
-	if( lua_pcall( L, 1, 0, -3 ) )
-	{
-		exit( -1 );
-	}
+	if( lua_pcall( L, 1, 0, -3 ) ) exit( -1 );
 
 	lua_pop( L, 2 );
 }
@@ -884,10 +840,7 @@ user_obs_writey(
 	lua_pushnumber( L, fd );
 
 	// calls the user function
-	if( lua_pcall( L, 1, 0, -3 ) )
-	{
-		exit(-1);
-	}
+	if( lua_pcall( L, 1, 0, -3 ) ) exit(-1);
 
 	lua_pop( L, 2 );
 }
@@ -1239,13 +1192,7 @@ l_exec( lua_State *L )
 			pm->tlen = pipe_len;
 			pm->pos  = len;
 
-			observe_fd(
-				pipefd[ 1 ],
-				NULL,
-				pipe_writey,
-				pipe_tidy,
-				pm
-			);
+			observe_fd( pipefd[ 1 ], NULL, pipe_writey, pipe_tidy, pm );
 		}
 	}
 
@@ -1253,6 +1200,57 @@ l_exec( lua_State *L )
 	lua_pushnumber( L, pid );
 
 	return 1;
+}
+
+
+/*
+| Registers the luacode interface with the core.
+|
+| Params on Lua stack:
+|    1: The luacode runner.
+|
+| Returns on Lua stack:
+|    nothing
+*/
+static int
+l_interface( lua_State *L )
+{
+	if( runner )
+	{
+		logstring( "Error", "Luacode interface already registered!" );
+		exit( -1 );
+	}
+
+	runner = 1;
+
+	lua_pushlightuserdata( L, (void *) & runner );
+
+	// switches the value ( result of preparing ) and the key &runner
+	lua_insert( L, 1 );
+
+	// saves the table of the runners functions in the lua registry
+	lua_settable( L, LUA_REGISTRYINDEX );
+
+	// saves the error function extras
+
+	// &callError is the key
+	lua_pushlightuserdata ( L, (void *) &callError );
+
+	// &runner[ callError ] the value
+	lua_pushlightuserdata ( L, (void *) &runner );
+	lua_gettable( L, LUA_REGISTRYINDEX  );
+	lua_pushstring( L, "callError"  );
+	lua_gettable( L, -2 );
+	lua_remove( L, -2 );
+
+	lua_settable( L, LUA_REGISTRYINDEX );
+
+	if( lua_gettop( L ) )
+	{
+		logstring( "Error", "internal, stack is dirty." );
+		l_stackdump( L );
+		exit( -1 );
+	}
 }
 
 
@@ -1336,23 +1334,19 @@ l_stackdump( lua_State * L )
 	int i;
 	int top = lua_gettop( L );
 
-	printlogf(
-		L, "Debug",
-		"total in stack %d",
-		top
-	);
+	printlogf( L, "Debug", "total in stack %d", top );
 
 	for( i = 1; i <= top; i++ )
 	{
 		int t = lua_type( L, i );
+
 		switch( t )
 		{
 			case LUA_TSTRING:
 
 				printlogf(
 					L, "Debug",
-					"%d string: '%s'",
-					i, lua_tostring( L,  i )
+					"%d string: '%s'", i, lua_tostring( L,  i )
 				);
 
 				break;
@@ -1361,8 +1355,7 @@ l_stackdump( lua_State * L )
 
 				printlogf(
 					L, "Debug",
-					"%d boolean %s",
-					i, lua_toboolean( L, i ) ? "true" : "false"
+					"%d boolean %s", i, lua_toboolean( L, i ) ? "true" : "false"
 				);
 
 				break;
@@ -1371,8 +1364,7 @@ l_stackdump( lua_State * L )
 
 				printlogf(
 					L, "Debug",
-					"%d number: %g",
-					i, lua_tonumber( L, i )
+					"%d number: %g", i, lua_tonumber( L, i )
 				);
 
 				break;
@@ -1381,8 +1373,7 @@ l_stackdump( lua_State * L )
 
 				printlogf(
 					L, "Debug",
-					"%d %s",
-					i, lua_typename( L, t )
+					"%d %s", i, lua_typename( L, t )
 				);
 
 				break;
@@ -1501,6 +1492,7 @@ l_terminate( lua_State *L )
 
 	return 0;
 }
+
 
 /*
 | Configures core parameters.
@@ -1729,6 +1721,7 @@ static const luaL_Reg corelib[] =
 {
 	{ "configure",      l_configure     },
 	{ "exec",           l_exec          },
+	{ "interface",      l_interface     },
 	{ "log",            l_log           },
 	{ "now",            l_now           },
 	{ "nonobserve_fd",  l_nonobserve_fd },
@@ -1857,8 +1850,8 @@ l_jiffies_le(lua_State *L)
 void
 register_core( lua_State *L )
 {
-	lua_compat_register( L, LSYNCD_LIBNAME, corelib );
-	lua_setglobal( L, LSYNCD_LIBNAME );
+	lua_compat_register( L, LSYNCD_CORE_LIBNAME, corelib );
+	lua_setglobal( L, LSYNCD_CORE_LIBNAME );
 
 	// creates the metatable for the jiffies ( timestamps ) userdata
 	luaL_newmetatable( L, "Lsyncd.jiffies" );
@@ -1883,7 +1876,7 @@ register_core( lua_State *L )
 
 #ifdef WITH_INOTIFY
 
-	lua_getglobal( L, LSYNCD_LIBNAME );
+	lua_getglobal( L, LSYNCD_CORE_LIBNAME );
 	register_inotify( L );
 	lua_setfield( L, -2, LSYNCD_INOTIFYLIBNAME );
 	lua_pop( L, 1 );
@@ -1893,7 +1886,6 @@ register_core( lua_State *L )
 	if( lua_gettop( L ) )
 	{
 		logstring( "Error", "internal, stack not empty in lsyncd_register( )" );
-
 		exit( -1 );
 	}
 }
@@ -1953,10 +1945,7 @@ masterloop(lua_State *L)
 		//
 		load_runner_func( L, "getAlarm" );
 
-		if( lua_pcall( L, 0, 1, -2 ) )
-		{
-			exit( -1 );
-		}
+		if( lua_pcall( L, 0, 1, -2 ) ) exit( -1 );
 
 		if( lua_type( L, -1 ) == LUA_TBOOLEAN)
 		{
@@ -2121,15 +2110,14 @@ masterloop(lua_State *L)
 			pid_t pid = waitpid( 0, &status, WNOHANG );
 
 			// no more zombies
-			if (pid <= 0) break;
+			if( pid <= 0 ) break;
 
 			// calls the runner to handle the collection
 			load_runner_func( L, "collectProcess" );
 			lua_pushinteger( L, pid );
 			lua_pushinteger( L, WEXITSTATUS( status ) );
 
-			if ( lua_pcall( L, 2, 0, -4 ) )
-				{ exit(-1); }
+			if( lua_pcall( L, 2, 0, -4 ) ) exit(-1);
 
 			lua_pop( L, 1 );
 		}
@@ -2174,14 +2162,12 @@ masterloop(lua_State *L)
 			lua_pop( L, 2 );
 			return;
 		}
+
 		lua_pop( L, 2 );
 
 		if( lua_gettop( L ) )
 		{
-			logstring(
-				"Error",
-				"internal, stack is dirty."
-			);
+			logstring( "Error", "internal, stack is dirty." );
 			l_stackdump( L );
 			exit( -1 );
 		}
@@ -2233,9 +2219,9 @@ main1( int argc, char *argv[] )
 	{
 		// logging is prepared quite early
 		int i = 1;
-		add_logcat( "Normal", LOG_NOTICE  );
-		add_logcat( "Warn",   LOG_WARNING );
-		add_logcat( "Error",  LOG_ERR     );
+		add_logcat( "Normal", LOG_NOTICE );
+		add_logcat( "Warn", LOG_WARNING );
+		add_logcat( "Error", LOG_ERR );
 
 		while( i < argc )
 		{
@@ -2279,38 +2265,15 @@ main1( int argc, char *argv[] )
 	}
 
 	// prepares the luacode executing the script
+	if( lua_pcall( L, 0, 0, 0 ) )
 	{
-		if( lua_pcall( L, 0, LUA_MULTRET, 0 ) )
-		{
-			printlogf( L, "Error", "preparing luacode: %s", lua_tostring( L, -1 ) );
-			exit( -1 );
-		}
-
-		lua_pushlightuserdata( L, (void *) & runner );
-
-		// switches the value ( result of preparing ) and the key &runner
-		lua_insert( L, 1 );
-
-		// saves the table of the runners functions in the lua registry
-		lua_settable( L, LUA_REGISTRYINDEX );
-
-		// saves the error function extras
-
-		// &callError is the key
-		lua_pushlightuserdata ( L, (void *) &callError );
-
-		// &runner[ callError ] the value
-		lua_pushlightuserdata ( L, (void *) &runner    );
-		lua_gettable          ( L, LUA_REGISTRYINDEX   );
-		lua_pushstring        ( L, "callError"         );
-		lua_gettable          ( L, -2                  );
-		lua_remove            ( L, -2                  );
-
-		lua_settable          ( L, LUA_REGISTRYINDEX   );
+		printlogf( L, "Error", "preparing luacode: %s", lua_tostring( L, -1 ) );
+		exit( -1 );
 	}
 
 	// asserts the Lsyncd's version matches
 	// between runner and core
+	// XXX move to l_interface
 	{
 		const char *lversion;
 
@@ -2382,10 +2345,8 @@ main1( int argc, char *argv[] )
 		{
 			// If not first time, simply retains the config file given
 			s = lua_tostring(L, -1);
-			if( s )
-			{
-				lsyncd_config_file = s_strdup( s );
-			}
+
+			if( s ) lsyncd_config_file = s_strdup( s );
 		}
 
 		lua_pop( L, 2 );
@@ -2422,9 +2383,7 @@ main1( int argc, char *argv[] )
 		{
 			printlogf(
 				L, "Error",
-				"error loading %s: %s",
-				lsyncd_config_file,
-				lua_tostring( L, -1 )
+				"error loading %s: %s", lsyncd_config_file, lua_tostring( L, -1 )
 			);
 
 			exit( -1 );
@@ -2434,9 +2393,7 @@ main1( int argc, char *argv[] )
 		{
 			printlogf(
 				L, "Error",
-				"error preparing %s: %s",
-				lsyncd_config_file,
-				lua_tostring( L, -1 )
+				"error preparing %s: %s", lsyncd_config_file, lua_tostring( L, -1 )
 			);
 
 			exit( -1 );
@@ -2491,7 +2448,7 @@ main1( int argc, char *argv[] )
 			obs->tidy( obs );
 		}
 
-		observances_len    = 0;
+		observances_len = 0;
 		nonobservances_len = 0;
 	}
 
@@ -2507,7 +2464,7 @@ main1( int argc, char *argv[] )
 				lc->name = NULL;
 			}
 
-			if( logcats[ci - 'A' ] )
+			if( logcats[ ci - 'A' ] )
 			{
 				free( logcats[ ci - 'A' ] );
 				logcats[ ci - 'A' ] = NULL;
