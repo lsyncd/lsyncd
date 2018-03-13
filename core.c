@@ -101,10 +101,6 @@ char * lsyncd_config_file = NULL;
 |
 | Configuration error messages are thus written to
 | stdout/stderr only on first start.
-|
-| All other resets (HUP or monitor OVERFLOW) run with 'insist'
-| implictly turned on and thus Lsyncd does not failing on a non
-| responding target.
 */
 static bool first_time = true;
 
@@ -1889,8 +1885,6 @@ register_core( lua_State *L )
 		logstring( "Error", "internal, stack not empty in lsyncd_register( )" );
 		exit( -1 );
 	}
-
-	fprintf(stderr, "X3\n" );
 }
 
 

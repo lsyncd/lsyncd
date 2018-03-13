@@ -76,7 +76,6 @@ local settingsCheckgauge =
 	statusInterval = true,
 	logfacility    = true,
 	logident       = true,
-	insist         = true,
 	inotifyMode    = true,
 	maxProcesses   = true,
 	maxDelays      = true,
@@ -1628,18 +1627,6 @@ local InletFactory = ( function
 	local inletFuncs =
 	{
 		--
-		-- Adds an exclude.
-		--
-		addExclude = function
-		(
-			sync,   -- the sync of the inlet
-			pattern -- exlusion pattern to add
-		)
-			sync:addExclude( pattern )
-		end,
-
-
-		--
 		-- Appens a filter.
 		--
 		appendFilter = function
@@ -1649,38 +1636,6 @@ local InletFactory = ( function
 			pattern -- exlusion pattern to add
 		)
 			sync:appendFilter( rule, pattern )
-		end,
-
-		--
-		-- Removes an exclude.
-		--
-		rmExclude = function
-		(
-			sync,   -- the sync of the inlet
-			pattern -- exlusion pattern to remove
-		)
-			sync:rmExclude( pattern )
-		end,
-
-		--
-		-- Gets the list of excludes in their
-		-- rsync-like patterns form.
-		--
-		getExcludes = function
-		(
-			sync -- the sync of the inlet
-		)
-			-- creates a copy
-			local e = { }
-			local en = 1;
-
-			for k, _ in pairs( sync.excludes.list )
-			do
-				e[ en ] = k;
-				en = en + 1;
-			end
-
-			return e;
 		end,
 
 		--
@@ -1695,7 +1650,6 @@ local InletFactory = ( function
 			local e = { }
 			local en = 1;
 
-			-- first takes the filters
 			if sync.filters
 			then
 				for _, entry in ipairs( sync.filters.list )
@@ -1703,13 +1657,6 @@ local InletFactory = ( function
 					e[ en ] = entry.rule .. ' ' .. entry.pattern;
 					en = en + 1;
 				end
-			end
-
-			-- then the excludes
-			for k, _ in pairs( sync.excludes.list )
-			do
-				e[ en ] = '- ' .. k;
-				en = en + 1;
 			end
 
 			return e;
@@ -1867,199 +1814,6 @@ end )( )
 
 
 --
--- A set of exclude patterns.
---
-local Excludes = ( function
-( )
-	--
-	-- Turns a rsync like file pattern to a lua pattern.
-	-- ( at best it can )
-	--
-	local function toLuaPattern
-	(
-		p  --  the rsync like pattern
-	)
-		local o = p
-
-		p = string.gsub( p, '%%', '%%%%'  )
-		p = string.gsub( p, '%^', '%%^'   )
-		p = string.gsub( p, '%$', '%%$'   )
-		p = string.gsub( p, '%(', '%%('   )
-		p = string.gsub( p, '%)', '%%)'   )
-		p = string.gsub( p, '%.', '%%.'   )
-		p = string.gsub( p, '%[', '%%['   )
-		p = string.gsub( p, '%]', '%%]'   )
-		p = string.gsub( p, '%+', '%%+'   )
-		p = string.gsub( p, '%-', '%%-'   )
-		p = string.gsub( p, '%?', '[^/]'  )
-		p = string.gsub( p, '%*', '[^/]*' )
-		-- this was a ** before
-		p = string.gsub( p, '%[%^/%]%*%[%^/%]%*', '.*' )
-		p = string.gsub( p, '^/', '^/'    )
-
-		if p:sub( 1, 2 ) ~= '^/'
-		then
-			-- if does not begin with '^/'
-			-- then all matches should begin with '/'.
-			p = '/' .. p;
-		end
-
-		log( 'Exclude', 'toLuaPattern "', o, '" = "', p, '"' )
-
-		return p
-	end
-
-	--
-	-- Adds a pattern to exclude.
-	--
-	local function add
-	(
-		self,
-		pattern  -- the pattern to exclude
-	)
-		if self.list[ pattern ]
-		then -- already in the list
-			return
-		end
-
-		local lp = toLuaPattern( pattern )
-
-		self.list[ pattern ] = lp
-	end
-
-	--
-	-- Removes a pattern to exclude.
-	--
-	local function remove
-	(
-		self,    -- self
-		pattern  -- the pattern to remove
-	)
-		-- already in the list?
-		if not self.list[ pattern ]
-		then
-			log(
-				'Normal',
-				'Removing not excluded exclude "' .. pattern .. '"'
-			)
-
-			return
-		end
-
-		self.list[ pattern ] = nil
-	end
-
-	--
-	-- Adds a list of patterns to exclude.
-	--
-	local function addList
-	(
-		self,
-		plist
-	)
-		for _, v in ipairs( plist )
-		do
-			add( self, v )
-		end
-	end
-
-	--
-	-- Loads the excludes from a file.
-	--
-	local function loadFile
-	(
-		self,  -- self
-		file   -- filename to load from
-	)
-		f, err = io.open( file )
-
-		if not f
-		then
-			log( 'Error', 'Cannot open exclude file "', file,'": ', err )
-
-			terminate( -1 )
-		end
-
-	    for line in f:lines()
-		do
-			-- lsyncd 2.0 does not support includes
-
-			if not string.match( line, '^%s*%+' )
-			and not string.match( line, '^%s*#' )
-			and not string.match( line, '^%s*$' )
-			then
-				local p = string.match( line, '%s*-?%s*(.*)' )
-
-				if p
-				then
-					add( self, p )
-				end
-			end
-		end
-
-		f:close( )
-	end
-
-	--
-	-- Tests if 'path' is excluded.
-	--
-	local function test
-	(
-		self,  -- self
-		path   -- the path to test
-	)
-		if path:byte( 1 ) ~= 47
-		then
-			error( 'Paths for exlusion tests must start with \'/\'' )
-		end
-
-		for _, p in pairs( self.list )
-		do
-			if p:byte( -1 ) == 36
-			then
-				-- ends with $
-				if path:match( p )
-				then
-					return true
-				end
-			else
-				-- ends either end with / or $
-				if path:match( p .. '/' )
-				or path:match( p .. '$' )
-				then
-					return true
-				end
-			end
-		end
-
-		return false
-	end
-
-	--
-	-- Cretes a new exclude set.
-	--
-	local function new
-	( )
-		return {
-			list = { },
-
-			-- functions
-			add      = add,
-			addList  = addList,
-			loadFile = loadFile,
-			remove   = remove,
-			test     = test,
-		}
-	end
-
-	--
-	-- Public interface.
-	--
-	return { new = new }
-end )( )
-
-
---
 -- A set of filter patterns.
 --
 -- Filters allow excludes and includes
@@ -2126,7 +1880,7 @@ local Filters = ( function
 	end
 
 	--
-	-- Adds a list of patterns to exclude.
+	-- Adds a list of patterns to filter.
 	--
 	local function appendList
 	(
@@ -2206,8 +1960,8 @@ local Filters = ( function
 		end
 
 		-- nil means neither a positivie
-		-- or negative hit, thus excludes have to
-		-- be queried
+		-- or negative hit
+		-- FIXME
 		return nil
 	end
 
@@ -2247,17 +2001,6 @@ local Sync = ( function
 	--
 	local nextDefaultName = 1
 
-	--
-	-- Adds an exclude.
-	--
-	local function addExclude
-	(
-		self,
-		pattern
-	)
-		return self.excludes:add( pattern )
-	end
-
 	local function appendFilter
 	(
 		self,
@@ -2267,17 +2010,6 @@ local Sync = ( function
 		if not self.filters then self.filters = Filters.new( ) end
 
 		return self.filters:append( rule, pattern )
-	end
-
-	--
-	-- Removes an exclude.
-	--
-	local function rmExclude
-	(
-		self,
-		pattern
-	)
-		return self.excludes:remove( pattern )
 	end
 
 	--
@@ -2304,11 +2036,12 @@ local Sync = ( function
 			end
 		end
 	end
-	
-	
+
+
 	--
-	-- Returns true if the relative path is excluded or filtered
-	-- 
+	-- Returns true if the relative path is filtered
+	-- FIXME that logic is negated
+	--
 	local function testFilter
 	(
 		self,   -- the Sync
@@ -2320,10 +2053,10 @@ local Sync = ( function
 
 		local filter = self.filters and self.filters:test( path )
 
+		-- FIXME simplify
 		if filter ~= nil then return filter end
 
-		-- otherwise check excludes if concerned
-		return self.excludes:test( path )
+		return true
 	end
 
 	--
@@ -2536,7 +2269,7 @@ local Sync = ( function
 				return
 			elseif not ex1 and ex2
 			then
-				-- splits the move if only partly excluded
+				-- splits the move if only partly filtered
 				log(
 					'Filter',
 					'filtered destination transformed ',
@@ -2550,7 +2283,7 @@ local Sync = ( function
 				return
 			elseif ex1 and not ex2
 			then
-				-- splits the move if only partly excluded
+				-- splits the move if only partly filtered
 				log(
 					'Filter',
 					'filtered origin transformed ',
@@ -2952,18 +2685,6 @@ local Sync = ( function
 			end
 		end
 
-		if #self.excludes.list > 0
-		then
-			f:write( 'From excludes:\n' )
-
-			for t, p in pairs( self.excludes.list )
-			do
-				nothing = false
-
-				f:write( '- ', t,'\n' )
-			end
-		end
-
 		if nothing
 		then
 			f:write('  nothing.\n')
@@ -2986,7 +2707,6 @@ local Sync = ( function
 			delays = Queue.new( ),
 			source = config.source,
 			processes = CountArray.new( ),
-			excludes = Excludes.new( ),
 			filters = nil,
 
 			-- functions
@@ -3037,23 +2757,6 @@ local Sync = ( function
 
 		end
 
-		-- loads exclusions
-		if config.exclude
-		then
-			local te = type( config.exclude )
-
-			if te == 'table'
-			then
-				s.excludes:addList( config.exclude )
-			elseif te == 'string'
-			then
-				s.excludes:add( config.exclude )
-			else
-				error( 'type for exclude must be table or string', 2 )
-			end
-
-		end
-
 		if config.delay ~= nil
 		and ( type( config.delay ) ~= 'number' or config.delay < 0 )
 		then
@@ -3065,11 +2768,6 @@ local Sync = ( function
 			if not s.filters then s.filters = Filters.new( ) end
 
 			s.filters:loadFile( config.filterFrom )
-		end
-
-		if config.excludeFrom
-		then
-			s.excludes:loadFile( config.excludeFrom )
 		end
 
 		return s
@@ -4463,7 +4161,6 @@ USAGE:
 OPTIONS:
   -delay SECS         Overrides default delay times
   -help               Shows this
-  -insist             Continues startup even if it cannot connect
   -log    all         Logs everything (debug)
   -log    scarce      Logs errors only
   -log    [Category]  Turns on logging for a debug category
@@ -4514,15 +4211,6 @@ function runner.configure( args, monitors )
 				secs
 			)
 				clSettings.delay = secs + 0
-			end
-		},
-
-		insist =
-		{
-			0,
-			function
-			( )
-				clSettings.insist = true
 			end
 		},
 
@@ -4667,14 +4355,6 @@ function runner.initialize( firstTime )
 		then
 			uSettings[ k ] = v
 		end
-	end
-
-	--
-	-- implicitly forces 'insist' on Lsyncd resets.
-	--
-	if not firstTime
-	then
-		uSettings.insist = true
 	end
 
 	if uSettings.logfile

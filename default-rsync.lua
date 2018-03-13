@@ -95,7 +95,6 @@ rsync.checkgauge = {
 		verbose           =  true,
 		whole_file        =  true,
 		xattrs            =  true,
-		_extra            =  true,
 	},
 }
 
@@ -514,15 +513,6 @@ rsync.prepare = function
 
 	local shorts = { '-' }
 	local shortsN = 2
-
-	if crsync._extra
-	then
-		for k, v in ipairs( crsync._extra )
-		do
-			computed[ computedN ] = v
-			computedN = computedN  + 1
-		end
-	end
 
 	for k, flag in pairs( shortFlags )
 	do

@@ -58,7 +58,6 @@ rsyncssh.checkgauge = {
 		identityFile =  true,
 		options      =  true,
 		port         =  true,
-		_extra       =  true
 	},
 }
 
@@ -546,16 +545,6 @@ rsyncssh.prepare = function
 			rsyncc[ config.rsync._rshIndex ] .. ' -p ' .. cssh.port
 	end
 
-	if cssh._extra
-	then
-		for k, v in ipairs( cssh._extra )
-		do
-			computed[ computedN ] = v
-
-			computedN = computedN  + 1
-		end
-	end
-
 	-- appends a slash to the targetdir if missing
 	-- and is not ':' for home dir
 	if string.sub( config.targetdir, -1 ) ~= '/'
@@ -624,10 +613,5 @@ rsyncssh.ssh = {
 	-- if set connect to this port
 	--
 	port = nil,
-
-	--
-	-- extra parameters
-	--
-	_extra = { }
 }
 

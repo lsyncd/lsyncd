@@ -1,6 +1,9 @@
 ????-??-??: 3.0.0
 	change: switched to systemd-style daemon (that is Lsyncd will no longer fork itself)
 	change: dropping /dev/fsevents hack (OSX support)
+	change: dropping exclude and excludeFrom (replaced by filter and filterFrom)
+	change: "insist" by default
+	change: removed _extra (if someone is hacky enough to really need it, they can hack Lsyncd itself)
 
 2018-03-09: 2.2.3
 	enhaencement: supporting includes with new filter and filterFrom options
