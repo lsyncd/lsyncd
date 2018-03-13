@@ -1,7 +1,7 @@
 ---
 layout: default3
 title: "Config Layer 4: Default Config"
-short: "Config Layer 4" 
+short: "Config Layer 4"
 ---
 You can simply choose from a set of three default implementations which are: __rsync__, __rsyncssh__ and __direct__.
 
@@ -49,7 +49,7 @@ sync {
     default.rsync,
     source    = "/home/user/src/",
     target    = "foohost.com:~/trg/",
-    delay     = 15, 
+    delay     = 15,
     rsync     = {
         binary   = "/usr/local/bin/rsync",
         archive  = true,
@@ -67,7 +67,7 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> <b>default value</b>
 </td><td> <b>comment</b>
 </td></tr>
-   
+
  <tr><td> acls
 </td><td> =
 </td><td> BOOL
@@ -172,18 +172,18 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td>
 </td></tr>
 
- <tr><td> exclude
+ <tr><td> filter
 </td><td> =
-</td><td> PATTERN
-</td><td> 
-</td><td> TABLE of PATTERNs also allowed
+</td><td> LIST of RULEs
+</td><td>
+</td><td>
 </td></tr>
 
- <tr><td> excludeFrom
+ <tr><td> filterFrom
 </td><td> =
 </td><td> FILENAME
 </td><td>
-</td><td>   
+</td><td>
 </td></tr>
 
  <tr><td> executability
@@ -203,7 +203,7 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
  <tr><td> groupmap
 </td><td> =
 </td><td> STRING
-</td><td> 
+</td><td>
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
@@ -232,21 +232,21 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> =
 </td><td> BOOL
 </td><td> false
-</td><td> 
+</td><td>
 </td></tr>
 
  <tr><td> ipv6
 </td><td> =
 </td><td> BOOL
 </td><td> false
-</td><td> 
+</td><td>
 </td></tr>
 
  <tr><td> links
 </td><td> =
 </td><td> BOOL
 </td><td> true
-</td><td> 
+</td><td>
 </td></tr>
 
  <tr><td> one_file_system
@@ -266,7 +266,7 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
  <tr><td> password_file
 </td><td> =
 </td><td> FILENAME
-</td><td> 
+</td><td>
 </td><td> (Lsyncd >= 2.1.2)
 </td></tr>
 
@@ -301,14 +301,14 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
  <tr><td> rsh
 </td><td> =
 </td><td> COMMAND
-</td><td> 
-</td><td> 
+</td><td>
+</td><td>
 </td></tr>
 
  <tr><td> rsync_path
 </td><td> =
 </td><td> PATH
-</td><td> 
+</td><td>
 </td><td> (path to rsync on remote host)
 </td></tr>
 
@@ -322,14 +322,14 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
  <tr><td> suffix
 </td><td> =
 </td><td> SUFFIX
-</td><td> 
+</td><td>
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
  <tr><td> temp_dir
 </td><td> =
 </td><td> DIR
-</td><td> 
+</td><td>
 </td><td>
 </td></tr>
 
@@ -337,7 +337,7 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> =
 </td><td> BOOL
 </td><td> true
-</td><td> 
+</td><td>
 </td></tr>
 
  <tr><td> update
@@ -375,18 +375,11 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td>
 </td></tr>
 
- <tr><td> _extra
-</td><td> =
-</td><td> TABLE of STRINGS.
-</td><td> 
-</td><td> If absolutely needed, additional arguments can be specified as a TABLE of STRINGS(example: <tt>{ "--omit-dir-times", "--omit-link-times" }</tt>). Note that the underscore highlights this as workaround. If you need something that is not covered by the above options, please request it via a feature request on the project website. Most notably, do not add -r for recursive or -a which implies recursive, since Lsyncd will handle that by itself. Additionally do not add -R for relative, which will ruin Lsyncd &lt;-&gt; Rsync communication.
-</td></tr>
-
 </table>
 
 default.rsyncssh
 ----------------
-This configuration differs from the standard rsync configuration in that it uses ssh commands to move files or directories locally at the target host instead of deleting and transferring again. This configuration does spawn Rsync processes like default.rsync but additionally will spawn ```/usr/bin/ssh HOST mv ORIGIN DESTINATION``` commands. 
+This configuration differs from the standard rsync configuration in that it uses ssh commands to move files or directories locally at the target host instead of deleting and transferring again. This configuration does spawn Rsync processes like default.rsync but additionally will spawn ```/usr/bin/ssh HOST mv ORIGIN DESTINATION``` commands.
 
 Different to default.rsync it does not take an uniform ```target``` parameter, but needs ```host``` and ```targetdir``` separated.
 
@@ -441,7 +434,7 @@ sync {
    default.rsyncssh,
    source="/srcdir",
    host="remotehost",
-   excludeFrom="/etc/lsyncd.exclude",
+   filterFrom="/etc/lsyncd.filter",
    targetdir="/dstdir",
    rsync = {
      archive = true,
@@ -515,13 +508,13 @@ Two additional parameters can be specified to sync{}:
 
 <table>
 
- <tr><td> excludeFrom
+ <tr><td> filterFrom
 </td><td> =
 </td><td> FILENAME
 </td><td> loads exclusion rules from this file, on rule per line
 </td></tr>
 
- <tr><td> exclude
+ <tr><td> filter
 </td><td> =
 </td><td> LIST
 </td><td> loads exclusion rules from this list of strings

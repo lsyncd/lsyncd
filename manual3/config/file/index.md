@@ -13,14 +13,11 @@ For example, the following code will instruct Lsyncd to log into ```/tmp/lsyncd.
 
 {% highlight lua %}
 settings {
-   logfile    = "/tmp/lsyncd.log",
-   statusFile = "/tmp/lsyncd.status",
+   logfile    = '/tmp/lsyncd.log',
+   statusFile = '/tmp/lsyncd.status',
    nodaemon   = true,
 }
 {% endhighlight %}
-
-**Caution**
-If you are upgrading from 2.0.x, please notice that `settings` became a function from a variable, so you **MUST** delete the equal sign '=' between `settings` and the `{`.
 
 Valid keys for settings are:
 
@@ -30,18 +27,6 @@ Valid keys for settings are:
 </td><td> =
 </td><td> FILENAME
 </td><td> logs into this file
-</td></tr>
-
- <tr><td> pidfile
-</td><td> =
-</td><td> FILENAME
-</td><td> logs PID into this file
-</td></tr>
-
- <tr><td> nodaemon
-</td><td> =
-</td><td> BOOL
-</td><td> does not detach
 </td></tr>
 
  <tr><td> statusFile
@@ -66,12 +51,6 @@ Valid keys for settings are:
 </td><td> =
 </td><td> STRING
 </td><td> syslog identification (tag), default "lsyncd"
-</td></tr>
-
- <tr><td> insist
-</td><td> =
-</td><td> BOOL
-</td><td> keep running at startup although one or more targets failed due to not being reachable.
 </td></tr>
 
  <tr><td> inotifyMode
