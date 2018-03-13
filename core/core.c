@@ -123,10 +123,7 @@ static long clocks_per_sec;
 /*
 | signal handler
 */
-void
-sig_child(int sig) {
-	// nothing
-}
+void sig_child( int sig ) { /* nothing */ }
 
 
 /*
@@ -183,7 +180,6 @@ get_realpath( const char * rpath )
 	return s_strdup( asw );
 #endif
 }
-
 
 
 /*:::::::::::.
@@ -1471,7 +1467,7 @@ l_readdir( lua_State *L )
 
 
 /*
-| Terminates Lsyncd.
+| Immediately terminates Lsyncd.
 |
 | Params on Lua stack:
 |     1:  exitcode of Lsyncd.
@@ -1711,7 +1707,7 @@ l_nonobserve_fd( lua_State *L )
 
 
 /*
-| The Lsnycd's core library
+| The Lsnycd's core library.
 */
 static const luaL_Reg corelib[] =
 {
@@ -1898,7 +1894,7 @@ register_core( lua_State *L )
 | As well as the callError handler.
 */
 extern void
-load_runner_func(
+load_mantle_func(
 	lua_State * L,
 	const char * name
 )
@@ -1940,7 +1936,7 @@ masterloop(lua_State *L)
 		//
 		// queries the runner about the soonest alarm
 		//
-		load_runner_func( L, "getAlarm" );
+		load_mantle_func( L, "getAlarm" );
 
 		if( lua_pcall( L, 0, 1, -2 ) ) exit( -1 );
 
@@ -2110,7 +2106,7 @@ masterloop(lua_State *L)
 			if( pid <= 0 ) break;
 
 			// calls the runner to handle the collection
-			load_runner_func( L, "collectProcess" );
+			load_mantle_func( L, "collectProcess" );
 			lua_pushinteger( L, pid );
 			lua_pushinteger( L, WEXITSTATUS( status ) );
 
@@ -2122,7 +2118,7 @@ masterloop(lua_State *L)
 		// reacts on HUP signals
 		if( hup )
 		{
-			load_runner_func( L, "hup" );
+			load_mantle_func( L, "hup" );
 
 			if( lua_pcall( L, 0, 0, -2 ) ) exit( -1 );
 
@@ -2134,7 +2130,7 @@ masterloop(lua_State *L)
 		// reacts on TERM and INT signals
 		if( term == 1 )
 		{
-			load_runner_func( L, "term" );
+			load_mantle_func( L, "term" );
 
 			lua_pushnumber( L, sigcode );
 
@@ -2147,7 +2143,7 @@ masterloop(lua_State *L)
 
 		// lets the runner do stuff every cycle,
 		// like starting new processes, writing the statusfile etc.
-		load_runner_func( L, "cycle" );
+		load_mantle_func( L, "cycle" );
 
 		l_now( L );
 
@@ -2269,12 +2265,11 @@ main1( int argc, char *argv[] )
 	}
 
 	// asserts the Lsyncd's version matches
-	// between runner and core
-	// XXX move to l_interface
+	// between mantle and core
 	{
 		const char *lversion;
 
-		lua_getglobal( L, "lsyncd_version" );
+		lua_getglobal( L, "mantle" );
 		lversion = luaL_checkstring( L, -1 );
 
 		if( strcmp( lversion, PACKAGE_VERSION ) )
@@ -2298,7 +2293,7 @@ main1( int argc, char *argv[] )
 		{
 			if ( !strcmp( argv[ i ],  "-help" ) || !strcmp( argv[ i ], "--help" ) )
 			{
-				load_runner_func( L, "help" );
+				load_mantle_func( L, "help" );
 
 				if( lua_pcall( L, 0, 0, -2 ) ) exit( -1 );
 
@@ -2315,7 +2310,7 @@ main1( int argc, char *argv[] )
 		const char *s;
 
 		// creates a table with all remaining argv option arguments
-		load_runner_func( L, "configure" );
+		load_mantle_func( L, "configure" );
 		lua_newtable( L );
 
 		while( argp < argc )
@@ -2419,7 +2414,7 @@ main1( int argc, char *argv[] )
 	// runs initializations from runner
 	// it will set the configuration and add watches
 	{
-		load_runner_func( L, "initialize" );
+		load_mantle_func( L, "initialize" );
 		lua_pushboolean( L, first_time );
 
 		if( lua_pcall( L, 1, 0, -3 ) ) exit( -1 );

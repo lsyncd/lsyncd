@@ -71,7 +71,7 @@ extern struct settings {
 extern int l_now(lua_State *L);
 
 // pushes a runner function and the runner error handler onto Lua stack
-extern void load_runner_func(lua_State *L, const char *name);
+extern void load_mantle_func(lua_State *L, const char *name);
 
 // set to 1 on hup signal or term signal
 extern volatile sig_atomic_t hup;

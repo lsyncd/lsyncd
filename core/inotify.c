@@ -216,7 +216,7 @@ handle_event(
 	if( event && ( IN_Q_OVERFLOW & event->mask ) )
 	{
 		// and overflow happened, tells the runner
-		load_runner_func( L, "overflow" );
+		load_mantle_func( L, "overflow" );
 
 		if( lua_pcall( L, 0, 0, -2 ) ) exit( -1 );
 
@@ -335,7 +335,7 @@ handle_event(
 	}
 
 	// hands the event over to the runner
-	load_runner_func( L, "inotifyEvent" );
+	load_mantle_func( L, "inotifyEvent" );
 
 	if( !event_type )
 	{

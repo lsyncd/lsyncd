@@ -13,19 +13,11 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
---
--- A security measurement.
--- The core will exit if version ids mismatch.
---
-if lsyncd_version
+if mantle
 then
-	-- ensures the runner is not being loaded twice
-	lsyncd.log( 'Error', 'You cannot use the lsyncd runner as configuration file!' )
-
+	lsyncd.log( 'Error', 'Lsyncd mantle already loaded' )
 	lsyncd.terminate( -1 )
 end
-
-lsyncd_version = '3.0.0-devel'
 
 
 --

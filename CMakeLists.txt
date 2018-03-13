@@ -35,7 +35,8 @@ include_directories("${PROJECT_BINARY_DIR}")
 # building and compiling the part of lsyncd written in Lua
 
 set( LUA_CODE
-	${PROJECT_SOURCE_DIR}/lsyncd.lua
+	${PROJECT_SOURCE_DIR}/mantle/lsyncd.lua
+	${PROJECT_SOURCE_DIR}/mantle/version.lua
 	${PROJECT_SOURCE_DIR}/default/default.lua
 	${PROJECT_SOURCE_DIR}/default/rsync.lua
 	${PROJECT_SOURCE_DIR}/default/rsyncssh.lua
