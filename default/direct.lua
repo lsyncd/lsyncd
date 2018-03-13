@@ -18,17 +18,11 @@
 --
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-if not default then
-	error('default not loaded')
-end
+if not default then error( 'default not loaded' ) end
 
-if not default.rsync then
-	error('default-direct (currently) needs default.rsync loaded')
-end
+if not default.rsync then error( 'default-direct needs default.rsync loaded' ) end
 
-if default.direct then
-	error('default-direct already loaded')
-end
+if default.direct then error( 'default-direct already loaded' ) end
 
 local direct = { }
 
@@ -38,7 +32,8 @@ default.direct = direct
 --
 -- known configuration parameters
 --
-direct.checkgauge = {
+direct.checkgauge =
+{
 	--
 	-- inherits rsync config params
 	--
@@ -52,19 +47,20 @@ direct.checkgauge = {
 --
 -- Spawns rsync for a list of events
 --
-direct.action = function(inlet)
+direct.action =
+	function
+(
+	inlet
+)
 	-- gets all events ready for syncing
 	local event, event2 = inlet.getEvent()
 	local config = inlet.getConfig()
 
-	if event.etype == 'Create' then
-		if event.isdir then
-			spawn(
-				event,
-				'/bin/mkdir',
-				'--',
-				event.targetPath
-			)
+	if event.etype == 'Create'
+	then
+		if event.isdir
+		then
+			spawn( event, '/bin/mkdir', '--', event.targetPath )
 		else
 			-- 'cp -t', not supported on OSX
 			spawn(
@@ -76,22 +72,18 @@ direct.action = function(inlet)
 				event.targetPathdir
 			)
 		end
-	elseif event.etype == 'Modify' then
-		if event.isdir then
-			error("Do not know how to handle 'Modify' on dirs")
+	elseif event.etype == 'Modify'
+	then
+		if event.isdir
+		then
+			error( 'Do not know how to handle "Modify" on dirs' )
 		end
-		spawn(event,
-			'/bin/cp',
-			'-p',
-			'--',
-			event.sourcePath,
-			event.targetPathdir
-		)
-	elseif event.etype == 'Delete' then
 
-		if
-			config.delete ~= true and
-			config.delete ~= 'running'
+		spawn(event, '/bin/cp', '-p', '--', event.sourcePath, event.targetPathdir )
+	elseif event.etype == 'Delete'
+	then
+		if config.delete ~= true
+		and config.delete ~= 'running'
 		then
 			inlet.discardEvent(event)
 			return
@@ -100,38 +92,33 @@ direct.action = function(inlet)
 		local tp = event.targetPath
 
 		-- extra security check
-		if tp == '' or tp == '/' or not tp then
-			error('Refusing to erase your harddisk!')
+		if tp == '' or tp == '/' or not tp
+		then
+			error( 'Refusing to erase your harddisk!' )
 		end
 
 		spawn(event, '/bin/rm', '-rf', '--', tp)
-
-	elseif event.etype == 'Move' then
+	elseif event.etype == 'Move'
+	then
 		local tp = event.targetPath
 
 		-- extra security check
-		if tp == '' or tp == '/' or not tp then
-			error('Refusing to erase your harddisk!')
+		if tp == '' or tp == '/' or not tp
+		then
+			error( 'Refusing to erase your harddisk!' )
 		end
 
 		local command = '/bin/mv -- "$1" "$2" || /bin/rm -rf -- "$1"'
 
-		if
-			config.delete ~= true and
-			config.delete ~= 'running'
+		if config.delete ~= true
+		and config.delete ~= 'running'
 		then
 			command = '/bin/mv -- "$1" "$2"'
 		end
 
-		spawnShell(
-			event,
-			command,
-			event.targetPath,
-			event2.targetPath
-		)
-
+		spawnShell( event, command, event.targetPath, event2.targetPath )
 	else
-		log('Warn', 'ignored an event of type "',event.etype, '"')
+		log( 'Warn', 'ignored an event of type "',event.etype, '"' )
 		inlet.discardEvent(event)
 	end
 end
@@ -139,30 +126,37 @@ end
 --
 -- Called when collecting a finished child process
 --
-direct.collect = function(agent, exitcode)
-
+direct.collect = function
+(
+	agent,
+	exitcode
+)
 	local config = agent.config
 
-	if not agent.isList and agent.etype == 'Init' then
+	if not agent.isList and agent.etype == 'Init'
+	then
 		local rc = config.rsyncExitCodes[exitcode]
-		if rc == 'ok' then
-			log('Normal', 'Startup of "',agent.source,'" finished: ', exitcode)
+		if rc == 'ok'
+		then
+			log( 'Normal', 'Startup of "',agent.source,'" finished: ', exitcode )
 		elseif rc == 'again'
 		then
 			if settings( 'insist' )
 			then
-				log('Normal', 'Retrying startup of "',agent.source,'": ', exitcode)
+				log( 'Normal', 'Retrying startup of "',agent.source,'": ', exitcode )
 			else
 				log('Error', 'Temporary or permanent failure on startup of "',
 				agent.source, '". Terminating since "insist" is not set.');
-				terminate(-1) -- ERRNO
+				terminate( -1 )
 			end
-		elseif rc == 'die' then
-			log('Error', 'Failure on startup of "',agent.source,'": ', exitcode)
+		elseif rc == 'die'
+		then
+			log( 'Error', 'Failure on startup of "',agent.source,'": ', exitcode )
 		else
-			log('Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode)
+			log( 'Error', 'Unknown exitcode on startup of "', agent.source,': "',exitcode )
 			rc = 'die'
 		end
+
 		return rc
 	end
 
@@ -180,8 +174,11 @@ direct.init = default.rsync.init
 --
 -- Checks the configuration.
 --
-direct.prepare = function( config, level )
-
+direct.prepare = function
+(
+	config,
+	level
+)
 	default.rsync.prepare( config, level + 1 )
 
 end
@@ -212,3 +209,4 @@ direct.delete = true
 -- than speed up.
 
 direct.maxProcesses = 1
+

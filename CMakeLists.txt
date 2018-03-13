@@ -11,7 +11,7 @@ include_directories ( ${LUA_INCLUDE_DIR} )
 
 
 # setting Lsyncd sources
-set( LSYNCD_SRC core.c luacode.c )
+set( LSYNCD_SRC core/core.c luacode.c )
 
 # tell systemd via the sd-daemon library about the status of Lsyncd
 option( WITH_SYSTEMD "Communicate Lsyncd status to systemd" ON )
@@ -20,8 +20,9 @@ option( WITH_SYSTEMD "Communicate Lsyncd status to systemd" ON )
 option( WITH_INOTIFY "Compile with inotify file notifications (Linux)" ON )
 
 if( WITH_INOTIFY )
-	set( LSYNCD_SRC ${LSYNCD_SRC} inotify.c )
+	set( LSYNCD_SRC ${LSYNCD_SRC} core/inotify.c )
 endif( WITH_INOTIFY )
+
 
 # generating the config.h file
 configure_file (
@@ -32,14 +33,13 @@ include_directories("${PROJECT_BINARY_DIR}")
 
 
 # building and compiling the part of lsyncd written in Lua
-# also called "runner"
 
 set( LUA_CODE
 	${PROJECT_SOURCE_DIR}/lsyncd.lua
-	${PROJECT_SOURCE_DIR}/default.lua
-	${PROJECT_SOURCE_DIR}/default-rsync.lua
-	${PROJECT_SOURCE_DIR}/default-rsyncssh.lua
-	${PROJECT_SOURCE_DIR}/default-direct.lua
+	${PROJECT_SOURCE_DIR}/default/default.lua
+	${PROJECT_SOURCE_DIR}/default/rsync.lua
+	${PROJECT_SOURCE_DIR}/default/rsyncssh.lua
+	${PROJECT_SOURCE_DIR}/default/direct.lua
 )
 
 add_custom_command( OUTPUT luacode.c
@@ -61,6 +61,7 @@ add_custom_target( manpage
 	DEPENDS doc/manpage/lsyncd.1.txt
 )
 
+# the test suite
 add_custom_target( tests
 	COMMAND echo "Running the tests"
 	COMMAND echo "Note you are expected to:"
