@@ -29,6 +29,7 @@
 #include "lsyncd.h"
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -205,6 +206,17 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 						trg = (char *) &arg->data.str;
 					}
 					// fallthrough
+                case FSE_XATTR_MODIFIED:                    
+                case FSE_XATTR_REMOVED:
+                    if (!path) path = (char *)&arg->data.str;
+                    
+                    if (isdir == -1)
+                    {
+                        struct stat path_stat;
+                        stat(path, &path_stat);
+                        isdir = path_stat.st_mode & S_IFDIR ? 1: 0;
+                    }
+                    break;                    
 				case FSE_CHOWN :
 				case FSE_CONTENT_MODIFIED :
 				case FSE_CREATE_FILE :
@@ -235,6 +247,8 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 	switch(atype) {
 	case FSE_CHOWN :
 	case FSE_STAT_CHANGED :
+    case FSE_XATTR_MODIFIED:
+    case FSE_XATTR_REMOVED:
 		etype = "Attrib";
 		break;
 	case FSE_CREATE_DIR :
