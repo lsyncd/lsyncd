@@ -23,11 +23,7 @@ end
 --
 -- Hides the core interface from user scripts.
 --
-local _l = core
-core = nil
-
-local core = _l
-_l = nil
+local core = core
 
 --
 -- Shortcuts (which user is supposed to be able to use them as well)
@@ -1918,6 +1914,7 @@ local Filters = ( function
 
 	--
 	-- Tests if 'path' is filtered.
+	-- Returns false if it is to be filtered.
 	--
 	local function test
 	(
@@ -1939,22 +1936,19 @@ local Filters = ( function
 				-- ends with $
 				if path:match( lp )
 				then
-					return rule == '-'
+					return rule == '+'
 				end
 			else
 				-- ends either end with / or $
 				if path:match( lp .. '/' )
 				or path:match( lp .. '$' )
 				then
-					return rule == '-'
+					return rule == '+'
 				end
 			end
 		end
 
-		-- nil means neither a positivie
-		-- or negative hit
-		-- FIXME
-		return nil
+		return true
 	end
 
 	--
@@ -2031,8 +2025,7 @@ local Sync = ( function
 
 
 	--
-	-- Returns true if the relative path is filtered
-	-- FIXME that logic is negated
+	-- Returns false if the relative path is filtered
 	--
 	local function testFilter
 	(
@@ -2041,14 +2034,13 @@ local Sync = ( function
 	)
 		-- never filter the relative root itself
 		-- ( that would make zero sense )
-		if path == '/' then return false end
+		if path == '/'
+		or not self.filters
+		then
+			return true
+		end
 
-		local filter = self.filters and self.filters:test( path )
-
-		-- FIXME simplify
-		if filter ~= nil then return filter end
-
-		return true
+		return self.filters:test( path )
 	end
 
 	--
@@ -2072,7 +2064,7 @@ local Sync = ( function
 			return false
 		end
 
-		return not testFilter( self, path:sub( #self.source ) )
+		return testFilter( self, path:sub( #self.source ) )
 	end
 
 	--
@@ -2238,7 +2230,7 @@ local Sync = ( function
 		if not path2
 		then
 			-- simple test for single path events
-			if testFilter( self, path )
+			if not testFilter( self, path )
 			then
 				log( 'Filter', 'filtered ', etype, ' on "', path, '"' )
 
@@ -2246,9 +2238,9 @@ local Sync = ( function
 			end
 		else
 			-- for double paths ( move ) it might result into a split
-			local ex1 = testFilter( self, path )
+			local ex1 = not testFilter( self, path )
 
-			local ex2 = testFilter( self, path2 )
+			local ex2 = not testFilter( self, path2 )
 
 			if ex1 and ex2
 			then
@@ -2518,13 +2510,7 @@ local Sync = ( function
 		self,
 		timestamp
 	)
-		log(
-			'Function',
-			'invokeActions( "',
-				self.config.name, '", ',
-				timestamp,
-			' )'
-		)
+		log( 'Function', 'invokeActions( "', self.config.name, '", ', timestamp, ' )' )
 
 		if self.processes:size( ) >= self.config.maxProcesses
 		then
@@ -2538,8 +2524,7 @@ local Sync = ( function
 			if uSettings.maxProcesses
 			and processCount >= uSettings.maxProcesses
 			then
-				log('Alarm', 'at global process limit.')
-
+				log( 'Alarm', 'at global process limit.' )
 				return
 			end
 
@@ -3995,8 +3980,6 @@ local lsyncdStatus = 'init'
 --
 runner = { }
 
-core.interface( runner )
-
 
 --
 -- Last time said to be waiting for more child processes
@@ -4034,6 +4017,10 @@ function runner.callError
 		level = level + 1
 	end
 end
+
+
+-- Registers the mantle with the core
+core.mantle( runner )
 
 
 --
@@ -4076,18 +4063,12 @@ function runner.cycle(
 	then
 		if processCount > 0
 		then
-			if
-				lastReportedWaiting == false or
-				timestamp >= lastReportedWaiting + 60
+			if lastReportedWaiting == false
+			or timestamp >= lastReportedWaiting + 60
 			then
 				lastReportedWaiting = timestamp
 
-				log(
-					'Normal',
-					'waiting for ',
-					processCount,
-					' more child processes.'
-				)
+				log( 'Normal', 'waiting for ', processCount, ' more child processes.' )
 			end
 
 			return true

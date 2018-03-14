@@ -545,9 +545,9 @@ pipe_tidy( struct observance * observance )
 | the lua runners function table in the lua registry.
 |
 | Its value is used to determined if the
-| luacode interface has registered itself already.
+| mantle has registered itself already.
 */
-static int runner = 0;
+static int mantle = 0;
 
 
 /*
@@ -849,7 +849,7 @@ user_obs_tidy( struct observance *obs )
 
 
 /*:::::::::::::::::::::::::::::::.
-::  Library calls for the runner
+::  Library calls for the mantle
 '::::::::::::::::::::::::::::::::*/
 
 
@@ -1196,45 +1196,41 @@ l_exec( lua_State *L )
 
 
 /*
-| Registers the luacode interface with the core.
+| Registers the luacode mantle with the core.
 |
 | Params on Lua stack:
-|    1: The luacode runner.
+|    1: The luacode mantle.
 |
 | Returns on Lua stack:
 |    nothing
 */
 static int
-l_interface( lua_State *L )
+l_mantle( lua_State *L )
 {
-	if( runner )
+	if( mantle )
 	{
 		logstring( "Error", "Luacode interface already registered!" );
 		exit( -1 );
 	}
 
-	runner = 1;
+	mantle = 1;
 
-	lua_pushlightuserdata( L, (void *) & runner );
+	lua_pushlightuserdata( L, (void *) &mantle );
 
-	// switches the value ( result of preparing ) and the key &runner
+	// switches the passed mantle as parameter and the key &mantle
 	lua_insert( L, 1 );
 
-	// saves the table of the runners functions in the lua registry
+	// saves the table of the mantle functions in the lua registry
 	lua_settable( L, LUA_REGISTRYINDEX );
 
 	// saves the error function extras
 
-	// &callError is the key
-	lua_pushlightuserdata ( L, (void *) &callError );
-
-	// &runner[ callError ] the value
-	lua_pushlightuserdata ( L, (void *) &runner );
-	lua_gettable( L, LUA_REGISTRYINDEX  );
+	lua_pushlightuserdata( L, (void *) &callError );
+	lua_pushlightuserdata( L, (void *) &mantle );
+	lua_gettable( L, LUA_REGISTRYINDEX );
 	lua_pushstring( L, "callError"  );
 	lua_gettable( L, -2 );
 	lua_remove( L, -2 );
-
 	lua_settable( L, LUA_REGISTRYINDEX );
 
 	if( lua_gettop( L ) )
@@ -1326,7 +1322,7 @@ l_stackdump( lua_State * L )
 	int i;
 	int top = lua_gettop( L );
 
-	printlogf( L, "Debug", "total in stack %d", top );
+	printlogf( L, "Debug", "total on stack %d", top );
 
 	for( i = 1; i <= top; i++ )
 	{
@@ -1500,7 +1496,7 @@ l_configure( lua_State *L )
 
 	if( !strcmp( command, "running" ) )
 	{
-		// set by runner after first initialize
+		// set by mantle after first initialize
 		// from this on log to configurated log end instead of
 		// stdout/stderr
 		first_time = false;
@@ -1713,8 +1709,8 @@ static const luaL_Reg corelib[] =
 {
 	{ "configure",      l_configure     },
 	{ "exec",           l_exec          },
-	{ "interface",      l_interface     },
 	{ "log",            l_log           },
+	{ "mantle",         l_mantle        },
 	{ "now",            l_now           },
 	{ "nonobserve_fd",  l_nonobserve_fd },
 	{ "observe_fd",     l_observe_fd    },
@@ -1890,7 +1886,7 @@ register_core( lua_State *L )
 
 
 /*
-| Pushes a function from the runner on the stack.
+| Pushes a function from the mantle on the stack.
 | As well as the callError handler.
 */
 extern void
@@ -1906,7 +1902,7 @@ load_mantle_func(
 	lua_gettable( L, LUA_REGISTRYINDEX );
 
 	// pushes the function
-	lua_pushlightuserdata( L, (void *) &runner );
+	lua_pushlightuserdata( L, (void *) &mantle );
 	lua_gettable( L, LUA_REGISTRYINDEX );
 	lua_pushstring( L, name );
 	lua_gettable( L, -2 );
@@ -1934,7 +1930,7 @@ masterloop(lua_State *L)
 		//     lua_gc( L, LUA_GCCOUNT, 0 ) * 1024 + lua_gc( L, LUA_GCCOUNTB, 0 ) );
 
 		//
-		// queries the runner about the soonest alarm
+		// queries the mantle about the soonest alarm
 		//
 		load_mantle_func( L, "getAlarm" );
 
@@ -2105,7 +2101,7 @@ masterloop(lua_State *L)
 			// no more zombies
 			if( pid <= 0 ) break;
 
-			// calls the runner to handle the collection
+			// calls the mantle to handle the collection
 			load_mantle_func( L, "collectProcess" );
 			lua_pushinteger( L, pid );
 			lua_pushinteger( L, WEXITSTATUS( status ) );
@@ -2141,7 +2137,7 @@ masterloop(lua_State *L)
 			term = 2;
 		}
 
-		// lets the runner do stuff every cycle,
+		// lets the mantle do stuff every cycle,
 		// like starting new processes, writing the statusfile etc.
 		load_mantle_func( L, "cycle" );
 
@@ -2185,6 +2181,7 @@ main1( int argc, char *argv[] )
 	L = luaL_newstate( );
 
 	luaL_openlibs( L );
+
 	{
 		// checks the lua version
 		const char * version;
@@ -2250,7 +2247,7 @@ main1( int argc, char *argv[] )
 		printf( "kernels clocks_per_sec=%ld\n", clocks_per_sec );
 	}
 
-	// loads the lsyncd runner
+	// loads the lsyncd mantle and defaults
 	if( luaL_loadbuffer( L, luacode_out, luacode_size, "luacode" ) )
 	{
 		printlogf( L, "Error", "error loading luacode: %s", lua_tostring( L, -1 ) );
@@ -2411,7 +2408,7 @@ main1( int argc, char *argv[] )
 		signal( SIGINT,  sig_handler );
 	}
 
-	// runs initializations from runner
+	// runs initializations from mantle
 	// it will set the configuration and add watches
 	{
 		load_mantle_func( L, "initialize" );

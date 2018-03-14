@@ -311,8 +311,6 @@ rsync.init = function
 
 	local inlet    = event.inlet
 
-	local excludes = inlet.getExcludes( )
-
 	local filters = inlet.hasFilters( ) and inlet.getFilters( )
 
 	local delete   = nil
@@ -335,9 +333,9 @@ rsync.init = function
 		delete = { '--delete', '--ignore-errors' }
 	end
 
-	if not filters and #excludes == 0
+	if not filters
 	then
-		-- starts rsync without any filters or excludes
+		-- starts rsync without any filters
 		log(
 			'Normal',
 			'recursive startup rsync: ',
@@ -349,34 +347,6 @@ rsync.init = function
 		spawn(
 			event,
 			config.rsync.binary,
-			delete,
-			config.rsync._computed,
-			'-r',
-			config.source,
-			target
-		)
-
-	elseif not filters
-	then
-		-- starts rsync providing an exclusion list
-		-- on stdin
-		local exS = table.concat( excludes, '\n' )
-
-		log(
-			'Normal',
-			'recursive startup rsync: ',
-			config.source,
-			' -> ',
-			target,
-			' excluding\n',
-			exS
-		)
-
-		spawn(
-			event,
-			config.rsync.binary,
-			'<', exS,
-			'--exclude-from=-',
 			delete,
 			config.rsync._computed,
 			'-r',
