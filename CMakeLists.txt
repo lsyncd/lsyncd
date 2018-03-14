@@ -35,6 +35,15 @@ include_directories("${PROJECT_BINARY_DIR}")
 # building and compiling the part of lsyncd written in Lua
 
 set( LUA_CODE
+	${PROJECT_SOURCE_DIR}/mantle/array.lua
+	${PROJECT_SOURCE_DIR}/mantle/counter.lua
+	${PROJECT_SOURCE_DIR}/mantle/queue.lua
+	${PROJECT_SOURCE_DIR}/mantle/lock.lua
+	${PROJECT_SOURCE_DIR}/mantle/delay.lua
+	${PROJECT_SOURCE_DIR}/mantle/inotify.lua
+	${PROJECT_SOURCE_DIR}/mantle/combiner.lua
+	${PROJECT_SOURCE_DIR}/mantle/inlet.lua
+	${PROJECT_SOURCE_DIR}/mantle/filter.lua
 	${PROJECT_SOURCE_DIR}/mantle/lsyncd.lua
 	${PROJECT_SOURCE_DIR}/mantle/wrapup.lua
 	${PROJECT_SOURCE_DIR}/default/default.lua

@@ -1,9 +1,11 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -- lsyncd.lua   Live (Mirror) Syncing Demon
 --
+--
 -- This is the "runner" part of Lsyncd. It containts all its high-level logic.
 -- It works closely together with the Lsyncd core in lsyncd.c. This means it
 -- cannot be runned directly from the standard lua interpreter.
+--
 --
 -- This code assumes your editor is at least 100 chars wide.
 --
@@ -15,15 +17,24 @@
 
 if mantle
 then
-	lsyncd.log( 'Error', 'Lsyncd mantle already loaded' )
-	lsyncd.terminate( -1 )
+	print( 'Error, Lsyncd mantle already loaded' )
+	os.exit( -1 )
 end
 
 
 --
--- Hides the core interface from user scripts.
+-- Safes mantle stuff wrapped away from user scripts
 --
 local core = core
+local lockGlobals = lockGlobals
+local Inotify = Inotify
+local Array = Array
+local Queue = Queue
+local Combiner = Combiner
+local Delay = Delay
+local InletFactory = InletFactory
+local Filter = Filter
+
 
 --
 -- Shortcuts (which user is supposed to be able to use them as well)
@@ -41,10 +52,6 @@ local log       = log
 local terminate = terminate
 local now       = now
 local readdir   = readdir
-
---
--- Predeclarations.
---
 local Monitors
 
 
@@ -79,7 +86,8 @@ local clSettings = { }
 --
 -- Settings specified by config scripts.
 --
-local uSettings = { }
+-- FIXME exported global!
+uSettings = { }
 
 
 --
@@ -93,1887 +101,6 @@ local settingsSafe
 --============================================================================
 -- Lsyncd Prototypes
 --============================================================================
-
-
---
--- Array tables error if accessed with a non-number.
---
-local Array = ( function
-( )
-	--
-	-- Metatable.
-	--
-	local mt = { }
-
-	--
-	-- On accessing a nil index.
-	--
-	mt.__index = function
-	(
-		t,  -- table accessed
-		k   -- key value accessed
-	)
-		if type(k) ~= 'number'
-		then
-			error( 'Key "'..k..'" invalid for Array', 2 )
-		end
-
-		return rawget( t, k )
-	end
-
-	--
-	-- On assigning a new index.
-	--
-	mt.__newindex = function
-	(
-		t,  -- table getting a new index assigned
-		k,  -- key value to assign to
-		v   -- value to assign
-	)
-		if type( k ) ~= 'number'
-		then
-			error( 'Key "'..k..'" invalid for Array', 2 )
-		end
-
-		rawset( t, k, v )
-	end
-
-	--
-	-- Creates a new object
-	--
-	local function new
-	( )
-		local o = { }
-
-		setmetatable( o, mt )
-
-		return o
-	end
-
-	--
-	-- Public interface
-	--
-	return { new = new }
-end )( )
-
-
---
--- Count array tables error if accessed with a non-number.
---
--- Additionally they maintain their length as 'size' attribute,
--- since Lua's # operator does not work on tables whose key values are not
--- strictly linear.
---
-local CountArray = ( function
-( )
-	--
-	-- Metatable
-	--
-	local mt = { }
-
-	--
-	-- Key to native table
-	--
-	local k_nt = { }
-
-	--
-	-- On accessing a nil index.
-	--
-	mt.__index = function
-	(
-		t,  -- table being accessed
-		k   -- key used to access
-	)
-		if type( k ) ~= 'number'
-		then
-			error( 'Key "' .. k .. '" invalid for CountArray', 2 )
-		end
-
-		return t[ k_nt ][ k ]
-	end
-
-	--
-	-- On assigning a new index.
-	--
-	mt.__newindex = function
-	(
-		t,  -- table getting a new index assigned
-		k,  -- key value to assign to
-		v   -- value to assign
-	)
-		if type( k ) ~= 'number'
-		then
-			error( 'Key "'..k..'" invalid for CountArray', 2 )
-		end
-
-		-- value before
-		local vb = t[ k_nt ][ k ]
-
-		if v and not vb
-		then
-			t._size = t._size + 1
-		elseif not v and vb
-		then
-			t._size = t._size - 1
-		end
-
-		t[ k_nt ][ k ] = v
-	end
-
-	--
-	-- Walks through all entries in any order.
-	--
-	local function walk
-	(
-		self  -- the count array
-	)
-		return pairs( self[ k_nt ] )
-	end
-
-	--
-	-- Returns the count.
-	--
-	local function size
-	(
-		self  -- the count array
-	)
-		return self._size
-	end
-
-	--
-	-- Creates a new count array
-	--
-	local function new
-	( )
-		-- k_nt is a native table, private to this object.
-		local o =
-		{
-			_size = 0,
-			walk = walk,
-			size = size,
-			[ k_nt ] = { }
-		}
-
-		setmetatable( o, mt )
-
-		return o
-	end
-
-	--
-	-- Public interface
-	--
-	return { new = new }
-end )( )
-
-
---
--- A queue is optimized for pushing and poping.
--- TODO: make this an object
---
-Queue = ( function
-( )
-	--
-	-- Metatable
-	--
-	local mt = { }
-
-
-	--
-	-- Key to native table
-	--
-	local k_nt = { }
-
-
-	--
-	-- On accessing a nil index.
-	--
-	mt.__index = function
-	(
-		t,  -- table being accessed
-		k   -- key used to access
-	)
-		if type( k ) ~= 'number'
-		then
-			error( 'Key "' .. k .. '" invalid for Queue', 2 )
-		end
-
-		return t[ k_nt ][ k ]
-	end
-
-
-	--
-	-- On assigning a new index.
-	--
-	mt.__newindex = function
-	(
-		t,  -- table getting a new index assigned
-		k,  -- key value to assign to
-		v   -- value to assign
-	)
-		error( 'Queues are not directly assignable.', 2 )
-	end
-
-	--
-	-- Returns the first item of the Queue.
-	--
-	local function first
-	(
-		self
-	)
-		local nt = self[ k_nt ]
-
-		return nt[ nt.first ]
-	end
-
-	--
-	-- Returns the last item of the Queue.
-	--
-	local function last
-	(
-		self
-	)
-		local nt = self[ k_nt ]
-
-		return nt[ nt.last ]
-	end
-
-	--
-	-- Returns the size of the queue.
-	--
-	local function size
-	(
-		self
-	)
-		return self[ k_nt ].size
-	end
-
-
-	--
-	-- Pushes a value on the queue.
-	-- Returns the last value
-	--
-	local function push
-	(
-		self,   -- queue to push to
-		value   -- value to push
-	)
-		if not value
-		then
-			error( 'Queue pushing nil value', 2 )
-		end
-
-		local nt = self[ k_nt ]
-
-		local last = nt.last + 1
-
-		nt.last = last
-
-		nt[ last ] = value
-
-		nt.size = nt.size + 1
-
-		return last
-	end
-
-
-	--
-	-- Removes an item at pos from the Queue.
-	--
-	local function remove
-	(
-		self,  -- the queue
-		pos    -- position to remove
-	)
-		local nt = self[ k_nt ]
-
-		if nt[ pos ] == nil
-		then
-			error( 'Removing nonexisting item in Queue', 2 )
-		end
-
-		nt[ pos ] = nil
-
-		-- if removing first or last element,
-		-- the queue limits are adjusted.
-		if pos == nt.first
-		then
-			local last = nt.last
-
-			while nt[ pos ] == nil and pos <= last
-			do
-				pos = pos + 1
-			end
-
-			nt.first = pos
-
-		elseif pos == nt.last
-		then
-			local first = nt.first
-
-			while nt[ pos ] == nil and pos >= first
-			do
-				pos = pos - 1
-			end
-
-			nt.last = pos
-		end
-
-		-- reset the indizies if the queue is empty
-		if nt.last < nt.first
-		then
-			nt.first = 1
-
-			nt.last = 0
-		end
-
-		nt.size = nt.size - 1
-	end
-
-	--
-	-- Replaces a value.
-	--
-	local function replace
-	(
-		self,  -- the queue
-		pos,   -- position to replace
-		value  -- the new entry
-	)
-		local nt = self[ k_nt ]
-
-		if nt[ pos ] == nil
-		then
-			error( 'Trying to replace an unset Queue entry.' )
-		end
-
-		nt[ pos ] = value
-	end
-
-	--
-	-- Queue iterator ( stateless )
-	-- TODO rename next
-	--
-	local function iter
-	(
-		self,  -- queue to iterate
-		pos    -- current position
-	)
-		local nt = self[ k_nt ]
-
-		pos = pos + 1
-
-		while nt[ pos ] == nil and pos <= nt.last
-		do
-			pos = pos + 1
-		end
-
-		if pos > nt.last
-		then
-			return nil
-		end
-
-		return pos, nt[ pos ]
-	end
-
-
-	--
-	-- Reverse queue iterator (stateless)
-	-- TODO rename prev
-	--
-	local function iterReverse
-	(
-		self,  -- queue to iterate
-		pos    -- current position
-	)
-		local nt = self[ k_nt ]
-
-		pos = pos - 1
-
-		while nt[ pos ] == nil and pos >= nt.first
-		do
-			pos = pos - 1
-		end
-
-		if pos < nt.first
-		then
-			return nil
-		end
-
-		return pos, nt[ pos ]
-	end
-
-
-	--
-	-- Iteraters through the queue
-	-- returning all non-nil pos-value entries.
-	--
-	local function qpairs
-	(
-		self
-	)
-		return iter, self, self[ k_nt ].first - 1
-	end
-
-
-	--
-	-- Iteraters backwards through the queue
-	-- returning all non-nil pos-value entries.
-	--
-	local function qpairsReverse
-	(
-		self
-	)
-		return iterReverse, self, self[ k_nt ].last + 1
-	end
-
-	--
-	-- Creates a new queue.
-	--
-	local function new
-	( )
-		local q = {
-			first = first,
-			last = last,
-			push = push,
-			qpairs = qpairs,
-			qpairsReverse = qpairsReverse,
-			remove = remove,
-			replace = replace,
-			size = size,
-
-			[ k_nt ] =
-			{
-				first = 1,
-				last  = 0,
-				size  = 0
-			}
-		}
-
-		setmetatable( q, mt )
-
-		return q
-	end
-
-	--
-	-- Public interface
-	--
-	return { new = new }
-end )( )
-
-
---
--- Locks globals.
---
--- No more globals can be created after this!
---
-local function lockGlobals
-( )
-	local t = _G
-
-	local mt = getmetatable( t ) or { }
-
-	-- TODO try to remove the underscore exceptions
-	mt.__index = function
-	(
-		t,  -- table being accessed
-		k   -- key used to access
-	)
-		if k ~= '_' and string.sub( k, 1, 2 ) ~= '__'
-		then
-			error( 'Access of non-existing global "' .. k ..'"', 2 )
-		else
-			rawget( t, k )
-		end
-	end
-
-	mt.__newindex = function
-	(
-		t,  -- table getting a new index assigned
-		k,  -- key value to assign to
-		v   -- value to assign
-	)
-		if k ~= '_' and string.sub( k, 1, 2 ) ~= '__'
-		then
-			error(
-				'Lsyncd does not allow GLOBALS to be created on the fly. '
-				.. 'Declare "' .. k.. '" local or declare global on load.',
-				2
-			)
-		else
-			rawset( t, k, v )
-		end
-	end
-
-	setmetatable( t, mt )
-end
-
-
---
--- Holds the information about a delayed event for one Sync.
---
--- Valid stati of an delay are:
---   'wait'    ... the event is ready to be handled.
---   'active'  ... there is process running catering for this event.
---   'blocked' ... this event waits for another to be handled first.
---
-local Delay = ( function
-( )
-	--
-	-- Metatable.
-	--
-	local mt = { }
-
-	--
-	-- Secret key to native table
-	--
-	local k_nt = { }
-
-	local assignAble =
-	{
-		dpos   = true,
-		etype  = true,
-		path   = true,
-		path2  = true,
-		status = true,
-	}
-
-	--
-	-- On accessing a nil index.
-	--
-	mt.__index = function
-	(
-		t,  -- table accessed
-		k   -- key value accessed
-	)
-		return t[ k_nt ][ k ]
-	end
-
-	--
-	-- On assigning a new index.
-	--
-	mt.__newindex = function
-	(
-		t,  -- table getting a new index assigned
-		k,  -- key value to assign to
-		v   -- value to assign
-	)
-		if not assignAble[ k ]
-		then
-			error( 'Cannot assign new key "' .. k .. '" to Delay' )
-		end
-
-		t[ k_nt ][ k ] = v
-	end
-
-	--
-	-- This delay is being blocked by another delay
-	--
-	local function blockedBy
-	(
-		self,  -- this delay
-		delay  -- the blocking delay
-	)
-		self[ k_nt ].status = 'block'
-
-		local blocks = delay[ k_nt ].blocks
-
-		if not blocks
-		then
-			blocks = { }
-
-			delay[ k_nt ].blocks = blocks
-		end
-
-		table.insert( blocks, self )
-	end
-
-
-	--
-	-- Sets the delay status to 'active'.
-	--
-	local function setActive
-	(
-		self
-	)
-		self[ k_nt ].status = 'active'
-	end
-
-	--
-	-- Sets the delay status to 'wait'
-	--
-	local function wait
-	(
-		self,   -- this delay
-		alarm   -- alarm for the delay
-	)
-		self[ k_nt ].status = 'wait'
-
-		self[ k_nt ].alarm = alarm
-	end
-
-	--
-	-- Creates a new delay.
-	--
-	local function new
-	(
-		etype,  -- type of event.
-		--         'Create', 'Modify', 'Attrib', 'Delete' or 'Move'
-		sync,   -- the Sync this delay belongs to
-		alarm,  -- latest point in time this should be catered for
-		path,   -- path and file-/dirname of the delay relative
-		--      -- to the syncs root.
-		path2   -- used only in moves, path and file-/dirname of
-		        -- move destination
-	)
-		local delay =
-			{
-				blockedBy = blockedBy,
-				setActive = setActive,
-				wait = wait,
-				[ k_nt ] =
-					{
-						etype = etype,
-						sync = sync,
-						alarm = alarm,
-						path = path,
-						path2  = path2,
-						status = 'wait'
-					},
-			}
-
-		setmetatable( delay, mt )
-
-		return delay
-	end
-
-	--
-	-- Public interface
-	--
-	return { new = new }
-end )( )
-
-
---
--- Combines delays.
---
-local Combiner = ( function
-( )
-	--
-	-- The new delay replaces the old one if it's a file
-	--
-	local function refi
-	(
-		d1, -- old delay
-		d2  -- new delay
-	)
-		-- but a directory blocks
-		if d2.path:byte( -1 ) == 47
-		then
-			log(
-				'Delay',
-				d2.etype,': ',d2.path,
-				' blocked by ',
-				d1.etype,': ',d1.path
-			)
-
-			return 'stack'
-		end
-
-		log(
-			'Delay',
-			d2.etype, ': ', d2.path,
-			' replaces ',
-			d1.etype, ': ', d1.path
-		)
-
-		return 'replace'
-	end
-
-	--
-	-- Table on how to combine events that dont involve a move.
-	--
-	local combineNoMove = {
-
-		Attrib = {
-			Attrib = 'absorb',
-			Modify = 'replace',
-			Create = 'replace',
-			Delete = 'replace'
-		},
-
-		Modify = {
-			Attrib = 'absorb',
-			Modify = 'absorb',
-			Create = 'replace',
-			Delete = 'replace'
-		},
-
-		Create = {
-			Attrib = 'absorb',
-			Modify = 'absorb',
-			Create = 'absorb',
-			Delete = 'replace'
-		},
-
-		Delete = {
-			Attrib = 'absorb',
-			Modify = 'absorb',
-			Create = 'replace file,block dir',
-			Delete = 'absorb'
-		},
-	}
-
-	--
-	-- Returns the way two Delay should be combined.
-	--
-	-- Result:
-	--    nil               -- They don't affect each other.
-	--    'stack'           -- Old Delay blocks new Delay.
-	--    'replace'         -- Old Delay is replaced by new Delay.
-	--    'absorb'          -- Old Delay absorbs new Delay.
-	--    'toDelete,stack'  -- Old Delay is turned into a Delete
-	--                         and blocks the new Delay.
-	--    'split'           -- New Delay a Move is to be split
-	--                         into a Create and Delete.
-	--
-	local function combine
-	(
-		d1, -- old delay
-		d2  -- new delay
-	)
-		if d1.etype == 'Init' or d1.etype == 'Blanket'
-		then
-			return 'stack'
-		end
-
-		-- two normal events
-		if d1.etype ~= 'Move' and d2.etype ~= 'Move'
-		then
-			if d1.path == d2.path
-			then
-				-- lookups up the function in the combination matrix
-				-- and calls it
-				local result = combineNoMove[ d1.etype ][ d2.etype ]
-
-				if result == 'replace file,block dir'
-				then
-					if d2.path:byte( -1 ) == 47
-					then
-						return 'stack'
-					else
-						return 'replace'
-					end
-				end
-			end
-
-			-- if one is a parent directory of another, events are blocking
-			if d1.path:byte( -1 ) == 47 and string.starts( d2.path, d1.path )
-			or d2.path:byte( -1 ) == 47 and string.starts( d1.path, d2.path )
-			then
-				return 'stack'
-			end
-
-			return nil
-		end
-
-		-- non-move event on a move.
-		if d1.etype == 'Move' and d2.etype ~= 'Move'
-		then
-			-- if the move source could be damaged the events are stacked
-			if d1.path == d2.path
-			or d2.path:byte( -1 ) == 47 and string.starts( d1.path, d2.path )
-			or d1.path:byte( -1 ) == 47 and string.starts( d2.path, d1.path )
-			then
-				return 'stack'
-			end
-
-			--  the event does something with the move destination
-
-			if d1.path2 == d2.path
-			then
-				if d2.etype == 'Delete'
-				or d2.etype == 'Create'
-				then
-					return 'toDelete,stack'
-				end
-
-				-- on 'Attrib' or 'Modify' simply stack on moves
-				return 'stack'
-			end
-
-			if d2.path:byte( -1 ) == 47 and string.starts( d1.path2, d2.path )
-			or d1.path2:byte( -1 ) == 47 and string.starts( d2.path,  d1.path2 )
-			then
-				return 'stack'
-			end
-
-			return nil
-		end
-
-		-- a move upon a non-move event
-		if d1.etype ~= 'Move' and d2.etype == 'Move'
-		then
-			if d1.path == d2.path
-			or d1.path == d2.path2
-			or d1.path:byte( -1 ) == 47 and string.starts( d2.path, d1.path )
-			or d1.path:byte( -1 ) == 47 and string.starts( d2.path2, d1.path )
-			or d2.path:byte( -1 ) == 47 and string.starts( d1.path, d2.path )
-			or d2.path2:byte( -1 ) == 47 and string.starts( d1.path,  d2.path2 )
-			then
-				return 'split'
-			end
-
-			return nil
-		end
-
-		--
-		-- a move event upon a move event
-		--
-		if d1.etype == 'Move' and d2.etype == 'Move'
-		then
-			-- TODO combine moves,
-			if d1.path  == d2.path
-			or d1.path  == d2.path2
-			or d1.path2 == d2.path
-			or d2.path2 == d2.path
-			or d1.path:byte( -1 ) == 47 and string.starts( d2.path,  d1.path )
-			or d1.path:byte( -1 ) == 47 and string.starts( d2.path2, d1.path )
-			or d1.path2:byte( -1 ) == 47 and string.starts( d2.path,  d1.path2 )
-			or d1.path2:byte( -1 ) == 47 and string.starts( d2.path2, d1.path2 )
-			or d2.path:byte( -1 ) == 47 and string.starts( d1.path,  d2.path )
-			or d2.path:byte( -1 ) == 47 and string.starts( d1.path2, d2.path )
-			or d2.path2:byte( -1 ) == 47 and string.starts( d1.path,  d2.path2 )
-			or d2.path2:byte( -1 ) == 47 and string.starts( d1.path2, d2.path2 )
-			then
-				return 'split'
-			end
-
-			return nil
-		end
-
-		error( 'reached impossible state' )
-	end
-
-
-	--
-	-- The new delay is absorbed by an older one.
-	--
-	local function logAbsorb
-	(
-		d1, -- old delay
-		d2  -- new delay
-	)
-		log(
-			'Delay',
-			d2.etype, ': ',d2.path,
-			' absorbed by ',
-			d1.etype,': ',d1.path
-		)
-	end
-
-	--
-	-- The new delay replaces the old one if it's a file.
-	--
-	local function logReplace
-	(
-		d1, -- old delay
-		d2  -- new delay
-	)
-		log(
-			'Delay',
-			d2.etype, ': ', d2.path,
-			' replaces ',
-			d1.etype, ': ', d1.path
-		)
-	end
-
-
-	--
-	-- The new delay splits on the old one.
-	--
-	local function logSplit
-	(
-		d1, -- old delay
-		d2  -- new delay
-	)
-		log(
-			'Delay',
-			d2.etype, ': ',
-			d2.path, ' -> ', d2.path2,
-			' splits on ',
-			d1.etype, ': ', d1.path
-		)
-	end
-
-	--
-	-- The new delay is blocked by the old delay.
-	--
-	local function logStack
-	(
-		d1, -- old delay
-		d2  -- new delay
-	)
-		local active = ''
-
-		if d1.active
-		then
-			active = 'active '
-		end
-
-		if d2.path2
-		then
-			log(
-				'Delay',
-				d2.etype, ': ',
-				d2.path, '->', d2.path2,
-				' blocked by ',
-				active,
-				d1.etype, ': ', d1.path
-			)
-		else
-			log(
-				'Delay',
-				d2.etype, ': ', d2.path,
-				' blocked by ',
-				active,
-				d1.etype, ': ', d1.path
-			)
-		end
-	end
-
-
-	--
-	-- The new delay turns the old one (a move) into a delete and is blocked.
-	--
-	local function logToDeleteStack
-	(
-		d1, -- old delay
-		d2  -- new delay
-	)
-		if d1.path2
-		then
-			log(
-				'Delay',
-				d2.etype, ': ', d2.path,
-				' turns ',
-			    d1.etype, ': ', d1.path, ' -> ', d1.path2,
-				' into Delete: ', d1.path
-			)
-		else
-			log(
-				'Delay',
-				d2.etype, ': ', d2.path,
-				' turns ',
-			    d1.etype, ': ', d1.path,
-				' into Delete: ', d1.path
-			)
-		end
-	end
-
-
-	local logFuncs =
-	{
-		absorb               = logAbsorb,
-		replace              = logReplace,
-		split                = logSplit,
-		stack                = logStack,
-		[ 'toDelete,stack' ] = logToDeleteStack
-	}
-
-
-	--
-	-- Prints the log message for a combination result
-	--
-	local function log
-	(
-		result, -- the combination result
-		d1,     -- old delay
-		d2      -- new delay
-	)
-		local lf = logFuncs[ result ]
-
-		if not lf
-		then
-			error( 'unknown combination result: ' .. result )
-		end
-
-		lf( d1, d2 )
-	end
-
-	--
-	-- Public interface
-	--
-	return
-	{
-		combine = combine,
-		log = log
-	}
-
-end )( )
-
-
---
--- Creates inlets for syncs: the user interface for events.
---
-local InletFactory = ( function
-( )
-	--
-	-- Table to receive the delay of an event
-	-- or the delay list of an event list.
-	--
-	-- Keys are events and values are delays.
-	--
-	local e2d = { }
-
-	--
-	-- Table to ensure the uniqueness of every event
-	-- related to a delay.
-	--
-	-- Keys are delay and values are events.
-	--
-	local e2d2 = { }
-
-	--
-	-- Allows the garbage collector to remove not refrenced
-	-- events.
-	--
-	setmetatable( e2d,  { __mode = 'k' } )
-	setmetatable( e2d2, { __mode = 'v' } )
-
-	--
-	-- Removes the trailing slash from a path.
-	--
-	local function cutSlash
-	(
-		path -- path to cut
-	)
-		if string.byte( path, -1 ) == 47
-		then
-			return string.sub( path, 1, -2 )
-		else
-			return path
-		end
-	end
-
-	--
-	-- Gets the path of an event.
-	--
-	local function getPath
-	(
-		event
-	)
-		if event.move ~= 'To'
-		then
-			return e2d[ event ].path
-		else
-			return e2d[ event ].path2
-		end
-	end
-
-	--
-	-- Interface for user scripts to get event fields.
-	--
-	local eventFields = {
-
-		--
-		-- Returns a copy of the configuration as called by sync.
-		-- But including all inherited data and default values.
-		--
-		-- TODO give user a readonly version.
-		--
-		config = function
-		(
-			event
-		)
-			return e2d[ event ].sync.config
-		end,
-
-		--
-		-- Returns the inlet belonging to an event.
-		--
-		inlet = function
-		(
-			event
-		)
-			return e2d[ event ].sync.inlet
-		end,
-
-		--
-		-- Returns the type of the event.
-		--
-		-- Can be: 'Attrib', 'Create', 'Delete', 'Modify' or 'Move',
-		--
-		etype = function
-		(
-			event
-		)
-			return e2d[ event ].etype
-		end,
-
-		--
-		-- Events are not lists.
-		--
-		isList = function
-		( )
-			return false
-		end,
-
-		--
-		-- Returns the status of the event.
-		--
-		-- Can be:
-		--    'wait', 'active', 'block'.
-		--
-		status = function
-		(
-			event
-		)
-			return e2d[ event ].status
-		end,
-
-		--
-		-- Returns true if event relates to a directory
-		--
-		isdir = function
-		(
-			event
-		)
-			return string.byte( getPath( event ), -1 ) == 47
-		end,
-
-		--
-		-- Returns the name of the file/dir.
-		--
-		-- Includes a trailing slash for dirs.
-		--
-		name = function
-		(
-			event
-		)
-			return string.match( getPath( event ), '[^/]+/?$' )
-		end,
-
-		--
-		-- Returns the name of the file/dir
-		-- excluding a trailing slash for dirs.
-		--
-		basename = function
-		(
-			event
-		)
-			return string.match( getPath( event ), '([^/]+)/?$')
-		end,
-
-		--
-		-- Returns the file/dir relative to watch root
-		-- including a trailing slash for dirs.
-		--
-		path = function
-		(
-			event
-		)
-			local p = getPath( event )
-
-			if string.byte( p, 1 ) == 47
-			then
-				p = string.sub( p, 2, -1 )
-			end
-
-			return p
-		end,
-
-		--
-		-- Returns the directory of the file/dir relative to watch root
-		-- Always includes a trailing slash.
-		--
-		pathdir = function
-		(
-			event
-		)
-			local p = getPath( event )
-
-			if string.byte( p, 1 ) == 47
-			then
-				p = string.sub( p, 2, -1 )
-			end
-
-			return string.match( p, '^(.*/)[^/]+/?' ) or ''
-		end,
-
-		--
-		-- Returns the file/dir relativ to watch root
-		-- excluding a trailing slash for dirs.
-		--
-		pathname = function
-		(
-			event
-		)
-			local p = getPath( event )
-
-			if string.byte( p, 1 ) == 47
-			then
-				p = string.sub( p, 2, -1 )
-			end
-
-			return cutSlash( p )
-		end,
-
-		--
-		-- Returns the absolute path of the watch root.
-		-- All symlinks are resolved.
-		--
-		source = function
-		(
-			event
-		)
-			return e2d[ event ].sync.source
-		end,
-
-		--
-		-- Returns the absolute path of the file/dir
-		-- including a trailing slash for dirs.
-		--
-		sourcePath = function
-		(
-			event
-		)
-			return e2d[ event ].sync.source .. getPath( event )
-		end,
-
-		--
-		-- Returns the absolute dir of the file/dir
-		-- including a trailing slash.
-		--
-		sourcePathdir = function
-		(
-			event
-		)
-			return(
-				e2d[event].sync.source
-				.. (
-					string.match( getPath( event ), '^(.*/)[^/]+/?' )
-					or ''
-				)
-			)
-		end,
-
-		--
-		-- Returns the absolute path of the file/dir
-		-- excluding a trailing slash for dirs.
-		--
-		sourcePathname = function
-		(
-			event
-		)
-			return e2d[ event ].sync.source .. cutSlash( getPath( event ) )
-		end,
-
-		--
-		-- Returns the configured target.
-		--
-		target = function
-		(
-			event
-		)
-			return e2d[ event ].sync.config.target
-		end,
-
-		--
-		-- Returns the relative dir/file appended to the target
-		-- including a trailing slash for dirs.
-		--
-		targetPath = function
-		(
-			event
-		)
-			return e2d[ event ].sync.config.target .. getPath( event )
-		end,
-
-		--
-		-- Returns the dir of the dir/file appended to the target
-		-- including a trailing slash.
-		--
-		targetPathdir = function
-		(
-			event
-		)
-			return(
-				e2d[ event ].sync.config.target
-				.. (
-					string.match( getPath( event ), '^(.*/)[^/]+/?' )
-					or ''
-				)
-			)
-		end,
-
-		--
-		-- Returns the relative dir/file appended to the target
-		-- excluding a trailing slash for dirs.
-		--
-		targetPathname = function( event )
-			return(
-				e2d[ event ].sync.config.target
-				.. cutSlash( getPath( event ) )
-			)
-		end,
-	}
-
-	--
-	-- Retrievs event fields for the user script.
-	--
-	local eventMeta =
-	{
-		__index = function
-		(
-			event,
-			field
-		)
-			local f = eventFields[ field ]
-
-			if not f
-			then
-				if field == 'move'
-				then
-					-- possibly undefined
-					return nil
-				end
-
-				error( 'event does not have field "' .. field .. '"', 2 )
-			end
-
-			return f( event )
-		end
-	}
-
-	--
-	-- Interface for user scripts to get list fields.
-	--
-	local eventListFuncs =
-	{
-		--
-		-- Returns a list of paths of all events in list.
-		--
-		--
-		getPaths = function
-		(
-			elist,   -- handle returned by getevents( )
-			mutator  -- if not nil called with ( etype, path, path2 )
-			--          returns one or two strings to add.
-		)
-			local dlist = e2d[ elist ]
-
-			if not dlist
-			then
-				error( 'cannot find delay list from event list.' )
-			end
-
-			local result  = { }
-			local resultn = 1
-
-			for k, d in ipairs( dlist )
-			do
-				local s1, s2
-
-				if mutator
-				then
-					s1, s2 = mutator( d.etype, d.path, d.path2 )
-				else
-					s1, s2 = d.path, d.path2
-				end
-
-				result[ resultn ] = s1
-
-				resultn = resultn + 1
-
-				if s2
-				then
-					result[ resultn ] = s2
-
-					resultn = resultn + 1
-				end
-			end
-
-			return result
-
-		end
-	}
-
-	--
-	-- Retrievs event list fields for the user script
-	--
-	local eventListMeta =
-	{
-		__index = function
-		(
-			elist,
-			func
-		)
-			if func == 'isList'
-			then
-				return true
-			end
-
-			if func == 'config'
-			then
-				return e2d[ elist ].sync.config
-			end
-
-			local f = eventListFuncs[ func ]
-
-			if not f
-			then
-				error(
-					'event list does not have function "' .. func .. '"',
-					2
-				)
-			end
-
-			return function
-			( ... )
-				return f( elist, ... )
-			end
-		end
-	}
-
-	--
-	-- Table of all inlets with their syncs.
-	--
-	local inlets = { }
-
-	--
-	-- Allows the garbage collector to remove entries.
-	--
-	setmetatable( inlets, { __mode = 'v' } )
-
-	--
-	-- Encapsulates a delay into an event for the user script.
-	--
-	local function d2e
-	(
-		delay  -- delay to encapsulate
-	)
-		-- already created?
-		local eu = e2d2[ delay ]
-
-		if delay.etype ~= 'Move'
-		then
-			if eu then return eu end
-
-			local event = { }
-
-			setmetatable( event, eventMeta )
-
-			e2d[ event ]  = delay
-
-			e2d2[ delay ] = event
-
-			return event
-		else
-			-- moves have 2 events - origin and destination
-			if eu then return eu[1], eu[2] end
-
-			local event  = { move = 'Fr' }
-			local event2 = { move = 'To' }
-
-			setmetatable( event, eventMeta )
-			setmetatable( event2, eventMeta )
-
-			e2d[ event ]  = delay
-			e2d[ event2 ] = delay
-
-			e2d2[ delay ] = { event, event2 }
-
-			-- move events have a field 'move'
-			return event, event2
-		end
-	end
-
-	--
-	-- Encapsulates a delay list into an event list for the user script.
-	--
-	local function dl2el
-	(
-		dlist
-	)
-		local eu = e2d2[ dlist ]
-
-		if eu then return eu end
-
-		local elist = { }
-
-		setmetatable( elist, eventListMeta )
-
-		e2d [ elist ] = dlist
-
-		e2d2[ dlist ] = elist
-
-		return elist
-	end
-
-	--
-	-- The functions the inlet provides.
-	--
-	local inletFuncs =
-	{
-		--
-		-- Appens a filter.
-		--
-		appendFilter = function
-		(
-			sync,   -- the sync of the inlet
-			rule,   -- '+' or '-'
-			pattern -- exlusion pattern to add
-		)
-			sync:appendFilter( rule, pattern )
-		end,
-
-		--
-		-- Gets the list of filters and excldues
-		-- as rsync-like filter/patterns form.
-		--
-		getFilters = function
-		(
-			sync -- the sync of the inlet
-		)
-			-- creates a copy
-			local e = { }
-			local en = 1;
-
-			if sync.filters
-			then
-				for _, entry in ipairs( sync.filters.list )
-				do
-					e[ en ] = entry.rule .. ' ' .. entry.pattern;
-					en = en + 1;
-				end
-			end
-
-			return e;
-		end,
-
-		--
-		-- Returns true if the sync has filters
-		--
-		hasFilters = function
-		(
-			sync -- the sync of the inlet
-		)
-			return not not sync.filters
-		end,
-
-		--
-		-- Creates a blanketEvent that blocks everything
-		-- and is blocked by everything.
-		--
-		createBlanketEvent = function
-		(
-			sync -- the sync of the inlet
-		)
-			return d2e( sync:addBlanketDelay( ) )
-		end,
-
-		--
-		-- Discards a waiting event.
-		--
-		discardEvent = function
-		(
-			sync,
-			event
-		)
-			local delay = e2d[ event ]
-
-			if delay.status ~= 'wait'
-			then
-				log(
-					'Error',
-					'Ignored cancel of a non-waiting event of type ',
-					event.etype
-				)
-
-				return
-			end
-
-			sync:removeDelay( delay )
-		end,
-
-		--
-		-- Gets the next not blocked event from queue.
-		--
-		getEvent = function
-		(
-			sync
-		)
-			return d2e( sync:getNextDelay( now( ) ) )
-		end,
-
-		--
-		-- Gets all events that are not blocked by active events.
-		--
-		getEvents = function
-		(
-			sync, -- the sync of the inlet
-			test  -- if not nil use this function to test if to include an event
-		)
-			local dlist = sync:getDelays( test )
-
-			return dl2el( dlist )
-		end,
-
-		--
-		-- Returns the configuration table specified by sync{ }
-		--
-		getConfig = function( sync )
-			-- TODO give a readonly handler only.
-			return sync.config
-		end,
-	}
-
-	--
-	-- Forwards access to inlet functions.
-	--
-	local inletMeta =
-	{
-		__index = function
-		(
-			inlet,
-			func
-		)
-			local f = inletFuncs[ func ]
-
-			if not f
-			then
-				error( 'inlet does not have function "'..func..'"', 2 )
-			end
-
-			return function( ... )
-				return f( inlets[ inlet ], ... )
-			end
-		end,
-	}
-
-	--
-	-- Creates a new inlet for a sync.
-	--
-	local function newInlet
-	(
-		sync  -- the sync to create the inlet for
-	)
-		-- Lsyncd runner controlled variables
-		local inlet = { }
-
-		-- sets use access methods
-		setmetatable( inlet, inletMeta )
-
-		inlets[ inlet ] = sync
-
-		return inlet
-	end
-
-	--
-	-- Returns the delay from a event.
-	--
-	local function getDelayOrList
-	(
-		event
-	)
-		return e2d[ event ]
-	end
-
-	--
-	-- Returns the sync from an event or list
-	--
-	local function getSync
-	(
-		event
-	)
-		return e2d[ event ].sync
-	end
-
-	--
-	-- Public interface.
-	--
-	return {
-		getDelayOrList = getDelayOrList,
-		d2e            = d2e,
-		dl2el          = dl2el,
-		getSync        = getSync,
-		newInlet       = newInlet,
-	}
-end )( )
-
-
---
--- A set of filter patterns.
---
--- Filters allow excludes and includes
---
-local Filters = ( function
-( )
-	--
-	-- Turns a rsync like file pattern to a lua pattern.
-	-- ( at best it can )
-	--
-	local function toLuaPattern
-	(
-		p  --  the rsync like pattern
-	)
-		local o = p
-
-		p = string.gsub( p, '%%', '%%%%'  )
-		p = string.gsub( p, '%^', '%%^'   )
-		p = string.gsub( p, '%$', '%%$'   )
-		p = string.gsub( p, '%(', '%%('   )
-		p = string.gsub( p, '%)', '%%)'   )
-		p = string.gsub( p, '%.', '%%.'   )
-		p = string.gsub( p, '%[', '%%['   )
-		p = string.gsub( p, '%]', '%%]'   )
-		p = string.gsub( p, '%+', '%%+'   )
-		p = string.gsub( p, '%-', '%%-'   )
-		p = string.gsub( p, '%?', '[^/]'  )
-		p = string.gsub( p, '%*', '[^/]*' )
-		-- this was a ** before
-		p = string.gsub( p, '%[%^/%]%*%[%^/%]%*', '.*' )
-		p = string.gsub( p, '^/', '^/'    )
-
-		if p:sub( 1, 2 ) ~= '^/'
-		then
-			-- if does not begin with '^/'
-			-- then all matches should begin with '/'.
-			p = '/' .. p;
-		end
-
-		log( 'Filter', 'toLuaPattern "', o, '" = "', p, '"' )
-
-		return p
-	end
-
-	--
-	-- Appends a filter pattern
-	--
-	local function append
-	(
-		self,    -- the filters object
-		line     -- filter line
-	)
-		local rule, pattern = string.match( line, '%s*([+|-])%s*(.*)' )
-
-		if not rule or not pattern
-		then
-			log( 'Error', 'Unknown filter rule: "', line, '"' )
-			terminate( -1 )
-		end
-
-		local lp = toLuaPattern( pattern )
-
-		table.insert( self. list, { rule = rule, pattern = pattern, lp = lp } )
-	end
-
-	--
-	-- Adds a list of patterns to filter.
-	--
-	local function appendList
-	(
-		self,
-		plist
-	)
-		for _, v in ipairs( plist )
-		do
-			append( self, v )
-		end
-	end
-
-	--
-	-- Loads the filters from a file.
-	--
-	local function loadFile
-	(
-		self,  -- self
-		file   -- filename to load from
-	)
-		f, err = io.open( file )
-
-		if not f
-		then
-			log( 'Error', 'Cannot open filter file "', file, '": ', err )
-
-			terminate( -1 )
-		end
-
-	    for line in f:lines( )
-		do
-			if string.match( line, '^%s*#' )
-			or string.match( line, '^%s*$' )
-			then
-				-- a comment or empty line: ignore
-			else
-				append( self, line )
-			end
-		end
-
-		f:close( )
-	end
-
-	--
-	-- Tests if 'path' is filtered.
-	-- Returns false if it is to be filtered.
-	--
-	local function test
-	(
-		self,  -- self
-		path   -- the path to test
-	)
-		if path:byte( 1 ) ~= 47
-		then
-			error( 'Paths for filter tests must start with \'/\'' )
-		end
-
-		for _, entry in ipairs( self.list )
-		do
-			local rule = entry.rule
-			local lp = entry.lp -- lua pattern
-
-			if lp:byte( -1 ) == 36
-			then
-				-- ends with $
-				if path:match( lp )
-				then
-					return rule == '+'
-				end
-			else
-				-- ends either end with / or $
-				if path:match( lp .. '/' )
-				or path:match( lp .. '$' )
-				then
-					return rule == '+'
-				end
-			end
-		end
-
-		return true
-	end
-
-	--
-	-- Cretes a new filter set.
-	--
-	local function new
-	( )
-		return {
-			list = { },
-			-- functions
-			append     = append,
-			appendList = appendList,
-			loadFile   = loadFile,
-			test       = test,
-		}
-	end
-
-
-	--
-	-- Public interface.
-	--
-	return { new = new }
-
-end )( )
-
 
 
 --
@@ -2321,7 +448,7 @@ local Sync = ( function
 				' event.'
 			)
 
-			if self.delays:size( ) > 0
+			if #self.delays > 0
 			then
 				stack( self.delays:last( ), nd )
 			end
@@ -2423,21 +550,18 @@ local Sync = ( function
 	(
 		self
 	)
-		if self.processes:size( ) >= self.config.maxProcesses
+		if #self.processes >= self.config.maxProcesses
 		then
 			return false
 		end
 
 		-- first checks if more processes could be spawned
-		if self.processes:size( ) < self.config.maxProcesses
-		then
-			-- finds the nearest delay waiting to be spawned
-			for _, d in self.delays:qpairs( )
-			do
-				if d.status == 'wait'
-				then
-					return d.alarm
-				end
+		-- finds the nearest delay waiting to be spawned
+		for _, d in self.delays:qpairs( )
+		do
+			if d.status == 'wait'
+			then
+				return d.alarm
 			end
 		end
 
@@ -2512,7 +636,7 @@ local Sync = ( function
 	)
 		log( 'Function', 'invokeActions( "', self.config.name, '", ', timestamp, ' )' )
 
-		if self.processes:size( ) >= self.config.maxProcesses
+		if #self.processes >= self.config.maxProcesses
 		then
 			-- no new processes
 			return
@@ -2528,7 +652,7 @@ local Sync = ( function
 				return
 			end
 
-			if self.delays:size( ) < self.config.maxDelays
+			if #self.delays < self.config.maxDelays
 			then
 				-- time constrains are only concerned if not maxed
 				-- the delay FIFO already.
@@ -2549,7 +673,7 @@ local Sync = ( function
 					self.config.init( InletFactory.d2e( d ) )
 				end
 
-				if self.processes:size( ) >= self.config.maxProcesses
+				if #self.processes >= self.config.maxProcesses
 				then
 					-- no further processes
 					return
@@ -2568,7 +692,7 @@ local Sync = ( function
 	)
 		for i, d in self.delays:qpairs( )
 		do
-			if self.delays:size( ) < self.config.maxDelays
+			if #self.delays < self.config.maxDelays
 			then
 				-- time constrains are only concerned if not maxed
 				-- the delay FIFO already.
@@ -2629,7 +753,7 @@ local Sync = ( function
 
 		f:write( self.config.name, ' source=', self.source, '\n' )
 
-		f:write( 'There are ', self.delays:size( ), ' delays\n')
+		f:write( 'There are ', #self.delays, ' delays\n')
 
 		for i, vd in self.delays:qpairs( )
 		do
@@ -2683,7 +807,7 @@ local Sync = ( function
 			config = config,
 			delays = Queue.new( ),
 			source = config.source,
-			processes = CountArray.new( ),
+			processes = Counter.new( ),
 			filters = nil,
 
 			-- functions
@@ -2762,18 +886,31 @@ end )( )
 --
 -- Syncs maintains all configured syncs.
 --
-local Syncs = ( function
+Syncs = ( function
 ( )
+	--
+	-- Metatable.
+	--
+	local mt = { }
+
 	--
 	-- the list of all syncs
 	--
-	local syncsList = Array.new( )
+	local syncList = Array.new( )
 
 	--
-	-- The round robin pointer. In case of global limited maxProcesses
+	-- Returns the number of syncs.
+	--
+	mt.__len = function
+	( )
+		return #syncList
+	end
+
+	--
+	-- The round robin counter. In case of global limited maxProcesses
 	-- gives every sync equal chances to spawn the next process.
 	--
-	local round = 1
+	local round = 0
 
 	--
 	-- The cycle( ) sheduler goes into the next round of roundrobin.
@@ -2782,10 +919,7 @@ local Syncs = ( function
 	( )
 		round = round + 1;
 
-		if round > #syncsList
-		then
-			round = 1
-		end
+		if round >= #syncList then round = 0 end
 
 		return round
 	end
@@ -2803,7 +937,7 @@ local Syncs = ( function
 	--
 	local function get
 	( i )
-		return syncsList[ i ];
+		return syncList[ i ];
 	end
 
 	--
@@ -2909,7 +1043,7 @@ local Syncs = ( function
 		config
 	)
 		-- Checks if user overwrote the settings function.
-		-- ( was Lsyncd <2.1 style )
+		-- ( was Lsyncd < 2.1 style )
 		if settings ~= settingsSafe
 		then
 			log(
@@ -2934,7 +1068,8 @@ local Syncs = ( function
 		--
 		inherit( config, default )
 
-		local inheritSettings = {
+		local inheritSettings =
+		{
 			'delay',
 			'maxDelays',
 			'maxProcesses'
@@ -2988,12 +1123,7 @@ local Syncs = ( function
 
 		if not realsrc
 		then
-			log(
-				'Error',
-				'Cannot access source directory: ',
-				config.source
-			)
-
+			log( 'Error', 'Cannot access source directory: ', config.source )
 			terminate( -1 )
 		end
 
@@ -3009,21 +1139,16 @@ local Syncs = ( function
 		then
 			local info = debug.getinfo( 3, 'Sl' )
 
-			log(
-				'Error',
-				info.short_src, ':',
-				info.currentline,
-				': no actions specified.'
-			)
+			log( 'Error', info.short_src, ':', info.currentline, ': no actions specified.' )
 
 			terminate( -1 )
 		end
 
 		-- the monitor to use
 		config.monitor =
-			uSettings.monitor or
-			config.monitor or
-			Monitors.default( )
+			uSettings.monitor
+			or config.monitor
+			or Monitors.default( )
 
 		if config.monitor ~= 'inotify'
 		then
@@ -3031,11 +1156,8 @@ local Syncs = ( function
 
 			log(
 				'Error',
-				info.short_src, ':',
-				info.currentline,
-				': event monitor "',
-				config.monitor,
-				'" unknown.'
+				info.short_src, ':', info.currentline,
+				': event monitor "', config.monitor, '" unknown.'
 			)
 
 			terminate( -1 )
@@ -3044,7 +1166,7 @@ local Syncs = ( function
 		-- creates the new sync
 		local s = Sync.new( config )
 
-		table.insert( syncsList, s )
+		syncList:push( s )
 
 		return s
 	end
@@ -3054,15 +1176,7 @@ local Syncs = ( function
 	--
 	local function iwalk
 	( )
-		return ipairs( syncsList )
-	end
-
-	--
-	-- Returns the number of syncs.
-	--
-	local size = function
-	( )
-		return #syncsList
+		return ipairs( syncList )
 	end
 
 	--
@@ -3072,7 +1186,7 @@ local Syncs = ( function
 	(
 		path
 	)
-		for _, s in ipairs( syncsList )
+		for _, s in ipairs( syncList )
 		do
 			if s:concerns( path )
 			then
@@ -3086,345 +1200,20 @@ local Syncs = ( function
 	--
 	-- Public interface
 	--
-	return {
+	local intf =
+	{
 		add = add,
 		get = get,
 		getRound = getRound,
 		concerns = concerns,
 		iwalk = iwalk,
-		nextRound = nextRound,
-		size = size
+		nextRound = nextRound
 	}
+
+	setmetatable( intf, mt )
+
+	return intf
 end )( )
-
-
---
--- Utility function,
--- Returns the relative part of absolute path if it
--- begins with root
---
-local function splitPath
-(
-	path,
-	root
-)
-	local rlen = #root
-
-	local sp = string.sub( path, 1, rlen )
-
-	if sp == root
-	then
-		return string.sub( path, rlen, -1 )
-	else
-		return nil
-	end
-end
-
---
--- Interface to inotify.
---
--- watches recursively subdirs and sends events.
---
--- All inotify specific implementation is enclosed here.
---
-local Inotify = ( function
-( )
-	--
-	-- A list indexed by inotify watch descriptors yielding
-	-- the directories absolute paths.
-	--
-	local wdpaths = CountArray.new( )
-
-	--
-	-- The same vice versa,
-	-- all watch descriptors by their absolute paths.
-	--
-	local pathwds = { }
-
-	--
-	-- A list indexed by syncs containing yielding
-	-- the root paths the syncs are interested in.
-	--
-	local syncRoots = { }
-
-	--
-	-- Stops watching a directory
-	--
-	local function removeWatch
-	(
-		path,  -- absolute path to unwatch
-		core   -- if false not actually send the unwatch to the kernel
-		--        ( used in moves which reuse the watch )
-	)
-		local wd = pathwds[ path ]
-
-		if not wd then return end
-
-		if core then core.inotify.rmwatch( wd ) end
-
-		wdpaths[ wd   ] = nil
-		pathwds[ path ] = nil
-	end
-
-
-	--
-	-- Adds watches for a directory (optionally) including all subdirectories.
-	--
-	--
-	local function addWatch
-	(
-		path  -- absolute path of directory to observe
-	)
-		log( 'Function', 'Inotify.addWatch( ', path, ' )' )
-
-		if not Syncs.concerns( path )
-		then
-			log('Inotify', 'not concerning "', path, '"')
-
-			return
-		end
-
-		-- registers the watch
-		local inotifyMode = ( uSettings and uSettings.inotifyMode ) or '';
-
-		local wd = core.inotify.addwatch( path, inotifyMode ) ;
-
-		if wd < 0
-		then
-			log( 'Inotify','Unable to add watch "', path, '"' )
-
-			return
-		end
-
-		do
-			-- If this watch descriptor is registered already
-			-- the kernel reuses it since the old dir is gone.
-			local op = wdpaths[ wd ]
-
-			if op and op ~= path
-			then
-				pathwds[ op ] = nil
-			end
-		end
-
-		pathwds[ path ] = wd
-
-		wdpaths[ wd   ] = path
-
-		-- registers and adds watches for all subdirectories
-		local entries = core.readdir( path )
-
-		if not entries
-		then
-			return
-		end
-
-		for dirname, isdir in pairs( entries )
-		do
-			if isdir
-			then
-				addWatch( path .. dirname .. '/' )
-			end
-		end
-	end
-
-	--
-	-- Adds a Sync to receive events.
-	--
-	local function addSync
-	(
-		sync,     -- object to receive events.
-		rootdir   -- root dir to watch
-	)
-		if syncRoots[ sync ]
-		then
-			error( 'duplicate sync in Inotify.addSync()' )
-		end
-
-		syncRoots[ sync ] = rootdir
-
-		addWatch( rootdir )
-	end
-
-	--
-	-- Called when an event has occured.
-	--
-	local function event
-	(
-		etype,     -- 'Attrib', 'Modify', 'Create', 'Delete', 'Move'
-		wd,        --  watch descriptor, matches core.inotifyadd()
-		isdir,     --  true if filename is a directory
-		time,      --  time of event
-		filename,  --  string filename without path
-		wd2,       --  watch descriptor for target if it's a Move
-		filename2  --  string filename without path of Move target
-	)
-		if isdir
-		then
-			filename = filename .. '/'
-
-			if filename2
-			then
-				filename2 = filename2 .. '/'
-			end
-		end
-
-		if filename2
-		then
-			log(
-				'Inotify',
-				'got event ',
-				etype,
-				' ',
-				filename,
-				'(', wd, ') to ',
-				filename2,
-				'(', wd2 ,')'
-			)
-		else
-			log(
-				'Inotify',
-				'got event ',
-				etype,
-				' ',
-				filename,
-				'(', wd, ')'
-			)
-		end
-
-		-- looks up the watch descriptor id
-		local path = wdpaths[ wd ]
-
-		if path
-		then
-			path = path..filename
-		end
-
-		local path2 = wd2 and wdpaths[ wd2 ]
-
-		if path2 and filename2
-		then
-			path2 = path2..filename2
-		end
-
-		if not path and path2 and etype == 'Move'
-		then
-			log(
-				'Inotify',
-				'Move from deleted directory ',
-				path2,
-				' becomes Create.'
-			)
-
-			path  = path2
-
-			path2 = nil
-
-			etype = 'Create'
-		end
-
-		if not path
-		then
-			-- this is normal in case of deleted subdirs
-			log(
-				'Inotify',
-				'event belongs to unknown watch descriptor.'
-			)
-
-			return
-		end
-
-		for sync, root in pairs( syncRoots )
-		do repeat
-			local relative  = splitPath( path, root )
-
-			local relative2 = nil
-
-			if path2
-			then
-				relative2 = splitPath( path2, root )
-			end
-
-			if not relative and not relative2
-			then
-				-- sync is not interested in this dir
-				break -- continue
-			end
-
-			-- makes a copy of etype to possibly change it
-			local etyped = etype
-
-			if etyped == 'Move'
-			then
-				if not relative2
-				then
-					log(
-						'Normal',
-						'Transformed Move to Delete for ',
-						sync.config.name
-					)
-
-					etyped = 'Delete'
-				elseif not relative
-				then
-					relative = relative2
-
-					relative2 = nil
-
-					log(
-						'Normal',
-						'Transformed Move to Create for ',
-						sync.config.name
-					)
-
-					etyped = 'Create'
-				end
-			end
-
-			if isdir
-			then
-				if etyped == 'Create'
-				then
-					addWatch( path )
-				elseif etyped == 'Delete'
-				then
-					removeWatch( path, true )
-				elseif etyped == 'Move'
-				then
-					removeWatch( path, false )
-					addWatch( path2 )
-				end
-			end
-
-			sync:delay( etyped, time, relative, relative2 )
-
-		until true end
-	end
-
-	--
-	-- Writes a status report about inotify to a file descriptor
-	--
-	local function statusReport( f )
-
-		f:write( 'Inotify watching ', wdpaths:size(), ' directories\n' )
-
-		for wd, path in wdpaths:walk( )
-		do
-			f:write( '  ', wd, ': ', path, '\n' )
-		end
-	end
-
-
-	--
-	-- Public interface.
-	--
-	return {
-		addSync = addSync,
-		event = event,
-		statusReport = statusReport,
-	}
-
-end)( )
 
 
 --
@@ -3777,12 +1566,10 @@ local StatusFile = ( function
 	--
 	local lastWritten = false
 
-
 	--
 	-- Timestamp when a status file should be written.
 	--
 	local alarm = false
-
 
 	--
 	-- Returns the alarm when the status file should be written-
@@ -3791,7 +1578,6 @@ local StatusFile = ( function
 	( )
 		return alarm
 	end
-
 
 	--
 	-- Called to check if to write a status file.
@@ -3803,7 +1589,7 @@ local StatusFile = ( function
 		log( 'Function', 'write( ', timestamp, ' )' )
 
 		--
-		-- takes care not write too often
+		-- takes care not to write too often
 		--
 		if uSettings.statusInterval > 0
 		then
@@ -3863,15 +1649,10 @@ local StatusFile = ( function
 		f:close( )
 	end
 
-
 	--
 	-- Public interface
 	--
-	return {
-		write = write,
-		getAlarm = getAlarm
-	}
-
+	return { write = write, getAlarm = getAlarm }
 end )( )
 
 
@@ -4101,10 +1882,7 @@ function runner.cycle(
 
 			ir = ir + 1
 
-			if ir > Syncs.size( )
-			then
-				ir = 1
-			end
+			if ir >= #Syncs then ir = 0 end
 		until ir == start
 
 		Syncs.nextRound( )
@@ -4213,7 +1991,6 @@ function runner.configure( args, monitors )
 	}
 
 	-- non-opts is filled with all args that were no part dash options
-
 	local nonopts = { }
 
 	local i = 1
@@ -4354,7 +2131,7 @@ function runner.initialize( firstTime )
 	end
 
 	-- makes sure the user gave Lsyncd anything to do
-	if Syncs.size() == 0
+	if #Syncs == 0
 	then
 		log( 'Error', 'Nothing to watch!' )
 		os.exit( -1 )
@@ -4399,11 +2176,7 @@ function runner.initialize( firstTime )
 		then
 			Inotify.addSync( s, s.source )
 		else
-			error(
-				'sync ' ..
-				s.config.name ..
-				' has no known event monitor interface.'
-			)
+			error( 'sync '.. s.config.name..' has unknown event monitor interface.' )
 		end
 
 		-- if the sync has an init function, the init delay
@@ -4549,9 +2322,11 @@ function runner.term
 
 end
 
+
 --============================================================================
 -- Lsyncd runner's user interface
 --============================================================================
+
 
 --
 -- Main utility to create new observations.
@@ -4574,7 +2349,8 @@ end
 --
 -- Spawns a new child process.
 --
-function spawn(
+function spawn
+(
 	agent,  -- the reason why a process is spawned.
 	        -- a delay or delay list for a sync
 	        -- it will mark the related files as blocked.
@@ -4773,7 +2549,5 @@ function settings
 	end
 end
 
-
 settingsSafe = settings
 
--- EOF
