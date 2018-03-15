@@ -46,19 +46,9 @@ readdir   = core.readdir
 
 
 --
--- Coping globals to ensure userscripts cannot change this.
---
-local log       = log
-local terminate = terminate
-local now       = now
-local readdir   = readdir
-local Monitors
-
-
---
 -- Global: total number of processess running.
 --
-local processCount = 0
+processCount = 0
 
 
 --
@@ -80,7 +70,7 @@ local settingsCheckgauge =
 --
 -- Settings specified by command line.
 --
-local clSettings = { }
+clSettings = { }
 
 
 --
@@ -89,352 +79,10 @@ local clSettings = { }
 uSettings = { }
 
 
---
--- A copy of the settings function to see if the
--- user script replaced the settings() by a table
--- ( pre Lsyncd 2.1 style )
---
-local settingsSafe
-
 
 --============================================================================
 -- Lsyncd Prototypes
 --============================================================================
-
-
---
--- Syncs - a singleton
---
--- Syncs maintains all configured syncs.
---
-Syncs = ( function
-( )
-	--
-	-- Metatable.
-	--
-	local mt = { }
-
-	--
-	-- the list of all syncs
-	--
-	local syncList = Array.new( )
-
-	--
-	-- Returns the number of syncs.
-	--
-	mt.__len = function
-	( )
-		return #syncList
-	end
-
-	--
-	-- The round robin counter. In case of global limited maxProcesses
-	-- gives every sync equal chances to spawn the next process.
-	--
-	local round = 0
-
-	--
-	-- The cycle( ) sheduler goes into the next round of roundrobin.
-	--
-	local function nextRound
-	( )
-		round = round + 1;
-
-		if round >= #syncList then round = 0 end
-
-		return round
-	end
-
-	--
-	-- Returns the round
-	--
-	local function getRound
-	( )
-		return round
-	end
-
-	--
-	-- Returns sync at listpos i
-	--
-	local function get
-	( i )
-		return syncList[ i ];
-	end
-
-	--
-	-- Helper function for inherit
-	-- defined below
-	--
-	local inheritKV
-
-	--
-	-- Recurvely inherits a source table to a destionation table
-	-- copying all keys from source.
-	--
-	-- All entries with integer keys are inherited as additional
-	-- sources for non-verbatim tables
-	--
-	local function inherit
-	(
-		cd,       -- table copy destination
-		cs,       -- table copy source
-		verbatim  -- forced verbatim ( for e.g. 'exitcodes' )
-	)
-		-- First copies all entries with non-integer keys.
-		--
-		-- Tables are merged; already present keys are not
-		-- overwritten
-		--
-		-- For verbatim tables integer keys are treated like
-		-- non-integer keys
-		for k, v in pairs( cs )
-		do
-			if
-				(
-					type( k ) ~= 'number'
-					or verbatim
-					or cs._verbatim == true
-				)
-				and
-				(
-					type( cs._merge ) ~= 'table'
-					or cs._merge[ k ] == true
-				)
-			then
-				inheritKV( cd, k, v )
-			end
-		end
-
-		-- recursevely inherits all integer keyed tables
-		-- ( for non-verbatim tables )
-		if cs._verbatim ~= true
-		then
-			for k, v in ipairs( cs )
-			do
-				if type( v ) == 'table'
-				then
-					inherit( cd, v )
-				else
-					cd[ #cd + 1 ] = v
-				end
-			end
-
-		end
-	end
-
-	--
-	-- Helper to inherit. Inherits one key.
-	--
-	inheritKV =
-		function(
-			cd,  -- table copy destination
-			k,   -- key
-			v    -- value
-		)
-
-		-- don't merge inheritance controls
-		if k == '_merge' or k == '_verbatim' then return end
-
-		local dtype = type( cd [ k ] )
-
-		if type( v ) == 'table'
-		then
-			if dtype == 'nil'
-			then
-				cd[ k ] = { }
-				inherit( cd[ k ], v, k == 'exitcodes' )
-			elseif
-				dtype == 'table' and
-				v._merge ~= false
-			then
-				inherit( cd[ k ], v, k == 'exitcodes' )
-			end
-		elseif dtype == 'nil'
-		then
-			cd[ k ] = v
-		end
-	end
-
-
-	--
-	-- Adds a new sync.
-	--
-	local function add
-	(
-		config
-	)
-		-- Checks if user overwrote the settings function.
-		-- ( was Lsyncd < 2.1 style )
-		if settings ~= settingsSafe
-		then
-			log(
-				'Error',
-				'Do not use settings = { ... }\n'..
-				'      please use settings{ ... } (without the equal sign)'
-			)
-
-			os.exit( -1 )
-		end
-
-		-- Creates a new config table which inherits all keys/values
-		-- from integer keyed tables
-		local uconfig = config
-
-		config = { }
-
-		inherit( config, uconfig )
-
-		--
-		-- last and least defaults are inherited
-		--
-		inherit( config, default )
-
-		local inheritSettings =
-		{
-			'delay',
-			'maxDelays',
-			'maxProcesses'
-		}
-
-		-- Lets settings override these values.
-		for _, v in ipairs( inheritSettings )
-		do
-			if uSettings[ v ]
-			then
-				config[ v ] = uSettings[ v ]
-			end
-		end
-
-		-- Lets commandline override these values.
-		for _, v in ipairs( inheritSettings )
-		do
-			if clSettings[ v ]
-			then
-				config[ v ] = clSettings[ v ]
-			end
-		end
-
-		--
-		-- lets the userscript 'prepare' function
-		-- check and complete the config
-		--
-		if type( config.prepare ) == 'function'
-		then
-			-- prepare is given a writeable copy of config
-			config.prepare( config, 4 )
-		end
-
-		if not config[ 'source' ]
-		then
-			local info = debug.getinfo( 3, 'Sl' )
-
-			log(
-				'Error',
-				info.short_src,':',
-				info.currentline,': source missing from sync.'
-			)
-
-			terminate( -1 )
-		end
-
-		--
-		-- absolute path of source
-		--
-		local realsrc = core.realdir( config.source )
-
-		if not realsrc
-		then
-			log( 'Error', 'Cannot access source directory: ', config.source )
-			terminate( -1 )
-		end
-
-		config._source = config.source
-		config.source = realsrc
-
-		if not config.action
-		and not config.onAttrib
-		and not config.onCreate
-		and not config.onModify
-		and not config.onDelete
-		and not config.onMove
-		then
-			local info = debug.getinfo( 3, 'Sl' )
-
-			log( 'Error', info.short_src, ':', info.currentline, ': no actions specified.' )
-
-			terminate( -1 )
-		end
-
-		-- the monitor to use
-		config.monitor =
-			uSettings.monitor
-			or config.monitor
-			or Monitors.default( )
-
-		if config.monitor ~= 'inotify'
-		then
-			local info = debug.getinfo( 3, 'Sl' )
-
-			log(
-				'Error',
-				info.short_src, ':', info.currentline,
-				': event monitor "', config.monitor, '" unknown.'
-			)
-
-			terminate( -1 )
-		end
-
-		-- creates the new sync
-		local s = Sync.new( config )
-
-		syncList:push( s )
-
-		return s
-	end
-
-	--
-	-- Allows a for-loop to walk through all syncs.
-	--
-	local function iwalk
-	( )
-		return ipairs( syncList )
-	end
-
-	--
-	-- Tests if any sync is interested in a path.
-	--
-	local function concerns
-	(
-		path
-	)
-		for _, s in ipairs( syncList )
-		do
-			if s:concerns( path )
-			then
-				return true
-			end
-		end
-
-		return false
-	end
-
-	--
-	-- Public interface
-	--
-	local intf =
-	{
-		add = add,
-		get = get,
-		getRound = getRound,
-		concerns = concerns,
-		iwalk = iwalk,
-		nextRound = nextRound
-	}
-
-	setmetatable( intf, mt )
-
-	return intf
-end )( )
 
 
 --
@@ -858,7 +506,7 @@ local StatusFile = ( function
 
 		f:write( 'Lsyncd status report at ', os.date( ), '\n\n' )
 
-		for i, s in Syncs.iwalk( )
+		for i, s in SyncMaster.iwalk( )
 		do
 			s:statusReport( f )
 
@@ -1041,7 +689,7 @@ function mci.collectProcess
 		error( 'negative number of processes!' )
 	end
 
-	for _, s in Syncs.iwalk( )
+	for _, s in SyncMaster.iwalk( )
 	do
 		if s:collect( pid, exitcode ) then return end
 	end
@@ -1085,28 +733,28 @@ function mci.cycle(
 	end
 
 	--
-	-- goes through all syncs and spawns more actions
-	-- if possibly. But only let Syncs invoke actions if
-	-- not at global limit
+	-- Goes through all syncs and spawns more actions
+	-- if possibly. But only lets SyncMaster invoke actions if
+	-- not at global limit.
 	--
 	if not uSettings.maxProcesses
 	or processCount < uSettings.maxProcesses
 	then
-		local start = Syncs.getRound( )
+		local start = SyncMaster.getRound( )
 
 		local ir = start
 
 		repeat
-			local s = Syncs.get( ir )
+			local s = SyncMaster.get( ir )
 
 			s:invokeActions( timestamp )
 
 			ir = ir + 1
 
-			if ir >= #Syncs then ir = 0 end
+			if ir >= #SyncMaster then ir = 0 end
 		until ir == start
 
-		Syncs.nextRound( )
+		SyncMaster.nextRound( )
 	end
 
 	UserAlarms.invoke( timestamp )
@@ -1299,7 +947,7 @@ function mci.initialize( firstTime )
 
 	-- Checks if user overwrote the settings function.
 	-- ( was Lsyncd <2.1 style )
-	if settings ~= settingsSafe
+	if userENV.settings ~= settings
 	then
 		log(
 			'Error',
@@ -1352,7 +1000,7 @@ function mci.initialize( firstTime )
 	end
 
 	-- makes sure the user gave Lsyncd anything to do
-	if #Syncs == 0
+	if #SyncMaster == 0
 	then
 		log( 'Error', 'Nothing to watch!' )
 		os.exit( -1 )
@@ -1374,7 +1022,7 @@ function mci.initialize( firstTime )
 	}
 
 	-- translates layer 3 scripts
-	for _, s in Syncs.iwalk()
+	for _, s in SyncMaster.iwalk()
 	do
 		-- checks if any user functions is a layer 3 string.
 		local config = s.config
@@ -1391,7 +1039,7 @@ function mci.initialize( firstTime )
 	end
 
 	-- runs through the Syncs created by users
-	for _, s in Syncs.iwalk( )
+	for _, s in SyncMaster.iwalk( )
 	do
 		if s.config.monitor == 'inotify'
 		then
@@ -1454,7 +1102,7 @@ function mci.getAlarm
 	if not uSettings.maxProcesses
 	or processCount < uSettings.maxProcesses
 	then
-		for _, s in Syncs.iwalk( )
+		for _, s in SyncMaster.iwalk( )
 		do
 			checkAlarm( s:getAlarm( ) )
 		end
@@ -1563,7 +1211,7 @@ function sync
 		error( 'Sync can only be created during initialization.', 2 )
 	end
 
-	return Syncs.add( opts ).inlet
+	return SyncMaster.add( opts ).inlet
 end
 
 
@@ -1708,7 +1356,7 @@ alarm = UserAlarms.alarm
 
 
 --
--- Comfort routine also for user.
+-- Comfort routine, also for user.
 -- Returns true if 'String' starts with 'Start'
 --
 function string.starts
@@ -1716,12 +1364,12 @@ function string.starts
 	String,
 	Start
 )
-	return string.sub( String, 1, #Start )==Start
+	return string.sub( String, 1, #Start ) == Start
 end
 
 
 --
--- Comfort routine also for user.
+-- Comfort routine, also for user.
 -- Returns true if 'String' ends with 'End'
 --
 function string.ends
@@ -1770,5 +1418,4 @@ function settings
 	end
 end
 
-settingsSafe = settings
 

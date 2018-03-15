@@ -90,7 +90,7 @@ local function addWatch
 )
 	log( 'Function', 'Inotify.addWatch( ', path, ' )' )
 
-	if not Syncs.concerns( path )
+	if not SyncMaster.concerns( path )
 	then
 		log( 'Inotify', 'not concerning "', path, '"')
 
