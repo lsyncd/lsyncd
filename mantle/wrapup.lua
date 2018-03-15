@@ -22,3 +22,4 @@ end
 
 -- Lets the core double check version identity with the mantle
 lsyncd_version = '3.0.0-devel'
+

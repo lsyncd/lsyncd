@@ -2380,10 +2380,7 @@ main1( int argc, char *argv[] )
 
 
 		// loads the user enivornment
-		load_mci( L, "userENV" );
-		if( lua_pcall( L, 0, 1, -2 ) ) exit( -1 );
-		// removes the error handler from stack
-		lua_remove( L, -2 );
+		lua_getglobal( L, "userENV" );
 		lua_setupvalue( L, -2, 1 );
 
 		if( lua_pcall( L, 0, LUA_MULTRET, 0) )
