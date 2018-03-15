@@ -1743,7 +1743,7 @@ end )( )
 
 
 --============================================================================
--- Lsyncd runner's plugs. These functions are called from core.
+-- Mantle core interface. These functions are called from core.
 --============================================================================
 
 
@@ -1757,9 +1757,9 @@ end )( )
 local lsyncdStatus = 'init'
 
 --
--- The cores interface to the runner.
+-- The mantle cores interface
 --
-runner = { }
+mci = { }
 
 
 --
@@ -1772,7 +1772,7 @@ local lastReportedWaiting = false
 --
 -- Logs a backtrace
 --
-function runner.callError
+function mci.callError
 (
 	message
 )
@@ -1801,14 +1801,14 @@ end
 
 
 -- Registers the mantle with the core
-core.mantle( runner )
+core.mci( mci )
 
 
 --
 -- Called from core whenever a child process has finished and
 -- the zombie process was collected by core.
 --
-function runner.collectProcess
+function mci.collectProcess
 (
 	pid,       -- process id
 	exitcode   -- exitcode
@@ -1835,7 +1835,7 @@ end
 --   * received filesystem events.
 --   * received a HUP, TERM or INT signal.
 --
-function runner.cycle(
+function mci.cycle(
 	timestamp   -- the current kernel time (in jiffies)
 )
 	log( 'Function', 'cycle( ', timestamp, ' )' )
@@ -1860,7 +1860,7 @@ function runner.cycle(
 
 	if lsyncdStatus ~= 'run'
 	then
-		error( 'runner.cycle() called while not running!' )
+		error( 'mci.cycle() called while not running!' )
 	end
 
 	--
@@ -1902,7 +1902,7 @@ end
 -- Called by core if '-help' or '--help' is in
 -- the arguments.
 --
-function runner.help( )
+function mci.help( )
 	io.stdout:write(
 [[
 
@@ -1937,7 +1937,7 @@ end
 --
 -- terminates on invalid arguments.
 --
-function runner.configure( args, monitors )
+function mci.configure( args, monitors )
 
 	Monitors.initialize( monitors )
 
@@ -2054,7 +2054,7 @@ function runner.configure( args, monitors )
 
 	if #nonopts == 0
 	then
-		runner.help( args[ 0 ] )
+		mci.help( args[ 0 ] )
 	elseif #nonopts == 1
 	then
 		return nonopts[ 1 ]
@@ -2074,7 +2074,7 @@ end
 --    true when Lsyncd startups the first time,
 --    false on resets, due to HUP signal or monitor queue overflow.
 --
-function runner.initialize( firstTime )
+function mci.initialize( firstTime )
 
 	-- Checks if user overwrote the settings function.
 	-- ( was Lsyncd <2.1 style )
@@ -2195,7 +2195,7 @@ end
 --         true  ... immediate action
 --         times ... the alarm time (only read if number is 1)
 --
-function runner.getAlarm
+function mci.getAlarm
 ( )
 	log( 'Function', 'getAlarm( )' )
 
@@ -2250,7 +2250,7 @@ function runner.getAlarm
 	-- checks for an userAlarm
 	checkAlarm( UserAlarms.getAlarm( ) )
 
-	log( 'Alarm', 'runner.getAlarm returns: ', alarm )
+	log( 'Alarm', 'mci.getAlarm returns: ', alarm )
 
 	return alarm
 end
@@ -2259,12 +2259,12 @@ end
 --
 -- Called when an file system monitor events arrive
 --
-runner.inotifyEvent = Inotify.event
+mci.inotifyEvent = Inotify.event
 
 --
 -- Collector for every child process that finished in startup phase
 --
-function runner.collector
+function mci.collector
 (
 	pid,       -- pid of the child process
 	exitcode   -- exitcode of the child process
@@ -2282,7 +2282,7 @@ end
 --
 -- Called by core when an overflow happened.
 --
-function runner.overflow
+function mci.overflow
 ( )
 	log( 'Normal', '--- OVERFLOW in event queue ---' )
 
@@ -2292,7 +2292,7 @@ end
 --
 -- Called by core on a hup signal.
 --
-function runner.hup
+function mci.hup
 ( )
 	log( 'Normal', '--- HUP signal, resetting ---' )
 
@@ -2302,7 +2302,7 @@ end
 --
 -- Called by core on a term signal.
 --
-function runner.term
+function mci.term
 (
 	sigcode  -- signal code
 )

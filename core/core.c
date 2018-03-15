@@ -542,12 +542,12 @@ pipe_tidy( struct observance * observance )
 /*
 | Variable which address is used as
 | the cores index in the lua registry to
-| the lua runners function table in the lua registry.
+| index the mantle-core-interface
 |
 | Its value is used to determined if the
 | mantle has registered itself already.
 */
-static int mantle = 0;
+static int mci = 0;
 
 
 /*
@@ -1196,7 +1196,7 @@ l_exec( lua_State *L )
 
 
 /*
-| Registers the luacode mantle with the core.
+| Registers the mantle core interface with the core.
 |
 | Params on Lua stack:
 |    1: The luacode mantle.
@@ -1205,28 +1205,28 @@ l_exec( lua_State *L )
 |    nothing
 */
 static int
-l_mantle( lua_State *L )
+l_mci( lua_State *L )
 {
-	if( mantle )
+	if( mci )
 	{
 		logstring( "Error", "Luacode interface already registered!" );
 		exit( -1 );
 	}
 
-	mantle = 1;
+	mci = 1;
 
-	lua_pushlightuserdata( L, (void *) &mantle );
+	lua_pushlightuserdata( L, (void *) &mci );
 
-	// switches the passed mantle as parameter and the key &mantle
+	// switches the passed mantle interface as parameter and the key &mci
 	lua_insert( L, 1 );
 
-	// saves the table of the mantle functions in the lua registry
+	// saves the table of the mci in the lua registry
 	lua_settable( L, LUA_REGISTRYINDEX );
 
 	// saves the error function extras
 
 	lua_pushlightuserdata( L, (void *) &callError );
-	lua_pushlightuserdata( L, (void *) &mantle );
+	lua_pushlightuserdata( L, (void *) &mci );
 	lua_gettable( L, LUA_REGISTRYINDEX );
 	lua_pushstring( L, "callError"  );
 	lua_gettable( L, -2 );
@@ -1710,7 +1710,7 @@ static const luaL_Reg corelib[] =
 	{ "configure",      l_configure     },
 	{ "exec",           l_exec          },
 	{ "log",            l_log           },
-	{ "mantle",         l_mantle        },
+	{ "mci",            l_mci           },
 	{ "now",            l_now           },
 	{ "nonobserve_fd",  l_nonobserve_fd },
 	{ "observe_fd",     l_observe_fd    },
@@ -1890,7 +1890,7 @@ register_core( lua_State *L )
 | As well as the callError handler.
 */
 extern void
-load_mantle_func(
+load_mci(
 	lua_State * L,
 	const char * name
 )
@@ -1902,7 +1902,7 @@ load_mantle_func(
 	lua_gettable( L, LUA_REGISTRYINDEX );
 
 	// pushes the function
-	lua_pushlightuserdata( L, (void *) &mantle );
+	lua_pushlightuserdata( L, (void *) &mci );
 	lua_gettable( L, LUA_REGISTRYINDEX );
 	lua_pushstring( L, name );
 	lua_gettable( L, -2 );
@@ -1932,7 +1932,7 @@ masterloop(lua_State *L)
 		//
 		// queries the mantle about the soonest alarm
 		//
-		load_mantle_func( L, "getAlarm" );
+		load_mci( L, "getAlarm" );
 
 		if( lua_pcall( L, 0, 1, -2 ) ) exit( -1 );
 
@@ -2102,7 +2102,7 @@ masterloop(lua_State *L)
 			if( pid <= 0 ) break;
 
 			// calls the mantle to handle the collection
-			load_mantle_func( L, "collectProcess" );
+			load_mci( L, "collectProcess" );
 			lua_pushinteger( L, pid );
 			lua_pushinteger( L, WEXITSTATUS( status ) );
 
@@ -2114,7 +2114,7 @@ masterloop(lua_State *L)
 		// reacts on HUP signals
 		if( hup )
 		{
-			load_mantle_func( L, "hup" );
+			load_mci( L, "hup" );
 
 			if( lua_pcall( L, 0, 0, -2 ) ) exit( -1 );
 
@@ -2126,7 +2126,7 @@ masterloop(lua_State *L)
 		// reacts on TERM and INT signals
 		if( term == 1 )
 		{
-			load_mantle_func( L, "term" );
+			load_mci( L, "term" );
 
 			lua_pushnumber( L, sigcode );
 
@@ -2139,7 +2139,7 @@ masterloop(lua_State *L)
 
 		// lets the mantle do stuff every cycle,
 		// like starting new processes, writing the statusfile etc.
-		load_mantle_func( L, "cycle" );
+		load_mci( L, "cycle" );
 
 		l_now( L );
 
@@ -2290,7 +2290,7 @@ main1( int argc, char *argv[] )
 		{
 			if ( !strcmp( argv[ i ],  "-help" ) || !strcmp( argv[ i ], "--help" ) )
 			{
-				load_mantle_func( L, "help" );
+				load_mci( L, "help" );
 
 				if( lua_pcall( L, 0, 0, -2 ) ) exit( -1 );
 
@@ -2307,7 +2307,7 @@ main1( int argc, char *argv[] )
 		const char *s;
 
 		// creates a table with all remaining argv option arguments
-		load_mantle_func( L, "configure" );
+		load_mci( L, "configure" );
 		lua_newtable( L );
 
 		while( argp < argc )
@@ -2411,7 +2411,7 @@ main1( int argc, char *argv[] )
 	// runs initializations from mantle
 	// it will set the configuration and add watches
 	{
-		load_mantle_func( L, "initialize" );
+		load_mci( L, "initialize" );
 		lua_pushboolean( L, first_time );
 
 		if( lua_pcall( L, 1, 0, -3 ) ) exit( -1 );
