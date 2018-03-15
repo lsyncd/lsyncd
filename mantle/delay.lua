@@ -18,7 +18,7 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-if mantle
+if lsyncd_version
 then
 	print( 'Error, Lsyncd mantle already loaded' )
 	os.exit( -1 )

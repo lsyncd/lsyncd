@@ -16,20 +16,11 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-if mantle
+if lsyncd_version
 then
 	print( 'Error, Lsyncd mantle already loaded' )
 	os.exit( -1 )
 end
-
-
---
--- Safes mantle stuff
---
-local core = core
-local log = core.log
-local Syncs
-local uSettings
 
 
 --
@@ -308,7 +299,4 @@ Inotify =
 	addSync = addSync,
 	event = event,
 	statusReport = statusReport,
-
-	-- FIXME
-	init = function( _Syncs, _uSettings ) Syncs = _Syncs; uSettings = _uSettings end
 }

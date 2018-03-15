@@ -1614,17 +1614,17 @@ l_observe_fd( lua_State *L )
 
 		if( lua_isnil( L, -1 ) )
 		{
-			lua_pop               ( L, 1                       );
-			lua_newtable          ( L                          );
-			lua_pushlightuserdata ( L, (void *) user_obs_ready );
-			lua_pushvalue         ( L, -2                      );
-			lua_settable          ( L, LUA_REGISTRYINDEX       );
+			lua_pop( L, 1  );
+			lua_newtable( L );
+			lua_pushlightuserdata( L, (void *) user_obs_ready );
+			lua_pushvalue( L, -2 );
+			lua_settable( L, LUA_REGISTRYINDEX );
 		}
 
-		lua_pushnumber ( L, fd );
-		lua_pushvalue  ( L,  2 );
-		lua_settable   ( L, -3 );
-		lua_pop        ( L,  1 );
+		lua_pushnumber( L, fd );
+		lua_pushvalue( L,  2 );
+		lua_settable( L, -3 );
+		lua_pop( L,  1 );
 
 		ready = true;
 	}
@@ -2261,12 +2261,12 @@ main1( int argc, char *argv[] )
 		exit( -1 );
 	}
 
-	// asserts the Lsyncd's version matches
-	// between mantle and core
 	{
+		// asserts the Lsyncd's version matches
+		// double checks the if mantle version is the same as core version
 		const char *lversion;
 
-		lua_getglobal( L, "mantle" );
+		lua_getglobal( L, "lsyncd_version" );
 		lversion = luaL_checkstring( L, -1 );
 
 		if( strcmp( lversion, PACKAGE_VERSION ) )
@@ -2276,12 +2276,12 @@ main1( int argc, char *argv[] )
 				"Version mismatch luacode is '%s', but core is '%s'",
 				lversion, PACKAGE_VERSION
 			);
-
 			exit( -1 );
 		}
 
 		lua_pop( L, 1 );
 	}
+
 
 	// checks if there is a "-help" or "--help"
 	{
@@ -2377,6 +2377,14 @@ main1( int argc, char *argv[] )
 
 			exit( -1 );
 		}
+
+
+		// loads the user enivornment
+		load_mci( L, "userENV" );
+		if( lua_pcall( L, 0, 1, -2 ) ) exit( -1 );
+		// removes the error handler from stack
+		lua_remove( L, -2 );
+		lua_setupvalue( L, -2, 1 );
 
 		if( lua_pcall( L, 0, LUA_MULTRET, 0) )
 		{

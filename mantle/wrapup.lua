@@ -13,7 +13,7 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-if mantle
+if lsyncd_version
 then
 	print( 'Error, Lsyncd mantle already loaded' )
 	os.exit( -1 )
@@ -21,15 +21,4 @@ end
 
 
 -- Lets the core double check version identity with the mantle
-mantle = '3.0.0-devel'
-
-
-Inotify.init( Syncs, uSettings )
-
-
-core = nil
-lockGlobals = nil
-Inotify = nil
-Delay = nil
-InletFactory = nil
-Filter = nil
+lsyncd_version = '3.0.0-devel'

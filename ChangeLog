@@ -4,6 +4,7 @@
 	change: dropping exclude and excludeFrom (replaced by filter and filterFrom)
 	change: "insist" by default
 	change: removed _extra (if someone is hacky enough to really need it, they can hack Lsyncd itself)
+	change: user scripts run in each of their own global lua environment
 
 2018-03-09: 2.2.3
 	enhaencement: supporting includes with new filter and filterFrom options

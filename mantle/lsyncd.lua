@@ -1776,7 +1776,7 @@ function mci.callError
 (
 	message
 )
-	log( 'Error', 'in Lua: ', message )
+	core.log( 'Error', 'in Lua: ', message )
 
 	-- prints backtrace
 	local level = 2
