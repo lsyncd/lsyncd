@@ -281,10 +281,7 @@ local function add
 	end
 
 	-- the monitor to use
-	config.monitor =
-		uSettings.monitor
-		or config.monitor
-		or Monitors.default( )
+	config.monitor = uSettings.monitor or config.monitor or Monitor.default( )
 
 	if config.monitor ~= 'inotify'
 	then

@@ -46,6 +46,9 @@ set( LUA_CODE
 	${PROJECT_SOURCE_DIR}/mantle/filter.lua
 	${PROJECT_SOURCE_DIR}/mantle/sync.lua
 	${PROJECT_SOURCE_DIR}/mantle/syncmaster.lua
+	${PROJECT_SOURCE_DIR}/mantle/monitor.lua
+	${PROJECT_SOURCE_DIR}/mantle/fwriter.lua
+	${PROJECT_SOURCE_DIR}/mantle/status.lua
 	${PROJECT_SOURCE_DIR}/mantle/lsyncd.lua
 	${PROJECT_SOURCE_DIR}/mantle/wrapup.lua
 	${PROJECT_SOURCE_DIR}/default/default.lua

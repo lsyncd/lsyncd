@@ -6,9 +6,9 @@ Lsyncd watches a local directory trees event monitor interface (inotify or fseve
 
 Rsync+ssh is an advanced action configuration that uses a SSH to act file and directory moves directly on the target instead of re-transmitting the move destination over the wire.
 
-Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/). This way simple, powerful and flexible configurations can be acheived.  See [the manual](https://axkibe.github.io/lsyncd/) for details.
+Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/). This way simple, powerful and flexible configurations can be achieved.  See [the manual](https://axkibe.github.io/lsyncd/) for details.
 
-Lsyncd 2.2.1 requires rsync >= 3.1 on all source and target machines.
+Lsyncd 3.0 requires rsync >= 3.1 on all source and target machines.
 
 License: [GPLv2](http://www.fsf.org/licensing/licenses/info/GPLv2.html) or any later GPL version.
 
@@ -26,16 +26,9 @@ Other synchronization tools
 
 Lsyncd usage examples
 ---------------------
-```lsyncd -rsync /home remotehost.org::share/```
+TODO make new examples
 
-This watches and rsyncs the local directory /home with all sub-directories and
-transfers them to 'remotehost' using the rsync-share 'share'.
-
-```lsyncd -rsyncssh /home remotehost.org backup-home/```
-
-This will also rsync/watch '/home', but it uses a ssh connection to make moves local on the remotehost instead of re-transmitting the moved file over the wire.
-
-Some more complicated examples, tips and tricks you can find in the [manual](https://axkibe.github.io/lsyncd/).
+You can find more examples in the [manual](https://axkibe.github.io/lsyncd/).
 
 Disclaimer
 ----------
