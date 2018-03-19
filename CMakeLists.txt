@@ -50,7 +50,7 @@ set( LUA_CODE
 	${PROJECT_SOURCE_DIR}/mantle/fwriter.lua
 	${PROJECT_SOURCE_DIR}/mantle/statusfile.lua
 	${PROJECT_SOURCE_DIR}/mantle/useralarm.lua
-	${PROJECT_SOURCE_DIR}/mantle/lsyncd.lua
+	${PROJECT_SOURCE_DIR}/mantle/mci.lua
 	${PROJECT_SOURCE_DIR}/mantle/user.lua
 	${PROJECT_SOURCE_DIR}/mantle/string.lua
 	${PROJECT_SOURCE_DIR}/mantle/wrapup.lua

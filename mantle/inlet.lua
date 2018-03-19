@@ -610,7 +610,7 @@ local inletFuncs =
 	(
 		sync
 	)
-		return d2e( sync:getNextDelay( now( ) ) )
+		return d2e( sync:getNextDelay( core.now( ) ) )
 	end,
 
 	--

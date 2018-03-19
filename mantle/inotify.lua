@@ -122,7 +122,7 @@ local function addWatch
 	wdpaths[ wd ] = path
 
 	-- registers and adds watches for all subdirectories
-	local entries = core.readdir( path )
+	local entries = readdir( path )
 
 	if not entries then return end
 

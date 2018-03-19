@@ -56,7 +56,7 @@ userENV =
 	sync = sync,
 
 	-- lsyncd core available to user scripts
-	log = log,
+	log = core.log,
 	nonobservefs = core.nonobserfd,
 	now = core.now,
 	observefd = core.observefd,
