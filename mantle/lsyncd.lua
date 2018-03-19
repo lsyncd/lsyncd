@@ -81,197 +81,6 @@ uSettings = { }
 
 
 --============================================================================
--- Lsyncd Prototypes
---============================================================================
-
-
---
--- Writes a status report file at most every 'statusintervall' seconds.
---
-local StatusFile = ( function
-( )
-	--
-	-- Timestamp when the status file has been written.
-	--
-	local lastWritten = false
-
-	--
-	-- Timestamp when a status file should be written.
-	--
-	local alarm = false
-
-	--
-	-- Returns the alarm when the status file should be written-
-	--
-	local function getAlarm
-	( )
-		return alarm
-	end
-
-	--
-	-- Called to check if to write a status file.
-	--
-	local function write
-	(
-		timestamp
-	)
-		log( 'Function', 'write( ', timestamp, ' )' )
-
-		--
-		-- takes care not to write too often
-		--
-		if uSettings.statusInterval > 0
-		then
-			-- already waiting?
-			if alarm and timestamp < alarm
-			then
-				log( 'Statusfile', 'waiting(', timestamp, ' < ', alarm, ')' )
-
-				return
-			end
-
-			-- determines when a next write will be possible
-			if not alarm
-			then
-				local nextWrite = lastWritten and timestamp + uSettings.statusInterval
-
-				if nextWrite and timestamp < nextWrite
-				then
-					log( 'Statusfile', 'setting alarm: ', nextWrite )
-					alarm = nextWrite
-
-					return
-				end
-			end
-
-			lastWritten = timestamp
-			alarm = false
-		end
-
-		log( 'Statusfile', 'writing now' )
-
-		local f, err = io.open( uSettings.statusFile, 'w' )
-
-		if not f
-		then
-			log(
-				'Error',
-				'Cannot open status file "' ..
-					uSettings.statusFile ..
-					'" :' ..
-					err
-			)
-			return
-		end
-
-		f:write( 'Lsyncd status report at ', os.date( ), '\n\n' )
-
-		for i, s in SyncMaster.iwalk( )
-		do
-			s:statusReport( f )
-
-			f:write( '\n' )
-		end
-
-		Inotify.statusReport( f )
-
-		f:close( )
-	end
-
-	--
-	-- Public interface
-	--
-	return { write = write, getAlarm = getAlarm }
-end )( )
-
-
---
--- Lets userscripts make their own alarms.
---
-local UserAlarms = ( function
-( )
-	local alarms = { }
-
-	--
-	-- Calls the user function at timestamp.
-	--
-	local function alarm
-	(
-		timestamp,
-		func,
-		extra
-	)
-		local idx
-
-		for k, v in ipairs( alarms )
-		do
-			if timestamp < v.timestamp
-			then
-				idx = k
-
-				break
-			end
-		end
-
-		local a =
-		{
-			timestamp = timestamp,
-			func = func,
-			extra = extra
-		}
-
-		if idx
-		then
-			table.insert( alarms, idx, a )
-		else
-			table.insert( alarms, a )
-		end
-	end
-
-
-	--
-	-- Retrieves the soonest alarm.
-	--
-	local function getAlarm
-	( )
-		if #alarms == 0
-		then
-			return false
-		else
-			return alarms[1].timestamp
-		end
-	end
-
-
-	--
-	-- Calls user alarms.
-	--
-	local function invoke
-	(
-		timestamp
-	)
-		while #alarms > 0
-		and alarms[ 1 ].timestamp <= timestamp
-		do
-			alarms[ 1 ].func( alarms[ 1 ].timestamp, alarms[ 1 ].extra )
-			table.remove( alarms, 1 )
-		end
-	end
-
-
-	--
-	-- Public interface
-	--
-	return {
-		alarm    = alarm,
-		getAlarm = getAlarm,
-		invoke   = invoke
-	}
-
-end )( )
-
-
---============================================================================
 -- Mantle core interface. These functions are called from core.
 --============================================================================
 
@@ -283,7 +92,8 @@ end )( )
 -- 'run'   ... normal operation
 -- 'fade'  ... waits for remaining processes
 --
-local lsyncdStatus = 'init'
+lsyncdStatus = 'init'
+
 
 --
 -- The mantle cores interface
@@ -305,7 +115,7 @@ function mci.callError
 (
 	message
 )
-	core.log( 'Error', 'in Lua: ', message )
+	log( 'Error', 'in Lua: ', message )
 
 	-- prints backtrace
 	local level = 2
@@ -317,8 +127,7 @@ function mci.callError
 		if not info then terminate( -1 ) end
 
 		log(
-			'Error',
-			'Backtrace ',
+			'Error', 'Backtrace ',
 			level - 1, ' :',
 			info.short_src, ':',
 			info.currentline
@@ -364,7 +173,8 @@ end
 --   * received filesystem events.
 --   * received a HUP, TERM or INT signal.
 --
-function mci.cycle(
+function mci.cycle
+(
 	timestamp   -- the current kernel time (in jiffies)
 )
 	log( 'Function', 'cycle( ', timestamp, ' )' )
@@ -1019,27 +829,27 @@ alarm = UserAlarms.alarm
 
 --
 -- Comfort routine, also for user.
--- Returns true if 'String' starts with 'Start'
+-- Returns true if 'str' starts with 'Start'
 --
 function string.starts
 (
-	String,
+	str,
 	Start
 )
-	return string.sub( String, 1, #Start ) == Start
+	return string.sub( str, 1, #Start ) == Start
 end
 
 
 --
 -- Comfort routine, also for user.
--- Returns true if 'String' ends with 'End'
+-- Returns true if 'str' ends with 'End'
 --
 function string.ends
 (
-	String,
+	str,
 	End
 )
-	return End == '' or string.sub( String, -#End ) == End
+	return End == '' or string.sub( str, -#End ) == End
 end
 
 
@@ -1079,5 +889,4 @@ function settings
 		end
 	end
 end
-
 

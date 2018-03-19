@@ -1,5 +1,5 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- status.lua   Live (Mirror) Syncing Demon
+-- lsyncd.lua   Live (Mirror) Syncing Demon
 --
 --
 -- Writes a status report file at most every 'statusintervall' seconds.

@@ -48,8 +48,11 @@ set( LUA_CODE
 	${PROJECT_SOURCE_DIR}/mantle/syncmaster.lua
 	${PROJECT_SOURCE_DIR}/mantle/monitor.lua
 	${PROJECT_SOURCE_DIR}/mantle/fwriter.lua
-	${PROJECT_SOURCE_DIR}/mantle/status.lua
+	${PROJECT_SOURCE_DIR}/mantle/statusfile.lua
+	${PROJECT_SOURCE_DIR}/mantle/useralarm.lua
 	${PROJECT_SOURCE_DIR}/mantle/lsyncd.lua
+	${PROJECT_SOURCE_DIR}/mantle/user.lua
+	${PROJECT_SOURCE_DIR}/mantle/string.lua
 	${PROJECT_SOURCE_DIR}/mantle/wrapup.lua
 	${PROJECT_SOURCE_DIR}/default/default.lua
 	${PROJECT_SOURCE_DIR}/default/rsync.lua
