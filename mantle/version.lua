@@ -2,9 +2,9 @@
 -- lsyncd.lua   Live (Mirror) Syncing Demon
 --
 --
--- Wraps up globals of the mantle to set up the Lua
--- space for user scripts.
--- This must come as last mantle file.
+-- Sets the lsyncd_version of the mantle,
+-- this must come as last mantle file as other
+-- mantle scripts check that global against accidental loading.
 --
 --
 -- License: GPLv2 (see COPYING) or any later version
