@@ -200,6 +200,13 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
+ <tr><td> group
+</td><td> =
+</td><td> BOOL
+</td><td> false
+</td><td>
+</td></tr>
+
  <tr><td> groupmap
 </td><td> =
 </td><td> STRING
