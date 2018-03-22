@@ -45,6 +45,8 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#include "smem.h"
+
 /*
 | The Lua part of Lsyncd
 */
@@ -391,85 +393,6 @@ printlogf0(lua_State *L,
 	logstring0(priority, cat, luaL_checkstring(L, -1));
 	lua_pop(L, 1);
 	return;
-}
-
-
-/*:::::::::::::::::::::::::::.
-::  Simple memory management
-'::::::::::::::::::::::::::::*/
-
-
-// FIXME call the Lua garbace collector in case of out of memory
-
-/*
-| "Secured" calloc
-*/
-extern void *
-s_calloc( size_t nmemb, size_t size )
-{
-	void * r = calloc( nmemb, size );
-
-	if( r == NULL )
-	{
-		logstring0( LOG_ERR, "Error", "Out of memory!" );
-		exit( -1 );
-	}
-
-	return r;
-}
-
-
-/*
-| "Secured" malloc
-*/
-extern void *
-s_malloc( size_t size )
-{
-	void * r = malloc( size );
-
-	if( r == NULL )
-	{
-		logstring0( LOG_ERR, "Error", "Out of memory!" );
-		exit( -1 );
-	}
-
-	return r;
-}
-
-
-/*
-| "Secured" realloc
-*/
-extern void *
-s_realloc( void * ptr, size_t size )
-{
-	void * r = realloc( ptr, size );
-
-	if( r == NULL )
-	{
-		logstring0( LOG_ERR, "Error", "Out of memory!" );
-		exit( -1 );
-	}
-
-	return r;
-}
-
-
-/*
-| "Secured" strdup
-*/
-extern char *
-s_strdup( const char *src )
-{
-	char *s = strdup( src );
-
-	if( s == NULL )
-	{
-		logstring0( LOG_ERR, "Error", "Out of memory!" );
-		exit( -1 );
-	}
-
-	return s;
 }
 
 

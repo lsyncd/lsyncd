@@ -35,6 +35,7 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#include "smem.h"
 
 /*
 | Event types.

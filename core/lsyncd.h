@@ -78,15 +78,6 @@ extern volatile sig_atomic_t hup;
 extern volatile sig_atomic_t term;
 
 
-/**
-* wrappers for heap management, they exit if out-of-memory.
-*/
-extern void * s_calloc(size_t nmemb, size_t size);
-extern void * s_malloc(size_t size);
-extern void * s_realloc(void *ptr, size_t size);
-extern char * s_strdup(const char *src);
-
-
 /*
 * Logging
 */
