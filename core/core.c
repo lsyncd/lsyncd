@@ -1,12 +1,6 @@
 /*
-| lsyncd.c   Live (Mirror) Syncing Demon
+| core.c
 | ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-|
-| This is Lsyncd's core.
-|
-| It contains as minimal as possible glues to the operating system needed
-| for Lsyncd's operation. All high-level logic is coded (when feasable)
-| into lsyncd.lua
 |
 | This code assumes you have a 100 character wide display to view it (when tabstop is 4)
 |

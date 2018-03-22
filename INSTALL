@@ -44,8 +44,8 @@ Building
     make
     sudo make install
 
-  Building intree:
+  Building in tree:
     cmake .
     make
+    sudo make install
 
-FIXME make install not yet done
