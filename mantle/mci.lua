@@ -39,22 +39,6 @@ processCount = 0
 
 
 --
--- All valid entries in a settings{} call.
---
-local settingsCheckgauge =
-{
-	logfile        = true,
-	statusFile     = true,
-	statusInterval = true,
-	logfacility    = true,
-	logident       = true,
-	inotifyMode    = true,
-	maxProcesses   = true,
-	maxDelays      = true,
-}
-
-
---
 -- Settings specified by command line.
 --
 clSettings = { }
@@ -455,7 +439,7 @@ function mci.initialize( firstTime )
 	--
 	if uSettings.statusInterval == nil
 	then
-		uSettings.statusInterval = default.statusInterval
+		uSettings.statusInterval = userENV.default.statusInterval
 	end
 
 	-- makes sure the user gave Lsyncd anything to do

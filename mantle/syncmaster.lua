@@ -199,10 +199,8 @@ local function add
 
 	inherit( config, uconfig )
 
-	--
 	-- last and least defaults are inherited
-	--
-	inherit( config, default )
+	inherit( config, userENV.default )
 
 	local inheritSettings =
 	{

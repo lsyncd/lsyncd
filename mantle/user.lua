@@ -179,6 +179,23 @@ alarm = UserAlarms.alarm
 
 
 --
+-- All valid entries in a settings{} call.
+--
+local settingsCheckgauge =
+{
+	logfile        = true,
+	statusFile     = true,
+	statusInterval = true,
+	logfacility    = true,
+	logident       = true,
+	inotifyMode    = true,
+	maxProcesses   = true,
+	maxDelays      = true,
+}
+
+
+
+--
 -- The settings call
 --
 function settings

@@ -45,8 +45,14 @@
 /*
 | The Lua part of Lsyncd
 */
-extern const char luacode_out[];
-extern size_t luacode_size;
+extern const char mantle_out[];
+extern size_t mantle_size;
+
+/*
+| The Lua coded default sync implementations
+*/
+extern const char default_out[];
+extern size_t default_size;
 
 /*
 | Makes sure there is one file system monitor.
@@ -1953,17 +1959,17 @@ main1( int argc, char *argv[] )
 		printf( "kernels clocks_per_sec=%ld\n", clocks_per_sec );
 	}
 
-	// loads the lsyncd mantle and defaults
-	if( luaL_loadbuffer( L, luacode_out, luacode_size, "luacode" ) )
+	// loads the lsyncd mantle
+	if( luaL_loadbuffer( L, mantle_out, mantle_size, "mantle" ) )
 	{
-		printlogf( L, "Error", "error loading luacode: %s", lua_tostring( L, -1 ) );
+		printlogf( L, "Error", "loading mantle: %s", lua_tostring( L, -1 ) );
 		exit( -1 );
 	}
 
 	// prepares the luacode executing the script
 	if( lua_pcall( L, 0, 0, 0 ) )
 	{
-		printlogf( L, "Error", "preparing luacode: %s", lua_tostring( L, -1 ) );
+		printlogf( L, "Error", "preparing mantle: %s", lua_tostring( L, -1 ) );
 		exit( -1 );
 	}
 
@@ -1988,6 +1994,26 @@ main1( int argc, char *argv[] )
 		lua_pop( L, 1 );
 	}
 
+	// loads the default sync implementations
+	if( luaL_loadbuffer( L, default_out, default_size, "default" ) )
+	{
+		printlogf( L, "Error",
+			"loading default sync implementations: %s", lua_tostring( L, -1 ) );
+		exit( -1 );
+	}
+
+	// loads the user enivornment
+	// the default sync implementations are actually not priviledged in any way
+	lua_getglobal( L, "userENV" );
+	lua_setupvalue( L, -2, 1 );
+
+	// prepares the default sync implementations
+	if( lua_pcall( L, 0, 0, 0 ) )
+	{
+		printlogf( L, "Error",
+			"preparing default sync implementations: %s", lua_tostring( L, -1 ) );
+		exit( -1 );
+	}
 
 	// checks if there is a "-help" or "--help"
 	{

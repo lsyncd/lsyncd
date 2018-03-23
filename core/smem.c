@@ -19,8 +19,11 @@
 
 #include <stdlib.h>
 #include <syslog.h>
-#include "lsyncd.h"
+#include <string.h>
 
+#include "lsyncd.h"
+#include "smem.h"
+#include "log.h"
 
 /*
 | "Secured" calloc

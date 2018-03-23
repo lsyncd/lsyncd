@@ -624,7 +624,6 @@ rsync.prepare = function
 	end
 end
 
-
 --
 -- By default do deletes.
 --
@@ -646,7 +645,6 @@ rsync.rsync =
 	times         = true,
 	protect_args  = true
 }
-
 
 --
 -- Default delay

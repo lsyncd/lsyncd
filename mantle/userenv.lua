@@ -4,6 +4,9 @@
 --
 -- Setups up the global environment for a user script.
 --
+-- The default sync implementations will add the 'default' global
+-- to this. They are loaded in user context, so they can simply set it.
+--
 --
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
@@ -49,7 +52,6 @@ userENV =
 	-- lsyncd mantle available to user scripts
 	Array = Array,
 	Queue = Queue,
-	default = default,
 	settings = settings,
 	spawn = spawn,
 	spawnShell = spawnShell,

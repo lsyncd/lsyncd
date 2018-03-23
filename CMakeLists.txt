@@ -15,7 +15,8 @@ set( LSYNCD_SRC
 	core/core.c
 	core/log.c
 	core/smem.c
-	luacode.c
+	mantle.c
+	default.c
 )
 
 # Tell systemd via the sd-daemon library about the status of Lsyncd.
@@ -37,12 +38,12 @@ configure_file (
 include_directories("${PROJECT_BINARY_DIR}")
 
 
-# Building and compiling the part of lsyncd written in Lua
+# The mantle written in Lua
 #
 # Order here matters as the scripts lua will be executed in this order
 # on initialization of Lsyncd.
 #
-set( LUA_CODE
+set( MANTLE_CODE
 	${PROJECT_SOURCE_DIR}/mantle/array.lua
 	${PROJECT_SOURCE_DIR}/mantle/counter.lua
 	${PROJECT_SOURCE_DIR}/mantle/queue.lua
@@ -62,28 +63,49 @@ set( LUA_CODE
 	${PROJECT_SOURCE_DIR}/mantle/user.lua
 	${PROJECT_SOURCE_DIR}/mantle/string.lua
 	${PROJECT_SOURCE_DIR}/mantle/version.lua
+	${PROJECT_SOURCE_DIR}/mantle/userenv.lua
+)
+
+# The default sync implementations.
+#
+# Order here matters as the scripts lua will be executed in this order
+# on initialization of Lsyncd.
+#
+set( DEFAULT_CODE
 	${PROJECT_SOURCE_DIR}/default/default.lua
 	${PROJECT_SOURCE_DIR}/default/rsync.lua
 	${PROJECT_SOURCE_DIR}/default/rsyncssh.lua
 	${PROJECT_SOURCE_DIR}/default/direct.lua
-	${PROJECT_SOURCE_DIR}/mantle/userenv.lua
 )
 
-# Creates the Lua bytecode from Lua source
-add_custom_command( OUTPUT luacode.out
-	COMMAND ${CMAKE_COMMAND} -E echo "Compiling luacode"
-	COMMAND ${LUA_COMPILER} -o luacode.out ${LUA_CODE}
-	DEPENDS ${LUA_CODE}
+# Compiling the mantle to Lua bytecode
+add_custom_command( OUTPUT mantle.out
+	COMMAND ${CMAKE_COMMAND} -E echo "Compiling mantle"
+	COMMAND ${LUA_COMPILER} -o mantle.out ${MANTLE_CODE}
+	DEPENDS ${MANTLE_CODE}
 )
 
-# Transforms the Lua bytecode into c constants
+# Compiling the default sync implementations to Lua bytecode
+add_custom_command( OUTPUT default.out
+	COMMAND ${CMAKE_COMMAND} -E echo "Compiling default"
+	COMMAND ${LUA_COMPILER} -o default.out ${DEFAULT_CODE}
+	DEPENDS ${DEFAULT_CODE}
+)
+
+# Transforms the Lua bytecode into C constants
 # It may be possible to use the linker directly to link binary
 # Code into the resulting ELF-file, but this proofed to be more
 # portable and easier.
-add_custom_command( OUTPUT luacode.c
-	COMMAND ${CMAKE_COMMAND} -E echo "Generating luacode linkable"
-	COMMAND ${LUA_EXECUTABLE} ${PROJECT_SOURCE_DIR}/bin2carray.lua luacode.out luacode luacode.c
-	DEPENDS luacode.out
+add_custom_command( OUTPUT mantle.c
+	COMMAND ${CMAKE_COMMAND} -E echo "Generating mantle linkable"
+	COMMAND ${LUA_EXECUTABLE} ${PROJECT_SOURCE_DIR}/bin2carray.lua mantle.out mantle mantle.c
+	DEPENDS mantle.out
+)
+
+add_custom_command( OUTPUT default.c
+	COMMAND ${CMAKE_COMMAND} -E echo "Generating default linkable"
+	COMMAND ${LUA_EXECUTABLE} ${PROJECT_SOURCE_DIR}/bin2carray.lua default.out default default.c
+	DEPENDS default.out
 )
 
 # The manpage
