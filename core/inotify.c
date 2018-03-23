@@ -12,6 +12,7 @@
 
 #include "lsyncd.h"
 
+// FIXME check if all that headers are really required...
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
@@ -36,6 +37,7 @@
 #include <lauxlib.h>
 
 #include "smem.h"
+#include "log.h"
 
 /*
 | Event types.

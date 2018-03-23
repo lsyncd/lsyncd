@@ -13,6 +13,7 @@ include_directories ( ${LUA_INCLUDE_DIR} )
 # Order here doesn't matter as being linked together.
 set( LSYNCD_SRC
 	core/core.c
+	core/log.c
 	core/smem.c
 	luacode.c
 )
