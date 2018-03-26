@@ -19,4 +19,5 @@ install_manifest.txt
 
 # generated C code
 
-luacode.c
+default.c
+mantle.c

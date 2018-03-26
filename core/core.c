@@ -770,10 +770,7 @@ l_exec( lua_State *L )
 			s[ i ] = cs[ i ] ? cs[ i ] : '\n';
 		}
 
-		logstring0(
-			LOG_DEBUG, "Exec",
-			s
-		);
+		logstring0( LOG_DEBUG, "Exec", s );
 
 		free( s );
 
@@ -785,10 +782,7 @@ l_exec( lua_State *L )
 		// pipes something into stdin
 		if( !lua_isstring( L, 3 ) )
 		{
-			logstring(
-				"Error",
-				"in spawn(), expected a string after pipe '<'"
-			);
+			logstring( "Error", "in spawn(), expected a string after pipe '<'" );
 
 			exit( -1 );
 		}
@@ -1053,8 +1047,7 @@ l_stackdump( lua_State * L )
 
 			case LUA_TBOOLEAN:
 
-				printlogf(
-					L, "Debug",
+				printlogf( L, "Debug",
 					"%d boolean %s", i, lua_toboolean( L, i ) ? "true" : "false"
 				);
 
@@ -1062,19 +1055,13 @@ l_stackdump( lua_State * L )
 
 			case LUA_TNUMBER:
 
-				printlogf(
-					L, "Debug",
-					"%d number: %g", i, lua_tonumber( L, i )
-				);
+				printlogf( L, "Debug", "%d number: %g", i, lua_tonumber( L, i ) );
 
 				break;
 
 			default:
 
-				printlogf(
-					L, "Debug",
-					"%d %s", i, lua_typename( L, t )
-				);
+				printlogf( L, "Debug", "%d %s", i, lua_typename( L, t ) );
 
 				break;
 		}
@@ -1105,10 +1092,7 @@ l_readdir( lua_State *L )
 
 	if( d == NULL )
 	{
-		printlogf(
-			L, "Error", "cannot open dir [%s].",
-			dirname
-		);
+		printlogf( L, "Error", "cannot open dir [%s].", dirname );
 
 		return 0;
 	}
@@ -1120,29 +1104,17 @@ l_readdir( lua_State *L )
 		struct dirent *de = readdir( d );
 		bool isdir;
 
-		if( de == NULL ) // finished
-		{
-			break;
-		}
+		// finished?
+		if( de == NULL ) break;
 
 		// ignores . and ..
-		if(
-			!strcmp( de->d_name, "."  )
-			|| !strcmp( de->d_name, ".." )
-		)
-		{
-			continue;
-		}
+		if( !strcmp( de->d_name, "."  ) || !strcmp( de->d_name, ".." ) ) continue;
 
 		if( de->d_type == DT_UNKNOWN )
 		{
 			// must call stat on some systems :-/
 			// ( e.g. ReiserFS )
-			char *entry = s_malloc(
-				strlen( dirname ) +
-				strlen( de->d_name ) +
-				2
-			);
+			char *entry = s_malloc( strlen( dirname ) + strlen( de->d_name ) + 2 );
 
 			struct stat st;
 
@@ -1267,10 +1239,7 @@ l_configure( lua_State *L )
 		}
 		else
 		{
-			printlogf(
-				L, "Error",
-				"Logging facility must be a number or string"
-			);
+			printlogf( L, "Error", "Logging facility must be a number or string" );
 
 			exit( -1 );
 		}
@@ -1279,10 +1248,7 @@ l_configure( lua_State *L )
 	{
 		const char * ident = luaL_checkstring( L, 2 );
 
-		if( settings.log_ident )
-		{
-			free( settings.log_ident );
-		}
+		if( settings.log_ident ) free( settings.log_ident );
 
 		settings.log_ident = s_strdup( ident );
 	}
@@ -1670,8 +1636,8 @@ masterloop(lua_State *L)
 			// of reading/writing from observances it jumps directly to
 			// handling
 
-			// TODO: Actually it might be smarter to handler observances
-			// eitherway. since event queues might overflow.
+			// TODO: Actually it might be smarter to handle observances
+			// anyway. since event queues might overflow.
 			logstring( "Masterloop", "immediately handling delays." );
 		}
 		else
@@ -1684,7 +1650,7 @@ masterloop(lua_State *L)
 
 			if( have_alarm )
 			{
-				// TODO use trunc instead of long converstions
+				// TODO use trunc instead of long conversions
 				double d   = ( (double )( alarm_time - now ) ) / clocks_per_sec;
 				tv.tv_sec  = d;
 				tv.tv_nsec = ( (d - ( long ) d) ) * 1000000000.0;
@@ -1770,10 +1736,7 @@ masterloop(lua_State *L)
 						}
 
 						// Checks for signals, again, better safe than sorry
-						if ( hup || term )
-						{
-							break;
-						}
+						if ( hup || term ) break;
 
 						// FIXME breaks on multiple nonobservances in one beat
 						if(
