@@ -34,13 +34,13 @@
 #include <unistd.h>
 
 #define LUA_USE_APICHECK 1
-
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
 
 #include "log.h"
 #include "smem.h"
+#include "pipe.h"
 
 /*
 | The Lua part of Lsyncd
@@ -182,67 +182,6 @@ get_realpath( const char * rpath )
 
 	return s_strdup( asw );
 #endif
-}
-
-
-/*:::::::::::::::::::::.
-::  Pipes  Management
-'::::::::::::::::::::::*/
-
-
-/*
-| A child process gets text piped through stdin
-*/
-struct pipemsg
-{
-	char * text;   // message to send
-	int tlen;      // length of text
-	int pos;       // position in message
-};
-
-
-/*
-| Called by the core whenever a pipe becomes
-| writeable again
-*/
-static void
-pipe_writey(
-	lua_State * L,
-	struct observance * observance
-)
-{
-	int fd = observance->fd;
-
-	struct pipemsg *pm = (struct pipemsg * ) observance->extra;
-
-	int len = write( fd, pm->text + pm->pos, pm->tlen - pm->pos );
-
-	pm->pos += len;
-
-	if( len < 0 )
-	{
-		logstring( "Normal", "broken pipe." );
-		nonobserve_fd( fd );
-	}
-	else if( pm->pos >= pm->tlen )
-	{
-		logstring( "Exec", "finished pipe." );
-		nonobserve_fd(fd);
-	}
-}
-
-
-/*
-| Called when cleaning up a pipe.
-*/
-static void
-pipe_tidy( struct observance * observance )
-{
-	struct pipemsg *pm = ( struct pipemsg * ) observance->extra;
-
-	close( observance->fd );
-	free( pm->text );
-	free( pm );
 }
 
 
@@ -791,24 +730,13 @@ l_exec( lua_State *L )
 
 		if( strlen( pipe_text ) > 0 )
 		{
-			// creates the pipe
-			if( pipe( pipefd ) == -1 )
-			{
-				logstring( "Error", "cannot create a pipe!" );
-
-				exit( -1 );
-			}
-
-			// always closes the write end for child processes
-			close_exec_fd( pipefd[ 1 ] );
-
-			// sets the write end on non-blocking
-			non_block_fd( pipefd[ 1 ] );
+			pipe_create( pipefd );
 		}
 		else
 		{
 			pipe_text = NULL;
 		}
+
 		argc -= 2;
 		li += 2;
 	}
@@ -831,10 +759,7 @@ l_exec( lua_State *L )
 	if( pid == 0 )
 	{
 		// replaces stdin for pipes
-		if( pipe_text )
-		{
-			dup2( pipefd[ 0 ], STDIN_FILENO );
-		}
+		if( pipe_text ) dup2( pipefd[ 0 ], STDIN_FILENO );
 
 		// if lsyncd runs as a daemon and has a logfile it will redirect
 		// stdout/stderr of child processes to the logfile.
@@ -861,37 +786,10 @@ l_exec( lua_State *L )
 
 	if( pipe_text )
 	{
-		int len;
-
-		// first closes read-end of pipe, this is for child process only
+		// closes read-end of pipe, this is for child process only
 		close( pipefd[ 0 ] );
 
-		// starts filling the pipe
-		len = write( pipefd[ 1 ], pipe_text, pipe_len );
-
-		if( len < 0 )
-		{
-			logstring( "Normal", "immediatly broken pipe." );
-			close( pipefd[ 1 ] );
-		}
-		else if( len == pipe_len )
-		{
-			// usual and best case, the pipe accepted all input -> close
-			close( pipefd[ 1 ] );
-			logstring( "Exec", "one-sweeped pipe" );
-		}
-		else
-		{
-			struct pipemsg *pm;
-			logstring( "Exec", "adding pipe observance" );
-			pm = s_calloc( 1, sizeof( struct pipemsg ) );
-			pm->text = s_calloc( pipe_len + 1, sizeof( char ) );
-			memcpy( pm->text, pipe_text, pipe_len + 1 );
-			pm->tlen = pipe_len;
-			pm->pos  = len;
-
-			observe_fd( pipefd[ 1 ], NULL, pipe_writey, pipe_tidy, pm );
-		}
+		pipe_write( pipefd, pipe_text, pipe_len );
 	}
 
 	free( argv );

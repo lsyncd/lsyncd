@@ -10,10 +10,11 @@ find_package( Lua REQUIRED )
 include_directories ( ${LUA_INCLUDE_DIR} )
 
 # Setting Lsyncd sources.
-# Order here doesn't matter as being linked together.
+# Order here doesn't matter much.
 set( LSYNCD_SRC
 	core/core.c
 	core/log.c
+	core/pipe.c
 	core/smem.c
 	mantle.c
 	default.c
