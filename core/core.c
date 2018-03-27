@@ -198,8 +198,8 @@ static int callError;
 | List of file descriptor watches.
 */
 static struct observance * observances = NULL;
-static int observances_len             = 0;
-static int observances_size            = 0;
+static int observances_len = 0;
+static int observances_size = 0;
 
 
 /*
@@ -209,8 +209,8 @@ static int observances_size            = 0;
 | not be altered, thus nonobserve stores the
 | delayed removals.
 */
-static int * nonobservances    = NULL;
-static int nonobservances_len  = 0;
+static int * nonobservances = NULL;
+static int nonobservances_len = 0;
 static int nonobservances_size = 0;
 
 /*
@@ -238,8 +238,7 @@ observe_fd(
 	// stores the position to insert the new fd in pos
 	for( pos = 0; pos < observances_len; pos++)
 	{
-		if( fd <= observances[ pos ].fd )
-			{ break; }
+		if( fd <= observances[ pos ].fd ) break;
 	}
 
 	if( pos < observances_len && observances[ pos ].fd == fd )
@@ -263,10 +262,8 @@ observe_fd(
 
 	if( !tidy )
 	{
-		logstring(
-			"Error",
-			"internal, tidy() in observe_fd() must not be NULL."
-		);
+		logstring( "Error", "internal, tidy( ) in observe_fd() must not be NULL." );
+
 		exit( -1 );
 	}
 
@@ -326,8 +323,7 @@ nonobserve_fd( int fd )
 	// looks for the fd
 	for( pos = 0; pos < observances_len; pos++ )
 	{
-		if( observances[ pos ].fd == fd )
-			{ break; }
+		if( observances[ pos ].fd == fd ) break;
 	}
 
 	if( pos >= observances_len )
@@ -454,10 +450,7 @@ l_log( lua_State *L )
 	priority = check_logcat( cat );
 
 	// skips filtered messages
-	if( priority > settings.log_level )
-	{
-		return 0;
-	}
+	if( priority > settings.log_level ) return 0;
 
 	// replaces non string values
 	{
@@ -1108,7 +1101,7 @@ l_observe_fd( lua_State *L )
 	bool writey = false;
 
 	// Stores the user function in the lua registry.
-	// It uses the address of the cores ready/write functions
+	// It uses the address of the cores ready / writey functions
 	// for the user as key
 	if( !lua_isnoneornil( L, 2 ) )
 	{
@@ -1443,11 +1436,13 @@ masterloop(lua_State *L)
 		if( lua_type( L, -1 ) == LUA_TBOOLEAN)
 		{
 			have_alarm = false;
+
 			force_alarm = lua_toboolean( L, -1 );
 		}
 		else
 		{
 			have_alarm = true;
+
 			alarm_time = *( ( clock_t * ) luaL_checkudata( L, -1, "Lsyncd.jiffies" ) );
 		}
 
@@ -1477,9 +1472,10 @@ masterloop(lua_State *L)
 			if( have_alarm )
 			{
 				// TODO use trunc instead of long conversions
-				double d   = ( (double )( alarm_time - now ) ) / clocks_per_sec;
+				double d = ( ( double )( alarm_time - now ) ) / clocks_per_sec;
 				tv.tv_sec  = d;
-				tv.tv_nsec = ( (d - ( long ) d) ) * 1000000000.0;
+				tv.tv_nsec = ( ( d - ( long ) d ) ) * 1000000000.0;
+
 				printlogf(
 					L, "Masterloop",
 					"going into select ( timeout %f seconds )",
@@ -1510,17 +1506,14 @@ masterloop(lua_State *L)
 				for( pi = 0; pi < observances_len; pi++ )
 				{
 					struct observance *obs = observances + pi;
-					if ( obs->ready  ) FD_SET( obs->fd, &rfds );
 
+					if ( obs->ready  ) FD_SET( obs->fd, &rfds );
 					if ( obs->writey ) FD_SET( obs->fd, &wfds );
 				}
 
 				if( !observances_len )
 				{
-					logstring(
-						"Error",
-						"Internal fail, no observances, no monitor!"
-					);
+					logstring( "Error", "Internal fail, no observances, no monitor!" );
 
 					exit( -1 );
 				}
@@ -1539,8 +1532,7 @@ masterloop(lua_State *L)
 				);
 
 				// something happened!
-
-				if (pr >= 0)
+				if( pr >= 0 )
 				{
 					// walks through the observances calling ready/writey
 					observance_action = true;
@@ -1549,17 +1541,11 @@ masterloop(lua_State *L)
 					{
 						struct observance *obs = observances + pi;
 
-						// Checks for signals
-						if( hup || term )
-						{
-							break;
-						}
+						// checks for signals
+						if( hup || term ) break;
 
 						// a file descriptor became read-ready
-						if( obs->ready && FD_ISSET( obs->fd, &rfds ) )
-						{
-							obs->ready(L, obs);
-						}
+						if( obs->ready && FD_ISSET( obs->fd, &rfds ) ) obs->ready(L, obs);
 
 						// Checks for signals, again, better safe than sorry
 						if ( hup || term ) break;
@@ -1568,10 +1554,7 @@ masterloop(lua_State *L)
 						if(
 							nonobservances_len > 0 &&
 							nonobservances[ nonobservances_len - 1 ] == obs->fd
-						)
-						{
-							continue;
-						}
+						) continue;
 
 						// a file descriptor became write-ready
 						if( obs->writey && FD_ISSET( obs->fd, &wfds ) )
@@ -1583,7 +1566,7 @@ masterloop(lua_State *L)
 					observance_action = false;
 
 					// works through delayed nonobserve_fd() calls
-					for (pi = 0; pi < nonobservances_len; pi++)
+					for( pi = 0; pi < nonobservances_len; pi++ )
 					{
 						nonobserve_fd( nonobservances[ pi ] );
 					}
@@ -1616,9 +1599,7 @@ masterloop(lua_State *L)
 		if( hup )
 		{
 			load_mci( L, "hup" );
-
 			if( lua_pcall( L, 0, 0, -2 ) ) exit( -1 );
-
 			lua_pop( L, 1 );
 
 			hup = 0;
@@ -1628,11 +1609,8 @@ masterloop(lua_State *L)
 		if( term == 1 )
 		{
 			load_mci( L, "term" );
-
 			lua_pushnumber( L, sigcode );
-
 			if( lua_pcall( L, 1, 0, -3 ) ) exit( -1 );
-
 			lua_pop( L, 1 );
 
 			term = 2;
@@ -1641,9 +1619,7 @@ masterloop(lua_State *L)
 		// lets the mantle do stuff every cycle,
 		// like starting new processes, writing the statusfile etc.
 		load_mci( L, "cycle" );
-
 		l_now( L );
-
 		if( lua_pcall( L, 1, 1, -3 ) ) exit( -1 );
 
 		if( !lua_toboolean( L, -1 ) )
