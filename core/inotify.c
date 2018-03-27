@@ -36,7 +36,7 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-#include "smem.h"
+#include "mem.h"
 #include "log.h"
 #include "inotify.h"
 

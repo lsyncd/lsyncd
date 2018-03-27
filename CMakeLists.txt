@@ -15,7 +15,8 @@ set( LSYNCD_SRC
 	core/core.c
 	core/log.c
 	core/pipe.c
-	core/smem.c
+	core/mem.c
+	core/util.c
 	mantle.c
 	default.c
 )

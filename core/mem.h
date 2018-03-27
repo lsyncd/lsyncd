@@ -1,5 +1,5 @@
 /*
-| smem.h from Lsyncd - Live (Mirror) Syncing Demon
+| mem.h from Lsyncd - Live (Mirror) Syncing Demon
 |
 |
 | Simple "secured" memory management.
@@ -9,8 +9,8 @@
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
 
-#ifndef LSYNCD_SMEM_H
-#define LSYNCD_SMEM_H
+#ifndef LSYNCD_MEM_H
+#define LSYNCD_MEM_H
 
 extern void * s_calloc( size_t nmemb, size_t size );
 extern void * s_malloc( size_t size );

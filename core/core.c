@@ -38,7 +38,8 @@
 #include <lauxlib.h>
 
 #include "log.h"
-#include "smem.h"
+#include "mem.h"
+#include "util.h"
 #include "pipe.h"
 
 #ifdef WITH_INOTIFY
@@ -164,30 +165,6 @@ sig_handler( int sig )
 #endif
 
 
-/*
-| Returns the absolute path of a path.
-|
-| This is a wrapper to various C-Library differences.
-*/
-char *
-get_realpath( const char * rpath )
-{
-	// uses c-library to get the absolute path
-#ifdef __GLIBC__
-	// in case of GLIBC the task is easy.
-	return realpath( rpath, NULL );
-#else
-#	warning having to use old style realpath()
-	// otherwise less so and requires PATH_MAX limit
-	char buf[ PATH_MAX] ;
-	char *asw = realpath( rpath, buf );
-	if( !asw ) return NULL;
-
-	return s_strdup( asw );
-#endif
-}
-
-
 /*:::::::::::::::::::.
 ::  Helper Routines
 '::::::::::::::::::::*/
@@ -210,58 +187,6 @@ static int mci = 0;
 | the lua runners error handler.
 */
 static int callError;
-
-
-/*
-| Sets the close-on-exit flag of a file descriptor.
-*/
-extern void
-close_exec_fd( int fd )
-{
-	int flags;
-
-	flags = fcntl( fd, F_GETFD );
-
-	if( flags == -1 )
-	{
-		logstring( "Error", "cannot get descriptor flags!" );
-		exit( -1 );
-	}
-
-	flags |= FD_CLOEXEC;
-
-	if( fcntl( fd, F_SETFD, flags ) == -1 )
-	{
-		logstring( "Error", "cannot set descripptor flags!" );
-		exit( -1 );
-	}
-}
-
-
-/*
-| Sets the non-blocking flag of a file descriptor.
-*/
-extern void
-non_block_fd( int fd )
-{
-	int flags;
-
-	flags = fcntl( fd, F_GETFL );
-
-	if( flags == -1 )
-	{
-		logstring( "Error", "cannot get status flags!" );
-		exit( -1 );
-	}
-
-	flags |= O_NONBLOCK;
-
-	if( fcntl( fd, F_SETFL, flags ) == -1 )
-	{
-		logstring( "Error", "cannot set status flags!" );
-		exit( -1 );
-	}
-}
 
 
 /*::::::::::::::::.

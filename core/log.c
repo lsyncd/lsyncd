@@ -27,7 +27,7 @@
 #include <lauxlib.h>
 
 #include "log.h"
-#include "smem.h"
+#include "mem.h"
 #include "lsyncd.h"
 
 

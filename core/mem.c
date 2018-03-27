@@ -1,5 +1,5 @@
 /*
-| smem.c from Lsyncd - Live (Mirror) Syncing Demon
+| mem.c from Lsyncd - Live (Mirror) Syncing Demon
 |
 |
 | Simple "secured" memory management.
@@ -19,7 +19,7 @@
 #include <string.h>
 
 #include "lsyncd.h"
-#include "smem.h"
+#include "mem.h"
 #include "log.h"
 
 /*
