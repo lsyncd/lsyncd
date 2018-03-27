@@ -12,26 +12,12 @@
 
 #include "lsyncd.h"
 
-// FIXME check if all that headers are really required...
-#include <sys/stat.h>
-#include <sys/times.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <sys/inotify.h>
-#include <dirent.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <syslog.h>
-#include <math.h>
-#include <time.h>
 #include <unistd.h>
+#include <string.h>
+#include <errno.h>
 
+#define LUA_USE_APICHECK 1
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -84,8 +70,8 @@ static const uint32_t standard_event_mask =
 static int
 l_addwatch( lua_State *L )
 {
-	const char *path  = luaL_checkstring( L, 1 );
-	const char *imode = luaL_checkstring( L, 2 );
+	char const * path  = luaL_checkstring( L, 1 );
+	char const * imode = luaL_checkstring( L, 2 );
 	uint32_t mask = standard_event_mask;
 
 	// checks the desired inotify reaction mode
@@ -164,9 +150,11 @@ l_addwatch( lua_State *L )
 static int
 l_rmwatch( lua_State *L )
 {
-	int wd = luaL_checkinteger( L, 1 );
+	const int wd = luaL_checkinteger( L, 1 );
+
 	inotify_rm_watch( inotify_fd, wd );
 	printlogf( L, "Inotify", "rmwatch()<-%d", wd );
+
 	return 0;
 }
 
@@ -233,10 +221,7 @@ handle_event(
 	}
 
 	// cancel on ignored or resetting
-	if( event && ( IN_IGNORED & event->mask ) )
-	{
-		return;
-	}
+	if( event && ( IN_IGNORED & event->mask ) ) return;
 
 	if( event && event->len == 0 )
 	{
@@ -392,7 +377,7 @@ handle_event(
 /*
 | buffer to read inotify events into
 */
-static size_t readbuf_size = 2048;
+static size_t readbuf_size = 4196;
 
 static char * readbuf = NULL;
 
@@ -412,6 +397,7 @@ inotify_ready(
 	if( obs->fd != inotify_fd )
 	{
 		logstring( "Error", "internal failure, inotify_fd != obs->fd" );
+
 		exit( -1 );
 	}
 
@@ -436,11 +422,8 @@ inotify_ready(
 			}
 		} while( len < 0 && err == EINVAL );
 
-		if( len == 0 )
-		{
-			// no more inotify events
-			break;
-		}
+		// no more inotify events
+		if( len == 0 ) break;
 
 		if (len < 0)
 		{
@@ -458,9 +441,7 @@ inotify_ready(
 			int i = 0;
 			while( i < len && !hup && !term )
 			{
-				struct inotify_event *event =
-					( struct inotify_event * )
-					(readbuf + i);
+				struct inotify_event *event = ( struct inotify_event * ) ( readbuf + i );
 
 				handle_event( L, event );
 
@@ -478,10 +459,8 @@ inotify_ready(
 	// checks if there is an unary MOVE_FROM left in the buffer
 	if( move_event )
 	{
-		logstring(
-			"Inotify",
-			"handling unary move from."
-		);
+		logstring( "Inotify", "handling unary move from." );
+
 		handle_event( L, NULL );
 	}
 }
@@ -514,6 +493,7 @@ inotify_tidy( struct observance *obs )
 
 	close( inotify_fd );
 	free( readbuf );
+
 	readbuf = NULL;
 }
 
@@ -546,6 +526,7 @@ open_inotify( lua_State *L )
 
 	close_exec_fd( inotify_fd );
 	non_block_fd( inotify_fd );
+
 	observe_fd( inotify_fd, inotify_ready, NULL, inotify_tidy, NULL );
 }
 
