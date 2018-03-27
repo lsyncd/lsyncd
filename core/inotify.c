@@ -1,13 +1,13 @@
 /*
 | inotify.c from Lsyncd - Live (Mirror) Syncing Demon
 |
+|
+| Event interface for Lsyncd to Linux´ inotify.
+|
+|
 | License: GPLv2 (see COPYING) or any later version
 |
 | Authors: Axel Kittenberger <axkibe@gmail.com>
-|
-| -----------------------------------------------------------------------
-|
-| Event interface for Lsyncd to Linux´ inotify.
 */
 
 #include "lsyncd.h"
@@ -38,6 +38,8 @@
 
 #include "smem.h"
 #include "log.h"
+#include "inotify.h"
+
 
 /*
 | Event types.

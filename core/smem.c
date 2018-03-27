@@ -1,6 +1,5 @@
 /*
-| smem.c
-| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+| smem.c from Lsyncd - Live (Mirror) Syncing Demon
 |
 |
 | Simple "secured" memory management.
@@ -10,8 +9,6 @@
 | when requesting a way too large memory block the system can ever handle, if the kernel
 | runs out of memory it goes instead into oom-killer mode.
 |
-|
-| This code assumes you have a 100 character wide display to view it (when tabstop is 4)
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>

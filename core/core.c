@@ -1,8 +1,7 @@
 /*
-| core.c
-| ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+| core.c from Lsyncd - Live (Mirror) Syncing Demon
 |
-| This code assumes you have a 100 character wide display to view it (when tabstop is 4)
+|
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
@@ -41,6 +40,10 @@
 #include "log.h"
 #include "smem.h"
 #include "pipe.h"
+
+#ifdef WITH_INOTIFY
+#include "inotify.h"
+#endif
 
 /*
 | The Lua part of Lsyncd

@@ -1,5 +1,6 @@
 /*
-| log.h
+| log.h from Lsyncd - Live (Mirror) Syncing Demon
+|
 |
 | Logging
 |

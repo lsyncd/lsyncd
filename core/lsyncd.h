@@ -123,13 +123,5 @@ extern void observe_fd(
 extern void nonobserve_fd(int fd);
 
 
-/*
-* inotify
-*/
-#ifdef WITH_INOTIFY
-extern void register_inotify(lua_State *L);
-extern void open_inotify(lua_State *L);
-#endif
-
 
 #endif
