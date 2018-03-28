@@ -119,6 +119,12 @@ extern void observe_fd(
 	void *extra
 );
 
+// makes the big select for all observed fds
+extern void observe_select( lua_State * L, struct timespec const * timeout );
+
+// tidies up all observances
+extern void observe_tidy_all( );
+
 // stops the core to observe a file descriptor
 extern void nonobserve_fd(int fd);
 

@@ -14,6 +14,7 @@ include_directories ( ${LUA_INCLUDE_DIR} )
 set( LSYNCD_SRC
 	core/core.c
 	core/log.c
+	core/observe.c
 	core/pipe.c
 	core/mem.c
 	core/util.c

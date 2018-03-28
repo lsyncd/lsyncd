@@ -226,7 +226,8 @@ logstring0(
 | This uses the lua_State for it easy string buffers only.
 */
 extern void
-printlogf0(lua_State *L,
+printlogf0(
+	lua_State *L,
 	int priority,
 	const char *cat,
 	const char *fmt, ...)
