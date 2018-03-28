@@ -11,7 +11,6 @@
 #ifndef LSYNCD_UTIL_H
 #define LSYNCD_UTIL_H
 
-
 /*
 | Returns the absolute path of a path.
 |
@@ -31,5 +30,5 @@ extern void non_block_fd( int fd );
 */
 extern void close_exec_fd( int fd );
 
-
 #endif
+

@@ -2,7 +2,7 @@
 | observe.c from Lsyncd - Live (Mirror) Syncing Demon
 |
 |
-| Handles observing fd's and the big select.
+| Handles observing file descriptors and the big select.
 |
 |
 | License: GPLv2 (see COPYING) or any later version
@@ -22,7 +22,26 @@
 #include "mem.h"
 
 
-// FIXME make "struct observance" a local structure
+/**
+* An observance to be called when a file descritor becomes
+* read-ready or write-ready.
+*/
+struct observance {
+	// The file descriptor to observe.
+	int fd;
+
+	// Function to call when read becomes ready.
+	void (*ready)( lua_State *, int fd, void * extra );
+
+	// Function to call when write becomes ready.
+	void (*writey)( lua_State *, int fd, void * extra );
+
+	// Function to call to clean up
+	void (*tidy)( int fd, void * extra );
+
+	// Extra tokens to pass to the functions.
+	void *extra;
+};
 
 
 /*
@@ -58,9 +77,9 @@ static bool observance_action = false;
 extern void
 observe_fd(
 	int fd,
-	void ( * ready  ) ( lua_State *, struct observance * ),
-	void ( * writey ) ( lua_State *, struct observance * ),
-	void ( * tidy   ) ( struct observance * ),
+	void ( * ready  ) ( lua_State *, int fd, void * extra ),
+	void ( * writey ) ( lua_State *, int fd, void * extra ),
+	void ( * tidy   ) ( int fd, void * extra ),
 	void * extra
 )
 {
@@ -165,7 +184,7 @@ nonobserve_fd( int fd )
 	}
 
 	// tidies up the observance
-	observances[ pos ].tidy( observances + pos );
+	observances[ pos ].tidy( observances[ pos ].fd, observances[ pos ].extra );
 
 	// and moves the list down
 	memmove(
@@ -238,12 +257,13 @@ observe_select
 		for( pi = 0; pi < observances_len; pi++ )
 		{
 			struct observance *obs = observances + pi;
+			int fd = obs->fd;
 
 			// checks for signals
 			if( hup || term ) break;
 
 			// a file descriptor became read-ready
-			if( obs->ready && FD_ISSET( obs->fd, &rfds ) ) obs->ready( L, obs );
+			if( obs->ready && FD_ISSET( fd, &rfds ) ) obs->ready( L, fd, obs->extra );
 
 			// Checks for signals, again, better safe than sorry
 			if ( hup || term ) break;
@@ -251,14 +271,11 @@ observe_select
 			// FIXME breaks on multiple nonobservances in one beat
 			if(
 				nonobservances_len > 0 &&
-				nonobservances[ nonobservances_len - 1 ] == obs->fd
+				nonobservances[ nonobservances_len - 1 ] == fd
 			) continue;
 
 			// a file descriptor became write-ready
-			if( obs->writey && FD_ISSET( obs->fd, &wfds ) )
-			{
-				obs->writey( L, obs );
-			}
+			if( obs->writey && FD_ISSET( fd, &wfds ) ) obs->writey( L, fd, obs->extra );
 		}
 
 		observance_action = false;
@@ -284,7 +301,7 @@ void observe_tidy_all( )
 	for( i = 0; i < observances_len; i++ )
 	{
 		struct observance *obs = observances + i;
-		obs->tidy( obs );
+		obs->tidy( obs->fd, obs->extra );
 	}
 
 	observances_len = 0;

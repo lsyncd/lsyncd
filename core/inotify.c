@@ -25,6 +25,7 @@
 #include "mem.h"
 #include "log.h"
 #include "inotify.h"
+#include "observe.h"
 
 
 /*
@@ -390,11 +391,12 @@ static char * readbuf = NULL;
 static void
 inotify_ready(
 	lua_State *L,
-	struct observance *obs
+	int fd,
+	void * extra
 )
 {
 	// sanity check
-	if( obs->fd != inotify_fd )
+	if( fd != inotify_fd )
 	{
 		logstring( "Error", "internal failure, inotify_fd != obs->fd" );
 
@@ -483,9 +485,9 @@ register_inotify( lua_State *L )
 | Cleans up the inotify handling.
 */
 static void
-inotify_tidy( struct observance *obs )
+inotify_tidy( int fd, void * extra )
 {
-	if( obs->fd != inotify_fd )
+	if( fd != inotify_fd )
 	{
 		logstring( "Error", "internal failure: inotify_fd != ob->fd" );
 		exit( -1 );

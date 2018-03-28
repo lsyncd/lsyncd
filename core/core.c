@@ -41,6 +41,7 @@
 #include "mem.h"
 #include "util.h"
 #include "pipe.h"
+#include "observe.h"
 
 #ifdef WITH_INOTIFY
 #include "inotify.h"
@@ -195,11 +196,10 @@ static int callError;
 static void
 user_obs_ready(
 	lua_State * L,
-	struct observance * obs
+	int fd,
+	void * extra
 )
 {
-	int fd = obs->fd;
-
 	// pushes the ready table on table
 	lua_pushlightuserdata( L, ( void * ) user_obs_ready );
 	lua_gettable( L, LUA_REGISTRYINDEX );
@@ -228,11 +228,10 @@ user_obs_ready(
 static void
 user_obs_writey(
 	lua_State * L,
-	struct observance * obs
+	int fd,
+	void * extra
 )
 {
-	int fd = obs->fd;
-
 	// pushes the writey table on table
 	lua_pushlightuserdata( L, (void *) user_obs_writey );
 	lua_gettable( L, LUA_REGISTRYINDEX );
@@ -259,9 +258,12 @@ user_obs_writey(
 | FIXME - give the user a chance to do something in that case!
 */
 static void
-user_obs_tidy( struct observance *obs )
+user_obs_tidy(
+	int fd,
+	void * extra
+)
 {
-	close( obs->fd );
+	close( fd );
 }
 
 

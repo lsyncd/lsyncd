@@ -12,7 +12,6 @@
 #ifndef LSYNCD_LOG_H
 #define LSYNCD_LOG_H
 
-
 // Adds a logging category
 extern bool add_logcat( const char *name, int priority );
 
@@ -43,3 +42,4 @@ printlogf0(
 extern void log_free( );
 
 #endif
+

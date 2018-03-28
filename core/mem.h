@@ -8,7 +8,6 @@
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
-
 #ifndef LSYNCD_MEM_H
 #define LSYNCD_MEM_H
 

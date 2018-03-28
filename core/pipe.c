@@ -14,14 +14,10 @@
 #include <unistd.h>
 #include <string.h>
 
-#define LUA_USE_APICHECK 1
-#include <lua.h>
-//#include <lualib.h>
-//#include <lauxlib.h>
-
 #include "log.h"
 #include "mem.h"
 #include "pipe.h"
+#include "observe.h"
 
 
 /*
@@ -42,12 +38,11 @@ struct pipemsg
 static void
 pipe_writey(
 	lua_State * L,
-	struct observance * observance
+	int fd,
+	void * extra
 )
 {
-	int fd = observance->fd;
-
-	struct pipemsg *pm = (struct pipemsg * ) observance->extra;
+	struct pipemsg * pm = (struct pipemsg *) extra;
 
 	int len = write( fd, pm->text + pm->pos, pm->tlen - pm->pos );
 
@@ -75,11 +70,11 @@ pipe_writey(
 | Called when cleaning up a pipe.
 */
 static void
-pipe_tidy( struct observance * observance )
+pipe_tidy( int fd, void * extra )
 {
-	struct pipemsg *pm = ( struct pipemsg * ) observance->extra;
+	struct pipemsg * pm = (struct pipemsg *) extra;
 
-	close( observance->fd );
+	close( fd );
 	free( pm->text );
 	free( pm );
 }
