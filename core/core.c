@@ -125,7 +125,7 @@ volatile sig_atomic_t sigcode = 0;
 /*
 | The kernel's clock ticks per second.
 */
-static long clocks_per_sec;
+extern long clocks_per_sec;
 
 
 /*
@@ -153,17 +153,6 @@ sig_handler( int sig )
 			return;
 	}
 }
-
-
-/*
-| Non glibc builds need a real tms structure for the times( ) call
-*/
-#ifdef __GLIBC__
-	static struct tms * dummy_tms = NULL;
-#else
-	static struct tms  _dummy_tms;
-	static struct tms * dummy_tms = &_dummy_tms;
-#endif
 
 
 /*:::::::::::::::::::.
@@ -327,8 +316,7 @@ l_log( lua_State *L )
 
 				case LUA_TUSERDATA:
 					{
-						clock_t *c = ( clock_t * )
-							luaL_checkudata( L, i, "Lsyncd.jiffies" );
+						clock_t *c = ( clock_t * ) luaL_checkudata( L, i, "Lsyncd.jiffies" );
 
 						double d = *c;
 						d /= clocks_per_sec;
@@ -352,21 +340,6 @@ l_log( lua_State *L )
 	logstring0( priority, cat, message );
 
 	return 0;
-}
-
-
-/*
-| Returns (on Lua stack) the current kernels
-| clock state (jiffies)
-*/
-extern int
-l_now(lua_State *L)
-{
-	clock_t * j = lua_newuserdata( L, sizeof( clock_t ) );
-	luaL_getmetatable( L, "Lsyncd.jiffies" );
-	lua_setmetatable( L, -2 );
-	*j = times( dummy_tms );
-	return 1;
 }
 
 
@@ -1064,111 +1037,6 @@ static const luaL_Reg corelib[] =
 
 
 /*
-| Adds a number in seconds to a jiffy timestamp.
-*/
-static int
-l_jiffies_add( lua_State *L )
-{
-	clock_t *p1 = ( clock_t * ) lua_touserdata( L, 1 );
-	clock_t *p2 = ( clock_t * ) lua_touserdata( L, 2 );
-
-	if( p1 && p2 )
-	{
-		logstring( "Error", "Cannot add two timestamps!" );
-		exit( -1 );
-	}
-
-	{
-		clock_t a1  = p1 ? *p1 :  luaL_checknumber( L, 1 ) * clocks_per_sec;
-		clock_t a2  = p2 ? *p2 :  luaL_checknumber( L, 2 ) * clocks_per_sec;
-		clock_t *r  = ( clock_t * ) lua_newuserdata( L, sizeof( clock_t ) );
-
-		luaL_getmetatable( L, "Lsyncd.jiffies" );
-		lua_setmetatable( L, -2 );
-		*r = a1 + a2;
-		return 1;
-	}
-}
-
-
-/*
-| Subracts two jiffy timestamps resulting in a number in seconds
-| or substracts a jiffy by a number in seconds resulting a jiffy timestamp.
-*/
-static int
-l_jiffies_sub( lua_State *L )
-{
-	clock_t *p1 = ( clock_t * ) lua_touserdata( L, 1 );
-	clock_t *p2 = ( clock_t * ) lua_touserdata( L, 2 );
-
-	if( p1 && p2 )
-	{
-		// substracting two timestamps result in a timespan in seconds
-		clock_t a1  = *p1;
-		clock_t a2  = *p2;
-		lua_pushnumber(L, ((double) (a1 -a2)) / clocks_per_sec);
-		return 1;
-	}
-
-	// makes a timestamp earlier by NUMBER seconds
-	clock_t a1  = p1 ? *p1 :  luaL_checknumber( L, 1 ) * clocks_per_sec;
-	clock_t a2  = p2 ? *p2 :  luaL_checknumber( L, 2 ) * clocks_per_sec;
-
-	clock_t *r  = (clock_t *) lua_newuserdata( L, sizeof( clock_t ) );
-	luaL_getmetatable( L, "Lsyncd.jiffies" );
-	lua_setmetatable( L, -2 );
-
-	*r = a1 - a2;
-
-	return 1;
-}
-
-
-/*
-| Compares two jiffy timestamps
-*/
-static int
-l_jiffies_eq( lua_State *L )
-{
-	clock_t a1 = ( *( clock_t * ) luaL_checkudata( L, 1, "Lsyncd.jiffies" ) );
-	clock_t a2 = ( *( clock_t * ) luaL_checkudata( L, 2, "Lsyncd.jiffies" ) );
-
-	lua_pushboolean( L, a1 == a2 );
-
-	return 1;
-}
-
-
-/*
-* True if jiffy1 timestamp is eariler than jiffy2 timestamp
-*/
-static int
-l_jiffies_lt( lua_State *L )
-{
-	clock_t a1 = ( *( clock_t * ) luaL_checkudata( L, 1, "Lsyncd.jiffies" ) );
-	clock_t a2 = ( *( clock_t * ) luaL_checkudata( L, 2, "Lsyncd.jiffies" ) );
-
-	lua_pushboolean( L, time_before( a1, a2 ) );
-
-	return 1;
-}
-
-
-/*
-| True if jiffy1 before or equals jiffy2
-*/
-static int
-l_jiffies_le(lua_State *L)
-{
-	clock_t a1 = ( *( clock_t * ) luaL_checkudata( L, 1, "Lsyncd.jiffies" ) );
-	clock_t a2 = ( *( clock_t * ) luaL_checkudata( L, 2, "Lsyncd.jiffies" ) );
-
-	lua_pushboolean( L, ( a1 == a2 ) || time_before( a1, a2 ) );
-	return 1;
-}
-
-
-/*
 | Registers the Lsyncd's core library.
 */
 void
@@ -1178,26 +1046,7 @@ register_core( lua_State *L )
 	luaL_setfuncs( L, corelib, 0 );
 	lua_setglobal( L, LSYNCD_CORE_LIBNAME );
 
-	// creates the metatable for the jiffies ( timestamps ) userdata
-	luaL_newmetatable( L, "Lsyncd.jiffies" );
-	int mt = lua_gettop( L );
-
-	lua_pushcfunction( L, l_jiffies_add );
-	lua_setfield( L, mt, "__add" );
-
-	lua_pushcfunction( L, l_jiffies_sub );
-	lua_setfield( L, mt, "__sub" );
-
-	lua_pushcfunction( L, l_jiffies_lt );
-	lua_setfield( L, mt, "__lt" );
-
-	lua_pushcfunction( L, l_jiffies_le );
-	lua_setfield( L, mt, "__le" );
-
-	lua_pushcfunction( L, l_jiffies_eq );
-	lua_setfield( L, mt, "__eq" );
-
-	lua_pop( L, 1 ); // pop(mt)
+	register_jiffies( L );
 
 #ifdef WITH_INOTIFY
 
@@ -1256,7 +1105,7 @@ masterloop(lua_State *L)
 	{
 		bool have_alarm;
 		bool force_alarm   = false;
-		clock_t now        = times( dummy_tms );
+		clock_t cnow       = now( );
 		clock_t alarm_time = 0;
 
 		// memory usage debugging
@@ -1289,7 +1138,7 @@ masterloop(lua_State *L)
 
 		if(
 			force_alarm ||
-			( have_alarm && time_before_eq( alarm_time, now ) )
+			( have_alarm && time_before_eq( alarm_time, cnow ) )
 		)
 		{
 			// there is a delay that wants to be handled already thus instead
@@ -1311,7 +1160,7 @@ masterloop(lua_State *L)
 			if( have_alarm )
 			{
 				// TODO use trunc instead of long conversions
-				double d = ( ( double )( alarm_time - now ) ) / clocks_per_sec;
+				double d = ( ( double )( alarm_time - cnow ) ) / clocks_per_sec;
 				tv.tv_sec  = d;
 				tv.tv_nsec = ( ( d - ( long ) d ) ) * 1000000000.0;
 
@@ -1372,7 +1221,9 @@ masterloop(lua_State *L)
 		// lets the mantle do stuff every cycle,
 		// like starting new processes, writing the statusfile etc.
 		load_mci( L, "cycle" );
+
 		l_now( L );
+
 		if( lua_pcall( L, 1, 1, -3 ) ) exit( -1 );
 
 		if( !lua_toboolean( L, -1 ) )

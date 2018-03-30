@@ -66,16 +66,21 @@ extern struct settings {
 #define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
 #define time_before_eq(a,b)     time_after_eq(b,a)
 
-// returns (on Lua stack) the current kernels * clock state (jiffies)
+// Returns the current time.
+extern clock_t now( );
+
+// Returns (on Lua stack) the current kernels clock state( jiffies ).
 extern int l_now(lua_State *L);
 
-// pushes a runner function and the runner error handler onto Lua stack
+// Registers the jiffies meta table in a Lua state.
+extern void register_jiffies( lua_State *L );
+
+// Pushes a runner function and the runner error handler onto Lua stack
 extern void load_mci(lua_State *L, const char *name);
 
 // set to 1 on hup signal or term signal
 extern volatile sig_atomic_t hup;
 extern volatile sig_atomic_t term;
-
 
 
 #endif
