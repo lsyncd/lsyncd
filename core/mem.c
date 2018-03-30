@@ -1,11 +1,11 @@
 /*
-| mem.c from Lsyncd - Live (Mirror) Syncing Demon
+| mem.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 |
 | Simple "secured" memory management.
 |
 | In future it might be an idea to call the lua garbage collecter in case memory allocation
-| fails. However on Linux it's a mood point since practically a NULL is only returned
+| fails. However on Linux it is a mood point since practically a NULL is only returned
 | when requesting a way too large memory block the system can ever handle, if the kernel
 | runs out of memory it goes instead into oom-killer mode.
 |

@@ -1,5 +1,5 @@
 /*
-| log.c from Lsyncd - Live (Mirror) Syncing Demon
+| log.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 |
 | Logging.

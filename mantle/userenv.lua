@@ -1,5 +1,5 @@
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- userenv.lua
+--
+-- userenv.lua from Lsyncd -- the Live (Mirror) Syncing Demon
 --
 --
 -- Setups up the global environment for a user script.
@@ -11,9 +11,6 @@
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 userENV =
 {
 	-- generic lua stuff to be available

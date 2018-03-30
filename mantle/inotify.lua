@@ -1,5 +1,5 @@
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- inotify.lua
+--
+-- inotify.lua from Lsyncd -- the Live (Mirror) Syncing Demon
 --
 --
 -- Interface to inotify core.
@@ -8,14 +8,9 @@
 -- All inotify specific implementation is enclosed here.
 --
 --
--- This code assumes your editor is at least 100 chars wide.
---
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 if lsyncd_version
 then
 	print( 'Error, Lsyncd mantle already loaded' )

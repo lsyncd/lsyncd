@@ -1,5 +1,5 @@
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- lsyncd.lua   Live (Mirror) Syncing Demon
+--
+-- sync.lua from Lsyncd -- the Live (Mirror) Syncing Demon
 --
 --
 -- Holds information about one observed directory including subdirs.
@@ -10,9 +10,6 @@
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 if mantle
 then
 	print( 'Error, Lsyncd mantle already loaded' )

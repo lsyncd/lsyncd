@@ -1,5 +1,5 @@
 /*
-| inotify.c from Lsyncd - Live (Mirror) Syncing Demon
+| inotify.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 |
 | Event interface for Lsyncd to Linux´ inotify.

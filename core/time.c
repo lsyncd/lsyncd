@@ -1,5 +1,5 @@
 /*
-| time.c from Lsyncd - Live (Mirror) Syncing Demon
+| time.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 |
 | Keeps time for Lsyncd,

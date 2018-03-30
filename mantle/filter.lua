@@ -1,5 +1,5 @@
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- filter.lua
+--
+-- filter.lua from Lsyncd -- the Live (Mirror) Syncing Demon
 --
 --
 -- A set of filter patterns.
@@ -8,14 +8,9 @@
 --
 --
 --
--- This code assumes your editor is at least 100 chars wide.
---
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 if lsyncd_version
 then
 	print( 'Error, Lsyncd mantle already loaded' )

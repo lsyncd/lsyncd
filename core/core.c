@@ -1,5 +1,5 @@
 /*
-| core.c from Lsyncd - Live (Mirror) Syncing Demon
+| core.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 |
 |

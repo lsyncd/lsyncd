@@ -1,5 +1,5 @@
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- lsyncd.lua   Live (Mirror) Syncing Demon
+--
+-- inlet.lua from Lsyncd -- the Live (Mirror) Syncing Demon
 --
 --
 -- Creates inlets for syncs: the user interface for events.
@@ -10,9 +10,6 @@
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 if lsyncd_version
 then
 	print( 'Error, Lsyncd mantle already loaded' )

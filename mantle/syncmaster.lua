@@ -1,18 +1,13 @@
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- lsyncd.lua   Live (Mirror) Syncing Demon
+--
+-- syncmaster.lua from Lsyncd -- the Live (Mirror) Syncing Demon
 --
 --
 -- The singleton SyncMaster maintains all configured syncs.
 --
 --
--- This code assumes your editor is at least 100 chars wide.
---
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 if mantle
 then
 	print( 'Error, Lsyncd mantle already loaded' )

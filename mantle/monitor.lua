@@ -1,5 +1,5 @@
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- monitor.lua
+--
+-- monitor.lua from Lsyncd -- the Live (Mirror) Syncing Demon
 --
 --
 -- Holds information about the event monitor capabilities
@@ -10,14 +10,9 @@
 -- it can do is only inotify again. But this might improve again.
 --
 --
--- This code assumes your editor is at least 100 chars wide.
---
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 if mantle
 then
 	print( 'Error, Lsyncd mantle already loaded' )

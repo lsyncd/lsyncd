@@ -1,5 +1,5 @@
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- lsyncd.lua   Live (Mirror) Syncing Demon
+--
+-- lock.lua from Lsyncd -- the Live (Mirror) Syncing Demon
 --
 --
 -- Locks globals.
@@ -7,14 +7,9 @@
 -- No more globals can be created after this!
 --
 --
--- This code assumes your editor is at least 100 chars wide.
---
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 if lsyncd_version
 then
 	print( 'Error, Lsyncd mantle already loaded' )

@@ -1,5 +1,5 @@
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- lsyncd.lua   Live (Mirror) Syncing Demon
+--
+-- fwrite.lua from Lsyncd -- the Live (Mirror) Syncing Demon
 --
 --
 -- Writes functions for the user for layer 3 configurations.
@@ -10,9 +10,6 @@
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 if mantle
 then
 	print( 'Error, Lsyncd mantle already loaded' )

@@ -1,20 +1,13 @@
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--- lsyncd.lua   Live (Mirror) Syncing Demon
+--
+-- mci.lua from Lsyncd -- the Live (Mirror) Syncing Demon
 --
 --
--- This is the "runner" part of Lsyncd. It containts all its high-level logic.
--- It works closely together with the Lsyncd core in lsyncd.c. This means it
--- cannot be runned directly from the standard lua interpreter.
+-- The mantle part of the inteface between mantle and core.
 --
---
--- This code assumes your editor is at least 100 chars wide.
 --
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
---~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 if mantle
 then
 	print( 'Error, Lsyncd mantle already loaded' )

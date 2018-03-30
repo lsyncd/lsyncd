@@ -1,8 +1,8 @@
 /*
-| util.c from Lsyncd - Live (Mirror) Syncing Demon
+| util.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 |
-| Small in Lsyncd commonly used utils.
+| Small commonly used utils by Lsyncd.
 |
 |
 | License: GPLv2 (see COPYING) or any later version

@@ -1,8 +1,8 @@
 /*
-| log.h from Lsyncd - Live (Mirror) Syncing Demon
+| log.h from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 |
-| Logging
+| Logging.
 |
 |
 | License: GPLv2 (see COPYING) or any later version

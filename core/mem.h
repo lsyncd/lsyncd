@@ -1,5 +1,5 @@
 /*
-| mem.h from Lsyncd - Live (Mirror) Syncing Demon
+| mem.h from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 |
 | Simple "secured" memory management.

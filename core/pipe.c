@@ -1,5 +1,5 @@
 /*
-| pipe.c from Lsyncd - Live (Mirror) Syncing Demon
+| pipe.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 |
 | Manages the pipes used to communicate with spawned subprocesses (usually rsync).

@@ -1,5 +1,5 @@
 /*
-| observe.c from Lsyncd - Live (Mirror) Syncing Demon
+| observe.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 |
 | Handles observing file descriptors and the big select.

@@ -1,5 +1,5 @@
 /*
-| inotify.h from Lsyncd - Live (Mirror) Syncing Demon
+| inotify.h from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 |
 |
