@@ -42,6 +42,7 @@
 #include "util.h"
 #include "pipe.h"
 #include "observe.h"
+#include "time.h"
 
 #ifdef WITH_INOTIFY
 #include "inotify.h"

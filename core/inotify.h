@@ -18,4 +18,3 @@ extern void register_inotify(lua_State *L);
 extern void open_inotify(lua_State *L);
 
 #endif
-

@@ -58,23 +58,6 @@ extern struct settings {
 } settings;
 
 
-/*
-* time comparisons - wrap around safe
-*/
-#define time_after(a,b)         ((long)(b) - (long)(a) < 0)
-#define time_before(a,b)        time_after(b,a)
-#define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
-#define time_before_eq(a,b)     time_after_eq(b,a)
-
-// Returns the current time.
-extern clock_t now( );
-
-// Returns (on Lua stack) the current kernels clock state( jiffies ).
-extern int l_now(lua_State *L);
-
-// Registers the jiffies meta table in a Lua state.
-extern void register_jiffies( lua_State *L );
-
 // Pushes a runner function and the runner error handler onto Lua stack
 extern void load_mci(lua_State *L, const char *name);
 
@@ -84,4 +67,3 @@ extern volatile sig_atomic_t term;
 
 
 #endif
-

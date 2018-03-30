@@ -17,4 +17,3 @@ extern void * s_realloc( void *ptr, size_t size );
 extern char * s_strdup( const char *src );
 
 #endif
-

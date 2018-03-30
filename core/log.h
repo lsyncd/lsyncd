@@ -8,7 +8,6 @@
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
-
 #ifndef LSYNCD_LOG_H
 #define LSYNCD_LOG_H
 
@@ -42,4 +41,3 @@ printlogf0(
 extern void log_free( );
 
 #endif
-

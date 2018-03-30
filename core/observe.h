@@ -36,4 +36,3 @@ extern void observe_tidy_all( );
 extern void nonobserve_fd( int fd );
 
 #endif
-
