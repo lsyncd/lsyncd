@@ -20,7 +20,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -43,6 +42,7 @@
 #include "pipe.h"
 #include "observe.h"
 #include "time.h"
+#include "signal.h"
 
 #ifdef WITH_INOTIFY
 #include "inotify.h"
@@ -115,45 +115,9 @@ bool first_time = true;
 
 
 /*
-| Set by TERM or HUP signal handler
-| telling Lsyncd should end or reset ASAP.
-*/
-volatile sig_atomic_t hup  = 0;
-volatile sig_atomic_t term = 0;
-volatile sig_atomic_t sigcode = 0;
-
-
-/*
 | The kernel's clock ticks per second.
 */
 extern long clocks_per_sec;
-
-
-/*
-| signal handler
-*/
-void sig_child( int sig ) { /* nothing */ }
-
-
-/*
-| signal handler
-*/
-void
-sig_handler( int sig )
-{
-	switch( sig )
-	{
-		case SIGTERM:
-		case SIGINT:
-			term = 1;
-			sigcode = sig;
-			return;
-
-		case SIGHUP:
-			hup = 1;
-			return;
-	}
-}
 
 
 /*:::::::::::::::::::.
@@ -1500,20 +1464,7 @@ main1( int argc, char *argv[] )
 	open_inotify( L );
 #endif
 
-	// adds signal handlers
-	// listens to SIGCHLD, but blocks it until pselect( )
-	// opens the signal handler up
-	{
-		sigset_t set;
-		sigemptyset( &set );
-		sigaddset( &set, SIGCHLD );
-		signal( SIGCHLD, sig_child );
-		sigprocmask( SIG_BLOCK, &set, NULL );
-
-		signal( SIGHUP,  sig_handler );
-		signal( SIGTERM, sig_handler );
-		signal( SIGINT,  sig_handler );
-	}
+	signal_init( );
 
 	// runs initializations from mantle
 	// it will set the configuration and add watches

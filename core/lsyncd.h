@@ -21,7 +21,6 @@
 // includes needed for headerfile
 #include "config.h"
 
-#include <signal.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -60,10 +59,6 @@ extern struct settings {
 
 // Pushes a runner function and the runner error handler onto Lua stack
 extern void load_mci(lua_State *L, const char *name);
-
-// set to 1 on hup signal or term signal
-extern volatile sig_atomic_t hup;
-extern volatile sig_atomic_t term;
 
 
 #endif

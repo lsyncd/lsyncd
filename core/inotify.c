@@ -14,6 +14,7 @@
 
 #include <sys/inotify.h>
 #include <unistd.h>
+#include <signal.h>
 #include <string.h>
 #include <errno.h>
 
@@ -26,6 +27,7 @@
 #include "log.h"
 #include "inotify.h"
 #include "observe.h"
+#include "signal.h"
 #include "time.h"
 
 

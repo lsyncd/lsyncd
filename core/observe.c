@@ -11,6 +11,7 @@
 
 #include "lsyncd.h"
 
+#include <signal.h>
 #include <string.h>
 
 #define LUA_USE_APICHECK 1
@@ -19,6 +20,7 @@
 #include <lauxlib.h>
 
 #include "log.h"
+#include "signal.h"
 #include "mem.h"
 
 
