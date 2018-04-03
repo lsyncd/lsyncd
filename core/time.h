@@ -17,6 +17,10 @@
 #define time_after_eq(a,b)      ((long)(a) - (long)(b) >= 0)
 #define time_before_eq(a,b)     time_after_eq(b,a)
 
+
+// The kernel's clock ticks per second.
+extern long clocks_per_sec;
+
 // Returns the current time.
 extern clock_t now( );
 

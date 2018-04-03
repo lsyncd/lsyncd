@@ -43,4 +43,7 @@ printlogf0(
 // Frees logging stuff
 extern void log_free( );
 
+
+extern int l_log( lua_State * L );
+
 #endif

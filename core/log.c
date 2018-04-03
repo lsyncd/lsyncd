@@ -27,6 +27,7 @@
 
 #include "log.h"
 #include "mem.h"
+#include "time.h"
 #include "lsyncd.h"
 
 
@@ -294,4 +295,80 @@ log_free( )
 	}
 }
 
+
+/*
+| Logs a message.
+|
+| Params on Lua stack:
+|
+|    1:  loglevel of massage
+|    2:  the string to log
+*/
+int l_log( lua_State * L )
+{
+	char const * cat;     // log category
+	char const * message; // log message
+	int priority;         // log priority
+
+	cat = luaL_checkstring( L, 1 );
+	priority = check_logcat( cat );
+
+	// skips filtered messages
+	if( priority > settings.log_level ) return 0;
+
+	// replaces non string values
+	{
+		int i;
+		int top = lua_gettop(L);
+		for( i = 1; i <= top; i++ )
+		{
+			int t = lua_type( L, i );
+
+			switch( t )
+			{
+				case LUA_TTABLE :
+
+					lua_pushfstring( L, "(Table: %p)", lua_topointer( L, i ) );
+
+					lua_replace( L, i );
+
+					break;
+
+				case LUA_TBOOLEAN :
+					if( lua_toboolean( L, i ) )
+						lua_pushstring( L, "(true)"  );
+					else
+						lua_pushstring( L, "(false)" );
+
+					lua_replace( L, i );
+
+					break;
+
+				case LUA_TUSERDATA:
+					{
+						clock_t *c = ( clock_t * ) luaL_checkudata( L, i, "Lsyncd.jiffies" );
+
+						double d = *c;
+						d /= clocks_per_sec;
+						lua_pushfstring( L, "(Timestamp: %f)", d );
+						lua_replace( L, i );
+					}
+					break;
+
+				case LUA_TNIL:
+					lua_pushstring( L, "(nil)" );
+					lua_replace( L, i );
+					break;
+			}
+		}
+	}
+
+	// concates if there is more than one string parameter
+	lua_concat( L, lua_gettop( L ) - 1 );
+
+	message = luaL_checkstring( L, 2 );
+	logstring0( priority, cat, message );
+
+	return 0;
+}
 

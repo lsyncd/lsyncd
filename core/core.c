@@ -113,12 +113,6 @@ char * lsyncd_config_file = NULL;
 bool first_time = true;
 
 
-/*
-| The kernel's clock ticks per second.
-*/
-extern long clocks_per_sec;
-
-
 /*:::::::::::::::::::.
 ::  Helper Routines
 '::::::::::::::::::::*/
@@ -143,83 +137,6 @@ static int mci = 0;
 int callError;
 
 
-/*
-| A user observance became read-ready.
-*/
-static void
-user_obs_ready(
-	lua_State * L,
-	int fd,
-	void * extra
-)
-{
-	// pushes the ready table on table
-	lua_pushlightuserdata( L, ( void * ) user_obs_ready );
-	lua_gettable( L, LUA_REGISTRYINDEX );
-
-	// pushes the error handler
-	lua_pushlightuserdata( L, (void *) &callError );
-	lua_gettable( L, LUA_REGISTRYINDEX );
-
-	// pushes the user func
-	lua_pushnumber( L, fd );
-	lua_gettable( L, -3 );
-
-	// gives the ufunc the fd
-	lua_pushnumber( L, fd );
-
-	// calls the user function
-	if( lua_pcall( L, 1, 0, -3 ) ) exit( -1 );
-
-	lua_pop( L, 2 );
-}
-
-
-/*
-| A user observance became write-ready
-*/
-static void
-user_obs_writey(
-	lua_State * L,
-	int fd,
-	void * extra
-)
-{
-	// pushes the writey table on table
-	lua_pushlightuserdata( L, (void *) user_obs_writey );
-	lua_gettable( L, LUA_REGISTRYINDEX );
-
-	// pushes the error handler
-	lua_pushlightuserdata(L, (void *) &callError);
-	lua_gettable( L, LUA_REGISTRYINDEX );
-
-	// pushes the user func
-	lua_pushnumber( L, fd );
-	lua_gettable( L, -3 );
-
-	// gives the user func the fd
-	lua_pushnumber( L, fd );
-
-	// calls the user function
-	if( lua_pcall( L, 1, 0, -3 ) ) exit(-1);
-
-	lua_pop( L, 2 );
-}
-
-/*
-| Tidies up a user observance
-| FIXME - give the user a chance to do something in that case!
-*/
-static void
-user_obs_tidy(
-	int fd,
-	void * extra
-)
-{
-	close( fd );
-}
-
-
 /*:::::::::::::::::::::::::::::::.
 ::  Library calls for the mantle
 '::::::::::::::::::::::::::::::::*/
@@ -227,84 +144,6 @@ user_obs_tidy(
 
 int l_stackdump( lua_State* L );
 
-
-/*
-| Logs a message.
-|
-| Params on Lua stack:
-|
-|    1:  loglevel of massage
-|    2:  the string to log
-*/
-static int
-l_log( lua_State *L )
-{
-	const char * cat;     // log category
-	const char * message; // log message
-	int priority;         // log priority
-
-	cat = luaL_checkstring( L, 1 );
-	priority = check_logcat( cat );
-
-	// skips filtered messages
-	if( priority > settings.log_level ) return 0;
-
-	// replaces non string values
-	{
-		int i;
-		int top = lua_gettop(L);
-		for( i = 1; i <= top; i++ )
-		{
-			int t = lua_type( L, i );
-
-			switch( t )
-			{
-				case LUA_TTABLE :
-					lua_pushfstring(
-						L,
-						"(Table: %p)",
-						lua_topointer( L, i )
-					);
-
-					lua_replace( L, i );
-					break;
-
-				case LUA_TBOOLEAN :
-					if( lua_toboolean( L, i ) )
-						{ lua_pushstring( L, "(true)"  ); }
-					else
-						{ lua_pushstring( L, "(false)" ); }
-
-					lua_replace(L, i);
-					break;
-
-				case LUA_TUSERDATA:
-					{
-						clock_t *c = ( clock_t * ) luaL_checkudata( L, i, "Lsyncd.jiffies" );
-
-						double d = *c;
-						d /= clocks_per_sec;
-						lua_pushfstring( L, "(Timestamp: %f)", d );
-						lua_replace( L, i );
-					}
-					break;
-
-				case LUA_TNIL:
-					lua_pushstring( L, "(nil)" );
-					lua_replace( L, i );
-					break;
-			}
-		}
-	}
-
-	// concates if there is more than one string parameter
-	lua_concat( L, lua_gettop( L ) - 1 );
-
-	message = luaL_checkstring( L, 2 );
-	logstring0( priority, cat, message );
-
-	return 0;
-}
 
 
 /*
