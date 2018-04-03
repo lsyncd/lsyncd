@@ -17,7 +17,9 @@ set( LSYNCD_SRC
 	core/observe.c
 	core/pipe.c
 	core/mem.c
+	core/signal.c
 	core/time.c
+	core/userobs.c
 	core/util.c
 	mantle.c
 	default.c

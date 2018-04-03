@@ -13,7 +13,6 @@
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
-
 #include <stdlib.h>
 #include <syslog.h>
 #include <string.h>

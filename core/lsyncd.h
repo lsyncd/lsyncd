@@ -61,4 +61,8 @@ extern struct settings {
 extern void load_mci(lua_State *L, const char *name);
 
 
+// Dummy variable which address is used as
+// index in the lua registry to store/get the error handler.
+extern int callError;
+
 #endif

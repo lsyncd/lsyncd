@@ -9,8 +9,6 @@
 
 #include "lsyncd.h"
 
-#define SYSLOG_NAMES 1
-
 #include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/times.h>
@@ -43,6 +41,7 @@
 #include "observe.h"
 #include "time.h"
 #include "signal.h"
+#include "userobs.h"
 
 #ifdef WITH_INOTIFY
 #include "inotify.h"
@@ -141,7 +140,7 @@ static int mci = 0;
 | the cores index n the lua registry to
 | the lua runners error handler.
 */
-static int callError;
+int callError;
 
 
 /*
@@ -815,28 +814,12 @@ l_configure( lua_State *L )
 		if( lua_isstring( L, 2 ) )
 		{
 			const char * fname = luaL_checkstring( L, 2 );
-			int i;
-			for( i = 0; facilitynames[ i ].c_name; i++ )
-			{
-				if( !strcasecmp( fname, facilitynames[ i ].c_name ) )
-					{ break; }
-			}
 
-			if( !facilitynames[ i ].c_name )
-			{
-				printlogf(
-					L, "Error",
-					"Logging facility '%s' unknown.",
-					fname
-				);
-
-				exit( -1 );
-			}
-			settings.log_facility = facilitynames[ i ].c_val;
+			settings.log_facility = log_getFacility( L, fname );
 		}
 		else if (lua_isnumber(L, 2))
 		{
-			settings.log_facility = luaL_checknumber(L, 2);
+			settings.log_facility = luaL_checknumber( L, 2 );
 		}
 		else
 		{
@@ -864,119 +847,6 @@ l_configure( lua_State *L )
 		exit( -1 );
 	}
 
-	return 0;
-}
-
-/*
-| Allows user scripts to observe filedescriptors
-|
-| Params on Lua stack:
-|     1: file descriptor
-|     2: function to call when read  becomes ready
-|     3: function to call when write becomes ready
-*/
-static int
-l_observe_fd( lua_State *L )
-{
-	int fd = luaL_checknumber( L, 1 );
-	bool ready  = false;
-	bool writey = false;
-
-	// Stores the user function in the lua registry.
-	// It uses the address of the cores ready / writey functions
-	// for the user as key
-	if( !lua_isnoneornil( L, 2 ) )
-	{
-		lua_pushlightuserdata( L, (void *) user_obs_ready );
-
-		lua_gettable( L, LUA_REGISTRYINDEX );
-
-		if( lua_isnil( L, -1 ) )
-		{
-			lua_pop( L, 1  );
-			lua_newtable( L );
-			lua_pushlightuserdata( L, (void *) user_obs_ready );
-			lua_pushvalue( L, -2 );
-			lua_settable( L, LUA_REGISTRYINDEX );
-		}
-
-		lua_pushnumber( L, fd );
-		lua_pushvalue( L,  2 );
-		lua_settable( L, -3 );
-		lua_pop( L,  1 );
-
-		ready = true;
-	}
-
-	if( !lua_isnoneornil( L, 3 ) )
-	{
-		lua_pushlightuserdata( L, (void *) user_obs_writey );
-
-		lua_gettable (L, LUA_REGISTRYINDEX );
-
-		if( lua_isnil(L, -1) )
-		{
-			lua_pop               ( L, 1                        );
-			lua_newtable          ( L                           );
-			lua_pushlightuserdata ( L, (void *) user_obs_writey );
-			lua_pushvalue         ( L, -2                       );
-			lua_settable          ( L, LUA_REGISTRYINDEX        );
-		}
-
-		lua_pushnumber ( L, fd );
-		lua_pushvalue  ( L,  3 );
-		lua_settable   ( L, -3 );
-		lua_pop        ( L,  1 );
-
-		writey = true;
-	}
-
-	// tells the core to watch the fd
-	observe_fd(
-		fd,
-		ready  ? user_obs_ready : NULL,
-		writey ? user_obs_writey : NULL,
-		user_obs_tidy,
-		NULL
-	);
-
-	return 0;
-}
-
-/*
-| Removes a user observance
-|
-| Params on Lua stack:
-|     1:  exitcode of Lsyncd.
-*/
-extern int
-l_nonobserve_fd( lua_State *L )
-{
-	int fd = luaL_checknumber( L, 1 );
-
-	// removes the read function
-	lua_pushlightuserdata( L, (void *) user_obs_ready );
-	lua_gettable( L, LUA_REGISTRYINDEX );
-
-	if( !lua_isnil( L, -1 ) )
-	{
-		lua_pushnumber ( L, fd );
-		lua_pushnil    ( L     );
-		lua_settable   ( L, -2 );
-	}
-	lua_pop( L, 1 );
-
-	lua_pushlightuserdata( L, (void *) user_obs_writey );
-	lua_gettable( L, LUA_REGISTRYINDEX );
-	if ( !lua_isnil( L, -1 ) )
-	{
-		lua_pushnumber ( L, fd );
-		lua_pushnil    ( L     );
-		lua_settable   ( L, -2 );
-	}
-	lua_pop( L, 1 );
-
-	nonobserve_fd( fd );
 	return 0;
 }
 

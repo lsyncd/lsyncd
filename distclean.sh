@@ -9,7 +9,8 @@ rm -f \
 	CMakeCache.txt \
 	cmake_install.cmake \
 	install_manifest.txt \
-	luacode.c \
+	default.c \
+	core.c \
 	*.o \
 	*.out \
 	core/*.o \

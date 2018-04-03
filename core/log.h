@@ -11,17 +11,20 @@
 #ifndef LSYNCD_LOG_H
 #define LSYNCD_LOG_H
 
+// Returns a logging facility number by name.
+extern int log_getFacility( lua_State * L, char const * fname);
+
 // Adds a logging category
-extern bool add_logcat( const char *name, int priority );
+extern bool add_logcat( char const * name, int priority );
 
 // Returns the positive priority if name is configured to be logged, or -1
-extern int check_logcat( const char *name );
+extern int check_logcat( char const * name );
 
 // logs a string
 #define logstring(cat, message) \
 	{int p; if ((p = check_logcat(cat)) <= settings.log_level) \
 	{logstring0(p, cat, message);}}
-extern void logstring0( int priority, const char *cat, const char *message );
+extern void logstring0( int priority, char const * cat, char const * message );
 
 // logs a formated string
 #define printlogf(L, cat, ...) \
@@ -32,9 +35,9 @@ extern void
 printlogf0(
 	lua_State *L,
 	int priority,
-	  const char *cat,
-	  const char *fmt,
-	  ...
+	char const * cat,
+	char const * fmt,
+	...
 ) __attribute__ ( ( format( printf, 4, 5 ) ) );
 
 // Frees logging stuff

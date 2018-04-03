@@ -10,6 +10,7 @@
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
 
+#include "config.h"
 #include "lsyncd.h"
 
 #include <sys/inotify.h>

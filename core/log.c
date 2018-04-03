@@ -10,9 +10,9 @@
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
-
 #include "config.h"
 
+#define SYSLOG_NAMES 1
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +21,6 @@
 #include <time.h>
 
 #define LUA_USE_APICHECK 1
-#define SYSLOG_NAMES 1
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -54,9 +53,37 @@ struct logcat * logcats[ 26 ] = { 0, };
 
 
 /*
+| Returns a logging facility number by name.
+|
+| Raises an error if not known.
+*/
+int
+log_getFacility(
+	lua_State * L,
+	char const * fname
+)
+{
+	int i;
+	for( i = 0; facilitynames[ i ].c_name; i++ )
+	{
+		if( !strcasecmp( fname, facilitynames[ i ].c_name ) ) break;
+	}
+
+	if( !facilitynames[ i ].c_name )
+	{
+		printlogf( L, "Error", "Logging facility '%s' unknown.", fname );
+
+		exit( -1 );
+	}
+
+	return facilitynames[ i ].c_val;
+}
+
+
+/*
 | Returns a positive priority if category is configured to be logged or -1.
 */
-extern int
+int
 check_logcat( const char *name )
 {
 	struct logcat *lc;
@@ -144,7 +171,7 @@ bool add_logcat( const char *name, int priority )
 | Do not call this directly, but the macro logstring( )
 | defined in lsyncd.h
 */
-extern void
+void
 logstring0(
 	int priority,        // the priority of the log message
 	const char * cat,    // the category
@@ -225,9 +252,9 @@ logstring0(
 | Lets the core print logmessages comfortably as formated string.
 | This uses the lua_State for it easy string buffers only.
 */
-extern void
+void
 printlogf0(
-	lua_State *L,
+	lua_State * L,
 	int priority,
 	const char *cat,
 	const char *fmt, ...)
@@ -245,7 +272,7 @@ printlogf0(
 /*
 | Frees logging stuff.
 */
-extern void
+void
 log_free( )
 {
 	int ci;
