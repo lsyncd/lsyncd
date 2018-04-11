@@ -1,9 +1,7 @@
 /*
 | mem.h from Lsyncd -- the Live (Mirror) Syncing Demon
 |
-|
 | Simple "secured" memory management.
-|
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>

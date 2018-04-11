@@ -1,9 +1,7 @@
 /*
 | time.h from Lsyncd -- the Live (Mirror) Syncing Demon
 |
-|
 | Time keeping.
-|
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>

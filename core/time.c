@@ -1,12 +1,10 @@
 /*
 | time.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
-|
 | Keeps time for Lsyncd,
 |
 | Provides a "jiffies" userdata for Lua which can be used
 | to track time, based on kernel jiffies.
-|
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>

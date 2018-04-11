@@ -1,9 +1,7 @@
 /*
 | singal.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
-|
 | Signal handling.
-|
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>

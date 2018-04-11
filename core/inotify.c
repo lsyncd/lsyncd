@@ -1,9 +1,7 @@
 /*
 | inotify.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
-|
 | Event interface for Lsyncd to Linux´ inotify.
-|
 |
 | License: GPLv2 (see COPYING) or any later version
 |

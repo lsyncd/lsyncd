@@ -1,12 +1,10 @@
 /*
 | userobs.h from Lsyncd -- the Live (Mirror) Syncing Demon
 |
-|
 | Allows user Lua scripts to observe file descriptors.
 |
 | They have to be opened by some other utility tough,
 | for example lua-posix.
-|
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>

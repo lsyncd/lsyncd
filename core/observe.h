@@ -1,9 +1,7 @@
 /*
 | observe.h from Lsyncd -- the Live (Mirror) Syncing Demon
 |
-|
 | Handles observing file descriptors and the big select.
-|
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>

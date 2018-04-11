@@ -1,9 +1,7 @@
 /*
 | log.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
-|
 | Logging.
-|
 |
 | This code assumes you have a 100 character wide display to view it (when tabstop is 4)
 |

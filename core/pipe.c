@@ -1,9 +1,7 @@
 /*
 | pipe.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
-|
 | Manages the pipes used to communicate with spawned subprocesses (usually rsync).
-|
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>

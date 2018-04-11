@@ -16,6 +16,7 @@ set( LSYNCD_SRC
 	core/log.c
 	core/observe.c
 	core/pipe.c
+	core/mci.c
 	core/mem.c
 	core/signal.c
 	core/time.c

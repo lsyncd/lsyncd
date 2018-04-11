@@ -1,9 +1,7 @@
 /*
 | util.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
-|
 | Small commonly used utils by Lsyncd.
-|
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
