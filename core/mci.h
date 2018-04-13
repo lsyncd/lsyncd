@@ -11,12 +11,15 @@
 
 // FIXME doc
 
-int l_stackdump( lua_State* L );
+extern int l_stackdump( lua_State* L );
 
-void register_core( lua_State *L );
+extern void register_core( lua_State *L );
 
-void mci_load_mantle( lua_State *L );
+// Pushes a runner function and the runner error handler onto Lua stack
+extern void load_mci(lua_State *L, const char *name);
 
-void mci_load_default( lua_State *L );
+extern void mci_load_mantle( lua_State *L );
+
+extern void mci_load_default( lua_State *L );
 
 #endif

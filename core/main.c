@@ -1,11 +1,14 @@
 /*
-| core.c from Lsyncd -- the Live (Mirror) Syncing Demon
+| main.c from Lsyncd -- the Live (Mirror) Syncing Demon
+|
+| Entry and main loop
 |
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
+#include "feature.h"
 
-#include "lsyncd.h"
+// FIXME remove unneeded headers
 
 #include <sys/select.h>
 #include <sys/stat.h>

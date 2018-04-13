@@ -8,7 +8,7 @@
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
-#include "config.h"
+#include "feature.h"
 
 #define SYSLOG_NAMES 1
 #include <stdbool.h>
@@ -26,7 +26,6 @@
 #include "log.h"
 #include "mem.h"
 #include "time.h"
-#include "lsyncd.h"
 
 
 // FIXME

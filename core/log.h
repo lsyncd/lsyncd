@@ -9,6 +9,18 @@
 #ifndef LSYNCD_LOG_H
 #define LSYNCD_LOG_H
 
+
+// Logging configuration
+// This used to be general setting, but with the Lsyncd 3 razor, only logging
+// stuff is left, likely to be reworked
+extern struct settings {
+	char * log_file;  // If not NULL Lsyncd logs into this file.
+	bool log_syslog;  // If true Lsyncd sends log messages to syslog
+	char * log_ident; // If not NULL the syslog identity (otherwise "Lsyncd")
+	int log_facility; // The syslog facility
+	int log_level;    // -1 logs everything, 0 normal mode, LOG_ERROR errors only.
+} settings;
+
 // Returns a logging facility number by name.
 extern int log_getFacility( lua_State * L, char const * fname);
 

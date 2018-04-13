@@ -6,10 +6,17 @@
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
-#include "lsyncd.h"
+#include "feature.h"
 
 #include <unistd.h>
+#include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
+
+#define LUA_USE_APICHECK 1
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 
 #include "log.h"
 #include "mem.h"

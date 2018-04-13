@@ -11,11 +11,18 @@
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
-#include <stdlib.h>
-#include <syslog.h>
-#include <string.h>
+#include "feature.h"
 
-#include "lsyncd.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
+
+#define LUA_USE_APICHECK 1
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+
 #include "mem.h"
 #include "log.h"
 

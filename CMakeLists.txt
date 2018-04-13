@@ -12,10 +12,10 @@ include_directories ( ${LUA_INCLUDE_DIR} )
 # Setting Lsyncd sources.
 # Order here doesn't matter much.
 set( LSYNCD_SRC
-	core/core.c
 	core/log.c
 	core/observe.c
 	core/pipe.c
+	core/main.c
 	core/mci.c
 	core/mem.c
 	core/signal.c

@@ -6,8 +6,10 @@
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
-#include "lsyncd.h"
+#include "feature.h"
 
+#include <stdbool.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <string.h>
 
@@ -107,7 +109,6 @@ observe_fd(
 	{
 		// FIXME
 		logstring( "Error", "New observances in ready/writey handlers not yet supported" );
-
 		exit( -1 );
 	}
 

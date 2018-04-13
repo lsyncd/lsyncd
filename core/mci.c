@@ -9,13 +9,14 @@
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
-
-#include "lsyncd.h"
+#include "feature.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <errno.h>
+#include <stdbool.h>
+#include <stdlib.h>
 #include <signal.h>  // FIXME abstract this away
 #include <syslog.h>  // FIXME abstract this away
 #include <string.h>
@@ -25,7 +26,6 @@
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-#include <unistd.h>
 
 #include "log.h"
 #include "mci.h"
@@ -40,6 +40,11 @@
 #ifdef WITH_INOTIFY
 #  include "inotify.h"
 #endif
+
+
+#define CORE_LIBNAME "core"
+#define INOTIFY_LIBNAME "inotify"
+
 
 /*
 | The Lua part of Lsyncd
@@ -150,13 +155,13 @@ l_exec( lua_State *L )
 		{
 			int tlen;
 			int it;
-			lua_checkstack( L, lua_gettop( L ) + lua_objlen( L, i ) + 1 );
+			lua_checkstack( L, lua_gettop( L ) + lua_rawlen( L, i ) + 1 );
 
 			// moves table to top of stack
 			lua_pushvalue( L, i );
 			lua_remove( L, i );
 			argc--;
-			tlen = lua_objlen( L, -1 );
+			tlen = lua_rawlen( L, -1 );
 
 			for( it = 1; it <= tlen; it++ )
 			{
@@ -664,15 +669,15 @@ register_core( lua_State *L )
 {
 	lua_newtable( L );
 	luaL_setfuncs( L, corelib, 0 );
-	lua_setglobal( L, LSYNCD_CORE_LIBNAME );
+	lua_setglobal( L, CORE_LIBNAME );
 
 	register_jiffies( L );
 
 #ifdef WITH_INOTIFY
 
-	lua_getglobal( L, LSYNCD_CORE_LIBNAME );
+	lua_getglobal( L, CORE_LIBNAME );
 	register_inotify( L );
-	lua_setfield( L, -2, LSYNCD_INOTIFY_LIBNAME );
+	lua_setfield( L, -2, INOTIFY_LIBNAME );
 	lua_pop( L, 1 );
 
 #endif

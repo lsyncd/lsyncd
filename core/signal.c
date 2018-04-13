@@ -6,8 +6,9 @@
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
-#include "lsyncd.h"
+#include "feature.h"
 
+#include <stddef.h>
 #include <signal.h>
 
 

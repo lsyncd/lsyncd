@@ -8,20 +8,23 @@
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
 
-#include "config.h"
-#include "lsyncd.h"
+#include "feature.h"
 
 #include <sys/inotify.h>
-#include <unistd.h>
-#include <signal.h>
-#include <string.h>
 #include <errno.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #define LUA_USE_APICHECK 1
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
 
+#include "mci.h"
 #include "mem.h"
 #include "log.h"
 #include "inotify.h"

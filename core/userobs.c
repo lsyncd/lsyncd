@@ -9,7 +9,7 @@
 | License: GPLv2 (see COPYING) or any later version
 | Authors: Axel Kittenberger <axkibe@gmail.com>
 */
-#include "config.h"
+#include "feature.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -22,7 +22,12 @@
 
 #include "observe.h"
 #include "userobs.h"
-#include "lsyncd.h"
+
+/*
+| Used to load error handler
+*/
+extern int callError;
+
 
 /*
 | A user observance became read-ready.
@@ -71,7 +76,7 @@ user_obs_writey(
 	lua_gettable( L, LUA_REGISTRYINDEX );
 
 	// pushes the error handler
-	lua_pushlightuserdata(L, (void *) &callError);
+	lua_pushlightuserdata( L, (void *) &callError);
 	lua_gettable( L, LUA_REGISTRYINDEX );
 
 	// pushes the user func
