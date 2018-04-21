@@ -375,11 +375,23 @@ end
 --
 -- Called from core on init or restart after user configuration.
 --
--- firstTime:
---    true when Lsyncd startups the first time,
---    false on resets, due to HUP signal or monitor queue overflow.
---
-function mci.initialize( firstTime )
+function mci.initialize
+(
+	firstTime  --  true when Lsyncd startups the first time,
+	--         --  false on resets, due to HUP signal or monitor queue overflow.
+)
+	do
+		local signames = core.signames( )
+		local signum = 0
+		signame = signames[ 0 ]
+
+		while signame ~= nil
+		do
+			print( 'SIG', signum, signame )
+			signum = signum + 1
+			signame = signames[ signum ]
+		end
+	end
 
 	-- Checks if user overwrote the settings function.
 	-- ( was Lsyncd <2.1 style )

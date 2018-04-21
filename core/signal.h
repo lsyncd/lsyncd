@@ -18,4 +18,7 @@ extern volatile sig_atomic_t sigcode;
 // Initializes signal handling.
 extern void signal_init( );
 
+// returns signal name/signums as table
+int l_signames( lua_State * L );
+
 #endif

@@ -371,8 +371,8 @@ main1( int argc, char *argv[] )
 
 		while( argp < argc )
 		{
-			lua_pushnumber( L, idx++ );
 			lua_pushstring( L, argv[ argp++ ] );
+			lua_pushnumber( L, idx++ );
 			lua_settable( L, -3 );
 		}
 
@@ -399,6 +399,12 @@ main1( int argc, char *argv[] )
 
 		lua_pop( L, 2 );
 	}
+
+	signal_init( );
+
+#ifdef WITH_INOTIFY
+	open_inotify( L );
+#endif
 
 	// checks existence of the config file
 	if( lsyncd_config_file )
@@ -437,7 +443,6 @@ main1( int argc, char *argv[] )
 			exit( -1 );
 		}
 
-
 		// loads the user enivornment
 		lua_getglobal( L, "userENV" );
 		lua_setupvalue( L, -2, 1 );
@@ -452,12 +457,6 @@ main1( int argc, char *argv[] )
 			exit( -1 );
 		}
 	}
-
-#ifdef WITH_INOTIFY
-	open_inotify( L );
-#endif
-
-	signal_init( );
 
 	// runs initializations from mantle
 	// it will set the configuration and add watches

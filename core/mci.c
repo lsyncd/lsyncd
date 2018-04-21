@@ -111,10 +111,10 @@ int callError;
 | Returns (Lua stack) the pid on success, 0 on failure.
 */
 static int
-l_exec( lua_State *L )
+l_exec( lua_State * L )
 {
 	// the binary to call
-	const char *binary = luaL_checkstring(L, 1);
+	const char *binary = luaL_checkstring( L, 1 );
 
 	// number of arguments
 	int argc = lua_gettop( L ) - 1;
@@ -352,7 +352,7 @@ l_realdir( lua_State *L )
 {
 	luaL_Buffer b;
 	const char *rdir = luaL_checkstring(L, 1);
-	char *adir = get_realpath(rdir);
+	char *adir = get_realpath( rdir );
 
 	if( !adir )
 	{
@@ -476,9 +476,7 @@ l_readdir( lua_State *L )
 {
 	const char * dirname = luaL_checkstring( L, 1 );
 
-	DIR *d;
-
-	d = opendir( dirname );
+	DIR *d = opendir( dirname );
 
 	if( d == NULL )
 	{
@@ -596,8 +594,7 @@ l_configure( lua_State *L )
 			free( settings.log_file );
 		}
 
-		settings.log_file =
-			s_strdup( file );
+		settings.log_file = s_strdup( file );
 	}
 	else if( !strcmp( command, "logfacility" ) )
 	{
@@ -644,7 +641,7 @@ l_configure( lua_State *L )
 /*
 | The Lsnycd's core library.
 */
-static const luaL_Reg corelib[] =
+static const luaL_Reg corelib[ ] =
 {
 	{ "configure",      l_configure     },
 	{ "exec",           l_exec          },
@@ -653,8 +650,10 @@ static const luaL_Reg corelib[] =
 	{ "now",            l_now           },
 	{ "nonobserve_fd",  l_nonobserve_fd },
 	{ "observe_fd",     l_observe_fd    },
+//	{ "onsignal",       l_onsignal      },
 	{ "readdir",        l_readdir       },
 	{ "realdir",        l_realdir       },
+	{ "signames",       l_signames      },
 	{ "stackdump",      l_stackdump     },
 	{ "terminate",      l_terminate     },
 	{ NULL,             NULL            }

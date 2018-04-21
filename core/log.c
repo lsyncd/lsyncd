@@ -108,7 +108,8 @@ check_logcat( const char *name )
 |
 | Returns true if OK.
 */
-bool add_logcat( const char *name, int priority )
+bool
+add_logcat( const char *name, int priority )
 {
 	struct logcat *lc;
 

@@ -4,7 +4,6 @@
 *.out
 lsyncd
 
-
 # cmake
 
 AdditionalInfo.txt
@@ -16,8 +15,8 @@ CMakeFiles/
 cmake_install.cmake
 install_manifest.txt
 
-
 # generated C code
 
 default.c
 mantle.c
+signames.c
