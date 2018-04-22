@@ -244,6 +244,12 @@ function mci.configure(
 	args,     -- arguments given by user
 	monitors  -- list of monitors the core can do
 )
+	print( "mci.configure", #args )
+
+	for k, v in pairs( args ) do
+		print( 'a', k, v )
+	end
+
 	Monitor.initialize( monitors )
 
 	--
@@ -380,16 +386,11 @@ function mci.initialize
 	firstTime  --  true when Lsyncd startups the first time,
 	--         --  false on resets, due to HUP signal or monitor queue overflow.
 )
+	print( 'HELLO' )
 	do
-		local signames = core.signames( )
-		local signum = 0
-		signame = signames[ 0 ]
-
-		while signame ~= nil
+		for num, name in pairs( signames )
 		do
-			print( 'SIG', signum, signame )
-			signum = signum + 1
-			signame = signames[ signum ]
+			print( 'SIG', num, name )
 		end
 	end
 

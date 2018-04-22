@@ -112,29 +112,3 @@ signal_init( )
 }
 */
 
-
-/*
-| Forwards the result of psiginfo to mantle.
-|
-| Params on Lua stack:
-|
-| Returns on Lua stack:
-|     A table of all signalnames as keys and their signal number as value.
-*/
-int
-l_signames( lua_State * L )
-{
-	int i;
-
-	lua_newtable( L );
-
-	for( i = 0; i < NSIG; i++ )
-	{
-		lua_pushnumber( L, i );
-		lua_pushstring( L, strsignal( i ) );
-		lua_settable( L, -3 );
-	}
-
-	return 1;
-}
-

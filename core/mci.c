@@ -653,7 +653,6 @@ static const luaL_Reg corelib[ ] =
 //	{ "onsignal",       l_onsignal      },
 	{ "readdir",        l_readdir       },
 	{ "realdir",        l_realdir       },
-	{ "signames",       l_signames      },
 	{ "stackdump",      l_stackdump     },
 	{ "terminate",      l_terminate     },
 	{ NULL,             NULL            }

@@ -339,11 +339,19 @@ main1( int argc, char *argv[] )
 		printf( "kernels clocks_per_sec=%ld\n", clocks_per_sec );
 	}
 
+	signal_init( );
+
+#ifdef WITH_INOTIFY
+	open_inotify( L );
+#endif
+
 	mci_load_mantle( L );
+
 	mci_load_default( L );
 
 	// checks if there is a "-help" or "--help"
 	{
+		// FIXME this should be done in mantle
 		int i;
 		for( i = argp; i < argc; i++ )
 		{
@@ -371,8 +379,8 @@ main1( int argc, char *argv[] )
 
 		while( argp < argc )
 		{
-			lua_pushstring( L, argv[ argp++ ] );
 			lua_pushnumber( L, idx++ );
+			lua_pushstring( L, argv[ argp++ ] );
 			lua_settable( L, -3 );
 		}
 
@@ -392,19 +400,13 @@ main1( int argc, char *argv[] )
 		if( first_time )
 		{
 			// If not first time, simply retains the config file given
-			s = lua_tostring(L, -1);
+			s = lua_tostring( L, -1 );
 
 			if( s ) lsyncd_config_file = s_strdup( s );
 		}
 
 		lua_pop( L, 2 );
 	}
-
-	signal_init( );
-
-#ifdef WITH_INOTIFY
-	open_inotify( L );
-#endif
 
 	// checks existence of the config file
 	if( lsyncd_config_file )

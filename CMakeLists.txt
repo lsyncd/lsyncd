@@ -10,7 +10,7 @@ find_package( Lua REQUIRED )
 include_directories ( ${LUA_INCLUDE_DIR} )
 
 # Setting Lsyncd sources.
-# Order here doesn't matter much.
+# Order doesn't matter here.
 set( LSYNCD_SRC
 	core/log.c
 	core/observe.c
@@ -42,7 +42,7 @@ configure_file (
 	"${PROJECT_SOURCE_DIR}/config.h.in"
 	"${PROJECT_BINARY_DIR}/config.h"
 )
-include_directories("${PROJECT_BINARY_DIR}")
+include_directories( "${PROJECT_BINARY_DIR}" )
 
 
 # The mantle written in Lua
@@ -51,6 +51,7 @@ include_directories("${PROJECT_BINARY_DIR}")
 # on initialization of Lsyncd.
 #
 set( MANTLE_CODE
+	${PROJECT_SOURCE_DIR}/signames.lua
 	${PROJECT_SOURCE_DIR}/mantle/array.lua
 	${PROJECT_SOURCE_DIR}/mantle/counter.lua
 	${PROJECT_SOURCE_DIR}/mantle/queue.lua
@@ -71,6 +72,13 @@ set( MANTLE_CODE
 	${PROJECT_SOURCE_DIR}/mantle/string.lua
 	${PROJECT_SOURCE_DIR}/mantle/version.lua
 	${PROJECT_SOURCE_DIR}/mantle/userenv.lua
+)
+
+# Generates the signal list for this system
+add_custom_command( OUTPUT signames.lua
+	COMMAND ${CMAKE_COMMAND} -E echo "Generating signal name list"
+	COMMAND ${PROJECT_SOURCE_DIR}/signames.sh signames.lua
+	DEPENDS signames.sh
 )
 
 # The default sync implementations.
