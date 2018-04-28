@@ -65,6 +65,7 @@ set( MANTLE_CODE
 	${PROJECT_SOURCE_DIR}/mantle/syncmaster.lua
 	${PROJECT_SOURCE_DIR}/mantle/monitor.lua
 	${PROJECT_SOURCE_DIR}/mantle/fwriter.lua
+	${PROJECT_SOURCE_DIR}/mantle/signal.lua
 	${PROJECT_SOURCE_DIR}/mantle/statusfile.lua
 	${PROJECT_SOURCE_DIR}/mantle/useralarm.lua
 	${PROJECT_SOURCE_DIR}/mantle/mci.lua

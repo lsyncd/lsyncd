@@ -11,6 +11,9 @@
 #
 KILL=/bin/kill
 
+# Don't know a better way, checks only until this signal number
+# To quote, this ought to be enough for anybody.
+nmax=256
 
 if [ "$#" -ne 1 ];
 then
@@ -28,13 +31,14 @@ echo "signames =" >> $1
 echo "{" >> $1
 
 n=1
-while name=`kill -l $n 2>/dev/null`;
+while name=`$KILL --list=$n 2>/dev/null`;
 do
 	if ! [ -z $name ]
 	then
 		echo $echoe "\t[ $n ] = '$name'," >> $1
 	fi
 	n=$(( n + 1 ))
+	if [ $n -gt $nmax ]; then break; fi
 done
 
 echo "}" >> $1

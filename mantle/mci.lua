@@ -386,14 +386,6 @@ function mci.initialize
 	firstTime  --  true when Lsyncd startups the first time,
 	--         --  false on resets, due to HUP signal or monitor queue overflow.
 )
-	print( 'HELLO' )
-	do
-		for num, name in pairs( signames )
-		do
-			print( 'SIG', num, name )
-		end
-	end
-
 	-- Checks if user overwrote the settings function.
 	-- ( was Lsyncd <2.1 style )
 	if userENV.settings ~= settings
@@ -406,6 +398,8 @@ function mci.initialize
 
 		os.exit( -1 )
 	end
+
+	initSignalHandlers( firstTime )
 
 	lastReportedWaiting = false
 
