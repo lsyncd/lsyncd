@@ -25,17 +25,27 @@ end
 
 
 -- a table of all registered signal handlers
-local sigHandlers = { }
+--
+-- keys are signal numbers
+-- values are functions to be called
+-- or 'false' in case of disabled default signals
+--
+-- On signal the core will directly look up this table.
+mci.sigHandlers = { }
 
 -- counter of signal handlers
 -- used to tell the core to enlarge the signal queue if needed
 -- (the queue must be as large as the number of different signals listened for)
 local sigHandlerCount = 0
 
+
 --
--- onsignal function exported to userEnv
+-- Prepares an onsignal handle.
+-- It changes the mantle data, but does not yet tell the core about it.
 --
-function onsignal
+-- To be used only internally to combine multiple changes into one.
+--
+local function onsignalPrep
 (
 	signal, -- signal number or name
 	handler -- function to call
@@ -52,12 +62,10 @@ function onsignal
 		then
 			error( 'signal ' .. signal .. ' is an invalid number.' , 2 )
 		end
-
 		signum = signal
 	elseif type( signal ) == 'string'
 	then
 		signum = signums[ signal ]
-
 		if signum == nil
 		then
 			error( 'signal "' .. signal .. '" unknown.' , 2 )
@@ -66,10 +74,22 @@ function onsignal
 		error( 'signal of type ' .. type( signal ) .. ' invalid.', 2 )
 	end
 
-	-- FIXME store the handler in a table
-	-- FIXME tell core of max queue size
+	mci.sigHandlers[ signum ] = handler
+end
 
-	core.onsignal( signum, handler );
+--
+-- The onsignal( ) function exported to userEnv.
+--
+function onsignal
+(
+	signal, -- signal number or name
+	handler -- function to call
+	--      -- or nil to unload the handle
+	--      -- or false to disable default signal handlers
+)
+	onsignalPrep( signal, handler )
+
+	core.onsignal( mci.sigHandlers )
 end
 
 
@@ -82,24 +102,27 @@ function initSignalHandlers
 (
 	firstTime --- TODO check if needed
 )
-	onsignal(
+	onsignalPrep(
 		'HUP',
 		function( )
 			console.log( 'GOT A HUP SIGNAL' );
 		end
 	)
 
-	onsignal(
+	onsignalPrep(
 		'INT',
 		function( )
 			console.log( 'GOT A INT SIGNAL' );
 		end
 	)
 
-	onsignal(
+	onsignalPrep(
 		'TERM',
 		function( )
 			console.log( 'GOT A TERM SIGNAL' );
 		end
 	)
+
+	core.onsignal( mci.sigHandlers )
 end
+

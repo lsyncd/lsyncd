@@ -244,12 +244,6 @@ function mci.configure(
 	args,     -- arguments given by user
 	monitors  -- list of monitors the core can do
 )
-	print( "mci.configure", #args )
-
-	for k, v in pairs( args ) do
-		print( 'a', k, v )
-	end
-
 	Monitor.initialize( monitors )
 
 	--
@@ -268,10 +262,7 @@ function mci.configure(
 		delay =
 		{
 			1,
-			function
-			(
-				secs
-			)
+			function( secs )
 				clSettings.delay = secs + 0
 			end
 		},
@@ -281,10 +272,7 @@ function mci.configure(
 		logfile =
 		{
 			1,
-			function
-			(
-				file
-			)
+			function( file )
 				clSettings.logfile = file
 			end
 		},
@@ -292,8 +280,7 @@ function mci.configure(
 		version =
 		{
 			0,
-			function
-			( )
+			function( )
 				io.stdout:write( 'Version: ', lsyncd_version, '\n' )
 
 				os.exit( 0 )

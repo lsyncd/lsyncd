@@ -240,11 +240,12 @@ observe_select
 	// that puts Lsyncd to sleep until anything worth noticing
 	// happens
 
-	pr = pselect(
-		observances[ observances_len - 1 ].fd + 1,
-		&rfds, &wfds, NULL,
-		timeout, &sigset
-	);
+	pr =
+		pselect(
+			observances[ observances_len - 1 ].fd + 1,
+			&rfds, &wfds, NULL,
+			timeout, &sigset
+		);
 
 	// FIXME handle signals
 

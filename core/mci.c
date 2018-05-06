@@ -460,6 +460,7 @@ l_stackdump( lua_State * L )
 	return 0;
 }
 
+
 /*
 | Reads the directories entries.
 |
@@ -650,7 +651,7 @@ static const luaL_Reg corelib[ ] =
 	{ "now",            l_now           },
 	{ "nonobserve_fd",  l_nonobserve_fd },
 	{ "observe_fd",     l_observe_fd    },
-//	{ "onsignal",       l_onsignal      },
+	{ "onsignal",       l_onsignal      },
 	{ "readdir",        l_readdir       },
 	{ "realdir",        l_realdir       },
 	{ "stackdump",      l_stackdump     },

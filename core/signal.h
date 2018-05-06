@@ -18,4 +18,7 @@ extern volatile sig_atomic_t sigcode;
 // Initializes signal handling.
 extern void signal_init( );
 
+// FIXME
+int l_onsignal( lua_State *L );
+
 #endif

@@ -27,7 +27,7 @@
 #include "log.h"
 
 /*
-| "Secured" calloc
+| "Secured" calloc.
 */
 extern void *
 s_calloc( size_t nmemb, size_t size )
@@ -63,7 +63,7 @@ s_malloc( size_t size )
 
 
 /*
-| "Secured" realloc
+| "Secured" realloc.
 */
 extern void *
 s_realloc( void * ptr, size_t size )
@@ -81,7 +81,7 @@ s_realloc( void * ptr, size_t size )
 
 
 /*
-| "Secured" strdup
+| "Secured" strdup.
 */
 extern char *
 s_strdup( const char *src )
