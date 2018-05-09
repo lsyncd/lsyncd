@@ -25,21 +25,35 @@
 #include "mem.h"
 
 
+/*
+| The queue of received signal to be pulled from the mantle.
+|
+| Every signal num is unique.
+*/
 static volatile sig_atomic_t * queue;
-static int queue_len;
+static int queue_maxlen;
 static int queue_pos;
+
+
+/*
+| The core remembers a list of all signal numbers it registered
+| handlers for, so it can reset them to OS default, if the mantle
+| changes signal handlers (on soft reset after HUP for example)
+*/
+static volatile sig_atomic_t * handlers;
+static int handlers_maxlen;
+static int handlers_len;
 
 
 /*
 | Set by TERM or HUP signal handler
 | telling Lsyncd should end or reset ASAP.
+|
+| FIXME remove
 */
 volatile sig_atomic_t hup  = 0;
 volatile sig_atomic_t term = 0;
 volatile sig_atomic_t sigcode = 0;
-
-
-
 
 
 /*
@@ -68,7 +82,7 @@ signal_handler( int sig )
 		if( queue[ i ] == sig ) return;
 	}
 
-	if( queue_pos + 1 >= queue_len )
+	if( queue_pos + 1 >= queue_maxlen )
 	{
 		// this should never ever happen
 		logstring( "Error", "Signal queue overflow!" );
@@ -81,16 +95,17 @@ signal_handler( int sig )
 
 /*
 | Initializes signal handling.
-|
-| Listens to SIGCHLD, but blocks it until pselect( )
-| opens the signal handler up.
 */
 void
 signal_init( )
 {
-	queue_len = 5;
-	queue = s_malloc( queue_len * sizeof( sig_atomic_t ) );
+	queue_maxlen = 4;
+	queue = s_malloc( queue_maxlen * sizeof( sig_atomic_t ) );
 	queue_pos = 0;
+
+	handlers_maxlen = 4;
+	handlers = s_malloc( handlers_len * sizeof( sig_atomic_t ) );
+	handlers_len = 0;
 }
 
 
@@ -110,6 +125,8 @@ l_onsignal( lua_State *L )
 {
 	int sigc = 0;
 	int ok;
+	int h;
+	struct sigaction act;
 
 	// the block mask includes all signals that have registered handlers.
 	// it is used to block all signals outside the select() call
@@ -119,7 +136,8 @@ l_onsignal( lua_State *L )
 	sigaddset( &blockmask, SIGCHLD );
 
 	// first time iterates the signal handler table to build
-	// the blockmask
+	// the blockmask and also to see what previously registered
+	// signals are not to be handled anymore
 
 	lua_pushnil( L );
 	while( lua_next( L, -2 ) )
@@ -135,33 +153,60 @@ l_onsignal( lua_State *L )
 		int signum = lua_tointegerx( L, -1 , &ok );
 		if( !ok ) continue;
 
+		// unsets this signal from the handlers buffer
+		for( h = 0; h < handlers_len; h++ )
+		{
+			if( handlers[ h ] == signum )
+			{
+				handlers[ h ] = -1; break;
+			}
+		}
+
 		sigc++;
 	}
 
-	// and block those signals
+	// resets no longer handlerd signals to default action
+	for( h = 0; h < handlers_len; h++ )
+	{
+		int signum = handlers[ h ];
+
+		if( signum == -1 ) continue;
+
+		memset( &act, 0, sizeof( act ) );
+		act.sa_handler = SIG_DFL;
+
+		sigaction( signum, &act, NULL );
+	}
+
+	// and now the signalmask is applied
 	sigprocmask( SIG_BLOCK, &blockmask, NULL );
 
 	// if there are more signal handlers than
 	// the signal queue allows, it is enlarged.
-	if( sigc >= queue_len )
+	if( sigc >= queue_maxlen )
 	{
-		while( sigc >= queue_len ) queue_len *= 2;
-		queue = s_realloc( (sig_atomic_t *)( queue ), queue_len * sizeof( sig_atomic_t ) );
+		while( sigc >= queue_maxlen ) queue_maxlen *= 2;
+		queue = s_realloc( (sig_atomic_t *)( queue ), queue_maxlen * sizeof( sig_atomic_t ) );
 	}
 
-	// now iterates the signal handler table
-	// once again to register the signal handlers.
+	if( sigc >= handlers_maxlen )
+	{
+		while( sigc >= handlers_maxlen ) handlers_maxlen *= 2;
+		queue = s_realloc( (sig_atomic_t *)( queue ), handlers_maxlen * sizeof( sig_atomic_t ) );
+	}
 
-	struct sigaction act;
-	memset (&act, '\0', sizeof(act));
+	// now iterates the signal handler table is iterated again
+	// to register the signal handlers.
+
+	memset( &act, 0, sizeof( act ) );
 	act.sa_mask = blockmask;
 
 	lua_pushnil( L );
 	while( lua_next( L, -2 ) )
 	{
 		int htype = lua_type( L, -1 ); // the handle
-		act.sa_handler = &signal_handler;
 
+		act.sa_handler = &signal_handler;
 
 		// pops the value, leaves the key on stack
 		lua_pop( L, 1 );
@@ -172,8 +217,15 @@ l_onsignal( lua_State *L )
 		int signum = lua_tointegerx( L, -1 , &ok );
 		if( !ok ) continue;
 
+		// stores registered signal handlers
+		handlers[ handlers_len++ ] = signum;
+
 		sigaction( signum, &act, 0 );
 	}
+
+	// FIXME listen to SIGCHLD if not specified
+	// Listens to SIGCHLD, but blocks it until pselect( )
+	// opens the signal handler up.
 
 	return 0;
 }
