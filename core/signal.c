@@ -22,6 +22,7 @@
 #include <lauxlib.h>
 
 #include "log.h"
+#include "mci.h"
 #include "mem.h"
 
 
@@ -59,6 +60,7 @@ volatile sig_atomic_t sigcode = 0;
 /*
 | signal handler
 */
+/*
 static void
 signal_child( int sig )
 {
@@ -67,6 +69,7 @@ signal_child( int sig )
 	// This signal handler is just installed so the kernel
 	// keeps finished child processes as zombies waiting to be reaped.
 }
+*/
 
 
 /*
@@ -121,7 +124,9 @@ signal_init( )
 |     false if they denied it
 */
 int
-l_onsignal( lua_State *L )
+l_onsignal(
+	lua_State *L
+)
 {
 	int sigc = 0;
 	int ok;
@@ -178,6 +183,8 @@ l_onsignal( lua_State *L )
 		sigaction( signum, &act, NULL );
 	}
 
+	handlers_len = 0;
+
 	// and now the signalmask is applied
 	sigprocmask( SIG_BLOCK, &blockmask, NULL );
 
@@ -228,5 +235,32 @@ l_onsignal( lua_State *L )
 	// opens the signal handler up.
 
 	return 0;
+}
+
+
+/*
+| Notifies the mantle about queued signals.
+*/
+void
+signal_notify(
+	lua_State *L
+)
+{
+	if( queue_pos == 0 ) return;
+
+	load_mci( L, "signalEvent" );
+
+	lua_createtable( L, queue_pos, 0 );
+
+	int p = 1;
+	while( queue_pos > 0 )
+	{
+		lua_pushinteger( L, p++ );
+		lua_pushinteger( L, queue[ --queue_pos ] );
+		lua_settable( L, -3 );
+	}
+
+	if( lua_pcall( L, 1, 0, -3 ) ) exit( -1 );
+	lua_pop( L, 1 );
 }
 

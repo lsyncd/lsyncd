@@ -29,9 +29,7 @@ end
 -- keys are signal numbers
 -- values are functions to be called
 -- or 'false' in case of disabled default signals
---
--- On signal the core will directly look up this table.
-mci.sigHandlers = { }
+local sigHandlers = { }
 
 -- counter of signal handlers
 -- used to tell the core to enlarge the signal queue if needed
@@ -74,7 +72,7 @@ local function onsignalPrep
 		error( 'signal of type ' .. type( signal ) .. ' invalid.', 2 )
 	end
 
-	mci.sigHandlers[ signum ] = handler
+	sigHandlers[ signum ] = handler
 end
 
 --
@@ -89,7 +87,7 @@ function onsignal
 )
 	onsignalPrep( signal, handler )
 
-	core.onsignal( mci.sigHandlers )
+	core.onsignal( sigHandlers )
 end
 
 
@@ -105,24 +103,46 @@ function initSignalHandlers
 	onsignalPrep(
 		'HUP',
 		function( )
-			console.log( 'GOT A HUP SIGNAL' );
+			print( 'GOT A HUP SIGNAL' )
 		end
 	)
 
 	onsignalPrep(
 		'INT',
 		function( )
-			console.log( 'GOT A INT SIGNAL' );
+			print( 'GOT A INT SIGNAL' )
 		end
 	)
 
 	onsignalPrep(
 		'TERM',
 		function( )
-			console.log( 'GOT A TERM SIGNAL' );
+			print( 'GOT A TERM SIGNAL' )
 		end
 	)
 
-	core.onsignal( mci.sigHandlers )
+	core.onsignal( sigHandlers )
+end
+
+
+--
+-- Called by kernel on catched and queued signals
+--
+mci.signalEvent =
+	function
+(
+	sigtable
+)
+	for _, signum in ipairs( sigtable )
+	do
+		local handler = sigHandlers[ signum ]
+
+		if not handler
+		then
+			log( 'Error', 'Received signal '..signnum..' without a handler.' )
+		end
+
+		handler( )
+	end
 end
 

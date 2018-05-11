@@ -247,7 +247,7 @@ observe_select
 			timeout, &sigset
 		);
 
-	// FIXME handle signals
+	signal_notify( L );
 
 	// something happened!
 	if( pr >= 0 )

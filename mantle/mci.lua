@@ -437,9 +437,9 @@ function mci.initialize
 	end
 
 	-- from now on use logging as configured instead of stdout/err.
-	lsyncdStatus = 'run';
+	lsyncdStatus = 'run'
 
-	configure( 'running' );
+	configure( 'running' )
 
 	local ufuncs =
 	{
@@ -609,9 +609,9 @@ function mci.term
 	{
 		[ 2 ] = 'INT',
 		[ 15 ] = 'TERM'
-	};
+	}
 
-	local sigtext = sigtexts[ sigcode ];
+	local sigtext = sigtexts[ sigcode ]
 
 	if not sigtext then sigtext = 'UNKNOWN' end
 

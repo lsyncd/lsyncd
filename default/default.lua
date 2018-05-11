@@ -175,7 +175,7 @@ default.collect = function
 		then
 			log( 'Error', 'Failure with a list with exitcode = ', exitcode )
 		else
-			log( 'Error', 'Unknown exitcode "',exitcode,'" with a list' )
+			log( 'Error', 'Unknown exitcode "', exitcode, '" with a list' )
 
 			rc = 'die'
 		end

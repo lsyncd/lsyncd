@@ -358,7 +358,7 @@ local eventListFuncs =
 	--
 	getPaths = function
 	(
-		elist,   -- handle returned by getevents( )
+		elist,   -- handle returned by getEvents( )
 		mutator  -- if not nil called with ( etype, path, path2 )
 		--          returns one or two strings to add.
 	)

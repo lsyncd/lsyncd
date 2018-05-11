@@ -15,10 +15,13 @@ extern volatile sig_atomic_t term;
 extern volatile sig_atomic_t sigcode;
 
 
-// Initializes signal handling.
+// initializes signal handling.
 extern void signal_init( );
 
 // FIXME
 int l_onsignal( lua_State *L );
+
+// notifies the mantle about signals
+extern void signal_notify( lua_State *L );
 
 #endif

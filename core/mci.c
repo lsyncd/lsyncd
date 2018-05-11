@@ -335,6 +335,8 @@ l_mci( lua_State *L )
 		l_stackdump( L );
 		exit( -1 );
 	}
+
+	return 0;
 }
 
 
@@ -773,6 +775,7 @@ mci_load_default(
 	{
 		printlogf( L, "Error",
 			"loading default sync implementations: %s", lua_tostring( L, -1 ) );
+
 		exit( -1 );
 	}
 
@@ -786,6 +789,7 @@ mci_load_default(
 	{
 		printlogf( L, "Error",
 			"preparing default sync implementations: %s", lua_tostring( L, -1 ) );
+
 		exit( -1 );
 	}
 }

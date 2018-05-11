@@ -147,7 +147,7 @@ rsync.action = function
 	end
 
 	--
-	-- Gets the list of paths for the event list
+	-- Gets the list of paths for the event list.
 	--
 	-- Deletes create multi match patterns
 	--
