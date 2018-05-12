@@ -60,16 +60,14 @@ volatile sig_atomic_t sigcode = 0;
 /*
 | signal handler
 */
-/*
 static void
 signal_child( int sig )
 {
 	// Nothing!
 	//
 	// This signal handler is just installed so the kernel
-	// keeps finished child processes as zombies waiting to be reaped.
+	// keeps finished sub-processes as zombies waiting to be reaped.
 }
-*/
 
 
 /*
@@ -132,6 +130,7 @@ l_onsignal(
 	int ok;
 	int h;
 	struct sigaction act;
+	bool have_sig_child = false;
 
 	// the block mask includes all signals that have registered handlers.
 	// it is used to block all signals outside the select() call
@@ -158,7 +157,8 @@ l_onsignal(
 		int signum = lua_tointegerx( L, -1 , &ok );
 		if( !ok ) continue;
 
-		// unsets this signal from the handlers buffer
+		// marks this signal to be used again in the
+		// new signal handler table.
 		for( h = 0; h < handlers_len; h++ )
 		{
 			if( handlers[ h ] == signum )
@@ -170,7 +170,8 @@ l_onsignal(
 		sigc++;
 	}
 
-	// resets no longer handlerd signals to default action
+	// resets no longer handled signals
+	// to their system default action
 	for( h = 0; h < handlers_len; h++ )
 	{
 		int signum = handlers[ h ];
@@ -224,15 +225,23 @@ l_onsignal(
 		int signum = lua_tointegerx( L, -1 , &ok );
 		if( !ok ) continue;
 
+		if( signum == SIGCHLD ) have_sig_child = true;
+
 		// stores registered signal handlers
 		handlers[ handlers_len++ ] = signum;
 
 		sigaction( signum, &act, 0 );
 	}
 
-	// FIXME listen to SIGCHLD if not specified
-	// Listens to SIGCHLD, but blocks it until pselect( )
-	// opens the signal handler up.
+	// If there is no custom SIGCHLD handler add one
+	// that will do nothing. This is needed by the OS
+	// so the Lsyncd subprocesses are zombified and
+	// can be reaped.
+	if( !have_sig_child )
+	{
+		act.sa_handler = &signal_child;
+		sigaction( SIGCHLD, &act, 0 );
+	}
 
 	return 0;
 }

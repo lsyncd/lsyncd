@@ -773,8 +773,10 @@ mci_load_default(
 	// loads the default sync implementations
 	if( luaL_loadbuffer( L, default_out, default_size, "default" ) )
 	{
-		printlogf( L, "Error",
-			"loading default sync implementations: %s", lua_tostring( L, -1 ) );
+		printlogf(
+			L, "Error",
+			"loading default sync implementations: %s", lua_tostring( L, -1 )
+		);
 
 		exit( -1 );
 	}
@@ -787,8 +789,10 @@ mci_load_default(
 	// prepares the default sync implementations
 	if( lua_pcall( L, 0, 0, 0 ) )
 	{
-		printlogf( L, "Error",
-			"preparing default sync implementations: %s", lua_tostring( L, -1 ) );
+		printlogf(
+			L, "Error",
+			"preparing default sync implementations: %s", lua_tostring( L, -1 )
+		);
 
 		exit( -1 );
 	}

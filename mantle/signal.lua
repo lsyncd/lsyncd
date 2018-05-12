@@ -38,90 +38,88 @@ local sigHandlerCount = 0
 
 
 --
--- Prepares an onsignal handle.
--- It changes the mantle data, but does not yet tell the core about it.
+-- transforms a signal name or number to
+-- a valid number. 'false' is left be 'false'
 --
--- To be used only internally to combine multiple changes into one.
+-- In case of a invalid signal specifie an error is raised.
 --
-local function onsignalPrep
+local function toSignum
 (
-	signal, -- signal number or name
-	handler -- function to call
-	--      -- or nil to unload the handle
-	--      -- or false to disable default signal handlers
+	signal
 )
-	local signum
-
 	if type( signal ) == 'number'
 	then
 		if signal < 0
 		or signal ~= signal
 		or signal - floor( signal ) ~= 0
 		then
-			error( 'signal ' .. signal .. ' is an invalid number.' , 2 )
+			error( 'signal ' .. signal .. ' is an invalid number.' , 3 )
 		end
-		signum = signal
+
+		return signal
 	elseif type( signal ) == 'string'
 	then
 		signum = signums[ signal ]
+
 		if signum == nil
 		then
-			error( 'signal "' .. signal .. '" unknown.' , 2 )
+			error( 'signal "' .. signal .. '" unknown.' , 3 )
 		end
-	else
-		error( 'signal of type ' .. type( signal ) .. ' invalid.', 2 )
-	end
 
-	sigHandlers[ signum ] = handler
+		return signum
+	elseif signal == false
+	then
+		return false
+	else
+		error( 'signal of type ' .. type( signal ) .. ' invalid.', 3 )
+	end
 end
+
 
 --
 -- The onsignal( ) function exported to userEnv.
 --
 function onsignal
 (
-	signal, -- signal number or name
-	handler -- function to call
-	--      -- or nil to unload the handle
-	--      -- or false to disable default signal handlers
+	...
+	--- signal1, -- signal number or name
+	--- handler1 -- function to call
+	--           -- or nil to unload the handle
+	--           -- or false to disable default signal handlers
+	-- signal2, handler2
+	-- signal3, handler3
+	-- and so on
 )
-	onsignalPrep( signal, handler )
+	local n = select( '#', ... )
+	local arg = {...}
+
+	if n % 2 ~= 0
+	then
+		error( 'onsignal with uneven number of arguments called', 2 )
+	end
+
+	for a = 1, n, 2
+	do
+		local signal = arg[ a ]
+		local handler = arg[ a + 1 ]
+
+		local signum = toSignum( signal )
+
+		sigHandlers[ signum ] = handler
+	end
 
 	core.onsignal( sigHandlers )
 end
 
 
 --
--- Sets up the default HUP/INT/TERM signal handlers.
+-- Returns signal handler registered for 'signum'
 --
--- Called after user scripts finished
---
-function initSignalHandlers
+function getsignal
 (
-	firstTime --- TODO check if needed
+	signum
 )
-	onsignalPrep(
-		'HUP',
-		function( )
-			print( 'GOT A HUP SIGNAL' )
-		end
-	)
-
-	onsignalPrep(
-		'INT',
-		function( )
-			print( 'GOT A INT SIGNAL' )
-		end
-	)
-
-	onsignalPrep(
-		'TERM',
-		function( )
-			print( 'GOT A TERM SIGNAL' )
-		end
-	)
-
-	core.onsignal( sigHandlers )
+	return sigHandlers[ signum ];
 end
 
 

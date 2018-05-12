@@ -386,7 +386,7 @@ function mci.initialize
 		os.exit( -1 )
 	end
 
-	initSignalHandlers( firstTime )
+	if userENV.init then userENV.init( ) end
 
 	lastReportedWaiting = false
 
@@ -496,7 +496,7 @@ end
 --
 function mci.getAlarm
 ( )
-	log( 'Function', 'getAlarm( )' )
+	log( 'Function', 'getAlarm( )', lsyncdStatus )
 
 	if lsyncdStatus ~= 'run' then return false end
 
@@ -537,10 +537,7 @@ function mci.getAlarm
 			checkAlarm( s:getAlarm( ) )
 		end
 	else
-		log(
-			'Alarm',
-			'at global process limit.'
-		)
+		log( 'Alarm', 'at global process limit.' )
 	end
 
 	-- checks if a statusfile write has been delayed
