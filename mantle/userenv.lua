@@ -11,7 +11,7 @@
 -- License: GPLv2 (see COPYING) or any later version
 -- Authors: Axel Kittenberger <axkibe@gmail.com>
 --
-userENV =
+userenv =
 {
 	-- generic lua stuff to be available
 	_VERSION = _VERSION,
@@ -51,19 +51,24 @@ userENV =
 	-- lsyncd mantle available to user scripts
 	Array = Array,
 	Queue = Queue,
-	settings = settings,
-	spawn = spawn,
-	spawnShell = spawnShell,
-	sync = sync,
+
+	-- user interface functions and objects
+	alarm = user.alarm,
+	nonobservefs = user.nonobserfd,
+	observefd = user.observefd,
+	settings = user.settings,
+	spawn = user.spawn,
+	spawnShell = user.spawnShell,
+	sync = user.sync,
+	syncs = user.syncs,
 
 	-- lsyncd core available to user scripts
+	-- FIXME always make wrappers
 	log = core.log,
-	nonobservefs = core.nonobserfd,
 	now = core.now,
-	observefd = core.observefd,
 	readdir = core.readdir,
 	terminate = core.terminate
 }
 
-userENV._G = userENV
+userenv._G = userenv
 

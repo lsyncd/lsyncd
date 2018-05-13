@@ -26,6 +26,11 @@ local function sigint
 ( )
 	print( 'GOT AN INT SIGNAL' )
 
+	for _, s in ipairs( syncs )
+	do
+		print( 'a sync' )
+	end
+
 	os.exit( 1 )
 end
 

@@ -783,7 +783,7 @@ mci_load_default(
 
 	// loads the user enivornment
 	// the default sync implementations are actually not priviledged in any way
-	lua_getglobal( L, "userENV" );
+	lua_getglobal( L, "userenv" );
 	lua_setupvalue( L, -2, 1 );
 
 	// prepares the default sync implementations

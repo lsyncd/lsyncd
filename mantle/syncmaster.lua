@@ -173,19 +173,6 @@ local function add
 (
 	config
 )
-	-- Checks if user overwrote the settings function.
-	-- ( was Lsyncd < 2.1 style )
-	if userENV.settings ~= settings
-	then
-		log(
-			'Error',
-			'Do not use settings = { ... }\n'..
-			'      please use settings{ ... } (without the equal sign)'
-		)
-
-		os.exit( -1 )
-	end
-
 	-- Creates a new config table which inherits all keys/values
 	-- from integer keyed tables
 	local uconfig = config
@@ -195,7 +182,7 @@ local function add
 	inherit( config, uconfig )
 
 	-- last and least defaults are inherited
-	inherit( config, userENV.default )
+	inherit( config, userenv.default )
 
 	local inheritSettings =
 	{

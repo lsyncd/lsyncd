@@ -446,7 +446,7 @@ main1( int argc, char *argv[] )
 		}
 
 		// loads the user enivornment
-		lua_getglobal( L, "userENV" );
+		lua_getglobal( L, "userenv" );
 		lua_setupvalue( L, -2, 1 );
 
 		if( lua_pcall( L, 0, LUA_MULTRET, 0) )

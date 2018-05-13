@@ -15,15 +15,32 @@ then
 end
 
 
+user = { }
+
+
 --
 -- Main utility to create new observations.
 --
 -- Returns an Inlet to that sync.
 --
-function sync
+user.sync =
+	function
 (
 	opts
 )
+	-- Checks if user overwrote the settings function.
+	-- ( was Lsyncd < 2.1 style )
+	if userenv.settings ~= user.settings
+	then
+		log(
+			'Error',
+			'Do not use settings = { ... }\n'..
+			'      please use settings{ ... } (without the equal sign)'
+		)
+
+		os.exit( -1 )
+	end
+
 	if lsyncdStatus ~= 'init'
 	then
 		error( 'Sync can only be created during initialization.', 2 )
@@ -36,7 +53,8 @@ end
 --
 -- Spawns a new child process.
 --
-function spawn
+user.spawn =
+	function
 (
 	agent,  -- the reason why a process is spawned.
 	        -- a delay or delay list for a sync
@@ -130,7 +148,8 @@ end
 --
 -- Spawns a child process using the default shell.
 --
-function spawnShell
+user.spawnShell =
+	function
 (
 	agent,     -- the delay(list) to spawn the command for
 	command,   -- the shell command
@@ -143,7 +162,8 @@ end
 --
 -- Observes a filedescriptor.
 --
-function observefd
+user.observefd =
+	function
 (
 	fd,     -- file descriptor
 	ready,  -- called when fd is ready to be read
@@ -156,7 +176,8 @@ end
 --
 -- Stops observeing a filedescriptor.
 --
-function nonobservefd
+user.nonobservefd =
+	function
 (
 	fd      -- file descriptor
 )
@@ -170,7 +191,7 @@ end
 -- Use now() to receive current timestamp
 -- add seconds with '+' to it
 --
-alarm = UserAlarms.alarm
+user.alarm = UserAlarms.alarm
 
 
 --
@@ -193,7 +214,8 @@ local settingsCheckgauge =
 --
 -- The settings call
 --
-function settings
+user.settings =
+	function
 (
 	a1  -- a string for getting a setting
 	--     or a table of key/value pairs to set these settings
@@ -227,3 +249,28 @@ function settings
 	end
 end
 
+
+--
+-- Provides a way for user scripts to browse (and alter) active sync list.
+--
+user.syncs =
+( function( )
+
+	local mt =
+	{
+		__ipairs =
+			function
+		( )
+			print( 'syncs.ipairs!!!' )
+		end
+	}
+
+	-- public interface
+	local intf = {
+		add = sync
+	}
+
+	setmetatable( intf, mt )
+
+	return intf
+end ) ( )

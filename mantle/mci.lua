@@ -375,7 +375,7 @@ function mci.initialize
 )
 	-- Checks if user overwrote the settings function.
 	-- ( was Lsyncd <2.1 style )
-	if userENV.settings ~= settings
+	if userenv.settings ~= user.settings
 	then
 		log(
 			'Error',
@@ -386,7 +386,7 @@ function mci.initialize
 		os.exit( -1 )
 	end
 
-	if userENV.init then userENV.init( ) end
+	if userenv.init then userenv.init( ) end
 
 	lastReportedWaiting = false
 
@@ -426,7 +426,7 @@ function mci.initialize
 	--
 	if uSettings.statusInterval == nil
 	then
-		uSettings.statusInterval = userENV.default.statusInterval
+		uSettings.statusInterval = userenv.default.statusInterval
 	end
 
 	-- makes sure the user gave Lsyncd anything to do
