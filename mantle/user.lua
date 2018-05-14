@@ -261,7 +261,7 @@ user.syncs =
 		__ipairs =
 			function
 		( )
-			print( 'syncs.ipairs!!!' )
+			return SyncMaster.iwalk( )
 		end
 	}
 
