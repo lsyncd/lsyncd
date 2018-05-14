@@ -37,6 +37,15 @@ end
 
 
 --
+-- Walks the syncs.
+--
+mt.__ipairs = function
+( )
+	return ipairs( syncList )
+end
+
+
+--
 -- The round robin counter. In case of global limited maxProcesses
 -- gives every sync equal chances to spawn the next process.
 --
@@ -284,13 +293,6 @@ local function add
 	return s
 end
 
---
--- Allows a for-loop to walk through all syncs.
---
-local function iwalk
-( )
-	return ipairs( syncList )
-end
 
 --
 -- Tests if any sync is interested in a path.
@@ -319,7 +321,6 @@ SyncMaster =
 	get = get,   -- FIXME forward through metatable
 	getRound = getRound,
 	concerns = concerns,
-	iwalk = iwalk,  -- FIXME ipairs metatable
 	nextRound = nextRound
 }
 

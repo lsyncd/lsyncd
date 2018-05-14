@@ -91,7 +91,7 @@ local function write
 
 	f:write( 'Lsyncd status report at ', os.date( ), '\n\n' )
 
-	for i, s in SyncMaster.iwalk( )
+	for i, s in ipairs( SyncMaster )
 	do
 		s:statusReport( f )
 

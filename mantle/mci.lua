@@ -122,7 +122,7 @@ function mci.collectProcess
 		error( 'negative number of processes!' )
 	end
 
-	for _, s in SyncMaster.iwalk( )
+	for _, s in ipairs( SyncMaster )
 	do
 		if s:collect( pid, exitcode ) then return end
 	end
@@ -452,7 +452,7 @@ function mci.initialize
 	}
 
 	-- translates layer 3 scripts
-	for _, s in SyncMaster.iwalk()
+	for _, s in ipairs( SyncMaster )
 	do
 		-- checks if any user functions is a layer 3 string.
 		local config = s.config
@@ -469,7 +469,7 @@ function mci.initialize
 	end
 
 	-- runs through the Syncs created by users
-	for _, s in SyncMaster.iwalk( )
+	for _, s in ipairs( SyncMaster )
 	do
 		if s.config.monitor == 'inotify'
 		then
@@ -532,7 +532,7 @@ function mci.getAlarm
 	if not uSettings.maxProcesses
 	or processCount < uSettings.maxProcesses
 	then
-		for _, s in SyncMaster.iwalk( )
+		for _, s in ipairs( SyncMaster )
 		do
 			checkAlarm( s:getAlarm( ) )
 		end

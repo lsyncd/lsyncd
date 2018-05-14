@@ -261,7 +261,7 @@ user.syncs =
 		__ipairs =
 			function
 		( )
-			return SyncMaster.iwalk( )
+			return ipairs( SyncMaster )
 		end
 	}
 
