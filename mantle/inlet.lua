@@ -34,7 +34,7 @@ local e2d = { }
 local e2d2 = { }
 
 --
--- Allows the garbage collector to remove not refrenced
+-- Allows the garbage collector to remove not referenced
 -- events.
 --
 setmetatable( e2d,  { __mode = 'k' } )

@@ -721,6 +721,24 @@ end
 
 
 --
+-- Returns a user interface for this sync
+--
+local function getUserIntf
+(
+	self
+)
+	local ui = self.userIntf
+
+	if ui then return ui end
+
+	ui = { muhkuh = true }
+
+	self.userIntf = ui
+
+	return ui
+end
+
+--
 -- Creates a new Sync.
 --
 local function new
@@ -747,6 +765,7 @@ local function new
 		getAlarm        = getAlarm,
 		getDelays       = getDelays,
 		getNextDelay    = getNextDelay,
+		getUserIntf     = getUserIntf,
 		invokeActions   = invokeActions,
 		removeDelay     = removeDelay,
 		rmExclude       = rmExclude,

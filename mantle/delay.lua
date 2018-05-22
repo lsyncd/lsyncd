@@ -41,6 +41,7 @@ local assignAble =
 	status = true,
 }
 
+
 --
 -- On accessing a nil index.
 --
@@ -51,6 +52,7 @@ mt.__index = function
 )
 	return self[ k_nt ][ k ]
 end
+
 
 --
 -- On assigning a new index.
@@ -68,6 +70,7 @@ mt.__newindex = function
 
 	self[ k_nt ][ k ] = v
 end
+
 
 --
 -- This delay is being blocked by another delay
@@ -115,6 +118,7 @@ local function wait
 	self[ k_nt ].alarm = alarm
 end
 
+
 --
 -- Creates a new delay.
 --
@@ -149,6 +153,7 @@ local function new
 
 	return delay
 end
+
 
 --
 -- Exported interface

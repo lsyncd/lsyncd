@@ -251,26 +251,48 @@ end
 
 
 --
+-- A look up table for user sync interfaces
+--
+local userSyncIntfs = { }
+setmetatable( userSyncIntfs,  { __mode = 'k' } )
+
+
+--
 -- Provides a way for user scripts to browse (and alter) active sync list.
 --
 user.syncs =
 ( function( )
 
-	local mt =
-	{
-		__ipairs =
-			function
-		( )
-			return ipairs( SyncMaster )
+	-- iterator for user syncs
+	function iter
+	(
+		self,
+		pos
+	)
+		pos = pos + 1
+
+		if pos >= #SyncMaster then return nil end
+
+		local sync = SyncMaster.get( pos )
+
+		return pos, sync:getUserIntf( )
+	end
+
+	local mt = { }
+
+	mt.__ipairs =
+		function( self )
+			return iter, self, -1
 		end
-	}
 
 	-- public interface
-	local intf = {
-		add = sync
+	local intf =
+	{
+		add = sync, -- syncs.add is a synonym to sync{ }
 	}
 
 	setmetatable( intf, mt )
 
 	return intf
-end ) ( )
+end )( )
+
