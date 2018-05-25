@@ -122,7 +122,7 @@ function mci.collectProcess
 		error( 'negative number of processes!' )
 	end
 
-	for _, s in ipairs( SyncMaster )
+	for _, s in ipairs( SyncMaster.syncList( ) )
 	do
 		if s:collect( pid, exitcode ) then return end
 	end
@@ -176,19 +176,25 @@ function mci.cycle
 	then
 		local start = SyncMaster.getRound( )
 
-		local ir = start
+		if #SyncMaster > 0
+		then
+			local ir = start
 
-		repeat
-			local s = SyncMaster.get( ir )
+			local slist = SyncMaster.syncList( )
+			local scount = #SyncMaster
 
-			s:invokeActions( timestamp )
+			repeat
+				local s = slist[ ir ]
 
-			ir = ir + 1
+				s:invokeActions( timestamp )
 
-			if ir >= #SyncMaster then ir = 0 end
-		until ir == start
+				ir = ir + 1
 
-		SyncMaster.nextRound( )
+				if ir >= scount then ir = 0 end
+			until ir == start
+
+			SyncMaster.nextRound( )
+		end
 	end
 
 	UserAlarms.invoke( timestamp )

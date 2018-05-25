@@ -21,7 +21,9 @@ local function onCollect
 (
 	sync -- the user intf to the sync a child finished for
 )
+	if( #sync.pids( ) == 0 ) then syncs.remove( sync ) end
 
+	if #syncs == 0 then os.exit( 0 ) end
 end
 
 
@@ -35,20 +37,24 @@ end
 
 local function sigint
 ( )
-	print( 'GOT AN INT SIGNAL' )
+	log( 'Normal', 'Received an INT signal, terminating' )
 
 	for _, sync in ipairs( syncs )
 	do
 		sync.stop( )
 
-		if( #sync.pids == 0 )
+		if( #sync.pids( ) == 0 )
 		then
 			syncs.remove( sync )
 		else
 			sync.onCollect( onCollect )
 		end
 	end
---	os.exit( 1 )
+
+	if #syncs == 0
+	then
+		os.exit( 0 )
+	end
 end
 
 
@@ -71,8 +77,6 @@ init =
 	local hup = getsignal( 'HUP' )
 	local int = getsignal( 'INT' )
 	local term = getsignal( 'TERM' )
-
-	print( 'INIT', hup, int, term )
 
 	if hup ~= false then hup = sighup end
 	if int ~= false then int = sigint end

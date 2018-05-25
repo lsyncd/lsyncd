@@ -766,7 +766,7 @@ local function getUserIntf
 		-- processes
 		pids = function
 		( )
-			local pids = { }
+			local pids = Counter:new( )
 
 			for k, v in pairs( self.processes )
 			do

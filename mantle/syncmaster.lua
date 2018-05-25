@@ -295,6 +295,43 @@ end
 
 
 --
+-- Removes a sync.
+--
+-- FUTURE also allow instead the userIntf the sync name
+--
+local function remove
+(
+	syncUserIntf
+)
+	-- finds the sync
+	local pos, sync
+	for p, s in ipairs( syncList )
+	do
+		if s.userIntf == syncUserIntf
+		then
+			pos = p
+			sync = s
+		end
+	end
+
+	if not sync
+	then
+		log( 'Error', 'To be removed sync not found.' )
+		terminate( -1 )
+	end
+
+	if #sync.processes ~= 0
+	then
+		log( 'Error', 'To be removed sync still has child processes.' )
+		terminate( -1 )
+	end
+
+	if pos >= round and round > 0 then round = round - 1 end
+
+	syncList:remove( pos )
+end
+
+--
 -- Tests if any sync is interested in a path.
 --
 local function concerns
@@ -312,6 +349,15 @@ local function concerns
 	return false
 end
 
+
+--
+-- Returns a copy of the sync list.
+--
+local function syncListCopy
+( )
+	return syncList:copy( )
+end
+
 --
 -- Exported interface.
 --
@@ -319,9 +365,11 @@ SyncMaster =
 {
 	add = add,   -- FIXME forward through metatable
 	get = get,   -- FIXME forward through metatable
+	remove = remove,
 	getRound = getRound,
 	concerns = concerns,
-	nextRound = nextRound
+	nextRound = nextRound,
+	syncList = syncListCopy,
 }
 
 setmetatable( SyncMaster, mt )

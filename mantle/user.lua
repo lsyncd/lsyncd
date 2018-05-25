@@ -287,23 +287,32 @@ user.syncs =
 	--
 	mt.__ipairs =
 		function
-		(
-			self    -- is user.syncs
-		)
-			local list = { }
+	(
+		self    -- is user.syncs
+	)
+		local list = { }
 
-			for k = 0, #SyncMaster - 1
-			do
-				list[ k ] = SyncMaster.get( k ):getUserIntf( )
-			end
-
-			return iter, list, -1
+		for k = 0, #SyncMaster - 1
+		do
+			list[ k ] = SyncMaster.get( k ):getUserIntf( )
 		end
+
+		return iter, list, -1
+	end
+
+	mt.__len =
+		function
+	(
+		self    -- is user.syncs
+	)
+		return #SyncMaster
+	end
 
 	-- public interface
 	local intf =
 	{
 		add = sync, -- syncs.add is a synonym to sync{ }
+		remove = SyncMaster.remove
 	}
 
 	setmetatable( intf, mt )

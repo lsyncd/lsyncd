@@ -138,6 +138,52 @@ local function push
 	self[ k_size ] = self[ k_size ] + 1
 end
 
+
+--
+-- Removes entry as 'pos' moving up following entries
+--
+local function remove
+(
+	self,
+	pos
+)
+	local size = self[ k_size ]
+	local nt = self[ k_nt ]
+
+	if pos < 0 or pos >= size
+	then
+		error( 'Array, remove index "'..k..'" out of bonds', 2 )
+	end
+
+	for k = pos, size - 2
+	do
+		nt[ k ] = nt[ k + 1 ]
+	end
+
+	table[ size - 1 ] = nil
+	self[ k_size ] = size - 1
+end
+
+
+--
+-- Creates a copy of the array
+--
+local function copy
+(
+	self
+)
+	local copy = Array:new( )
+
+	copy[ k_size ] = self[ k_size ]
+
+	local cnt = copy[ k_nt ]
+	local snt = self[ k_nt ]
+
+	for k, v in pairs( snt ) do cnt[ k ] = v end
+
+	return copy
+end
+
 --
 -- Creates a new array.
 --
@@ -146,7 +192,9 @@ local function new
 	-- k_nt is a native table, private to this object.
 	local o =
 	{
+		copy = copy,
 		push = push,
+		remove = remove,
 		[ k_size ] = 0,
 		[ k_nt ] = { }
 	}
