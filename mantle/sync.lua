@@ -204,6 +204,14 @@ local function collect
 	end
 
 	self.processes[ pid ] = nil
+
+	if self.onCollect
+	then
+		for _, func in ipairs( self.onCollect )
+		do
+			func( self:getUserIntf( ) )
+		end
+	end
 end
 
 
@@ -469,7 +477,8 @@ local function getAlarm
 (
 	self
 )
-	if #self.processes >= self.config.maxProcesses
+	if self.stopped
+	or #self.processes >= self.config.maxProcesses
 	then
 		return false
 	end
@@ -557,7 +566,8 @@ local function invokeActions
 )
 	log( 'Function', 'invokeActions( "', self.config.name, '", ', timestamp, ' )' )
 
-	if #self.processes >= self.config.maxProcesses
+	if self.stopped
+	or #self.processes >= self.config.maxProcesses
 	then
 		-- no new processes
 		return
@@ -731,12 +741,47 @@ local function getUserIntf
 
 	if ui then return ui end
 
-	ui = { muhkuh = true }
+	ui = {
+		-- Stops the sync, meaning no more
+		-- processes will be spawned
+		stop = function( )
+			self.stopped = true
+		end,
+
+		-- Registers an additional function to be called
+		-- after each collect.
+		--
+		-- Used by default signal handlers to wait
+		-- for children to finish (or react on forwarded signal)
+		onCollect = function( func )
+			if not self.onCollect
+			then
+				self.onCollect = { func }
+			else
+				table.insert( self.onCollect, func )
+			end
+		end,
+
+		-- Returns a list of pids of children
+		-- processes
+		pids = function
+		( )
+			local pids = { }
+
+			for k, v in pairs( self.processes )
+			do
+				pids[ k ] = v
+			end
+
+			return pids
+		end,
+	}
 
 	self.userIntf = ui
 
 	return ui
 end
+
 
 --
 -- Creates a new Sync.
@@ -748,11 +793,12 @@ local function new
 	local s =
 	{
 		-- fields
-		config = config,
-		delays = Queue.new( ),
-		source = config.source,
+		config    = config,
+		delays    = Queue.new( ),
+		source    = config.source,
 		processes = Counter.new( ),
-		filters = nil,
+		filters   = nil,
+		stopped   = false,
 
 		-- functions
 		addBlanketDelay = addBlanketDelay,
@@ -765,11 +811,13 @@ local function new
 		getAlarm        = getAlarm,
 		getDelays       = getDelays,
 		getNextDelay    = getNextDelay,
-		getUserIntf     = getUserIntf,
 		invokeActions   = invokeActions,
 		removeDelay     = removeDelay,
 		rmExclude       = rmExclude,
 		statusReport    = statusReport,
+
+		-- use interface
+		getUserIntf     = getUserIntf,
 	}
 
 	s.inlet = InletFactory.newInlet( s )

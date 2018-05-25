@@ -14,6 +14,17 @@ if not default then error( 'default not loaded' ) end
 default.signal = { }
 
 
+--
+--
+--
+local function onCollect
+(
+	sync -- the user intf to the sync a child finished for
+)
+
+end
+
+
 local function sighup
 ( )
 	print( 'GOT A HUP SIGNAL' )
@@ -26,12 +37,18 @@ local function sigint
 ( )
 	print( 'GOT AN INT SIGNAL' )
 
-	for _, s in ipairs( syncs )
+	for _, sync in ipairs( syncs )
 	do
-		print( 'a sync' )
-	end
+		sync.stop( )
 
-	os.exit( 1 )
+		if( #sync.pids == 0 )
+		then
+			syncs.remove( sync )
+		else
+			sync.onCollect( onCollect )
+		end
+	end
+--	os.exit( 1 )
 end
 
 
@@ -55,6 +72,8 @@ init =
 	local int = getsignal( 'INT' )
 	local term = getsignal( 'TERM' )
 
+	print( 'INIT', hup, int, term )
+
 	if hup ~= false then hup = sighup end
 	if int ~= false then int = sigint end
 	if term ~= false then term = sigterm end
@@ -62,6 +81,6 @@ init =
 	onsignal(
 		'HUP', hup,
 		'INT', int,
-		'TERM', iterm
+		'TERM', term
 	)
 end

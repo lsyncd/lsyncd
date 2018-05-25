@@ -266,23 +266,38 @@ user.syncs =
 	-- iterator for user syncs
 	function iter
 	(
-		self,
-		pos
+		self, -- the syncs list copy
+		pos   -- position
 	)
 		pos = pos + 1
 
-		if pos >= #SyncMaster then return nil end
+		local result = self[ pos ]
 
-		local sync = SyncMaster.get( pos )
+		if result == nil then return nil end
 
-		return pos, sync:getUserIntf( )
+		return pos, self[ pos ]
 	end
 
 	local mt = { }
 
+	--
+	-- This iterator will make a copy of the syncs at the moment
+	-- it is started, so the list can be manipulated while a loop
+	-- iterates through the copy.
+	--
 	mt.__ipairs =
-		function( self )
-			return iter, self, -1
+		function
+		(
+			self    -- is user.syncs
+		)
+			local list = { }
+
+			for k = 0, #SyncMaster - 1
+			do
+				list[ k ] = SyncMaster.get( k ):getUserIntf( )
+			end
+
+			return iter, list, -1
 		end
 
 	-- public interface

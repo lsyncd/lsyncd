@@ -95,7 +95,7 @@ function onsignal
 
 	if n % 2 ~= 0
 	then
-		error( 'onsignal with uneven number of arguments called', 2 )
+		error( 'onsignal() with uneven number of arguments called', 2 )
 	end
 
 	for a = 1, n, 2

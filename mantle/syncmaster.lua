@@ -77,7 +77,7 @@ end
 --
 local function get
 ( i )
-	return syncList[ i ];
+	return syncList[ i ]
 end
 
 --

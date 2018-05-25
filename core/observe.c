@@ -8,6 +8,7 @@
 */
 #include "feature.h"
 
+#include <sys/select.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <signal.h>

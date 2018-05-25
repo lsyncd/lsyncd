@@ -271,5 +271,12 @@ signal_notify(
 
 	if( lua_pcall( L, 1, 0, -3 ) ) exit( -1 );
 	lua_pop( L, 1 );
+
+	if( lua_gettop( L ) )
+	{
+		logstring( "Error", "internal, stack is dirty." );
+		l_stackdump( L );
+		exit( -1 );
+	}
 }
 
