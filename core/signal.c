@@ -1,5 +1,5 @@
 /*
-| singal.c from Lsyncd -- the Live (Mirror) Syncing Demon
+| signal.c from Lsyncd -- the Live (Mirror) Syncing Demon
 |
 | Albeit this signal handling system at first seems to violate
 | rentry rules things are evened out by sigmasks taking care
@@ -243,6 +243,15 @@ l_onsignal(
 		sigaction( SIGCHLD, &act, 0 );
 	}
 
+	return 0;
+}
+
+
+int
+l_kill(
+	lua_State *L
+)
+{
 	return 0;
 }
 

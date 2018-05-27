@@ -112,6 +112,26 @@ local function new
 	return o
 end
 
+
+--
+-- Creates a copy of the counter
+--
+local function copy
+(
+	self
+)
+	local copy = Counter:new( )
+
+	copy[ k_size ] = self[ k_size ]
+
+	local cnt = copy[ k_nt ]
+	local snt = self[ k_nt ]
+
+	for k, v in pairs( snt ) do cnt[ k ] = v end
+
+	return copy
+end
+
 --
 -- Exported interface.
 --

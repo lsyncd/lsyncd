@@ -21,7 +21,7 @@ local function onCollect
 (
 	sync -- the user intf to the sync a child finished for
 )
-	if( #sync.pids( ) == 0 ) then syncs.remove( sync ) end
+	if( sync.processCount( ) == 0 ) then syncs.remove( sync ) end
 
 	if #syncs == 0 then os.exit( 0 ) end
 end
@@ -39,22 +39,26 @@ local function sigint
 ( )
 	log( 'Normal', 'Received an INT signal, terminating' )
 
+	local pCount = 0
+
 	for _, sync in ipairs( syncs )
 	do
 		sync.stop( )
 
-		if( #sync.pids( ) == 0 )
+		local c = sync.processCount( )
+
+		if( c == 0 )
 		then
 			syncs.remove( sync )
 		else
+			pCount = pCount + c
 			sync.onCollect( onCollect )
 		end
 	end
 
-	if #syncs == 0
-	then
-		os.exit( 0 )
-	end
+	if #syncs == 0 then os.exit( 0 ) end
+
+	log( 'Normal', 'Waiting for ', pCount, ' child processes.' )
 end
 
 
@@ -88,3 +92,4 @@ init =
 		'TERM', term
 	)
 end
+

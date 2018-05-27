@@ -648,6 +648,7 @@ static const luaL_Reg corelib[ ] =
 {
 	{ "configure",      l_configure     },
 	{ "exec",           l_exec          },
+	{ "kill",           l_kill          },
 	{ "log",            l_log           },
 	{ "mci",            l_mci           },
 	{ "now",            l_now           },
