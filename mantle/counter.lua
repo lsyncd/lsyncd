@@ -96,24 +96,6 @@ end
 
 
 --
--- Creates a new counter.
---
-local function new
-( )
-	-- k_nt is a native table, private to this object.
-	local o =
-	{
-		[ k_size ] = 0,
-		[ k_nt ] = { }
-	}
-
-	setmetatable( o, mt )
-
-	return o
-end
-
-
---
 -- Creates a copy of the counter
 --
 local function copy
@@ -132,8 +114,27 @@ local function copy
 	return copy
 end
 
+
+--
+-- Creates a new counter.
+--
+local function new
+( )
+	-- k_nt is a native table, private to this object.
+	local o =
+	{
+		[ k_size ] = 0,
+		[ k_nt ] = { }
+	}
+
+	setmetatable( o, mt )
+
+	return o
+end
+
+
 --
 -- Exported interface.
 --
-Counter = { new = new }
+Counter = { new = new, copy = copy }
 

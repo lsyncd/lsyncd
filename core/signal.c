@@ -47,17 +47,6 @@ static int handlers_len;
 
 
 /*
-| Set by TERM or HUP signal handler
-| telling Lsyncd should end or reset ASAP.
-|
-| FIXME remove
-*/
-volatile sig_atomic_t hup  = 0;
-volatile sig_atomic_t term = 0;
-volatile sig_atomic_t sigcode = 0;
-
-
-/*
 | signal handler
 */
 static void
@@ -247,11 +236,27 @@ l_onsignal(
 }
 
 
+/*
+| Sends a signal to another process.
+|
+| Params on Lua stack:
+|     1: process id (pid) to send a signal to
+|     2: the signal to send
+|
+| Returns on Lua stack:
+|
+|     nada
+*/
 int
 l_kill(
 	lua_State *L
 )
 {
+	int pid = luaL_checkinteger( L, 1 );
+	int sid = luaL_checkinteger( L, 2 );
+
+	kill( pid, sid );
+
 	return 0;
 }
 

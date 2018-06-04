@@ -54,9 +54,6 @@ OPTIONS
 *-help*::
 	Show a help message.
 
-*-insist*::
-	Continues start up even if rsync cannot connect.
-
 *-log* 'LEVEL'::
 	Controls which kind of events are logged. By default Lsyncd logs 'Normal'
 	and 'Error' Messages. *-log scarce* will make Lsyncd log Error messages

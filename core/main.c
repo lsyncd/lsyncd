@@ -208,27 +208,6 @@ masterloop(
 			lua_pop( L, 1 );
 		}
 
-		// reacts on HUP signals
-		if( hup )
-		{
-			load_mci( L, "hup" );
-			if( lua_pcall( L, 0, 0, -2 ) ) exit( -1 );
-			lua_pop( L, 1 );
-
-			hup = 0;
-		}
-
-		// reacts on TERM and INT signals
-		if( term == 1 )
-		{
-			load_mci( L, "term" );
-			lua_pushnumber( L, sigcode );
-			if( lua_pcall( L, 1, 0, -3 ) ) exit( -1 );
-			lua_pop( L, 1 );
-
-			term = 2;
-		}
-
 		// lets the mantle do stuff every cycle,
 		// like starting new processes, writing the statusfile etc.
 		load_mci( L, "cycle" );
@@ -500,13 +479,8 @@ main( int argc, char * argv[ ] )
 	setlinebuf( stdout );
 	setlinebuf( stderr );
 
-	while( !term )
-	{
-		main1( argc, argv );
-	}
+	while( true ) main1( argc, argv );
 
-	// exits with error code responding to the signal it died for
-	// FIXME this no longer holds true to systemd recommendations
-	return 128 + sigcode;
+//	return -1;
 }
 

@@ -33,4 +33,7 @@ extern void observe_tidy_all( );
 // stops the core to observe a file descriptor
 extern void nonobserve_fd( int fd );
 
+// set to true to soft reset at earliest possilibity
+extern bool softreset;
+
 #endif

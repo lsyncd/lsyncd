@@ -98,6 +98,12 @@ default.collect = function
 
 	local rc
 
+	if agent.syncStopped
+	then
+		log( 'Normal', 'Sync stopped, ignoring exitcode of finished child' )
+		return 'ok'
+	end
+
 	if config.exitcodes
 	then
 		rc = config.exitcodes[ exitcode ]
@@ -115,9 +121,7 @@ default.collect = function
 		then
 			log(
 				'Normal',
-				'Startup of ',
-				agent.source, ' -> ', agent.target,
-				' finished.'
+				'Startup of ',agent.source, ' -> ',agent.target,' finished.'
 			)
 
 			return 'ok'
@@ -133,15 +137,6 @@ default.collect = function
 				)
 
 				return 'again'
-			else
-				log(
-					'Error',
-					'Temporary or permanent failure on startup of ',
-					agent.source, ' -> ', agent.target,
-					'. Terminating since "insist" is not set.'
-				)
-
-				terminate( -1 )
 			end
 		elseif rc == 'die'
 		then

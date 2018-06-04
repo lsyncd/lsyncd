@@ -563,6 +563,7 @@ end
 --
 mci.inotifyEvent = Inotify.event
 
+
 --
 -- Collector for every child process that finished in startup phase
 --
@@ -593,6 +594,7 @@ end
 
 --
 -- Called by core on a hup signal.
+-- FIXME remove
 --
 function mci.hup
 ( )
@@ -601,8 +603,10 @@ function mci.hup
 	lsyncdStatus = 'fade'
 end
 
+
 --
 -- Called by core on a term signal.
+-- FIXME remove
 --
 function mci.term
 (

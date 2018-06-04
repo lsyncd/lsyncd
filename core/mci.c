@@ -411,6 +411,18 @@ l_realdir( lua_State *L )
 
 
 /*
+| Soft resets Lsyncd.
+| Typical as reaction on a HUP signal.
+*/
+static int
+l_softreset( lua_State *L )
+{
+	softreset = 1;
+
+	return 0;
+}
+
+/*
 | Dumps the Lua stack.
 | For debugging purposes.
 */
@@ -490,7 +502,7 @@ l_readdir( lua_State *L )
 
 	lua_newtable( L );
 
-	while( !hup && !term )
+	while( !softreset )
 	{
 		struct dirent *de = readdir( d );
 		bool isdir;
@@ -657,6 +669,7 @@ static const luaL_Reg corelib[ ] =
 	{ "onsignal",       l_onsignal      },
 	{ "readdir",        l_readdir       },
 	{ "realdir",        l_realdir       },
+	{ "sofotreset",     l_softreset     },
 	{ "stackdump",      l_stackdump     },
 	{ "terminate",      l_terminate     },
 	{ NULL,             NULL            }

@@ -221,7 +221,8 @@ handle_event(
 
 		lua_pop( L, 1 );
 
-		hup = 1;
+		// FIXME report this to mantle more sensible
+		softreset = true;
 
 		return;
 	}
@@ -446,7 +447,7 @@ inotify_ready(
 
 		{
 			int i = 0;
-			while( i < len && !hup && !term )
+			while( i < len && !softreset )
 			{
 				struct inotify_event *event = ( struct inotify_event * ) ( readbuf + i );
 

@@ -24,11 +24,19 @@
 #include "mem.h"
 
 
+
+/**
+| Set to true to soft reset at earliest possilibity.
+*/
+bool softreset = false;
+
+
 /**
 * An observance to be called when a file descritor becomes
 * read-ready or write-ready.
 */
-struct observance {
+struct observance
+{
 	// The file descriptor to observe.
 	int fd;
 
@@ -261,14 +269,12 @@ observe_select
 			struct observance *obs = observances + pi;
 			int fd = obs->fd;
 
-			// checks for signals
-			if( hup || term ) break;
+			if( softreset ) break;
 
 			// a file descriptor became read-ready
 			if( obs->ready && FD_ISSET( fd, &rfds ) ) obs->ready( L, fd, obs->extra );
 
-			// Checks for signals, again, better safe than sorry
-			if ( hup || term ) break;
+			if( softreset ) break;
 
 			// FIXME breaks on multiple nonobservances in one beat
 			if(

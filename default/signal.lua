@@ -15,60 +15,64 @@ default.signal = { }
 
 
 --
+-- Returns a signal handler for 'signal'.
 --
---
-local function onCollect
+local function makeSignalHandler
 (
-	sync -- the user intf to the sync a child finished for
+	sig,      -- the signal to handle
+	logtext,  -- text to log
+	finish    -- function to call after all child processes have been collected
 )
-	if( sync.processCount( ) == 0 ) then syncs.remove( sync ) end
+	return function( )
+		log( 'Normal', 'Received an ',sig,' signal, ',logtext )
 
-	if #syncs == 0 then os.exit( 0 ) end
-end
+		local pCount = 0
 
+		for _, sync in ipairs( syncs )
+		do
+			sync.stop( )
 
-local function sighup
-( )
-	print( 'GOT A HUP SIGNAL' )
+			local pids = sync.pids( )
+			local pc = #pids
 
-	os.exit( 1 )
-end
+			if( pc == 0 )
+			then
+				syncs.remove( sync )
+			else
+				pCount = pCount + pc
+				sync.onCollect(
+					function
+					(
+						sync -- the user intf to the sync a child finished for
+					)
+						if( sync.processCount( ) == 0 ) then syncs.remove( sync ) end
 
+						if #syncs == 0 then finish( ) end
+					end
+				)
 
-local function sigint
-( )
-	log( 'Normal', 'Received an INT signal, terminating' )
-
-	local pCount = 0
-
-	for _, sync in ipairs( syncs )
-	do
-		sync.stop( )
-
-		local c = sync.processCount( )
-
-		if( c == 0 )
-		then
-			syncs.remove( sync )
-		else
-			pCount = pCount + c
-			sync.onCollect( onCollect )
+				for _, pid in ipairs( pids ) do signal( pid, sig ) end
+			end
 		end
+
+		if #syncs == 0 then finish( ) end
+
+		log( 'Normal', 'Waiting for ', pCount, ' child processes.' )
 	end
-
-	if #syncs == 0 then os.exit( 0 ) end
-
-	log( 'Normal', 'Waiting for ', pCount, ' child processes.' )
 end
 
 
-local function sigterm
-( )
-	print( 'GOT A TERM SIGNAL' )
-
-	os.exit( 1 )
+local function finishHup( )
+	os.exit( 0 )
 end
 
+local function finishInt( )
+	os.exit( 0 )
+end
+
+local function finishTerm( )
+	os.exit( 0 )
+end
 
 --
 -- Sets up the default HUP/INT/TERM signal handlers.
@@ -82,14 +86,10 @@ init =
 	local int = getsignal( 'INT' )
 	local term = getsignal( 'TERM' )
 
-	if hup ~= false then hup = sighup end
-	if int ~= false then int = sigint end
-	if term ~= false then term = sigterm end
+	if hup ~= false then hup = makeSignalHandler( 'HUP', 'resetting', finishHup ) end
+	if int ~= false then int = makeSignalHandler( 'INT', 'terminating', finishInt ) end
+	if term ~= false then term = makeSignalHandler( 'TERM', 'terminating', finishTerm ) end
 
-	onsignal(
-		'HUP', hup,
-		'INT', int,
-		'TERM', term
-	)
+	onsignal( 'HUP', hup, 'INT', int, 'TERM', term )
 end
 

@@ -766,7 +766,14 @@ local function getUserIntf
 		-- processes
 		pids = function
 		( )
-			return self.processes:copy( )
+			local c = 1
+			local pids = { }
+			for pid, delay in pairs( self.processes )
+			do
+				pids[ c ] = pid
+				c = c + 1
+			end
+			return pids
 		end,
 
 		processCount = function

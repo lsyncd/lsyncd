@@ -43,7 +43,7 @@ local sigHandlerCount = 0
 --
 -- In case of a invalid signal specifie an error is raised.
 --
-local function toSignum
+function signum
 (
 	signal
 )
@@ -59,14 +59,9 @@ local function toSignum
 		return signal
 	elseif type( signal ) == 'string'
 	then
-		signum = signums[ signal ]
-
-		if signum == nil
-		then
-			error( 'signal "' .. signal .. '" unknown.' , 3 )
-		end
-
-		return signum
+		local sn = signums[ signal ]
+		if sn == nil then error( 'signal "' .. signal .. '" unknown.' , 3 ) end
+		return sn
 	elseif signal == false
 	then
 		return false
@@ -102,10 +97,8 @@ function onsignal
 	do
 		local signal = arg[ a ]
 		local handler = arg[ a + 1 ]
-
-		local signum = toSignum( signal )
-
-		sigHandlers[ signum ] = handler
+		local sn = signum( signal )
+		sigHandlers[ sn ] = handler
 	end
 
 	core.onsignal( sigHandlers )
@@ -131,16 +124,29 @@ mci.signalEvent =
 (
 	sigtable
 )
-	for _, signum in ipairs( sigtable )
+	for _, sn in ipairs( sigtable )
 	do
-		local handler = sigHandlers[ signum ]
+		local handler = sigHandlers[ sn ]
 
 		if not handler
 		then
-			log( 'Error', 'Received signal '..signnum..' without a handler.' )
+			log( 'Error', 'Received signal ',sn,' without a handler.' )
 		end
 
 		handler( )
 	end
 end
+
+
+--
+-- Sends a signal to another process.
+--
+function signal
+(
+	pid,     -- process to send the signal to
+	signal  -- the signal to send
+)
+	core.kill( pid, signum( signal ) )
+end
+
 

@@ -269,6 +269,17 @@ local eventFields =
 	end,
 
 	--
+	-- Returns true if the sync this event belongs
+	-- to is stopped
+	--
+	syncStopped = function
+	(
+		event
+	)
+		return e2d[ event ].sync.stopped
+	end,
+
+	--
 	-- Returns the configured target.
 	--
 	target = function
@@ -411,15 +422,9 @@ local eventListMeta =
 		elist,
 		func
 	)
-		if func == 'isList'
-		then
-			return true
-		end
+		if func == 'isList' then return true end
 
-		if func == 'config'
-		then
-			return e2d[ elist ].sync.config
-		end
+		if func == 'config' then return e2d[ elist ].sync.config end
 
 		local f = eventListFuncs[ func ]
 
