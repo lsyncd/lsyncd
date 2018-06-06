@@ -31,6 +31,7 @@
 #include "observe.h"
 #include "signal.h"
 #include "time.h"
+#include "main.h"
 
 
 /*

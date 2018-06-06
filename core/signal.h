@@ -13,13 +13,20 @@
 // initializes signal handling.
 extern void signal_init( );
 
+
 // registers a signal handler
 int l_onsignal( lua_State *L );
+
 
 // sends a signal
 int l_kill( lua_State *L );
 
+
 // notifies the mantle about signals
 extern void signal_notify( lua_State *L );
+
+
+// tidies up signal handling
+extern void signal_tidy( );
 
 #endif

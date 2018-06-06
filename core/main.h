@@ -16,4 +16,8 @@
 extern int callError;
 
 
+// set to true to soft reset at earliest possilibity
+extern bool softreset;
+
+
 #endif

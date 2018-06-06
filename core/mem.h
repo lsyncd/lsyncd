@@ -9,9 +9,11 @@
 #ifndef LSYNCD_MEM_H
 #define LSYNCD_MEM_H
 
+
 extern void * s_calloc( size_t nmemb, size_t size );
 extern void * s_malloc( size_t size );
 extern void * s_realloc( void *ptr, size_t size );
 extern char * s_strdup( const char *src );
+
 
 #endif

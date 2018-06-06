@@ -9,12 +9,14 @@
 #ifndef LSYNCD_PIPE_H
 #define LSYNCD_PIPE_H
 
+
 /*
 | Creates a pipe.
 |
 | Sets the write end non blocking and close on exec.
 */
 extern void pipe_create( int pipefd[ 2 ] );
+
 
 /*
 | Writes to a pipe and handles observing for further writing
@@ -27,5 +29,6 @@ extern void pipe_write(
 	char const * pipe_text, // text to pipe
 	size_t pipe_len         // the pipe's text length
 );
+
 
 #endif

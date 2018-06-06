@@ -36,6 +36,8 @@
 #include "time.h"
 #include "userobs.h"
 #include "util.h"
+#include "main.h"
+
 
 #ifdef WITH_INOTIFY
 #  include "inotify.h"
@@ -502,7 +504,7 @@ l_readdir( lua_State *L )
 
 	lua_newtable( L );
 
-	while( !softreset )
+	while( true )
 	{
 		struct dirent *de = readdir( d );
 		bool isdir;
@@ -669,7 +671,7 @@ static const luaL_Reg corelib[ ] =
 	{ "onsignal",       l_onsignal      },
 	{ "readdir",        l_readdir       },
 	{ "realdir",        l_realdir       },
-	{ "sofotreset",     l_softreset     },
+	{ "softreset",      l_softreset     },
 	{ "stackdump",      l_stackdump     },
 	{ "terminate",      l_terminate     },
 	{ NULL,             NULL            }
@@ -810,5 +812,15 @@ mci_load_default(
 
 		exit( -1 );
 	}
+}
+
+
+/*
+| Cleans up the mci,
+*/
+void
+mci_tidy( )
+{
+	mci = 0;
 }
 

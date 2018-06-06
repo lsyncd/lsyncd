@@ -22,13 +22,7 @@
 #include "log.h"
 #include "signal.h"
 #include "mem.h"
-
-
-
-/**
-| Set to true to soft reset at earliest possilibity.
-*/
-bool softreset = false;
+#include "main.h"
 
 
 /**

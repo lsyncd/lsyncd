@@ -20,6 +20,8 @@ default.signal = { }
 local function makeSignalHandler
 (
 	sig,      -- the signal to handle
+	forward,  -- the signal to forward to children
+	--        -- if nil it doesn't
 	logtext,  -- text to log
 	finish    -- function to call after all child processes have been collected
 )
@@ -40,6 +42,7 @@ local function makeSignalHandler
 				syncs.remove( sync )
 			else
 				pCount = pCount + pc
+
 				sync.onCollect(
 					function
 					(
@@ -51,19 +54,25 @@ local function makeSignalHandler
 					end
 				)
 
-				for _, pid in ipairs( pids ) do signal( pid, sig ) end
+				if forward
+				then
+					for _, pid in ipairs( pids ) do signal( pid, forward ) end
+				end
 			end
 		end
 
-		if #syncs == 0 then finish( ) end
-
-		log( 'Normal', 'Waiting for ', pCount, ' child processes.' )
+		if #syncs == 0
+		then
+			finish( )
+		else
+			log( 'Normal', 'Waiting for ', pCount, ' child processes.' )
+		end
 	end
 end
 
 
 local function finishHup( )
-	os.exit( 0 )
+	softreset( )
 end
 
 local function finishInt( )
@@ -86,9 +95,20 @@ init =
 	local int = getsignal( 'INT' )
 	local term = getsignal( 'TERM' )
 
-	if hup ~= false then hup = makeSignalHandler( 'HUP', 'resetting', finishHup ) end
-	if int ~= false then int = makeSignalHandler( 'INT', 'terminating', finishInt ) end
-	if term ~= false then term = makeSignalHandler( 'TERM', 'terminating', finishTerm ) end
+	if hup ~= false
+	then
+		hup = makeSignalHandler( 'HUP', nil, 'resetting', finishHup )
+	end
+
+	if int ~= false
+	then
+		int = makeSignalHandler( 'INT', 'INT', 'terminating', finishInt )
+	end
+
+	if term ~= false
+	then
+		term = makeSignalHandler( 'TERM', 'TERM', 'terminating', finishTerm )
+	end
 
 	onsignal( 'HUP', hup, 'INT', int, 'TERM', term )
 end

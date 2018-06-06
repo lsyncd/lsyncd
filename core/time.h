@@ -19,13 +19,17 @@
 // The kernel's clock ticks per second.
 extern long clocks_per_sec;
 
+
 // Returns the current time.
 extern clock_t now( );
+
 
 // Returns (on Lua stack) the current kernels clock state( jiffies ).
 extern int l_now(lua_State *L);
 
+
 // Registers the jiffies meta table in a Lua state.
 extern void register_jiffies( lua_State *L );
+
 
 #endif

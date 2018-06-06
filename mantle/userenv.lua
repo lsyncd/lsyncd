@@ -59,6 +59,7 @@ userenv =
 	observefd = user.observefd,
 	settings = user.settings,
 	signal = signal,
+	softreset = user.softreset,
 	spawn = user.spawn,
 	spawnShell = user.spawnShell,
 	sync = user.sync,

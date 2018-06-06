@@ -71,6 +71,12 @@ char *monitors[] = {
 
 
 /**
+| Set to true to soft reset at earliest possilibity.
+*/
+bool softreset = false;
+
+
+/**
 | Configuration parameters that matter to the core
 */
 struct settings settings = {
@@ -112,7 +118,7 @@ masterloop(
 	lua_State *L
 )
 {
-	while( true )
+	while( !softreset )
 	{
 		bool have_alarm;
 		bool force_alarm   = false;
@@ -232,6 +238,9 @@ masterloop(
 			exit( -1 );
 		}
 	}
+
+	logstring( "Normal", "--- Soft Reset ---" );
+	softreset = false;
 }
 
 
@@ -457,6 +466,8 @@ main1( int argc, char *argv[] )
 
 	// cleanup
 	observe_tidy_all( );
+	mci_tidy( );
+	signal_tidy( );
 
 	// frees logging categories
 	log_free( );

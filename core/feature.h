@@ -10,6 +10,7 @@
 #ifndef FEATURE_H
 #define FEATURE_H
 
+
 #include "config.h"
 
 // some older machines need this to see pselect
@@ -17,5 +18,6 @@
 #define _DEFAULT_SOURCE 1
 #define _XOPEN_SOURCE 700
 #define _DARWIN_C_SOURCE 1
+
 
 #endif

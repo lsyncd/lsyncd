@@ -12,12 +12,15 @@
 #ifndef LSYNCD_USEROBS_H
 #define LSYNCD_USEROBS_H
 
+
 // Allows user scripts to observe filedescriptors.
 // To be called from Lua.
 extern int l_observe_fd( lua_State *L );
 
+
 // Removes a user observance.
 // To be called from Lua.
 extern int l_nonobserve_fd( lua_State *L );
+
 
 #endif

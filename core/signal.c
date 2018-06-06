@@ -32,8 +32,8 @@
 | Every signal num is unique.
 */
 static volatile sig_atomic_t * queue;
-static int queue_maxlen;
-static int queue_pos;
+static int queue_maxlen = 0;
+static int queue_pos = 0;
 
 
 /*
@@ -42,8 +42,8 @@ static int queue_pos;
 | changes signal handlers (on soft reset after HUP for example)
 */
 static volatile sig_atomic_t * handlers;
-static int handlers_maxlen;
-static int handlers_len;
+static int handlers_maxlen = 0;
+static int handlers_len = 0;
 
 
 /*
@@ -94,7 +94,7 @@ signal_init( )
 	queue_pos = 0;
 
 	handlers_maxlen = 4;
-	handlers = s_malloc( handlers_len * sizeof( sig_atomic_t ) );
+	handlers = s_malloc( handlers_maxlen * sizeof( sig_atomic_t ) );
 	handlers_len = 0;
 }
 
@@ -293,4 +293,19 @@ signal_notify(
 		exit( -1 );
 	}
 }
+
+
+/*
+| Tidies up signal handling.
+*/
+void
+signal_tidy( )
+{
+	free( (void*) handlers );
+	free( (void*) queue );
+
+	queue_pos = queue_maxlen = 0;
+	handlers_len = handlers_maxlen = 0;
+}
+
 

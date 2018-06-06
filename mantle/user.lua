@@ -195,6 +195,12 @@ user.alarm = UserAlarms.alarm
 
 
 --
+-- Resets Lsyncd on next iteration
+-- (usually reacting to a HUP signal)
+--
+user.softreset = core.softreset
+
+--
 -- All valid entries in a settings{} call.
 --
 local settingsCheckgauge =
