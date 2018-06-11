@@ -255,49 +255,6 @@ default.maxDelays = 1000
 default.maxProcesses = 1
 
 
---
--- Exitcodes of rsync and what to do.
--- TODO move to rsync
---
-default.rsyncExitCodes = {
-
-	--
-	-- if another config provides the same table
-	-- this will not be inherited (merged) into that one
-	--
-	-- if it does not, integer keys are to be copied
-	-- verbatim
-	--
-	_merge  = false,
-	_verbatim = true,
-
-	[   0 ] = 'ok',
-	[   1 ] = 'die',
-	[   2 ] = 'die',
-	[   3 ] = 'again',
-	[   4 ] = 'die',
-	[   5 ] = 'again',
-	[   6 ] = 'again',
-	[  10 ] = 'again',
-	[  11 ] = 'again',
-	[  12 ] = 'again',
-	[  14 ] = 'again',
-	[  20 ] = 'again',
-	[  21 ] = 'again',
-	[  22 ] = 'again',
-
-	-- partial transfers are ok, since Lsyncd has registered the event that
-	-- caused the transfer to be partial and will recall rsync.
-	[  23 ] = 'ok',
-	[  24 ] = 'ok',
-
-	[  25 ] = 'die',
-	[  30 ] = 'again',
-	[  35 ] = 'again',
-
-	[ 255 ] = 'again',
-}
-
 
 --
 -- Exitcodes of ssh and what to do.

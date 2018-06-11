@@ -568,7 +568,7 @@ rsyncssh.exitcodes = false
 --
 -- rsync exit codes
 --
-rsyncssh.rsyncExitCodes = default.rsyncExitCodes
+rsyncssh.rsyncExitCodes = rsync.exitCodes
 
 --
 -- ssh exit codes

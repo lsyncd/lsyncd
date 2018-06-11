@@ -592,39 +592,3 @@ function mci.overflow
 	lsyncdStatus = 'fade'
 end
 
---
--- Called by core on a hup signal.
--- FIXME remove
---
-function mci.hup
-( )
-	log( 'Normal', '--- HUP signal, resetting ---' )
-
-	lsyncdStatus = 'fade'
-end
-
-
---
--- Called by core on a term signal.
--- FIXME remove
---
-function mci.term
-(
-	sigcode  -- signal code
-)
-	local sigtexts =
-	{
-		[ 2 ] = 'INT',
-		[ 15 ] = 'TERM'
-	}
-
-	local sigtext = sigtexts[ sigcode ]
-
-	if not sigtext then sigtext = 'UNKNOWN' end
-
-	log( 'Normal', '--- ', sigtext, ' signal, fading ---' )
-
-	lsyncdStatus = 'fade'
-
-end
-

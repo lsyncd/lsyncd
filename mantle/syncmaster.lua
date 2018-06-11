@@ -87,7 +87,7 @@ end
 local inheritKV
 
 --
--- Recurvely inherits a source table to a destionation table
+-- Recursevly inherits a source table to a destionation table
 -- copying all keys from source.
 --
 -- All entries with integer keys are inherited as additional
@@ -108,17 +108,14 @@ local function inherit
 	-- non-integer keys
 	for k, v in pairs( cs )
 	do
-		if
-			(
-				type( k ) ~= 'number'
-				or verbatim
-				or cs._verbatim == true
-			)
-			and
-			(
-				type( cs._merge ) ~= 'table'
-				or cs._merge[ k ] == true
-			)
+		if (
+			type( k ) ~= 'number'
+			or verbatim
+			or cs._verbatim == true
+		) and (
+			type( cs._merge ) ~= 'table'
+			or cs._merge[ k ] == true
+		)
 		then
 			inheritKV( cd, k, v )
 		end
@@ -340,10 +337,7 @@ local function concerns
 )
 	for _, s in ipairs( syncList )
 	do
-		if s:concerns( path )
-		then
-			return true
-		end
+		if s:concerns( path ) then return true end
 	end
 
 	return false
