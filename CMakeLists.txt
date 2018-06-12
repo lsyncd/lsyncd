@@ -95,6 +95,7 @@ add_custom_command( OUTPUT signames.lua
 set( DEFAULT_CODE
 	${PROJECT_SOURCE_DIR}/default/default.lua
 	${PROJECT_SOURCE_DIR}/default/signal.lua
+	${PROJECT_SOURCE_DIR}/default/proto.lua
 	${PROJECT_SOURCE_DIR}/default/rsync.lua
 	${PROJECT_SOURCE_DIR}/default/rsyncssh.lua
 	${PROJECT_SOURCE_DIR}/default/direct.lua

@@ -26,6 +26,12 @@ readdir   = core.readdir
 
 
 --
+-- Minimum seconds between two writes of the status file.
+--
+local defaultStatusInterval = 10
+
+
+--
 -- Global: total number of processess running.
 --
 processCount = 0
@@ -432,7 +438,7 @@ function mci.initialize
 	--
 	if uSettings.statusInterval == nil
 	then
-		uSettings.statusInterval = userenv.default.statusInterval
+		uSettings.statusInterval = defaultStatusInterval
 	end
 
 	-- makes sure the user gave Lsyncd anything to do

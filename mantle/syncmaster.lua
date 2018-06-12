@@ -108,14 +108,9 @@ local function inherit
 	-- non-integer keys
 	for k, v in pairs( cs )
 	do
-		if (
-			type( k ) ~= 'number'
-			or verbatim
-			or cs._verbatim == true
-		) and (
-			type( cs._merge ) ~= 'table'
-			or cs._merge[ k ] == true
-		)
+		if type( k ) ~= 'number'
+		or verbatim
+		or cs._verbatim == true
 		then
 			inheritKV( cd, k, v )
 		end
@@ -149,7 +144,7 @@ inheritKV =
 	)
 
 	-- don't merge inheritance controls
-	if k == '_merge' or k == '_verbatim' then return end
+	if k == '_verbatim' then return end
 
 	local dtype = type( cd [ k ] )
 
@@ -159,9 +154,7 @@ inheritKV =
 		then
 			cd[ k ] = { }
 			inherit( cd[ k ], v, k == 'exitcodes' )
-		elseif
-			dtype == 'table' and
-			v._merge ~= false
+		elseif dtype == 'table'
 		then
 			inherit( cd[ k ], v, k == 'exitcodes' )
 		end
@@ -187,8 +180,8 @@ local function add
 
 	inherit( config, uconfig )
 
-	-- last and least defaults are inherited
-	inherit( config, userenv.default )
+	-- last and least default prototype is inherited
+	inherit( config, userenv.default.proto )
 
 	local inheritSettings =
 	{

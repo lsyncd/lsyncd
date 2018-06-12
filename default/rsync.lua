@@ -393,23 +393,17 @@ rsync.prepare = function
 	skipTarget -- used by rsyncssh, do not check for target
 )
 	-- First let default.prepare test the checkgauge
-	default.prepare( config, level + 6 )
+	default.proto.prepare( config, level + 6 )
 
 	if not skipTarget and not config.target
 	then
-		error(
-			'default.rsync needs "target" configured',
-			level
-		)
+		error( 'default.rsync needs "target" configured', level )
 	end
 
 	-- checks if the _computed argument exists already
 	if config.rsync._computed
 	then
-		error(
-			'please do not use the internal rsync._computed parameter',
-			level
-		)
+		error( 'please do not use the internal rsync._computed parameter', level )
 	end
 
 	-- computes the rsync arguments into one list

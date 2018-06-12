@@ -568,12 +568,26 @@ rsyncssh.exitcodes = false
 --
 -- rsync exit codes
 --
-rsyncssh.rsyncExitCodes = rsync.exitCodes
+rsyncssh.rsyncExitCodes = default.rsync.exitCodes
 
 --
--- ssh exit codes
+-- Exitcodes of ssh and what to do.
 --
-rsyncssh.sshExitCodes = default.sshExitCodes
+rsyncssh.sshExitCodes =
+{
+	--
+	-- if another config provides the same table
+	-- this will not be inherited (merged) into that one
+	--
+	-- if it does not, integer keys are to be copied
+	-- verbatim
+	--
+	_merge = false,
+	_verbatim = true,
+
+	[   0 ] = 'ok',
+	[ 255 ] = 'again',
+}
 
 
 --
