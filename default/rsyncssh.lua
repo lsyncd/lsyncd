@@ -41,6 +41,8 @@ default.rsyncssh = rsyncssh
 -- used to ensure there aren't typos in the keys
 --
 rsyncssh.checkgauge = {
+	-- inherits the rsync checkgauge
+	default.rsync.checkgauge,
 
 	-- unsets the inherited value of from default.rsync
 	target          =  false,
@@ -577,13 +579,8 @@ rsyncssh.sshExitCodes =
 {
 	--
 	-- if another config provides the same table
-	-- this will not be inherited (merged) into that one
-	--
-	-- if it does not, integer keys are to be copied
-	-- verbatim
-	--
+	-- this will not be merged into that one
 	_merge = false,
-	_verbatim = true,
 
 	[   0 ] = 'ok',
 	[ 255 ] = 'again',

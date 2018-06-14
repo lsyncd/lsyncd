@@ -31,7 +31,6 @@ default.rsync = rsync
 -- used to ensure there aren't typos in the keys
 --
 rsync.checkgauge = {
-
 	-- unsets default user action handlers
 	onCreate    =  false,
 	onModify    =  false,
@@ -628,14 +627,9 @@ rsync.delete = true
 --
 rsync.exitcodes =
 {
-	--
 	-- if another config provides the same table
-	-- this will not be inherited (merged) into that one
-	--
-	-- if it does not, integer keys are to be copied
-	-- verbatim
-	--
-	_verbatim = true,
+	-- this will not be merged into that one
+	_merge = false,
 
 	[   0 ] = 'ok',
 	[   1 ] = 'die',

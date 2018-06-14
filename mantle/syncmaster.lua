@@ -80,11 +80,40 @@ local function get
 	return syncList[ i ]
 end
 
+
+local inherit
+
+
 --
--- Helper function for inherit
--- defined below
+-- Inherits the contents of all tables with array keys
+-- Returns the table with flattened inhertance,
+-- also returns array size
 --
-local inheritKV
+--
+local function flattenInheritance
+(
+	t
+)
+	local tf = { }
+
+	inherit( tf, t )
+
+	for k, v in ipairs( t )
+	do
+		-- numbers as key and table as value
+		-- means recursive inherit
+		if type( v ) == 'table'
+		then
+			local vv = flattenInheritance( v )
+			inherit( tf, vv )
+		else
+			if tf[ k ] == nil then tf[ k ] = v end
+		end
+	end
+
+	return tf
+end
+
 
 --
 -- Recursevly inherits a source table to a destionation table
@@ -93,75 +122,52 @@ local inheritKV
 -- All entries with integer keys are inherited as additional
 -- sources for non-verbatim tables
 --
-local function inherit
+inherit = function
 (
-	cd,       -- table copy destination
-	cs,       -- table copy source
-	verbatim  -- forced verbatim ( for e.g. 'exitcodes' )
+	cd, -- table copy destination
+	cs  -- table copy source
 )
-	-- First copies all entries with non-integer keys.
-	--
-	-- Tables are merged; already present keys are not
-	-- overwritten
-	--
-	-- For verbatim tables integer keys are treated like
-	-- non-integer keys
+	local imax = 0
+
+	for k, _ in ipairs( cs ) do imax = k end
+
 	for k, v in pairs( cs )
 	do
-		if type( k ) ~= 'number'
-		or verbatim
-		or cs._verbatim == true
+		if type( k ) == 'number'
 		then
-			inheritKV( cd, k, v )
-		end
-	end
+			if( k < 1 or k > imax or math.floor( k ) ~= k )
+			then
+				-- not an array integer
+				if type( v ) == 'table'
+				then
+					error( 'non sequence numeric key used as inheritance', 2 )
+				end
 
-	-- recursevely inherits all integer keyed tables
-	-- ( for non-verbatim tables )
-	if cs._verbatim ~= true
-	then
-		for k, v in ipairs( cs )
-		do
+				if cd[ k ] == nil then cd[ k ] = v end
+			end
+		else
 			if type( v ) == 'table'
 			then
-				inherit( cd, v )
-			else
-				cd[ #cd + 1 ] = v
+				v = flattenInheritance( v )
+			end
+
+			local dv = cd[ k ]
+
+			if dv == nil
+			then
+				cd[ k ] = v
+			elseif type( dv ) == 'table'
+			and type( v ) == 'table'
+			and v._merge ~= false
+			then
+				dv = inherit( { }, dv )
+				dv = inherit( dv, v )
+				cd[ k ] = dv
 			end
 		end
-
 	end
-end
 
---
--- Helper to inherit. Inherits one key.
---
-inheritKV =
-	function(
-		cd,  -- table copy destination
-		k,   -- key
-		v    -- value
-	)
-
-	-- don't merge inheritance controls
-	if k == '_verbatim' then return end
-
-	local dtype = type( cd [ k ] )
-
-	if type( v ) == 'table'
-	then
-		if dtype == 'nil'
-		then
-			cd[ k ] = { }
-			inherit( cd[ k ], v, k == 'exitcodes' )
-		elseif dtype == 'table'
-		then
-			inherit( cd[ k ], v, k == 'exitcodes' )
-		end
-	elseif dtype == 'nil'
-	then
-		cd[ k ] = v
-	end
+	return cd
 end
 
 
@@ -174,11 +180,7 @@ local function add
 )
 	-- Creates a new config table which inherits all keys/values
 	-- from integer keyed tables
-	local uconfig = config
-
-	config = { }
-
-	inherit( config, uconfig )
+	config = flattenInheritance( config )
 
 	-- last and least default prototype is inherited
 	inherit( config, userenv.default.proto )
