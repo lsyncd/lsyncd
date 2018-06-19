@@ -16,20 +16,29 @@
 #define time_before_eq(a,b)     time_after_eq(b,a)
 
 
-// The kernel's clock ticks per second.
-extern long clocks_per_sec;
+// Initializes time management.
+extern void time_first_init( );
 
 
 // Returns the current time.
 extern clock_t now( );
 
 
+// Puts the time difference between 't2' (later) and 't1' into 'tv'
+extern double time_diff( long t2, long t1, struct timespec * tv );
+
+
 // Returns (on Lua stack) the current kernels clock state( jiffies ).
-extern int l_now(lua_State *L);
+extern int l_now( lua_State *L );
 
 
 // Registers the jiffies meta table in a Lua state.
 extern void register_jiffies( lua_State *L );
+
+
+// Checks if the function argument 'arg' on Lua stack is a jiffie
+// and returns the value converted to seconds.
+extern double check_jiffies_arg ( lua_State *L, int arg );
 
 
 #endif

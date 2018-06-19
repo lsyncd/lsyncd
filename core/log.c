@@ -333,24 +333,19 @@ int l_log( lua_State * L )
 					break;
 
 				case LUA_TBOOLEAN :
-					if( lua_toboolean( L, i ) )
-						lua_pushstring( L, "(true)"  );
-					else
-						lua_pushstring( L, "(false)" );
+
+					lua_pushstring( L,  lua_toboolean( L, i ) ? "(true)" : "(false)" );
 
 					lua_replace( L, i );
 
 					break;
 
 				case LUA_TUSERDATA:
-					{
-						clock_t *c = ( clock_t * ) luaL_checkudata( L, i, "Lsyncd.jiffies" );
 
-						double d = *c;
-						d /= clocks_per_sec;
-						lua_pushfstring( L, "(Timestamp: %f)", d );
-						lua_replace( L, i );
-					}
+					lua_pushfstring( L, "(Timestamp: %f)", check_jiffies_arg( L, i ) );
+
+					lua_replace( L, i );
+
 					break;
 
 				case LUA_TNIL:

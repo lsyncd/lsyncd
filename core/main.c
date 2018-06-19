@@ -176,10 +176,7 @@ masterloop(
 
 			if( have_alarm )
 			{
-				// TODO use trunc instead of long conversions
-				double d = ( ( double )( alarm_time - cnow ) ) / clocks_per_sec;
-				tv.tv_sec  = d;
-				tv.tv_nsec = ( ( d - ( long ) d ) ) * 1000000000.0;
+				double d = time_diff( alarm_time, cnow, &tv );
 
 				printlogf(
 					L, "Masterloop",
@@ -320,12 +317,6 @@ main1( int argc, char *argv[] )
 
 	// registers Lsycnd's core library
 	register_core( L );
-
-	if( check_logcat( "Debug" ) <= settings.log_level )
-	{
-		// printlogf doesnt support %ld :-(
-		printf( "kernels clocks_per_sec=%ld\n", clocks_per_sec );
-	}
 
 	signal_init( );
 
@@ -484,11 +475,10 @@ main1( int argc, char *argv[] )
 int
 main( int argc, char * argv[ ] )
 {
-	// gets a kernel parameter
-	clocks_per_sec = sysconf( _SC_CLK_TCK );
-
 	setlinebuf( stdout );
 	setlinebuf( stderr );
+
+	time_first_init( );
 
 	while( true ) main1( argc, argv );
 

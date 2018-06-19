@@ -46,6 +46,19 @@ end
 
 
 --
+-- Returns sync at listpos key
+--
+mt.__index = function
+(
+	self,
+	key
+)
+	if type( key ) ~= 'number' then error( "key not a number" ) end
+
+	return syncList[ key ]
+end
+
+--
 -- The round robin counter. In case of global limited maxProcesses
 -- gives every sync equal chances to spawn the next process.
 --
@@ -72,13 +85,6 @@ local function getRound
 	return round
 end
 
---
--- Returns sync at listpos i
---
-local function get
-( i )
-	return syncList[ i ]
-end
 
 
 local inherit
@@ -353,7 +359,6 @@ end
 SyncMaster =
 {
 	add = add,   -- FIXME forward through metatable
-	get = get,   -- FIXME forward through metatable
 	remove = remove,
 	getRound = getRound,
 	concerns = concerns,

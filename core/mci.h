@@ -14,7 +14,7 @@
 extern int l_stackdump( lua_State* L );
 
 
-// FIXME
+// Registers Lsyncd's core library.
 extern void register_core( lua_State *L );
 
 

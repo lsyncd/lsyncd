@@ -14,6 +14,7 @@
 #include <sys/times.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #define LUA_USE_APICHECK 1
 #include <lua.h>
@@ -26,8 +27,7 @@
 /*
 | The kernel's clock ticks per second.
 */
-// FIXME make static again
-long clocks_per_sec;
+static long clocks_per_sec;
 
 /*
 | Non glibc builds need a real tms structure for the times( ) call
@@ -38,6 +38,17 @@ long clocks_per_sec;
 	static struct tms  _dummy_tms;
 	static struct tms * dummy_tms = &_dummy_tms;
 #endif
+
+
+/*
+| Initializes time management.
+*/
+void
+time_first_init( )
+{
+	// gets a kernel parameter
+	clocks_per_sec = sysconf( _SC_CLK_TCK );
+}
 
 
 /*
@@ -53,7 +64,7 @@ clock_t now( )
 | Returns (on Lua stack) the current kernels clock state (jiffies).
 */
 int
-l_now(lua_State *L)
+l_now( lua_State *L )
 {
 	clock_t * j = lua_newuserdata( L, sizeof( clock_t ) );
 	luaL_getmetatable( L, "Lsyncd.jiffies" );
@@ -79,16 +90,15 @@ l_jiffies_add( lua_State *L )
 		exit( -1 );
 	}
 
-	{
-		clock_t a1  = p1 ? *p1 :  luaL_checknumber( L, 1 ) * clocks_per_sec;
-		clock_t a2  = p2 ? *p2 :  luaL_checknumber( L, 2 ) * clocks_per_sec;
-		clock_t *r  = ( clock_t * ) lua_newuserdata( L, sizeof( clock_t ) );
+	clock_t a1  = p1 ? *p1 :  luaL_checknumber( L, 1 ) * clocks_per_sec;
+	clock_t a2  = p2 ? *p2 :  luaL_checknumber( L, 2 ) * clocks_per_sec;
+	clock_t *r  = ( clock_t * ) lua_newuserdata( L, sizeof( clock_t ) );
 
-		luaL_getmetatable( L, "Lsyncd.jiffies" );
-		lua_setmetatable( L, -2 );
-		*r = a1 + a2;
-		return 1;
-	}
+	luaL_getmetatable( L, "Lsyncd.jiffies" );
+	lua_setmetatable( L, -2 );
+	*r = a1 + a2;
+
+	return 1;
 }
 
 
@@ -159,12 +169,13 @@ l_jiffies_lt( lua_State *L )
 | True if jiffy1 is before or equals jiffy2.
 */
 static int
-l_jiffies_le(lua_State *L)
+l_jiffies_le( lua_State *L )
 {
 	clock_t a1 = ( *( clock_t * ) luaL_checkudata( L, 1, "Lsyncd.jiffies" ) );
 	clock_t a2 = ( *( clock_t * ) luaL_checkudata( L, 2, "Lsyncd.jiffies" ) );
 
 	lua_pushboolean( L, ( a1 == a2 ) || time_before( a1, a2 ) );
+
 	return 1;
 }
 
@@ -195,5 +206,46 @@ register_jiffies( lua_State *L )
 	lua_setfield( L, mt, "__eq" );
 
 	lua_pop( L, 1 ); // pop( mt )
+}
+
+
+/*
+| Puts the time difference between 't2' (later) and 't1' into 'tv'.
+| Returns the time difference as double value.
+*/
+double
+time_diff(
+	long t2,
+	long t1,
+	struct timespec * tv
+)
+{
+	double d = ( ( double )( t2 - t1 ) ) / clocks_per_sec;
+
+	if( tv )
+	{
+		// TODO use trunc instead of long conversions
+		tv->tv_sec  = d;
+		tv->tv_nsec = ( ( d - ( long ) d ) ) * 1000000000.0;
+	}
+
+	return d;
+}
+
+
+/*
+| Checks if the function argument 'arg' on Lua stack is a jiffie
+| and returns the value converted to seconds.
+*/
+double
+check_jiffies_arg
+(
+	lua_State *L,
+	int arg
+)
+{
+	clock_t *c = ( clock_t * ) luaL_checkudata( L, arg, "Lsyncd.jiffies" );
+
+	return ( ( double ) *c ) / clocks_per_sec;
 }
 

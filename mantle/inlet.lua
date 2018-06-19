@@ -269,8 +269,7 @@ local eventFields =
 	end,
 
 	--
-	-- Returns true if the sync this event belongs
-	-- to is stopped
+	-- Returns true if the sync this event belongs to is stopped
 	--
 	syncStopped = function
 	(
@@ -359,27 +358,36 @@ local eventMeta =
 
 
 --
--- Interface for user scripts to get list fields.
+-- Interface for user script to get list fields.
+--
+local eventListFields =
+{
+	--
+	-- Returns true if the sync this event list belongs to is stopped
+	--
+	syncStopped = function
+	(
+		dlist
+	)
+		return dlist.sync.stopped
+	end,
+}
+
+
+--
+-- Interface for user scripts to get list functions.
 --
 local eventListFuncs =
 {
 	--
 	-- Returns a list of paths of all events in list.
 	--
-	--
 	getPaths = function
 	(
-		elist,   -- handle returned by getEvents( )
+		dlist,   -- delayed list
 		mutator  -- if not nil called with ( etype, path, path2 )
 		--          returns one or two strings to add.
 	)
-		local dlist = e2d[ elist ]
-
-		if not dlist
-		then
-			error( 'cannot find delay list from event list.' )
-		end
-
 		local result  = { }
 		local resultn = 1
 
@@ -407,8 +415,7 @@ local eventListFuncs =
 		end
 
 		return result
-
-	end
+	end,
 }
 
 
@@ -420,26 +427,22 @@ local eventListMeta =
 	__index = function
 	(
 		elist,
-		func
+		field
 	)
-		if func == 'isList' then return true end
+		if field == 'isList' then return true end
 
-		if func == 'config' then return e2d[ elist ].sync.config end
+		-- FIXME make an actual field
+		if field == 'config' then return e2d[ elist ].sync.config end
 
-		local f = eventListFuncs[ func ]
+		local f = eventListFields[ field ]
 
-		if not f
-		then
-			error(
-				'event list does not have function "' .. func .. '"',
-				2
-			)
-		end
+		if f then return f( e2d[ elist ] ) end
 
-		return function
-		( ... )
-			return f( elist, ... )
-		end
+		f = eventListFuncs[ field ]
+
+		if not f then error( 'event list does not have field "' .. field .. '"', 2 ) end
+
+		return function( ... ) return f( e2d[ elist ], ... ) end
 	end
 }
 

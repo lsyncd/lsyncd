@@ -300,7 +300,7 @@ user.syncs =
 
 		for k = 0, #SyncMaster - 1
 		do
-			list[ k ] = SyncMaster.get( k ):getUserIntf( )
+			list[ k ] = SyncMaster[ k ]:getUserIntf( )
 		end
 
 		return iter, list, -1

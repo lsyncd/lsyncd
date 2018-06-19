@@ -679,7 +679,7 @@ static const luaL_Reg corelib[ ] =
 
 
 /*
-| Registers the Lsyncd's core library.
+| Registers Lsyncd's core library.
 */
 void
 register_core( lua_State *L )
