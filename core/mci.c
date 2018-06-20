@@ -33,6 +33,7 @@
 #include "observe.h"
 #include "pipe.h"
 #include "signal.h"
+#include "stdin.h"
 #include "time.h"
 #include "userobs.h"
 #include "util.h"
@@ -673,6 +674,7 @@ static const luaL_Reg corelib[ ] =
 	{ "realdir",        l_realdir       },
 	{ "softreset",      l_softreset     },
 	{ "stackdump",      l_stackdump     },
+	{ "stdin",          l_stdin         },
 	{ "terminate",      l_terminate     },
 	{ NULL,             NULL            }
 };

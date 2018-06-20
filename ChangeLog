@@ -1,13 +1,21 @@
 ????-??-??: 3.0.0
-	change: switched to systemd-style daemon (that is Lsyncd will no longer fork itself)
-	change: dropping /dev/fsevents hack (OSX support)
-	change: dropping exclude and excludeFrom (replaced by filter and filterFrom)
-	change: "insist" by default
-	change: removed _extra (if someone is hacky enough to really need it,
-		they can hack Lsyncd itself)
-	change: user scripts run in their own global lua environment
-	change: removed _merge
-	change: moved the default layer 1 functions to default.proto
+	* switching to systemd-style daemon
+		this means Lsyncd will no longer fork itself
+	* heavily modularized source code
+	* dropping /dev/fsevents hack
+		this means, no more OSX support, sorry
+	* "insist" by default and no longer an option
+	* remove the command line configs -rsync -rsyncssh and -direct
+	* allowing multiple config files in the command line
+	* allowing "-" to read config from stdin
+	* added "-c" for command line lua configs
+	* removed _extra
+		if someone is hacky enough to really need it, they can hack Lsyncd source themself
+	* added uses overloadable signal handling
+	* signal TERM is forwarded to (rsync) subprocesses
+	* user scripts run in their own lua environment
+	* removed _merge inheritance template
+	* moved the default layer 1 functions to default.proto
 
 2018-03-09: 2.2.3
 	enhaencement: supporting includes with new filter and filterFrom options

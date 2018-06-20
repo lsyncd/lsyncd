@@ -222,14 +222,15 @@ function mci.help( )
 [[
 
 USAGE:
- lsyncd [OPTIONS] [CONFIG-FILE]
+ lsyncd [OPTIONS] [CONFIG-FILE(S)]
 
 OPTIONS:
-  -delay SECS         Overrides default delay times
+  -c       STRING     Executes STRING as Lua config
+  -delay   SECS       Overrides default delay times
   -help               Shows this
-  -log    all         Logs everything (debug)
-  -log    scarce      Logs errors only
-  -log    [Category]  Turns on logging for a debug category
+  -log     all        Logs everything (debug)
+  -log     scarce     Logs errors only
+  -log     CATEGORY   Turns on logging for a debug category
   -logfile FILE       Writes log to FILE (DEFAULT: uses syslog)
   -version            Prints versions and exits
 
@@ -253,10 +254,18 @@ end
 -- terminates on invalid arguments.
 --
 function mci.configure(
-	args,     -- arguments given by user
+	args,     -- command line arguments
 	monitors  -- list of monitors the core can do
 )
 	Monitor.initialize( monitors )
+
+	-- confs is filled with
+	--    all config file
+	--    stdin read requests
+	--    inline configs
+	local confs = { }
+
+	local i = 1
 
 	--
 	-- a list of all valid options
@@ -269,41 +278,22 @@ function mci.configure(
 	--
 	local options =
 	{
-		-- log is handled by core already.
+		c =
+		{ 1, function( string ) table.insert( confs, { command = string, n = i } ) end },
 
 		delay =
-		{
-			1,
-			function( secs )
-				clSettings.delay = secs + 0
-			end
-		},
+		{ 1, function( secs ) clSettings.delay = secs + 0 end },
 
-		log = { 1, nil },
+		-- log is handled by core already.
+		log =
+		{ 1, nil },
 
 		logfile =
-		{
-			1,
-			function( file )
-				clSettings.logfile = file
-			end
-		},
+		{ 1, function( file ) clSettings.logfile = file end },
 
 		version =
-		{
-			0,
-			function( )
-				io.stdout:write( 'Version: ', lsyncd_version, '\n' )
-
-				os.exit( 0 )
-			end
-		}
+		{ 0, function( ) io.stdout:write( 'Version: ', lsyncd_version, '\n' ) os.exit( 0 ) end }
 	}
-
-	-- non-opts is filled with all args that were no part dash options
-	local nonopts = { }
-
-	local i = 1
 
 	while i <= #args
 	do
@@ -311,20 +301,18 @@ function mci.configure(
 
 		if a:sub( 1, 1 ) ~= '-'
 		then
-			table.insert( nonopts, args[ i ] )
+			table.insert( confs, { file = args[ i ] } )
+		elseif a == '-'
+		then
+			table.insert( confs, { stdin = true } )
 		else
-			if a:sub( 1, 2 ) == '--'
-			then
-				a = a:sub( 3 )
-			else
-				a = a:sub( 2 )
-			end
+			if a:sub( 1, 2 ) == '--' then a = a:sub( 3 ) else a = a:sub( 2 ) end
 
 			local o = options[ a ]
 
 			if not o
 			then
-				log( 'Error', 'unknown option command line option ', args[ i ] )
+				log( 'Error', 'unknown command line option ', args[ i ] )
 
 				os.exit( -1 )
 			end
@@ -346,33 +334,53 @@ function mci.configure(
 					o[ 2 ]( )
 				elseif o[ 1 ] == 1
 				then
-					o[ 2 ]( args[ i + 1] )
+					o[ 2 ]( args[ i + 1 ] )
 				elseif o[ 1 ] == 2
 				then
-					o[ 2 ]( args[ i + 1], args[ i + 2] )
+					o[ 2 ]( args[ i + 1 ], args[ i + 2 ] )
 				elseif o[ 1 ] == 3
-				then
-					o[ 2 ]( args[ i + 1], args[ i + 2], args[ i + 3] )
+				 then
+					o[ 2 ]( args[ i + 1 ], args[ i + 2 ], args[ i + 3 ] )
 				end
 			end
 
-			i = i + o[1]
+			i = i + o[ 1 ]
 		end
 
 		i = i + 1
 	end
 
-	if #nonopts == 0
-	then
-		mci.help( args[ 0 ] )
-	elseif #nonopts == 1
-	then
-		return nonopts[ 1 ]
-	else
-		-- TODO make this possible
-		log( 'Error', 'There can only be one config file in the command line.' )
+	if #confs == 0 then mci.help( args[ 0 ] ) end
 
-		os.exit( -1 )
+	for _, conf in ipairs( confs )
+	do
+		local f, err, status
+
+		if conf.stdin
+		then
+			f, err = load( core.stdin( ), 'stdin', 't', userenv )
+		elseif conf.command
+		then
+			f, err = load( conf.command, 'arg: '..conf.n, 't', userenv )
+		else
+			f, err = loadfile( conf.file, 't', userenv )
+		end
+
+		if not f
+		then
+			log( 'Error', err )
+
+			os.exit( -1 )
+		end
+
+		status, err = pcall( f )
+
+		if not status
+		then
+			log( 'Error', err )
+
+			os.exit( -1 )
+		end
 	end
 end
 

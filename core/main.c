@@ -8,27 +8,13 @@
 */
 #include "feature.h"
 
-// FIXME remove unneeded headers
-
-#include <sys/select.h>
 #include <sys/stat.h>
-#include <sys/times.h>
-#include <sys/types.h>
 #include <sys/wait.h>
-#include <dirent.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <strings.h>
 #include <syslog.h>
-#include <math.h>
-#include <time.h>
-#include <unistd.h>
 
 #define LUA_USE_APICHECK 1
 #include <lua.h>
@@ -46,7 +32,7 @@
 #include "userobs.h"
 
 #ifdef WITH_INOTIFY
-#include "inotify.h"
+#  include "inotify.h"
 #endif
 
 
@@ -93,12 +79,6 @@ struct settings settings = {
 | be directed to /dev/null.
 */
 bool no_output = false;
-
-
-/*
-| The config file loaded by Lsyncd.
-*/
-char * lsyncd_config_file = NULL;
 
 
 /*
@@ -376,67 +356,7 @@ main1( int argc, char *argv[] )
 
 		if( lua_pcall( L, 2, 1, -4 ) ) exit( -1 );
 
-		if( first_time )
-		{
-			// If not first time, simply retains the config file given
-			s = lua_tostring( L, -1 );
-
-			if( s ) lsyncd_config_file = s_strdup( s );
-		}
-
 		lua_pop( L, 2 );
-	}
-
-	// checks existence of the config file
-	if( lsyncd_config_file )
-	{
-		struct stat st;
-
-		// gets the absolute path to the config file
-		// so in case of HUPing the daemon, it finds it again
-		char * apath = get_realpath( lsyncd_config_file );
-		if( !apath )
-		{
-			printlogf( L, "Error", "Cannot find config file at '%s'.", lsyncd_config_file );
-
-			exit( -1 );
-		}
-
-		free( lsyncd_config_file );
-
-		lsyncd_config_file = apath;
-
-		if( stat( lsyncd_config_file, &st ) )
-		{
-			printlogf( L, "Error", "Cannot find config file at '%s'.", lsyncd_config_file );
-
-			exit( -1 );
-		}
-
-		// loads and executes the config file
-		if( luaL_loadfile( L, lsyncd_config_file ) )
-		{
-			printlogf(
-				L, "Error",
-				"error loading %s: %s", lsyncd_config_file, lua_tostring( L, -1 )
-			);
-
-			exit( -1 );
-		}
-
-		// loads the user enivornment
-		lua_getglobal( L, "userenv" );
-		lua_setupvalue( L, -2, 1 );
-
-		if( lua_pcall( L, 0, LUA_MULTRET, 0) )
-		{
-			printlogf(
-				L, "Error",
-				"error preparing %s: %s", lsyncd_config_file, lua_tostring( L, -1 )
-			);
-
-			exit( -1 );
-		}
 	}
 
 	// runs initializations from mantle

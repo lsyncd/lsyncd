@@ -94,7 +94,6 @@ init =
 	local hup = getsignal( 'HUP' )
 	local int = getsignal( 'INT' )
 	local term = getsignal( 'TERM' )
-	local usr1 = getsignal( 'USR1' )
 
 	if hup ~= false
 	then
@@ -103,7 +102,7 @@ init =
 
 	if int ~= false
 	then
-		int = makeSignalHandler( 'INT', 'INT', 'terminating', finishInt )
+		int = makeSignalHandler( 'INT', nil, 'terminating', finishInt )
 	end
 
 	if term ~= false
@@ -111,11 +110,6 @@ init =
 		term = makeSignalHandler( 'TERM', 'TERM', 'terminating', finishTerm )
 	end
 
-	if usr1 ~= false
-	then
-		usr1 = makeSignalHandler( 'USR1', nil, 'terminating', finishTerm )
-	end
-
-	onsignal( 'HUP', hup, 'INT', int, 'TERM', term, 'USR1', usr1 )
+	onsignal( 'HUP', hup, 'INT', int, 'TERM', term )
 end
 

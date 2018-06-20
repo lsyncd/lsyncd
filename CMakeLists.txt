@@ -24,6 +24,7 @@ set( LSYNCD_SRC
 	core/mci.c
 	core/mem.c
 	core/signal.c
+	core/stdin.c
 	core/time.c
 	core/userobs.c
 	core/util.c

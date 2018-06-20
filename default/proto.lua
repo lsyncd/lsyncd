@@ -115,17 +115,14 @@ proto.collect = function
 			return 'ok'
 		elseif rc == 'again'
 		then
-			if settings( 'insist' )
-			then
-				log(
-					'Normal',
-					'Retrying startup of ',
-					agent.source, ' -> ', agent.target,
-					': ', exitcode
-				)
+			log(
+				'Normal',
+				'Retrying startup of ',
+				agent.source, ' -> ', agent.target,
+				': ', exitcode
+			)
 
-				return 'again'
-			end
+			return 'again'
 		elseif rc == 'die'
 		then
 			log(
