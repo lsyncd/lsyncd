@@ -133,29 +133,23 @@ local function collect
 			error( 'collecting a non-active process' )
 		end
 
-		local rc = self.config.collect(
-			InletFactory.d2e( delay ),
-			exitcode
-		)
+		local rc =
+			self.config.collect(
+				InletFactory.d2e( delay ),
+				exitcode
+			)
 
 		if rc == 'die'
 		then
 			log( 'Error', 'Critical exitcode.' )
-
 			terminate( -1 )
 		elseif rc ~= 'again'
 		then
 			-- if its active again the collecter restarted the event
 			removeDelay( self, delay )
-
 			log(
-				'Delay',
-				'Finish of ',
-				delay.etype,
-				' on ',
-				self.source,delay.path,
-				' = ',
-				exitcode
+				'Delay', 'Finish of ', delay.etype, ' on ',
+				self.source,delay.path, ' = ', exitcode
 			)
 		else
 			-- sets the delay on wait again
@@ -477,13 +471,13 @@ local function getAlarm
 (
 	self
 )
+	-- first checks if more processes could be spawned
 	if self.stopped
 	or #self.processes >= self.config.maxProcesses
 	then
 		return false
 	end
 
-	-- first checks if more processes could be spawned
 	-- finds the nearest delay waiting to be spawned
 	for _, d in self.delays:qpairs( )
 	do
@@ -860,6 +854,19 @@ local function new
 	and ( type( config.delay ) ~= 'number' or config.delay < 0 )
 	then
 		error( 'delay must be a number and >= 0', 2 )
+	end
+
+	-- this is written in a negated way
+	-- since this way it will raise any issues of mindelay or delay
+	-- not being numbers as well
+
+	if not ( config.mindelay >= config.delay )
+	then
+		error(
+			'mindelay (= '..config.mindelay.. ') must be larger '..
+			'or equal than delay (= '..config.delay..')',
+			level
+		)
 	end
 
 	if config.filterFrom

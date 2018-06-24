@@ -358,7 +358,7 @@ end
 --
 SyncMaster =
 {
-	add = add,   -- FIXME forward through metatable
+	add = add,
 	remove = remove,
 	getRound = getRound,
 	concerns = concerns,

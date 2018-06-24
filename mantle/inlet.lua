@@ -249,7 +249,7 @@ local eventFields =
 		event
 	)
 		return(
-			e2d[event].sync.source
+			e2d[ event ].sync.source
 			.. (
 				string.match( getPath( event ), '^(.*/)[^/]+/?' )
 				or ''
@@ -363,6 +363,17 @@ local eventMeta =
 local eventListFields =
 {
 	--
+	-- Returns a copy of the configuration as called by sync.
+	-- But including all inherited data and default values.
+	--
+	config = function
+	(
+		dlist
+	)
+		return dlist.sync.config
+	end,
+
+	--
 	-- Returns true if the sync this event list belongs to is stopped
 	--
 	syncStopped = function
@@ -380,7 +391,7 @@ local eventListFields =
 local eventListFuncs =
 {
 	--
-	-- Returns a list of paths of all events in list.
+	-- Returns a list of paths of all events in this list.
 	--
 	getPaths = function
 	(
@@ -430,9 +441,6 @@ local eventListMeta =
 		field
 	)
 		if field == 'isList' then return true end
-
-		-- FIXME make an actual field
-		if field == 'config' then return e2d[ elist ].sync.config end
 
 		local f = eventListFields[ field ]
 

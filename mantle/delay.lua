@@ -32,7 +32,7 @@ local mt = { }
 local k_nt = { }
 
 
-local assignAble =
+local assignable =
 {
 	dpos   = true,
 	etype  = true,
@@ -63,7 +63,7 @@ mt.__newindex = function
 	k,  -- key value to assign to
 	v   -- value to assign
 )
-	if not assignAble[ k ]
+	if not assignable[ k ]
 	then
 		error( 'Cannot assign new key "' .. k .. '" to Delay' )
 	end
@@ -134,20 +134,20 @@ local function new
 	        -- move destination
 )
 	local delay =
-		{
-			blockedBy = blockedBy,
-			setActive = setActive,
-			wait = wait,
-			[ k_nt ] =
-				{
-					etype = etype,
-					sync = sync,
-					alarm = alarm,
-					path = path,
-					path2  = path2,
-					status = 'wait'
-				},
-		}
+	{
+		blockedBy = blockedBy,
+		setActive = setActive,
+		wait = wait,
+		[ k_nt ] =
+			{
+				etype = etype,
+				sync = sync,
+				alarm = alarm,
+				path = path,
+				path2  = path2,
+				status = 'wait'
+			},
+	}
 
 	setmetatable( delay, mt )
 

@@ -32,6 +32,7 @@ proto.checkgauge =
 	init          =  true,
 	maxDelays     =  true,
 	maxProcesses  =  true,
+	mindelay      =  true,
 	onAttrib      =  true,
 	onCreate      =  true,
 	onModify      =  true,
@@ -295,3 +296,8 @@ proto.prepare = function
 	check( config, gauge, '', level + 1 )
 end
 
+
+--
+-- Default minimum 1 second delay to do anything
+--
+proto.mindelay = 1
