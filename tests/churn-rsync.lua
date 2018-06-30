@@ -16,9 +16,13 @@ churn( srcdir, 100, true )
 local logs = { }
 local pid = spawn(
 	'./lsyncd',
-	'-nodaemon',
-	'-delay', '5',
-	'-rsync', srcdir, trgdir,
+	'-c',
+		'sync{ '
+		.. 'default.rsync, '
+		.. 'delay = 5, '
+		.. 'source = "'..srcdir..'", '
+		.. 'target = "'..trgdir..'" '
+		.. '}',
 	table.unpack( logs )
 )
 
@@ -26,7 +30,7 @@ cwriteln( 'waiting for Lsyncd to startup' )
 
 posix.sleep( 1 )
 
-churn( srcdir, 500, false )
+churn( srcdir, 100, false )
 
 cwriteln( 'waiting for Lsyncd to finish its jobs.' )
 

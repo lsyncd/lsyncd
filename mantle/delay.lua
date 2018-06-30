@@ -36,8 +36,6 @@ local assignable =
 {
 	dpos   = true,
 	etype  = true,
-	path   = true,
-	path2  = true,
 	status = true,
 }
 

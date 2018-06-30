@@ -183,15 +183,9 @@ local function collect
 
 			alarm = now() + alarm
 
-			for _, d in ipairs( delay )
-			do
-				d:wait( alarm )
-			end
+			for _, d in ipairs( delay ) do d:wait( alarm ) end
 		else
-			for _, d in ipairs( delay )
-			do
-				removeDelay( self, d )
-			end
+			for _, d in ipairs( delay ) do removeDelay( self, d ) end
 		end
 
 		log( 'Delay','Finished list = ',exitcode )
@@ -368,10 +362,7 @@ local function delay
 			' event.'
 		)
 
-		if #self.delays > 0
-		then
-			stack( self.delays:last( ), nd )
-		end
+		if #self.delays > 0 then stack( self.delays:last( ), nd ) end
 
 		nd.dpos = self.delays:push( nd )
 
@@ -528,10 +519,7 @@ local function getDelays
 	do
 		local tr = true
 
-		if test
-		then
-			tr = test( InletFactory.d2e( d ) )
-		end
+		if test then tr = test( InletFactory.d2e( d ) ) end
 
 		if tr == 'break' then break end
 
@@ -860,10 +848,10 @@ local function new
 	-- since this way it will raise any issues of mindelay or delay
 	-- not being numbers as well
 
-	if not ( config.mindelay >= config.delay )
+	if not ( config.mindelay <= config.delay )
 	then
 		error(
-			'mindelay (= '..config.mindelay.. ') must be larger '..
+			'mindelay (= '..config.mindelay.. ') must be smaller '..
 			'or equal than delay (= '..config.delay..')',
 			level
 		)

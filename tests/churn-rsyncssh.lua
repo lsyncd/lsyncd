@@ -21,20 +21,21 @@ logs =  { '-log', 'Delay' }
 
 local pid = spawn(
 	'./lsyncd',
-	'-nodaemon',
-	'-delay',
-	'5',
-	'-rsyncssh',
-	srcdir,
-	'localhost',
-	trgdir,
+	'-c',
+		'sync{ '
+		.. 'default.rsyncssh, '
+		.. 'delay = 5, '
+		.. 'source = "'..srcdir..'", '
+		.. 'host = "localhost", '
+		.. 'targetdir = "'..trgdir..'" '
+		.. '}',
 	table.unpack(logs)
 )
 
 cwriteln( 'waiting for Lsyncd to startup' )
 posix.sleep( 1 )
 
-churn( srcdir, 150, false )
+churn( srcdir, 100, false )
 
 cwriteln( 'waiting for Lsyncd to finish its jobs.' )
 posix.sleep( 10 )

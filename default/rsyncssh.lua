@@ -15,20 +15,11 @@
 --
 --
 
-if not default
-then
-	error( 'default not loaded' );
-end
+if not default then error( 'default not loaded' ); end
 
-if not default.rsync
-then
-	error( 'default.rsync not loaded' );
-end
+if not default.rsync then error( 'default.rsync not loaded' ); end
 
-if default.rsyncssh
-then
-	error( 'default-rsyncssh already loaded' );
-end
+if default.rsyncssh then error( 'default-rsyncssh already loaded' ); end
 
 --
 -- rsyncssh extends default.rsync
@@ -360,7 +351,7 @@ rsyncssh.collect = function
 
 	if not agent.isList and agent.etype == 'Init'
 	then
-		local rc = config.rsyncExitCodes[exitcode]
+		local rc = config.rsyncExitCodes[ exitcode ]
 
 		if rc == 'ok'
 		then
@@ -570,7 +561,7 @@ rsyncssh.exitcodes = false
 --
 -- rsync exit codes
 --
-rsyncssh.rsyncExitCodes = default.rsync.exitCodes
+rsyncssh.rsyncExitCodes = default.rsync.exitcodes
 
 --
 -- Exitcodes of ssh and what to do.
