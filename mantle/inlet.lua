@@ -627,7 +627,8 @@ local inletFuncs =
 	end,
 
 	--
-	-- Gets all events that are not blocked by active events.
+	-- Gets all events that are not blocked by active events
+	-- and which minDelay has passed
 	--
 	getEvents = function
 	(

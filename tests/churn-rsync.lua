@@ -20,6 +20,7 @@ local pid = spawn(
 		'sync{ '
 		.. 'default.rsync, '
 		.. 'delay = 5, '
+		.. 'delete = true, '
 		.. 'source = "'..srcdir..'", '
 		.. 'target = "'..trgdir..'" '
 		.. '}',

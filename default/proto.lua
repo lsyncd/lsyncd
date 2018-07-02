@@ -32,7 +32,7 @@ proto.checkgauge =
 	init          =  true,
 	maxDelays     =  true,
 	maxProcesses  =  true,
-	mindelay      =  true,
+	minDelay      =  true,
 	onAttrib      =  true,
 	onCreate      =  true,
 	onModify      =  true,
@@ -300,4 +300,5 @@ end
 --
 -- Default minimum 1 second delay to do anything
 --
-proto.mindelay = 1
+proto.minDelay = 1
+

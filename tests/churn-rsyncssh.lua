@@ -17,7 +17,8 @@ local tdir, srcdir, trgdir = mktemps()
 churn( srcdir, 5, true )
 
 local logs = {}
-logs =  { '-log', 'Delay' }
+-- logs =  { '-log', 'Delay' }
+logs =  { '-log', 'Exec' }
 
 local pid = spawn(
 	'./lsyncd',
@@ -25,6 +26,7 @@ local pid = spawn(
 		'sync{ '
 		.. 'default.rsyncssh, '
 		.. 'delay = 5, '
+		.. 'delete = true, '
 		.. 'source = "'..srcdir..'", '
 		.. 'host = "localhost", '
 		.. 'targetdir = "'..trgdir..'" '
@@ -38,6 +40,7 @@ posix.sleep( 1 )
 churn( srcdir, 100, false )
 
 cwriteln( 'waiting for Lsyncd to finish its jobs.' )
+
 posix.sleep( 10 )
 
 cwriteln( 'killing the Lsyncd daemon' )

@@ -608,8 +608,8 @@ local function getNextDelay
 	do
 		if #self.delays < self.config.maxDelays
 		then
-			-- time constrains are only concerned if not maxed
-			-- the delay FIFO already.
+			-- time constrains are only concerned
+			-- if not maxed the delay FIFO already.
 			if d.alarm ~= true and timestamp < d.alarm
 			then
 				-- reached point in stack where delays are in future
@@ -845,13 +845,13 @@ local function new
 	end
 
 	-- this is written in a negated way
-	-- since this way it will raise any issues of mindelay or delay
+	-- since this way it will raise any issues of minDelay or delay
 	-- not being numbers as well
 
-	if not ( config.mindelay <= config.delay )
+	if not ( config.minDelay <= config.delay )
 	then
 		error(
-			'mindelay (= '..config.mindelay.. ') must be smaller '..
+			'minDelay (= '..config.minDelay.. ') must be smaller '..
 			'or equal than delay (= '..config.delay..')',
 			level
 		)

@@ -35,7 +35,6 @@ local k_nt = { }
 local assignable =
 {
 	dpos   = true,
-	etype  = true,
 	status = true,
 }
 
