@@ -59,7 +59,7 @@ local function removeDelay
 	then
 		for _, vd in pairs( delay.blocks )
 		do
-			vd.status = 'wait'
+			vd:wait( )
 		end
 	end
 end
@@ -364,7 +364,7 @@ local function delay
 
 		if #self.delays > 0 then stack( self.delays:last( ), nd ) end
 
-		nd.dpos = self.delays:push( nd )
+		nd:pushOn( self.delay )
 
 		recurse( )
 
@@ -389,17 +389,15 @@ local function delay
 			then
 				stack( od, nd )
 
-				nd.dpos = self.delays:push( nd )
+				nd:pushOn( self.delays)
 			elseif ac == 'toDelete,stack'
 			then
 				if od.status ~= 'active'
 				then
-					-- turns olddelay into a delete
+					-- turns old delay into a delete
 					local rd = Delay.new( 'Delete', self, od.alarm, od.path )
 
-					self.delays:replace( il, rd )
-
-					rd.dpos = il
+					rd:replaceAn( self.delays, il )
 
 					-- and stacks delay2
 					stack( rd, nd )
@@ -408,7 +406,7 @@ local function delay
 					stack( od, nd )
 				end
 
-				nd.dpos = self.delays:push( nd )
+				nd.pushOn( self.delays )
 			elseif ac == 'absorb'
 			then
 				-- nada
@@ -416,13 +414,11 @@ local function delay
 			then
 				if od.status ~= 'active'
 				then
-					self.delays:replace( il, nd )
-
-					nd.dpos = il
+					nd:replaceAt( self.delays, il )
 				else
 					stack( od, nd )
 
-					nd.dpos = self.delays:push( nd )
+					nd:pushOn( self.delays )
 				end
 			elseif ac == 'split'
 			then
@@ -449,7 +445,7 @@ local function delay
 	end
 
 	-- no block or combo
-	nd.dpos = self.delays:push( nd )
+	nd:pushOn( self.delays )
 
 	recurse( )
 end
@@ -472,10 +468,7 @@ local function getAlarm
 	-- finds the nearest delay waiting to be spawned
 	for _, d in self.delays:qpairs( )
 	do
-		if d.status == 'wait'
-		then
-			return d.alarm
-		end
+		if d.status == 'wait' then return d.alarm end
 	end
 
 	-- nothing to spawn
@@ -636,7 +629,7 @@ local function addBlanketDelay
 )
 	local newd = Delay.new( 'Blanket', self, true, '' )
 
-	newd.dpos = self.delays:push( newd )
+	newd:pushOn( self.delays:push( newd ) )
 
 	return newd
 end
@@ -652,7 +645,7 @@ local function addInitDelay
 )
 	local newd = Delay.new( 'Init', self, true, '' )
 
-	newd.dpos = self.delays:push( newd )
+	newd:pushOn( self.delays:push( newd ) )
 
 	return newd
 end

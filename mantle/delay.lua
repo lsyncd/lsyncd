@@ -32,13 +32,6 @@ local mt = { }
 local k_nt = { }
 
 
-local assignable =
-{
-	dpos   = true,
-	status = true,
-}
-
-
 --
 -- On accessing a nil index.
 --
@@ -60,12 +53,7 @@ mt.__newindex = function
 	k,  -- key value to assign to
 	v   -- value to assign
 )
-	if not assignable[ k ]
-	then
-		error( 'Cannot assign new key "' .. k .. '" to Delay' )
-	end
-
-	self[ k_nt ][ k ] = v
+	error( 'Cannot assign to Delay' )
 end
 
 
@@ -112,9 +100,34 @@ local function wait
 )
 	self[ k_nt ].status = 'wait'
 
-	self[ k_nt ].alarm = alarm
+	if alarm ~= nil then self[ k_nt ].alarm = alarm end
 end
 
+
+--
+-- Puts this delay as replacement on a queue.
+--
+local function replaceAt
+(
+	self,
+	queue,
+	dpos
+)
+	queue:replace( dpos, self )
+	self[ k_nt ].dpos = dpos
+end
+
+
+--
+-- Pushes this delay on a queue and remembers the position.
+--
+local function pushOn
+(
+	self,
+	queue
+)
+	self[ k_nt ].dpos = queue:push( nd )
+end
 
 --
 -- Creates a new delay.
@@ -135,6 +148,8 @@ local function new
 		blockedBy = blockedBy,
 		setActive = setActive,
 		wait = wait,
+		replaceAt = replaceAt,
+		pushOn = pushOn,
 		[ k_nt ] =
 			{
 				etype = etype,
