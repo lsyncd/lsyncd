@@ -58,7 +58,7 @@ sync {
 }
 {% endhighlight %}
 
-Below is a table of options for the ```rsync``` parameter. Please have a look at the Rsync documentation for an in depth explanation.
+Below is a table of options for the ```rsync``` parameter. Note that exclude and excludeFrom options are supported but must be specified in the sync table instead of the rsync parameter; see Exclusions below for more discussion. For other options given here, please refer to the Rsync documentation for an in-depth explanation.
 
 <table>
 <tr><td> <b>parameter</b>
@@ -170,20 +170,6 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> BOOL
 </td><td> false
 </td><td>
-</td></tr>
-
- <tr><td> exclude
-</td><td> =
-</td><td> PATTERN
-</td><td> 
-</td><td> TABLE of PATTERNs also allowed
-</td></tr>
-
- <tr><td> excludeFrom
-</td><td> =
-</td><td> FILENAME
-</td><td>
-</td><td>   
 </td></tr>
 
  <tr><td> executability
