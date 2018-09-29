@@ -5,11 +5,11 @@ short: "Welcome"
 ---
 Description
 -----------
-Lsyncd watches a local directory trees event monitor interface (inotify or fsevents). It aggregates and combines events for a few seconds and then spawns one (or more) process(es) to synchronize the changes. By default this is [rsync](http://rsync.samba.org/).  Lsyncd is thus a light-weight live mirror solution that is comparatively easy to install not requiring new filesystems or block devices and does not hamper local filesystem performance.
+Lsyncd uses a filesystem event interface (inotify or fsevents) to watch for changes to local files and directories.  Lsyncd collates these events for several seconds and then spawns one or more processes to synchronize the changes to a remote filesystem.  The default synchronization method is [rsync](http://rsync.samba.org/).  Thus, Lsyncd is a light-weight live mirror solution.  Lsyncd is comparatively easy to install and does not require new filesystems or block devices.  Lysncd does not hamper local filesystem performance.
 
-Rsync+ssh is an advanced action configuration that uses a SSH to act file and directory moves directly on the target instead of re-transmitting the move destination over the wire.
+As an alternative to rsync, Lsyncd can also push changes via rsync+ssh.  Rsync+ssh allows for much more efficient synchronization when a file or direcotry is renamed or moved to a new location in the local tree.  (In contrast, plain rsync performs a move by deleting the old file and then retransmitting the whole file.)
 
-Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/). This way simple, powerful and flexible configurations can be acheived.
+Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/). Thus, simple, powerful and flexible configurations are possible.
 
 Lsyncd 2.2.1 requires rsync >= 3.1 on all source and target machines.
 
@@ -17,7 +17,7 @@ License: [GPLv2](http://www.fsf.org/licensing/licenses/info/GPLv2.html) or any l
 
 When to use
 -----------
-Lsyncd is designed to synchronize a local directory tree with low profile of expected changes to a remote mirror. Lsyncd is especially useful to sync data from a secure area to a not-so-secure area.
+Lsyncd is designed to synchronize a slowly changing local directory tree to a remote mirror.  Lsyncd is especially useful to sync data from a secure area to a not-so-secure area.
 
 Other synchronization tools
 ------------------------
@@ -44,4 +44,4 @@ This will also rsync/watch '/home', but it uses a ssh connection to make moves l
 
 Disclaimer
 ----------
-Besides the usual disclaimer in the license, we want to specifically emphasize that neither the authors nor any organization the authors are associated with can and will hold responsible for data-loss caused by possible malfunctions of Lsyncd.
+Besides the usual disclaimer in the license, we want to specifically emphasize that neither the authors, nor any organization associated with the authors, can or will be held responsible for data-loss caused by possible malfunctions of Lsyncd.
