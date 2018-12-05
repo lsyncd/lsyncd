@@ -4735,7 +4735,7 @@ function runner.configure( args, monitors )
 		{
 			0,
 			function
-            ( )
+			( )
 				clSettings.onepass = true
 			end
 		},
