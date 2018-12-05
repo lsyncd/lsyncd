@@ -57,6 +57,7 @@ extern struct settings {
 	int log_facility; // The syslog facility
 	int log_level;    // -1 logs everything, 0 normal mode, LOG_ERROR errors only.
 	bool nodaemon;    // True if Lsyncd shall not daemonize.
+	bool onepass;     // True if Lsyncd should exit after first sync pass
 	char * pidfile;   // If not NULL Lsyncd writes its pid into this file.
 
 } settings;

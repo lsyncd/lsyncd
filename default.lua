@@ -120,7 +120,14 @@ default.collect = function
 				agent.target,
 				' finished.'
 			)
-
+            if settings('onepass')
+            then
+                log(
+                    'Normal', 
+                    'onepass config set, exiting'
+                )
+                terminate( 0 )
+            end
 			return 'ok'
 		elseif rc == 'again'
 		then
