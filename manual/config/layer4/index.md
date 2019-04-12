@@ -34,13 +34,13 @@ The default behaviors you can select from are following:
 
 default.rsync
 -------------
-The default rsync configuration will aggregate events up to ```delay``` seconds or 1000 separate uncollapsible events, which ever happens first. Then it will spawn one Rsync with a filter of all files that  changed. The filter list is transmitted to Rsync trough a pipe. A call from Lsyncd to Rsync will thus look like this:
+The default rsync configuration will aggregate events up to ```delay``` seconds, which defaults to 15 seconds, or 1000 separate uncollapsible events, which ever happens first. Then it will spawn one Rsync with a filter of all files that  changed. The filter list is transmitted to Rsync through a pipe. A call from Lsyncd to Rsync will look like this:
 
 {% highlight shell %}
 /usr/bin/rsync -ltsd --delete --include-from=- --exclude=* SOURCE TARGET
 {% endhighlight %}
 
-You can change the options Rsync is called and the Rsync binary that is call with the ```rsync``` parameter.
+You can change the options passed to Rsync or even the Rsync binary that is called by changing the options for the ```rsync``` parameter. Below we tell Lsync to use a custom Rsync at /usr/local/bin/rsync instead of the system default and we tell Lsync to pass Rsync's ```archive``` and ```compress``` options to it.
 
 Example:
 
