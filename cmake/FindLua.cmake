@@ -112,8 +112,9 @@ IF(LUA_INCLUDE_DIR AND EXISTS "${LUA_INCLUDE_DIR}/lua.h")
   
   STRING(CONCAT LUA_VERSION_STRING ${LUA_VERSION_MAJOR} "." ${LUA_VERSION_MINOR} "." ${LUA_VERSION_RELEASE})
   
-  #STRING(REGEX REPLACE "^#define[ \t]+LUA_RELEASE[ \t]+\"Lua ([^\"]+)\".*" "\\1" LUA_VERSION_STRING "${lua_version_str}")
-  UNSET(lua_version_str)
+  UNSET(lua_version_major_str)
+  UNSET(lua_version_minor_str)
+  UNSET(lua_version_release_str)
 ENDIF()
 
 INCLUDE(FindPackageHandleStandardArgs)
