@@ -62,6 +62,7 @@ rsync.checkgauge = {
 		copy_dirlinks     =  true,
 		copy_links        =  true,
 		cvs_exclude       =  true,
+		delete_excluded   =  true,
 		dry_run           =  true,
 		executability     =  true,
 		existing          =  true,
@@ -316,7 +317,7 @@ rsync.init = function
 
 	local filters = inlet.hasFilters( ) and inlet.getFilters( )
 
-	local delete   = nil
+	local delete   = {}
 
 	local target   = config.target
 
@@ -334,6 +335,11 @@ rsync.init = function
 	or config.delete == 'startup'
 	then
 		delete = { '--delete', '--ignore-errors' }
+	end
+
+	if config.rsync.delete_excluded == true
+	then
+		table.insert( delete, '--delete-excluded' )
 	end
 
 	if not filters and #excludes == 0
