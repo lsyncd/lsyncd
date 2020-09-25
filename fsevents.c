@@ -153,6 +153,10 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 	const char *trg  = NULL;
 	const char *etype = NULL;
 	int isdir = -1;
+#ifdef LSYNCD_TARGET_APPLE \
+	// Since macOS 10.15, fsevent paths are prefixed with this string.
+	const char *const INOTIFY_PREFIX = "/System/Volumes/Data";
+#endif
 
 	if (event->type == FSE_EVENTS_DROPPED) {
 		logstring("Fsevents", "Events dropped!");
@@ -265,6 +269,11 @@ handle_event(lua_State *L, struct kfs_event *event, ssize_t mlen)
 		lua_pushstring(L, etype);
 		lua_pushboolean(L, isdir);
 		l_now(L);
+#ifdef LSYNCD_TARGET_APPLE
+		if (!strncmp(path, INOTIFY_PREFIX, strlen(INOTIFY_PREFIX ))) {
+			path += strlen(INOTIFY_PREFIX);
+		}
+#endif
 		lua_pushstring(L, path);
 		if (trg) {
 			lua_pushstring(L, trg);
