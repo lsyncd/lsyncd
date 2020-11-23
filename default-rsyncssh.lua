@@ -174,7 +174,7 @@ rsyncssh.action = function
 	if config.delete == true
 	or config.delete == 'running'
 	then
-		delete = { '--delete-missing-args', '--ignore-errors' }
+		delete = { '--delete-missing-args', '--ignore-errors', '--no-implied-dirs' }
 	end
 
 	spawn(
