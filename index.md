@@ -7,7 +7,7 @@ Description
 -----------
 Lsyncd uses a filesystem event interface (inotify or fsevents) to watch for changes to local files and directories.  Lsyncd collates these events for several seconds and then spawns one or more processes to synchronize the changes to a remote filesystem.  The default synchronization method is [rsync](http://rsync.samba.org/).  Thus, Lsyncd is a light-weight live mirror solution.  Lsyncd is comparatively easy to install and does not require new filesystems or block devices.  Lysncd does not hamper local filesystem performance.
 
-As an alternative to rsync, Lsyncd can also push changes via rsync+ssh.  Rsync+ssh allows for much more efficient synchronization when a file or direcotry is renamed or moved to a new location in the local tree.  (In contrast, plain rsync performs a move by deleting the old file and then retransmitting the whole file.)
+As an alternative to rsync, Lsyncd can also push changes via rsync+ssh.  Rsync+ssh allows for much more efficient synchronization when a file or directory is renamed or moved to a new location in the local tree.  (In contrast, plain rsync performs a move by deleting the old file and then retransmitting the whole file.)
 
 Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/). Thus, simple, powerful and flexible configurations are possible.
 
