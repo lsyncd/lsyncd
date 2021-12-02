@@ -1278,7 +1278,7 @@ l_exec( lua_State *L )
 			}
 		}
 
-		execv( binary, ( char ** ) argv );
+		execvp( binary, ( char ** ) argv );
 
 		// in a sane world execv does not return!
 		printlogf(

@@ -682,7 +682,7 @@ rsync.exitcodes  = default.rsyncExitCodes
 rsync.rsync =
 {
 	-- The rsync binary to be called.
-	binary        = '/usr/bin/rsync',
+	binary        = 'rsync',
 	links         = true,
 	times         = true,
 	protect_args  = true

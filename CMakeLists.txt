@@ -86,20 +86,26 @@ add_custom_target( manpage
 	DEPENDS doc/manpage/lsyncd.1.txt
 )
 
+# create_symlink( ${CMAKE_SOURCE_DIR}/tests tests)
+ADD_CUSTOM_TARGET(add_tests ALL
+                  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/tests tests)
+
 add_custom_target( tests
 	COMMAND echo "Running the tests"
 	COMMAND echo "Note you are expected to:"
 	COMMAND echo "  * have lua-posix installed"
-	COMMAND echo "  * have a passwordless ssh access to localhost"
-	COMMAND ${LUA_EXECUTABLE} tests/schedule.lua
-	COMMAND ${LUA_EXECUTABLE} tests/l4rsyncdata.lua
-	COMMAND ${LUA_EXECUTABLE} tests/filter-rsync.lua
-	COMMAND ${LUA_EXECUTABLE} tests/exclude-rsync.lua
-	COMMAND ${LUA_EXECUTABLE} tests/exclude-rsyncssh.lua
-	COMMAND ${LUA_EXECUTABLE} tests/churn-rsync.lua
-	COMMAND ${LUA_EXECUTABLE} tests/churn-rsyncssh.lua
-	COMMAND ${LUA_EXECUTABLE} tests/churn-direct.lua
+	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/setup.lua
+	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/schedule.lua
+	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/l4rsyncdata.lua
+	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/filter-rsync.lua
+	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/exclude-rsync.lua
+	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/exclude-rsyncssh.lua
+	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/churn-rsync.lua
+	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/churn-rsyncssh.lua
+	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/churn-direct.lua
+	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/teardown.lua
 	COMMAND echo "Finished all successfull!"
+	DEPENDS add_tests
 )
 
 # compiling and linking it all together

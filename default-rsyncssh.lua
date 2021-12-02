@@ -608,7 +608,7 @@ rsyncssh.ssh = {
 	--
 	-- the binary called
 	--
-	binary = '/usr/bin/ssh',
+	binary = 'ssh',
 
 	--
 	-- if set adds this key to ssh

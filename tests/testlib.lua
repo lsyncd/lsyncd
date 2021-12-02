@@ -1,5 +1,8 @@
 -- common testing environment
 posix = require( 'posix' )
+string = require( 'string' )
+path = require( 'pl.path' )
+stringx = require( 'pl.stringx' )
 
 -- escape codes to colorize output on terminal
 local c1='\027[47;34m'
@@ -90,13 +93,70 @@ function writefile
 	return true
 end
 
+function script_path()
+	-- local str = debug.getinfo(2, "S").source:sub(2)
+	-- return str:match("(.*/)")
+	return path.dirname(path.abspath(debug.getinfo(1).short_src))
+ end
+
+--
+-- Starts test ssh server
+--
+function startSshd()
+	-- local f = io.open(script_path() .. "ssh/sshd.pid", 'r')
+
+	-- if f
+	-- then
+	-- 	return false
+	-- end
+
+	cwriteln(arg[0])
+	cwriteln(script_path() ..  "ssh/sshd_config")
+
+	local sshdPath = script_path() .. "/ssh/"
+	local f = io.open( sshdPath ..  "sshd_config", 'w')
+	f:write([[
+		Port 2468
+		HostKey ]] .. sshdPath .. [[ssh_host_rsa_key
+		HostKey ]] .. sshdPath .. [[ssh_host_dsa_key
+		AuthorizedKeysFile ]] .. sshdPath .. [[authorized_keys
+		ChallengeResponseAuthentication no
+		UsePAM no
+		#Subsystem   sftp    /usr/lib/ssh/sftp-server
+		PidFile ]] .. sshdPath .. [[sshd.pid
+	]])
+	f:close( )
+	local which = io.popen("which sshd")
+	local path = which:read("a")
+	local exePath = string.sub(path, 0, #path - 1 )
+	-- local sshPath = which:read("a*")
+
+	local pid = spawn(exePath, "-f", sshdPath .. "sshd_config")
+	cwriteln( 'spawned sshd server: ' .. pid)
+
+	return true
+end
+
+--
+-- Stop test ssh server
+--
+function stopSshd()
+	local f = io.open(script_path() .. "/ssh/sshd.pid", 'r')
+
+	if not f
+	then
+		return false
+	end
+	pid = stringx.strip(f:read("*a"))
+	posix.kill(tonumber(pid))
+end
+
 --
 -- Spawns a subprocess.
 --
 -- Returns the processes pid.
 --
-function spawn
-(...)
+function spawn(...)
 	args = { ... }
 
 	cwriteln( 'spawning: ', table.concat( args, ' ' ) )
