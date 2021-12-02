@@ -24,6 +24,10 @@ sync {
 	default.rsyncssh,
 	delay = 3,
 	host = 'localhost',
+	ssh = {
+       port= 2468,
+	   identityFile = "]] .. script_path() .. [[/ssh/id_rsa",
+	},
 	source = ']]..srcdir..[[',
 	targetdir = ']]..trgdir..[[',
 	exclude = {
