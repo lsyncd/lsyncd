@@ -35,7 +35,7 @@ transfers them to 'remotehost' using the rsync-share 'share'.
 
 This will also rsync/watch '/home', but it uses a ssh connection to make moves local on the remotehost instead of re-transmitting the moved file over the wire.
 
-Some more complicated examples, tips and tricks you can find in the [manual](https://axkibe.github.io/lsyncd/).
+Some more complicated examples, tips and tricks you can find in the [manual](https://lsyncd.github.io/lsyncd/).
 
 Disclaimer
 ----------
