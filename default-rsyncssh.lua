@@ -553,6 +553,17 @@ rsyncssh.prepare = function
 			computed[ computedN ] = v
 
 			computedN = computedN  + 1
+
+            if not config.rsync._rshIndex
+		    then
+			    config.rsync._rshIndex = #rsyncc + 1
+
+			    rsyncc[ config.rsync._rshIndex ] = '--rsh=ssh'
+		    end
+
+		    rsyncc[ config.rsync._rshIndex ] =
+			    rsyncc[ config.rsync._rshIndex ] .. ' ' .. v
+
 		end
 	end
 
