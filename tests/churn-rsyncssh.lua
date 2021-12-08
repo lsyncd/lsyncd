@@ -8,8 +8,6 @@ dofile( 'tests/testlib.lua' )
 cwriteln( '****************************************************************' )
 cwriteln( ' Testing default.rsyncssh with random data activity             ' )
 cwriteln( '****************************************************************' )
-cwriteln( '( this test needs passwordless ssh localhost access            )' )
-cwriteln( '( for current user                                             )' )
 
 local tdir, srcdir, trgdir = mktemps()
 
@@ -24,6 +22,8 @@ local pid = spawn(
 	'-nodaemon',
 	'-delay',
 	'5',
+	'-sshopts',
+	'-i tests/ssh/id_rsa -p 2468 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null',
 	'-rsyncssh',
 	srcdir,
 	'localhost',

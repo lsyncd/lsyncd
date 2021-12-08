@@ -4645,6 +4645,7 @@ OPTIONS:
   -nodaemon           Does not detach and logs to stdout/stderr
   -pidfile FILE       Writes Lsyncds PID into FILE
   -runner FILE        Loads Lsyncds lua part from FILE
+  -script FILE        Script to load before execting runner (ADVANCED)
   -sshopts			  Additional ssh command options when using rsyncssh
   -version            Prints versions and exits
 
@@ -4781,6 +4782,18 @@ function runner.configure( args, monitors )
 			end
 		},
 
+		script =
+		{
+			1,
+			function
+			(
+				file
+			)
+				clSettings.scripts = clSettings.scripts or {}
+				table.insert(clSettings.scripts, file)
+			end
+		},
+
 		rsync  =
 		{
 			2,
@@ -4896,6 +4909,13 @@ function runner.configure( args, monitors )
 		end
 
 		i = i + 1
+	end
+
+	if clSettings.scripts then
+		for _, file in ipairs(clSettings.scripts) do
+			log( 'Info', 'Run addition script: ' .. file )
+			dofile(file)
+		end
 	end
 
 	if clSettings.syncs

@@ -114,11 +114,20 @@ function startSshd()
 	cwriteln(script_path() ..  "ssh/sshd_config")
 
 	local sshdPath = script_path() .. "/ssh/"
+
+	if posix.stat( sshdPath ) == nil then
+		cwriteln("setup ssh server in " .. sshdPath)
+		posix.mkdir(sshdPath)
+		os.execute("ssh-keygen -t rsa -N '' -f" .. sshdPath .. "id_rsa")
+		os.execute("cp ".. sshdPath .. "id_rsa.pub ".. sshdPath .. "authorized_keys")
+		os.execute("ssh-keygen -t rsa -N '' -f ".. sshdPath .. "ssh_host_rsa_key")
+		cwriteln("done")
+	end
+
 	local f = io.open( sshdPath ..  "sshd_config", 'w')
 	f:write([[
 		Port 2468
 		HostKey ]] .. sshdPath .. [[ssh_host_rsa_key
-		HostKey ]] .. sshdPath .. [[ssh_host_dsa_key
 		AuthorizedKeysFile ]] .. sshdPath .. [[authorized_keys
 		ChallengeResponseAuthentication no
 		UsePAM no
