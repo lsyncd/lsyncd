@@ -3449,6 +3449,35 @@ local function splitPath
 	end
 end
 
+function splitQuotedString
+    (
+        text
+    )
+    local spat, epat, buf, quoted = [=[^(['"])]=], [=[(['"])$]=]
+    local rv = {}
+    for str in text:gmatch("%S+") do
+        local squoted = str:match(spat)
+        local equoted = str:match(epat)
+        local escaped = str:match([=[(\*)['"]$]=])
+        if squoted and not quoted and not equoted then
+            buf, quoted = str, squoted
+        elseif buf and equoted == quoted and #escaped % 2 == 0 then
+            str, buf, quoted = buf .. ' ' .. str, nil, nil
+        elseif buf then
+            buf = buf .. ' ' .. str
+        end
+        if not buf
+        then
+            table.insert(rv, (str:gsub(spat,""):gsub(epat,"")))
+        end
+    end
+    if buf
+    then
+        print("Missing matching quote for "..buf)
+    end
+    return rv
+end
+
 --
 -- Interface to inotify.
 --
@@ -4616,6 +4645,7 @@ OPTIONS:
   -nodaemon           Does not detach and logs to stdout/stderr
   -pidfile FILE       Writes Lsyncds PID into FILE
   -runner FILE        Loads Lsyncds lua part from FILE
+  -sshopts			  Additional ssh command options when using rsyncssh
   -version            Prints versions and exits
 
 LICENSE:
@@ -4740,7 +4770,18 @@ function runner.configure( args, monitors )
 			end
 		},
 
-		rsync =
+		sshopts =
+		{
+			1,
+			function
+			(
+				options
+			)
+				clSettings.ssh_extras = splitQuotedString(options)
+			end
+		},
+
+		rsync  =
 		{
 			2,
 			function
@@ -4946,12 +4987,17 @@ function runner.initialize( firstTime )
 				}
 			elseif s[ 1 ] == 'rsyncssh'
 			then
-				sync{
+				local opts = {
 					default.rsyncssh,
 					source = s[ 2 ],
 					host   = s[ 3 ],
 					targetdir=s[ 4 ]
 				}
+				if clSettings.ssh_extras ~= nil
+				then
+					opts.ssh = {_extra = clSettings.ssh_extras}
+				end
+				sync(opts)
 			elseif s[ 1 ] == 'direct'
 			then
 				sync{

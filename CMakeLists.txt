@@ -87,14 +87,16 @@ add_custom_target( manpage
 )
 
 # create_symlink( ${CMAKE_SOURCE_DIR}/tests tests)
-ADD_CUSTOM_TARGET(add_tests ALL
-                  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/tests tests)
+ADD_CUSTOM_TARGET(prepare_tests ALL
+                  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/tests tests
+)
 
 add_custom_target( tests
 	COMMAND echo "Running the tests"
 	COMMAND echo "Note you are expected to:"
 	COMMAND echo "  * have lua-posix installed"
 	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/setup.lua
+	COMMAND ${CMAKE_BINARY_DIR}/lsyncd -log all -script ${CMAKE_SOURCE_DIR}/tests/utils_test.lua
 	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/schedule.lua
 	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/l4rsyncdata.lua
 	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/filter-rsync.lua
@@ -105,7 +107,7 @@ add_custom_target( tests
 	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/churn-direct.lua
 	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/teardown.lua
 	COMMAND echo "Finished all successfull!"
-	DEPENDS add_tests
+	DEPENDS prepare_tests
 )
 
 # compiling and linking it all together
