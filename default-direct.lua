@@ -1,7 +1,7 @@
 --~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -- default-direct.lua
 --
---    Keeps two directories with /bin/cp, /bin/rm and /bin/mv in sync.
+--    Keeps two directories with cp, rm and mv in sync.
 --    Startup still uses rsync tough.
 --
 --    A (Layer 1) configuration.
@@ -61,7 +61,7 @@ direct.action = function(inlet)
 		if event.isdir then
 			spawn(
 				event,
-				'/bin/mkdir',
+				'mkdir',
 				'--',
 				event.targetPath
 			)
@@ -69,7 +69,7 @@ direct.action = function(inlet)
 			-- 'cp -t', not supported on OSX
 			spawn(
 				event,
-				'/bin/cp',
+				'cp',
 				'-p',
 				'--',
 				event.sourcePath,
@@ -81,7 +81,7 @@ direct.action = function(inlet)
 			error("Do not know how to handle 'Modify' on dirs")
 		end
 		spawn(event,
-			'/bin/cp',
+			'cp',
 			'-p',
 			'--',
 			event.sourcePath,
@@ -104,7 +104,7 @@ direct.action = function(inlet)
 			error('Refusing to erase your harddisk!')
 		end
 
-		spawn(event, '/bin/rm', '-rf', '--', tp)
+		spawn(event, 'rm', '-rf', '--', tp)
 
 	elseif event.etype == 'Move' then
 		local tp = event.targetPath
@@ -114,13 +114,13 @@ direct.action = function(inlet)
 			error('Refusing to erase your harddisk!')
 		end
 
-		local command = '/bin/mv -- "$1" "$2" || /bin/rm -rf -- "$1"'
+		local command = 'mv -- "$1" "$2" || rm -rf -- "$1"'
 
 		if
 			config.delete ~= true and
 			config.delete ~= 'running'
 		then
-			command = '/bin/mv -- "$1" "$2"'
+			command = 'mv -- "$1" "$2"'
 		end
 
 		spawnShell(
