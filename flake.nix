@@ -48,9 +48,9 @@
           };
 
           defaultPackage = self.packages.${system}.lsyncd;
-          devShell = pkgs.mkShell {
-            buildInputs = defaultDeps ++ buildTypes.lua5_3;
-          };
+          # devShell = pkgs.mkShell {
+          #   buildInputs = defaultDeps ++ buildTypes.lua5_3;
+          # };
         }
       );
 }

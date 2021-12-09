@@ -3,6 +3,7 @@ posix = require( 'posix' )
 string = require( 'string' )
 path = require( 'pl.path' )
 stringx = require( 'pl.stringx' )
+local sys_stat = require "posix.sys.stat"
 
 -- escape codes to colorize output on terminal
 local c1='\027[47;34m'
@@ -97,7 +98,18 @@ function script_path()
 	-- local str = debug.getinfo(2, "S").source:sub(2)
 	-- return str:match("(.*/)")
 	return path.dirname(path.abspath(debug.getinfo(1).short_src))
- end
+end
+
+function which(exec)
+	local path = os.getenv("PATH")
+	for match in (path..':'):gmatch("(.-)"..':') do
+		local fname = match..'/'..exec
+        local s = sys_stat.stat(fname)
+		if s ~= nil then
+			return fname
+		end
+    end
+end
 
 --
 -- Starts test ssh server
@@ -135,10 +147,9 @@ function startSshd()
 		PidFile ]] .. sshdPath .. [[sshd.pid
 	]])
 	f:close( )
-	local which = io.popen("which sshd")
-	local path = which:read("a")
-	local exePath = string.sub(path, 0, #path - 1 )
-	-- local sshPath = which:read("a*")
+	--local which = io.popen("which sshd")
+	exePath = which('sshd')
+	cwriteln("Using sshd: "..exePath)
 
 	local pid = spawn(exePath, "-f", sshdPath .. "sshd_config")
 	cwriteln( 'spawned sshd server: ' .. pid)
