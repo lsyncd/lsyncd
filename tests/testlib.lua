@@ -137,7 +137,7 @@ function startSshd()
 	end
 
 	local f = io.open( sshdPath ..  "sshd_config", 'w')
-	f:write([[
+	local cfg = [[
 		Port 2468
 		HostKey ]] .. sshdPath .. [[ssh_host_rsa_key
 		AuthorizedKeysFile ]] .. sshdPath .. [[authorized_keys
@@ -145,13 +145,15 @@ function startSshd()
 		UsePAM no
 		#Subsystem   sftp    /usr/lib/ssh/sftp-server
 		PidFile ]] .. sshdPath .. [[sshd.pid
-	]])
-	f:close( )
+	]]
+	cwriteln("Use ssh config: "..cfg)
+	f:write(cfg)
+	f:close()
 	--local which = io.popen("which sshd")
 	exePath = which('sshd')
 	cwriteln("Using sshd: "..exePath)
 
-	local pid = spawn(exePath, "-f", sshdPath .. "sshd_config")
+	local pid = spawn(exePath, "-D", "-e", "-f", sshdPath .. "sshd_config")
 	cwriteln( 'spawned sshd server: ' .. pid)
 
 	return true

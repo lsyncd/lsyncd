@@ -27,6 +27,10 @@ sync {
 	ssh = {
        port= 2468,
 	   identityFile = "]] .. script_path() .. [[/ssh/id_rsa",
+	   options = {
+		StrictHostKeyChecking="no",
+		UserKnownHostsFile="/dev/null",
+	   },
 	},
 	source = ']]..srcdir..[[',
 	targetdir = ']]..trgdir..[[',

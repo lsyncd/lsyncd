@@ -1,0 +1,17 @@
+name: "Build"
+on:
+  pull_request:
+  push:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version:
+          - lsyncd_lua5_3
+    steps:
+      - uses: actions/checkout@v2.4.0
+      - uses: cachix/install-nix-action@v15
+      - run: |
+          chmod og-rw ~
+          nix develop .#${{ matrix.version }} --command ./tests/ci-run.sh
