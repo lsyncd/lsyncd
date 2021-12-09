@@ -34,6 +34,9 @@ if( WITH_FSEVENTS )
 	include_directories( ${XNU_DIR} )
 endif( WITH_FSEVENTS )
 
+if ( APPLE )
+	set( LSYNCD_TARGET_APPLE 1 )
+endif ( APPLE )
 
 # generating the config.h file
 configure_file (
