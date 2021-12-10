@@ -2401,6 +2401,9 @@ local Sync = ( function
 					' = ',
 					exitcode
 				)
+				-- sets the initDone after the first success
+				self.initDone = true
+
 			else
 				-- sets the delay on wait again
 				local alarm = self.config.delay
@@ -2804,6 +2807,10 @@ local Sync = ( function
 				timestamp,
 			' )'
 		)
+		if self.disabled
+		then
+			return
+		end
 
 		if self.processes:size( ) >= self.config.maxProcesses
 		then
@@ -2992,6 +2999,8 @@ local Sync = ( function
 			processes = CountArray.new( ),
 			excludes = Excludes.new( ),
 			filters = nil,
+			initDone = false,
+			disabled = false,
 
 			-- functions
 			addBlanketDelay = addBlanketDelay,
@@ -4576,6 +4585,24 @@ function runner.cycle(
 		error( 'runner.cycle() called while not running!' )
 	end
 
+	if uSettings.onepass
+	then
+		local allDone = true
+		for i, s in Syncs.iwalk( )
+		do
+			if s.initDone == true
+			then
+				s.disabled = true
+			else
+				allDone = false
+			end
+		end
+		if allDone and processCount == 0 then
+			log( 'Info', 'onepass active and all syncs finished. Exiting successfully')
+			os.exit(0)
+		end
+	end
+
 	--
 	-- goes through all syncs and spawns more actions
 	-- if possibly. But only let Syncs invoke actions if
@@ -5043,11 +5070,6 @@ function runner.initialize( firstTime )
 	if uSettings.nodaemon
 	then
 		lsyncd.configure( 'nodaemon' )
-	end
-
-	if uSettings.onepass
-	then
-		lsyncd.configure( 'onepass' )
 	end
 
 	if uSettings.logfile
