@@ -61,6 +61,7 @@ rsync.checkgauge = {
 		compress          =  true,
 		copy_dirlinks     =  true,
 		copy_links        =  true,
+		copy_unsafe_links =  true,
 		cvs_exclude       =  true,
 		dry_run           =  true,
 		executability     =  true,
@@ -585,6 +586,12 @@ rsync.prepare = function
 	if crsync.chown
 	then
 		computed[ computedN ] = '--chown=' .. crsync.chown
+		computedN = computedN  + 1
+	end
+
+	if crsync.copy_unsafe_links
+	then
+		computed[ computedN ] = '--copy-unsafe-links'
 		computedN = computedN  + 1
 	end
 
