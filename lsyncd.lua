@@ -75,6 +75,7 @@ local settingsCheckgauge =
 	logfile        = true,
 	pidfile        = true,
 	nodaemon	   = true,
+	onepass 	   = true,
 	statusFile     = true,
 	statusInterval = true,
 	logfacility    = true,
@@ -4643,6 +4644,7 @@ OPTIONS:
   -log    [Category]  Turns on logging for a debug category
   -logfile FILE       Writes log to FILE (DEFAULT: uses syslog)
   -nodaemon           Does not detach and logs to stdout/stderr
+  -onepass            Sync once and exit
   -pidfile FILE       Writes Lsyncds PID into FILE
   -runner FILE        Loads Lsyncds lua part from FILE
   -script FILE        Script to load before execting runner (ADVANCED)
@@ -4757,6 +4759,15 @@ function runner.configure( args, monitors )
 			function
 			( )
 				clSettings.nodaemon = true
+			end
+		},
+
+		onepass =
+		{
+			0,
+			function
+			( )
+				clSettings.onepass = true
 			end
 		},
 
@@ -5032,6 +5043,11 @@ function runner.initialize( firstTime )
 	if uSettings.nodaemon
 	then
 		lsyncd.configure( 'nodaemon' )
+	end
+
+	if uSettings.onepass
+	then
+		lsyncd.configure( 'onepass' )
 	end
 
 	if uSettings.logfile

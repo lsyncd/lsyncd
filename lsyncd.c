@@ -91,6 +91,7 @@ struct settings settings = {
 	.log_facility = LOG_USER,
 	.log_level    = LOG_NOTICE,
 	.nodaemon     = false,
+	.onepass      = false,
 };
 
 
@@ -1629,6 +1630,10 @@ l_configure( lua_State *L )
 	else if( !strcmp( command, "nodaemon" ) )
 	{
 		settings.nodaemon = true;
+	}
+	else if( !strcmp( command, "onepass" ) )
+	{
+		settings.onepass = true;
 	}
 	else if( !strcmp( command, "logfile" ) )
 	{
