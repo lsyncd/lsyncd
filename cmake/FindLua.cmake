@@ -102,10 +102,19 @@ ENDIF(LUA_LIBRARY)
 
 # Determine Lua version
 IF(LUA_INCLUDE_DIR AND EXISTS "${LUA_INCLUDE_DIR}/lua.h")
-  FILE(STRINGS "${LUA_INCLUDE_DIR}/lua.h" lua_version_str REGEX "^#define[ \t]+LUA_RELEASE[ \t]+\"Lua .+\"")
+  FILE(STRINGS "${LUA_INCLUDE_DIR}/lua.h" lua_version_major_str REGEX "^#define[ \t]+LUA_VERSION_MAJOR[ \t]+\".+\"")
+  FILE(STRINGS "${LUA_INCLUDE_DIR}/lua.h" lua_version_minor_str REGEX "^#define[ \t]+LUA_VERSION_MINOR[ \t]+\".+\"")
+  FILE(STRINGS "${LUA_INCLUDE_DIR}/lua.h" lua_version_release_str REGEX "^#define[ \t]+LUA_VERSION_RELEASE[ \t]+\".+\"")
 
-  STRING(REGEX REPLACE "^#define[ \t]+LUA_RELEASE[ \t]+\"Lua ([^\"]+)\".*" "\\1" LUA_VERSION_STRING "${lua_version_str}")
-  UNSET(lua_version_str)
+  STRING(REGEX REPLACE "^#define[ \t]+LUA_VERSION_MAJOR[ \t]+\"([^\"]+)\".*" "\\1" LUA_VERSION_MAJOR "${lua_version_major_str}")
+  STRING(REGEX REPLACE "^#define[ \t]+LUA_VERSION_MINOR[ \t]+\"([^\"]+)\".*" "\\1" LUA_VERSION_MINOR "${lua_version_minor_str}")
+  STRING(REGEX REPLACE "^#define[ \t]+LUA_VERSION_RELEASE[ \t]+\"([^\"]+)\".*" "\\1" LUA_VERSION_RELEASE "${lua_version_release_str}")
+  
+  STRING(CONCAT LUA_VERSION_STRING ${LUA_VERSION_MAJOR} "." ${LUA_VERSION_MINOR} "." ${LUA_VERSION_RELEASE})
+  
+  UNSET(lua_version_major_str)
+  UNSET(lua_version_minor_str)
+  UNSET(lua_version_release_str)
 ENDIF()
 
 INCLUDE(FindPackageHandleStandardArgs)
