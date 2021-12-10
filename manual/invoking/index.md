@@ -67,7 +67,7 @@ This might easily become too much. A particularly useful category is "Exec" whic
 lsyncd -log Exec CONFIGFILE
 {% endhighlight %}
 
-When the initial startup sync fails by default Lsyncd will terminate with an error message. It has been designed this way, so configuration failures are visibly reported to a possibly beginning user. However, in production a remote target might be done, but you want Lsyncd to start nevertheless and keep trying to sync to the remote target until it is up.
+When the initial startup sync fails by default Lsyncd will terminate with an error message. It has been designed this way, so configuration failures are visibly reported to a possibly beginning user. However, in production a remote target might be down, but you want Lsyncd to start nevertheless and keep trying to sync to the remote target until it is up.
 
 {% highlight shell %}
 lsyncd -insist -rsync /home/USER/src remotehost:dst
