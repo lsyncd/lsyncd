@@ -46,6 +46,11 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#if defined(LUA_VERSION_NUM) && LUA_VERSION_NUM >= 504
+#define lua_objlen lua_rawlen
+#endif
+
+
 /*
 | The Lua part of Lsyncd
 */
