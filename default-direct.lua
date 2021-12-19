@@ -78,15 +78,21 @@ direct.action = function(inlet)
 		end
 	elseif event.etype == 'Modify' then
 		if event.isdir then
-			error("Do not know how to handle 'Modify' on dirs")
+			spawnShell(event,
+				'rm -rf -- "$1" && cp -pR "$2" "$3"',
+				event.targetPath,
+				event.sourcePath,
+				event.targetPathdir
+			)
+		else
+			spawn(event,
+				'cp',
+				'-p',
+				'--',
+				event.sourcePath,
+				event.targetPathdir
+			)
 		end
-		spawn(event,
-			'cp',
-			'-p',
-			'--',
-			event.sourcePath,
-			event.targetPathdir
-		)
 	elseif event.etype == 'Delete' then
 
 		if

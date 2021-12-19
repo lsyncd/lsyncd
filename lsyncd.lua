@@ -3364,6 +3364,7 @@ local Syncs = ( function
 			Monitors.default( )
 
 		if config.monitor ~= 'inotify'
+		and config.monitor ~= 'kqueue'
 		and config.monitor ~= 'fsevents'
 		then
 			local info = debug.getinfo( 3, 'Sl' )
@@ -3800,6 +3801,246 @@ local Inotify = ( function
 
 end)( )
 
+-- Interface to MacOS/BSD kqueue
+--
+-- Watches recursively all subdirs and files
+--
+-- All kqueue specific implementation is enclosed here.
+--
+local Kqueue = ( function
+( )
+	--
+	-- A list indexed by kqueue watch descriptors yielding
+	-- the directories absolute paths.
+	--
+	local wdpaths = CountArray.new( )
+
+	--
+	-- The same vice versa,
+	-- all watch descriptors by their absolute paths.
+	--
+	local pathwds = { }
+
+	--
+	-- A list indexed by syncs containing yielding
+	-- the root paths the syncs are interested in.
+	--
+	local syncRoots = { }
+
+	--
+	-- remove a watch descriptor
+	--
+	local function removeWatch
+	(
+		wd,    -- watch descriptor
+		core   -- if false not actually send the unwatch to the kernel (for reuse=false events)
+	)
+		local path = wdpaths[ wd ]
+
+		if not path
+		then
+			return
+		end
+
+		log( 'Function', 'Kqueue.removeWatch( ', path, ' )' )
+
+		if core
+		then
+			lsyncd.kqueue.rmwatch( wd )
+		end
+
+		wdpaths[ wd   ] = nil
+		pathwds[ path ] = nil
+	end
+
+	local function removeAllWithPrefix
+	(
+		prefix -- string, wd with path begins with or equal to this will get removed
+	)
+		for path, wd in pairs( pathwds )
+		do
+			if path:find(prefix, 1, true) == 1
+			then
+				removeWatch( wd, true )
+			end
+		end
+	end
+
+	local function addWatchPath
+	(
+		path, -- absolute path of directory or file to observe
+		isdir -- true if path is a directory
+	)
+		log( 'Function', 'Kqueue.addWatchPath( ', path, ', ', isdir, ' )' )
+
+		if not Syncs.concerns( path )
+		then
+			log('Kqueue', 'not concerning "', path, '"')
+
+			return
+		end
+
+		local wdExist = pathwds[ path ]
+		if wdExist
+		then
+			return
+		end
+
+		local wd = lsyncd.kqueue.addwatch( path, isdir ) ;
+
+		if wd == 0
+		then
+			log( 'Kqueue','Unable to add watch "', path, '"' )
+
+			return
+		end
+
+		pathwds[ path ] = wd
+
+		wdpaths[ wd   ] = path
+
+		if not isdir
+		then
+			return
+		end
+
+		-- registers and adds watches for all subdirectories and files
+		local entries = lsyncd.readdir( path )
+
+		if not entries
+		then
+			return
+		end
+
+		for filename, filenameIsdir in pairs( entries )
+		do
+			if filenameIsdir
+			then
+				addWatchPath( path .. filename .. '/', true )
+			else
+				addWatchPath( path .. filename, false )
+			end
+		end
+	end
+
+	--
+	-- Adds watches for a directory including all subdirectories.
+	--
+	local function addWatch
+	(
+		path  -- absolute path of directory to observe
+	)
+		addWatchPath(path, true)
+	end
+
+	--
+	-- Adds a Sync to receive events.
+	--
+	local function addSync
+	(
+		sync,     -- object to receive events.
+		rootdir   -- root dir to watch
+	)
+		if syncRoots[ sync ]
+		then
+			error( 'duplicate sync in Kqueue.addSync()' )
+		end
+
+		syncRoots[ sync ] = rootdir
+
+		addWatch( rootdir )
+	end
+
+	--
+	-- Called when an event has occured.
+	--
+	local function event
+	(
+		etype,     --  list of 'Delete', 'Extend', 'Attrib', 'Rename', 'Link', 'Revoke' separated by ';'
+		wd,        --  watch descriptor, matches lsyncd.kqueue.addwatch()
+		time,      --  time of the event
+		isdir,     --  true if wd refers to a directory, matches lsyncd.kqueue.addwatch() param
+		reused     --  true if wd remain availible after change
+	)
+		local eSet = {}
+		for token in string.gmatch(etype, "[^;]+") do
+			eSet[token] = true
+		end
+
+		local path = wdpaths[ wd ]
+
+		if not path
+		then
+			return
+		end
+
+		log( 'Kqueue', 'Got Watch Event ', etype, ":", path, ":", reused)
+
+		if not reused
+		then
+			removeWatch( wd, true )
+		end
+
+		-- invoke desired syncs
+		for sync, root in pairs( syncRoots )
+		do repeat
+			local relative  = splitPath( path, root )
+
+			if not relative
+			then
+				-- sync is not interested in this dir
+				break -- continue
+			end
+
+			if eSet['Attrib']
+			then
+				sync:delay( 'Attrib', time, relative, nil )
+			end
+
+			if eSet['Write']
+			then
+				sync:delay( 'Modify', time, relative, nil )
+			end
+
+			-- due to limitations for kqueue, create & delete & move will not
+			-- be transfered, they'll be handled as parent dir Modify instead
+
+		until true end
+
+		-- perform rescan if needed
+		if isdir and ( eSet['Delete'] or eSet['Link'] or eSet['Write'] or eSet['Revoke'] )
+		then
+			removeAllWithPrefix(path)
+			if not ( eSet['Delete'] or eSet['Rename'] or eSet['Revoke'] )
+			then
+				addWatch(path)
+			end
+		end
+	end
+
+	--
+	-- Writes a status report about inotify to a file descriptor
+	--
+	local function statusReport( f )
+
+		f:write( 'Kqueue watching ', wdpaths:size(), ' vnodes\n' )
+
+		for wd, path in wdpaths:walk( )
+		do
+			f:write( '  ', wd, ': ', path, '\n' )
+		end
+	end
+
+	--
+	-- Public interface.
+	--
+	return {
+		addSync = addSync,
+		event = event,
+		statusReport = statusReport,
+	}
+
+end)( )
 
 --
 -- Interface to OSX /dev/fsevents
@@ -4360,6 +4601,7 @@ local StatusFile = ( function
 		end
 
 		Inotify.statusReport( f )
+		Kqueue.statusReport( f )
 
 		f:close( )
 	end
@@ -4688,7 +4930,7 @@ SEE:
 
 --
 --  -monitor NAME       Uses operating systems event montior NAME
---                      (inotify/fanotify/fsevents)
+--                      (inotify/kqueue/fsevents)
 
 	os.exit( -1 )
 end
@@ -5146,6 +5388,9 @@ function runner.initialize( firstTime )
 		if s.config.monitor == 'inotify'
 		then
 			Inotify.addSync( s, s.source )
+		elseif s.config.monitor == 'kqueue'
+		then
+			Kqueue.addSync( s, s.source )
 		elseif s.config.monitor == 'fsevents'
 		then
 			Fsevents.addSync( s, s.source )
@@ -5238,6 +5483,7 @@ end
 -- Called when an file system monitor events arrive
 --
 runner.inotifyEvent = Inotify.event
+runner.kqueueEvent = Kqueue.event
 runner.fsEventsEvent = Fsevents.event
 
 --

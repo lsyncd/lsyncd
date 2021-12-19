@@ -161,7 +161,7 @@ rsync.action = function
 			path1,  -- path
 			path2   -- path to for move events
 		)
-			if string.byte( path1, -1 ) == 47 and etype == 'Delete'
+			if string.byte( path1, -1 ) == 47 and ( etype == 'Delete' or etype == 'Modify' )
 			then
 				return sub( path1 )..'***', sub( path2 )
 			else
