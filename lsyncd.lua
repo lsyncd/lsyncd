@@ -5425,7 +5425,7 @@ function spawnShell
 	command,   -- the shell command
 	...        -- additonal arguments
 )
-	return spawn( agent, '/bin/sh', '-c', command, '/bin/sh', ... )
+	return spawn( agent, 'sh', '-c', command, 'sh', ... )
 end
 
 
