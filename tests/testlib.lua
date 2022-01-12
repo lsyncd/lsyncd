@@ -1,8 +1,7 @@
 -- common testing environment
 posix = require( 'posix' )
 string = require( 'string' )
-path = require( 'pl.path' )
-stringx = require( 'pl.stringx' )
+
 local sys_stat = require "posix.sys.stat"
 
 -- escape codes to colorize output on terminal
@@ -94,10 +93,39 @@ function writefile
 	return true
 end
 
+function splitpath(P)
+    local i = #P
+    local ch = P:sub(i,i)
+    while i > 0 and ch ~= "/" do
+        i = i - 1
+        ch = P:sub(i,i)
+    end
+    if i == 0 then
+        return '',P
+    else
+        return P:sub(1,i-1), P:sub(i+1)
+    end
+end
+
+function isabs(p)
+	return string.sub(p, 1, 2) == "/"
+end
+
+function abspath(P,pwd)
+	P = P:gsub('[\\/]$','')
+	if not isabs(P) then
+		local rv = posix.unistd.getcwd() .. "/" .. P
+		return rv
+	end
+	return P
+end
+
+
 function script_path()
 	-- local str = debug.getinfo(2, "S").source:sub(2)
 	-- return str:match("(.*/)")
-	return path.dirname(path.abspath(debug.getinfo(1).short_src))
+	local dir, file = splitpath(abspath(debug.getinfo(1).short_src))
+	return dir
 end
 
 function which(exec)
@@ -159,6 +187,11 @@ function startSshd()
 	return true
 end
 
+
+function strip(s)
+	return s:match "^%s*(.-)%s*$"
+end
+
 --
 -- Stop test ssh server
 --
@@ -169,7 +202,7 @@ function stopSshd()
 	then
 		return false
 	end
-	pid = stringx.strip(f:read("*a"))
+	pid = strip(f:read("*a"))
 	posix.kill(tonumber(pid))
 end
 
