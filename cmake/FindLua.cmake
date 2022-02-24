@@ -16,6 +16,7 @@
 #=============================================================================
 # Copyright 2007-2009 Kitware, Inc.
 # Modified to support Lua 5.2 by LuaDist 2012
+# Modified to support Lua 5.4 by LuaDist 2022
 #
 # Distributed under the OSI-approved BSD License (the "License");
 # see accompanying file Copyright.txt for details.
@@ -27,7 +28,7 @@
 # (To distribute this file outside of CMake, substitute the full
 #  License text for the above reference.)
 #
-# This module will try to find the newest Lua version down to 5.2
+# This module will try to find the newest Lua version down to 5.4
 
 # Always search for non-versioned lua first (recommended)
 SET(_POSSIBLE_LUA_INCLUDE include include/lua)
