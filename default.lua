@@ -52,6 +52,7 @@ default.checkgauge = {
 	prepare       =  true,
 	source        =  true,
 	target        =  true,
+	tunnel        =  true,
 }
 
 --
