@@ -443,6 +443,20 @@ printlogf0(lua_State *L,
 }
 
 
+/*
+ | Print a traceback of the error
+ */
+static int traceback (lua_State *L) {
+    lua_getglobal(L, "debug");
+    lua_getfield(L, -1, "traceback");
+    lua_pushvalue(L, 1);
+    lua_pushinteger(L, 2);
+    lua_call(L, 2, 1);
+	printlogf( L, "traceback", "%s", lua_tostring(L, -1) );
+    return 1;
+}
+
+
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
 (       Simple memory management            )
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
@@ -1083,6 +1097,28 @@ l_now(lua_State *L)
 	return 1;
 }
 
+/*
+| Sends a signal to proceess pid
+|
+| Params on Lua stack:
+|     1: pid
+|     2: signal
+|
+| Returns on Lua stack:
+|     return value of kill
+*/
+static int
+l_kill( lua_State *L )
+{
+	pid_t pid = luaL_checkinteger( L, 1 );
+	int sig = luaL_checkinteger( L, 2 );
+
+	int rv = kill(pid, sig );
+
+	lua_pushinteger( L, rv );
+
+	return 1;
+}
 
 /*
 | Executes a subprocess. Does not wait for it to return.
@@ -1844,6 +1880,7 @@ static const luaL_Reg lsyncdlib[] =
 	{ "exec",           l_exec          },
 	{ "log",            l_log           },
 	{ "now",            l_now           },
+	{ "kill",           l_kill          },
 	{ "nonobserve_fd",  l_nonobserve_fd },
 	{ "observe_fd",     l_observe_fd    },
 	{ "readdir",        l_readdir       },
@@ -2796,6 +2833,7 @@ main1( int argc, char *argv[] )
 				lsyncd_config_file,
 				lua_tostring( L, -1 )
 			);
+			traceback(L);
 
 			exit( -1 );
 		}
