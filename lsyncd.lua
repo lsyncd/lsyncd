@@ -3983,6 +3983,30 @@ function splitQuotedString
     return rv
 end
 
+function replaceCommand(cmd, data)
+	assert(type(data) == "table")
+	local getData = function(arg)
+		print(arg, data)
+		local rv = data[arg]
+		if rv ~= nil then
+			return rv
+		else
+			return ""
+		end
+	end
+	if type(cmd) == "string" then
+		return string.gsub(cmd, "%${(%w+)}", getData)
+	elseif type(cmd) == "table" then
+		local rv = {}
+		for i, v in ipairs(cmd) do
+			rv[i] = string.gsub(v, "%${(%w+)}", getData)
+		end
+		return rv
+	else
+		log("Error", "Unsupported type in replacCommand")
+	end
+end
+
 --
 -- Interface to inotify.
 --
