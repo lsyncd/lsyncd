@@ -2419,11 +2419,11 @@ local Sync = ( function
 			end
 		end
 	end
-	
-	
+
+
 	--
 	-- Returns true if the relative path is excluded or filtered
-	-- 
+	--
 	local function testFilter
 	(
 		self,   -- the Sync
@@ -2477,7 +2477,9 @@ local Sync = ( function
 		local delay = self.processes[ pid ]
 
 		-- not a child of this sync?
-		if not delay then return end
+		if not delay then
+			return false
+		end
 
 		if delay.status
 		then
@@ -2562,6 +2564,8 @@ local Sync = ( function
 		end
 
 		self.processes[ pid ] = nil
+		-- we handled this process
+		return true
 	end
 
 	--
@@ -3229,9 +3233,10 @@ Tunnel = (function()
 
 	local TUNNEL_STATUS = {
 		DOWN = 0,
-		CONNECTING = 1,
-		UP = 2,
-		RETRY_TIMEOUT = 3,
+		DISABLED = 1,
+		CONNECTING = 2,
+		UP = 3,
+		RETRY_TIMEOUT = 4,
 	}
 
 	local nextTunnelName = 1
@@ -3243,7 +3248,8 @@ Tunnel = (function()
 		checkCommand = nil,
 		checkExitCodes = {0},
 		checkMaxFailed = 5,
-		reconnectDelay = 10
+		retryDelay = 10,
+		readyDelay = 5
 	}
 	-- export constants
 	Tunnel.TUNNEL_CMD_TYPES = TUNNEL_CMD_TYPES
@@ -3261,7 +3267,7 @@ Tunnel = (function()
 			alarm = false
 		}
 		-- provides a default name if needed
-		if options.name ~= nil
+		if options.name == nil
 		then
 			options.name = 'Tunnel' .. nextTunnelName
 		end
@@ -3303,14 +3309,20 @@ Tunnel = (function()
 		-- lsyncd.kill()
 		-- check if child processes are running
 		if self.status == TUNNEL_STATUS.CONNECTING then
-			local good = true
-			for pid, type in ipairs(self.processes) do
-				if type == TUNNEL_CMD_TYPES.CMD
-				   and lsyncd.kill(pid, 0) ~= 0 then
-					-- required command does not exist
-					good = false
+			-- we can only be good if processes exist
+			local good = self.processes:size() > 0 or self.options.onShoot == true
+
+			for pid, pd in self.processes:walk() do
+				if pd.type == TUNNEL_CMD_TYPES.CMD then
+					-- process needs to run for at least some time
+					if (pd.started + self.options.readyDelay) > timestamp
+						or lsyncd.kill(pid, 0) ~= 0 then
+						-- required command does not exist›
+						good = false
+					end
 				end
 			end
+
 			if good then
 				log(
 					'Tunnel',
@@ -3328,13 +3340,15 @@ Tunnel = (function()
 		if self.status == TUNNEL_STATUS.DOWN then
 			self:start()
 		elseif self.status == TUNNEL_STATUS.RETRY_TIMEOUT then
-			log(
-				'Tunnel',
-				'Retry setup ', self.options.name
-			)
 			if self.alarm <= timestamp then
+				log(
+					'Tunnel',
+					'Retry setup ', self.options.name
+				)
 				self:start()
 			end
+		elseif self.status == TUNNEL_STATUS.DISABLED then
+			self.alarm = false
 		end
 	end
 
@@ -3375,7 +3389,7 @@ Tunnel = (function()
 			end
 		end
 		-- delay tunnel check by 1 second
-		block:wait( now( ) + 1 )	
+		block:wait( now( ) + 1 )
 	end
 
 	--
@@ -3393,7 +3407,7 @@ Tunnel = (function()
 		   self.status == TUNNEL_STATUS.UP then
 			return
 		end
-		
+
 		if self.options.mode == "command" then
 			self.status = TUNNEL_STATUS.CONNECTING
 			self.alarm = false
@@ -3420,11 +3434,14 @@ Tunnel = (function()
 			local pid = lsyncd.exec(bin, table.unpack(self.options.command, 2))
 			--local pid = spawn(bin, table.unpack(self.options.command, 2))
 			if pid and pid > 0 then
-				self.processes[pid] = TUNNEL_CMD_TYPES.CMD
+				self.processes[pid] = {
+					type = TUNNEL_CMD_TYPES.CMD,
+					started = now()
+				}
 				self.checksFailed = 0
 				self.alarm = now() + 1
 			else
-				self.alarm = now() + self.options.reconnectDelay
+				self.alarm = now() + self.options.retryDelay
 				self.status = TUNNEL_STATUS.RETRY_TIMEOUT
 			end
 
@@ -3441,9 +3458,15 @@ Tunnel = (function()
 		pid,
 		exitcode
 	)
-		local ctype = self.processes[pid]
+		local proc = self.processes[pid]
+
+		if proc == nil then
+			return false
+		end
+		log('Debug',
+			"collect tunnel event. pid: ", pid," exitcode: ", exitcode)
 		-- cases in which the tunnel command is handled
-		if ctype == TUNNEL_CMD_TYPES.CMD then
+		if proc.type == TUNNEL_CMD_TYPES.CMD then
 			if self.options.onShot then
 				log(
 						'Info',
@@ -3452,17 +3475,28 @@ Tunnel = (function()
 				)
 				self.status = TUNNEL_STATUS.UP
 			else
-				log(
-						'Info',
-						'Tunnel died. Restarting',
+				if self.status == TUNNEL_STATUS.CONNECTING then
+					log(
+						'Warning',
+						'Starting tunnel failed.',
 						self.options.name
-				)
-				self.status = TUNNEL_STATUS.DOWN
-				self.alarm = now() + 1
-				self:start()
+					)
+					self.status = TUNNEL_STATUS.RETRY_TIMEOUT
+					self.alarm = now() + 5
+				else
+					log(
+							'Info',
+							'Tunnel died. Restarting',
+							self.options.name
+					)
+
+					self.status = TUNNEL_STATUS.DOWN
+					self.alarm = true
+					self:start()
+				end
 			end
 		-- cases in which the check function has executed a program
-		elseif ctype == TUNNEL_CMD_TYPES.CHK then
+		elseif proc.type == TUNNEL_CMD_TYPES.CHK then
 			local found = false
 			if type(self.options.checkExitCodes) == 'table' then
 
@@ -3507,12 +3541,14 @@ Tunnel = (function()
 	-- Stops all tunnel processes
 	--
 	function Tunnel:kill ()
-		for pid, typ in pairs(self.processes) do
-			if typ == TUNNEL_CMD_TYPES.CMD then
+		log('Tunnel', 'Shutdown tunnel ', self.options.name)
+		for pid, pr in self.processes:walk() do
+			if pr.type == TUNNEL_CMD_TYPES.CMD then
+				log('Tunnel','Kill process ', pid)
 				lsyncd.kill(pid, 9)
 			end
 		end
-		self.status = TUNNEL_STATUS.DOWN
+		self.status = TUNNEL_STATUS.DISABLED
 	end
 
 	function Tunnel:isReady ()
@@ -3550,10 +3586,10 @@ local Tunnels = ( function
 			tunnel
 		)
 			table.insert( tunnelList, tunnel )
-	
+
 			return tunnel
 		end
-	
+
 		--
 		-- Allows a for-loop to walk through all syncs.
 		--
@@ -3561,7 +3597,7 @@ local Tunnels = ( function
 		( )
 			return ipairs( tunnelList )
 		end
-	
+
 		--
 		-- Returns the number of syncs.
 		--
@@ -3575,12 +3611,8 @@ local Tunnels = ( function
 		-- Cycle through all tunnels and call their invoke function
 		--
 		local function invoke(timestamp)
-			if nextCycle and nextCycle > timestamp then
-				return
-			end
 			for _,tunnel in ipairs( tunnelList )
 			do
-				print("invoke t", tunnel)
 				tunnel:invoke(timestamp)
 			end
 			nextCycle = now() + 5
@@ -3601,7 +3633,22 @@ local Tunnels = ( function
 
 			return rv
 		end
-	
+
+		--
+		-- closes all tunnels
+		--
+		local function killAll()
+			local rv = true
+			for _, tunnel in ipairs( tunnelList ) do
+				local ta = tunnel:kill()
+				if ta ~= true then
+					rv = false
+				end
+			end
+
+			return rv
+		end
+
 		--
 		-- Public interface
 		--
@@ -3611,7 +3658,8 @@ local Tunnels = ( function
 			iwalk = iwalk,
 			size = size,
 			invoke = invoke,
-			getAlarm = getAlarm
+			getAlarm = getAlarm,
+			killAll = killAll
 		}
 	end )( )
 
@@ -3625,11 +3673,11 @@ tunnel = function (options)
 	)
 	local rv = Tunnel.new(options)
 	Tunnels.add(rv)
-	
+
 	return rv
 
 end
-	
+
 
 --
 -- Syncs - a singleton
@@ -5033,6 +5081,7 @@ function runner.cycle(
 
 			return true
 		else
+			Tunnels.killAll()
 			return false
 		end
 	end
@@ -5567,7 +5616,7 @@ function runner.initialize( firstTime )
 	-- makes sure the user gave Lsyncd anything to do
 	if Syncs.size() == 0
 	then
-		log( 'Error', 'Nothing to watch!' ) 
+		log( 'Error', 'Nothing to watch!' )
 
 		os.exit( -1 )
 	end
