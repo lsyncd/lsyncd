@@ -22,4 +22,6 @@ assert(isTableEqual(
     {"-p", "2localhorst2", "-i '1234'"}
 ))
 
+assert(type(lsyncd.get_free_port()) == "number")
+
 os.exit(0)
