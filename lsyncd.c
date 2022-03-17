@@ -448,7 +448,7 @@ printlogf0(lua_State *L,
 /*
  | Print a traceback of the error
  */
-static int traceback (lua_State *L) {
+static int l_traceback (lua_State *L) {
     lua_getglobal(L, "debug");
     lua_getfield(L, -1, "traceback");
     lua_pushvalue(L, 1);
@@ -2920,7 +2920,7 @@ main1( int argc, char *argv[] )
 				lsyncd_config_file,
 				lua_tostring( L, -1 )
 			);
-			traceback(L);
+			l_traceback(L);
 
 			exit( -1 );
 		}

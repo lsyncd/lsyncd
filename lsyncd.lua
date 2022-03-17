@@ -4020,7 +4020,6 @@ end
 function replaceCommand(cmd, data)
 	assert(type(data) == "table")
 	local getData = function(arg)
-		print(arg, data)
 		local rv = data[arg]
 		if rv ~= nil then
 			return rv
