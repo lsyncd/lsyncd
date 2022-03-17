@@ -19,6 +19,8 @@
 
 #define SYSLOG_NAMES 1
 
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/times.h>
@@ -1121,6 +1123,60 @@ l_kill( lua_State *L )
 }
 
 /*
+| Returns a free port of host
+|
+| Params on Lua stack:
+|    (not yet) 1: hostname or ip for bind
+|
+| Returns on Lua stack:
+|    return integer of free port
+|
+*/
+static int
+l_free_port(lua_State *L) {
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
+	if(sock < 0) {
+		printf("error opening socket\n");
+		goto error;
+	}
+
+	struct sockaddr_in serv_addr;
+	memset((char *) &serv_addr, 0, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = INADDR_ANY;
+	serv_addr.sin_port = 0;
+	if (bind(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+		if(errno == EADDRINUSE) {
+			printf("the port is not available. already to other process\n");
+			goto error;
+		} else {
+			printf("could not bind to process (%d) %s\n", errno, strerror(errno));
+			goto error;
+		}
+	}
+
+	socklen_t len = sizeof(serv_addr);
+	if (getsockname(sock, (struct sockaddr *)&serv_addr, &len) == -1) {
+		goto error;
+	}
+
+	lua_pushinteger(L, ntohs(serv_addr.sin_port));
+
+	if (close (sock) < 0 ) {
+		printf("did not close: %s\n", strerror(errno));
+		lua_pop        ( L,  1 );
+		goto error;
+	}
+
+	return 1;
+error:
+	lua_pushnil(L);
+	return 1;
+}
+
+
+
+/*
 | Executes a subprocess. Does not wait for it to return.
 |
 | Params on Lua stack:
@@ -1881,6 +1937,7 @@ static const luaL_Reg lsyncdlib[] =
 	{ "log",            l_log           },
 	{ "now",            l_now           },
 	{ "kill",           l_kill          },
+	{ "get_free_port",  l_free_port     },
 	{ "nonobserve_fd",  l_nonobserve_fd },
 	{ "observe_fd",     l_observe_fd    },
 	{ "readdir",        l_readdir       },
