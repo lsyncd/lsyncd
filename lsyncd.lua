@@ -3305,9 +3305,9 @@ Tunnel = (function()
 	end
 
 	--
-	-- Check if the tunnel is up
+	-- User supplied function to check if tunnel is up
 	function Tunnel:check()
-
+		return true
 	end
 
 	function Tunnel:isReady()
@@ -3318,6 +3318,11 @@ Tunnel = (function()
 	-- Check if the tunnel is up
 	function Tunnel:invoke(timestamp)
 		-- lsyncd.kill()
+		if self:check() == false then
+			-- check failed, consider tunnel broken
+			self.status = TUNNEL_STATUS.DOWN
+		end
+
 		-- check if child processes are running
 		if self.status == TUNNEL_STATUS.CONNECTING then
 			-- we can only be good if processes exist
