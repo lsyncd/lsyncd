@@ -3232,11 +3232,12 @@ Tunnel = (function()
 	}
 
 	local TUNNEL_STATUS = {
-		DOWN = 0,
-		DISABLED = 1,
-		CONNECTING = 2,
-		UP = 3,
-		RETRY_TIMEOUT = 4,
+		UNKNOWN = 0,
+		DOWN = 1,
+		DISABLED = 2,
+		CONNECTING = 3,
+		UP = 4,
+		RETRY_TIMEOUT = 5,
 	}
 
 	local nextTunnelName = 1
@@ -3284,6 +3285,16 @@ Tunnel = (function()
 		-- self.__index = self
 
 		return rv
+	end
+
+	-- Returns the status of tunnel as text
+	function Tunnel:statusText()
+		for n, i in pairs(TUNNEL_STATUS) do
+			if self.status == i then
+				return n
+			end
+		end
+		return TUNNEL_STATUS.UNKNOWN
 	end
 
 	--
@@ -3555,7 +3566,24 @@ Tunnel = (function()
 		return self.status == TUNNEL_STATUS.UP
 	end
 
+	--
+	-- Writes a status report about this tunnel
+	--
+	function Tunnel:statusReport(f)
+		f:write( 'Tunnel: name=', self.options.name, ' status=', self:statusText(), '\n' )
+
+		f:write( 'Running processes: ', self.processes:size( ), '\n')
+
+		for pid, prc in self.processes:walk( )
+		do
+		    f:write("  pid=", pid, " type=", prc.type, " started=", ''..prc.started, '\n')
+		end
+
+		f:write( '\n' )
+	end
+
 	return Tunnel
+
 end)() -- Tunnel scope
 
 --
@@ -3659,7 +3687,8 @@ local Tunnels = ( function
 			size = size,
 			invoke = invoke,
 			getAlarm = getAlarm,
-			killAll = killAll
+			killAll = killAll,
+			statusReport = statusReport
 		}
 	end )( )
 
@@ -4874,6 +4903,13 @@ local StatusFile = ( function
 		for i, s in Syncs.iwalk( )
 		do
 			s:statusReport( f )
+
+			f:write( '\n' )
+		end
+
+		for i, t in Tunnels.iwalk( )
+		do
+			t:statusReport( f )
 
 			f:write( '\n' )
 		end

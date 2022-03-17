@@ -1923,6 +1923,33 @@ l_jiffies_add( lua_State *L )
 	}
 }
 
+/*
+| Adds a number in seconds to a jiffy timestamp.
+*/
+static int
+l_jiffies_concat( lua_State *L )
+{
+	char buf[1024];
+	clock_t *p1 = ( clock_t * ) lua_touserdata( L, 1 );
+	clock_t *p2 = ( clock_t * ) lua_touserdata( L, 2 );
+
+	if( p1 && p2 )
+	{
+		logstring( "Error", "Cannot add two timestamps!" );
+		exit( -1 );
+	}
+
+	{
+		if (p1) {
+			snprintf( buf, sizeof(buf), "%Lf", (long double)(*p1));
+			lua_pushfstring(L, "%s%s", &buf, luaL_checkstring( L, 2));
+		} else {
+			snprintf( buf, sizeof(buf), "%Lf", (long double)(*p2));
+			lua_pushfstring(L, "%s%s", luaL_checkstring( L, 1), &buf);
+		}
+		return 1;
+	}
+}
 
 /*
 | Subracts two jiffy timestamps resulting in a number in seconds
@@ -2028,6 +2055,9 @@ register_lsyncd( lua_State *L )
 
 	lua_pushcfunction( L, l_jiffies_eq );
 	lua_setfield( L, mt, "__eq" );
+
+	lua_pushcfunction( L, l_jiffies_concat );
+	lua_setfield( L, mt, "__concat" );
 
 	lua_pop( L, 1 ); // pop(mt)
 
