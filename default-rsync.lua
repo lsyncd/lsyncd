@@ -129,6 +129,9 @@ rsync.action = function
 	-- gets all events ready for syncing
 	local elist = inlet.getEvents( eventNotInitBlank )
 
+	local substitudes = inlet.getSubstitutionData(elist, {})
+	local target = substitudeCommands(config.target, substitudes)
+
 	-- gets the list of paths for the event list
 	-- deletes create multi match patterns
 	local paths = elist.getPaths( )
@@ -237,7 +240,7 @@ rsync.action = function
 		'--include-from=-',
 		'--exclude=*',
 		config.source,
-		config.target
+		target
 	)
 end
 
@@ -331,6 +334,9 @@ rsync.init = function
 
 		target = config.host .. ':' .. config.targetdir
 	end
+
+	local substitudes = inlet.getSubstitutionData(event, {})
+	target = substitudeCommands(target, substitudes)
 
 	if config.delete == true
 	or config.delete == 'startup'
