@@ -5880,6 +5880,19 @@ function runner.term
 
 end
 
+--
+-- Called by core on a term signal.
+--
+function runner.teardown
+	(
+		exitCode  -- exitcode that will be returned
+	)
+	-- ensure we will all stray tunnels when we hard exit
+	Tunnels.killAll()
+
+	return exitCode
+end
+	
 --============================================================================
 -- Lsyncd runner's user interface
 --============================================================================

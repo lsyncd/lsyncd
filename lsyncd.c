@@ -142,6 +142,22 @@ int pidfile_fd = 0;
 static long clocks_per_sec;
 
 
+/*
+| Dummy variable of which it's address is used as
+| the cores index in the lua registry to
+| the lua runners function table in the lua registry.
+*/
+static int runner;
+
+
+/*
+| Dummy variable of which it's address is used as
+| the cores index n the lua registry to
+| the lua runners error handler.
+*/
+static int callError;
+
+
 /**
  * signal handler
  */
@@ -449,6 +465,7 @@ printlogf0(lua_State *L,
  | Print a traceback of the error
  */
 static int l_traceback (lua_State *L) {
+	// runner.callError
     lua_getglobal(L, "debug");
     lua_getfield(L, -1, "traceback");
     lua_pushvalue(L, 1);
@@ -456,6 +473,25 @@ static int l_traceback (lua_State *L) {
     lua_call(L, 2, 1);
 	printlogf( L, "traceback", "%s", lua_tostring(L, -1) );
     return 1;
+}
+
+/*
+ | Call runners terminate function and exit with given exit code
+ */
+static void safeexit (lua_State *L, int exitcode) {
+	// load_runner_func(L, "teardown");
+	// pushes the function
+	lua_pushlightuserdata( L, (void *) &runner );
+	lua_gettable( L, LUA_REGISTRYINDEX );
+	lua_pushstring( L, "teardown" );
+	lua_gettable( L, -2 );
+	lua_remove( L, -2 );
+	lua_pushinteger(L, exitcode);
+    lua_call(L, 2, 1);
+	if (lua_isinteger(L, -1)) {
+		exitcode = luaL_checkinteger(L, -1);
+	}
+    exit(exitcode);
 }
 
 
@@ -626,23 +662,6 @@ pipe_tidy( struct observance * observance )
 (           Helper Routines                 )
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
-
-/*
-| Dummy variable of which it's address is used as
-| the cores index in the lua registry to
-| the lua runners function table in the lua registry.
-*/
-static int runner;
-
-
-/*
-| Dummy variable of which it's address is used as
-| the cores index n the lua registry to
-| the lua runners error handler.
-*/
-static int callError;
-
-
 /*
 | Sets the close-on-exit flag of a file descriptor.
 */
@@ -718,7 +737,7 @@ write_pidfile
 			pidfile
 		);
 
-		exit( -1 );
+		safeexit(L, -1 );
 	}
 
 	int rc = lockf( pidfile_fd, F_TLOCK, 0 );
@@ -731,7 +750,7 @@ write_pidfile
 			pidfile
 		);
 
-		exit( -1 );
+		safeexit(L, -1 );
 	}
 
 	snprintf( buf, sizeof( buf ), "%i\n", getpid( ) );
@@ -939,7 +958,7 @@ user_obs_ready(
 	// calls the user function
 	if( lua_pcall( L, 1, 0, -3 ) )
 	{
-		exit( -1 );
+		safeexit(L, -1 );
 	}
 
 	lua_pop( L, 2 );
@@ -975,7 +994,7 @@ user_obs_writey(
 	// calls the user function
 	if( lua_pcall( L, 1, 0, -3 ) )
 	{
-		exit(-1);
+		safeexit(L, -1);
 	}
 
 	lua_pop( L, 2 );
@@ -1300,7 +1319,7 @@ l_exec( lua_State *L )
 				"in spawn(), expected a string after pipe '<'"
 			);
 
-			exit( -1 );
+			safeexit(L, -1 );
 		}
 
 		pipe_text = lua_tolstring( L, 3, &pipe_len );
@@ -1312,7 +1331,7 @@ l_exec( lua_State *L )
 			{
 				logstring( "Error", "cannot create a pipe!" );
 
-				exit( -1 );
+				safeexit(L, -1 );
 			}
 
 			// always closes the write end for child processes
@@ -1960,7 +1979,7 @@ l_jiffies_add( lua_State *L )
 	if( p1 && p2 )
 	{
 		logstring( "Error", "Cannot add two timestamps!" );
-		exit( -1 );
+		safeexit(L, -1 );
 	}
 
 	{
@@ -1993,7 +2012,7 @@ l_jiffies_concat( lua_State *L )
 	if( p1 && p2 )
 	{
 		logstring( "Error", "Cannot add two timestamps!" );
-		exit( -1 );
+		safeexit(L, -1 );
 	}
 
 	{
@@ -2291,7 +2310,7 @@ masterloop(lua_State *L)
 
 		if( lua_pcall( L, 0, 1, -2 ) )
 		{
-			exit( -1 );
+			safeexit(L, -1 );
 		}
 
 		if( lua_type( L, -1 ) == LUA_TBOOLEAN)
@@ -2477,7 +2496,9 @@ masterloop(lua_State *L)
 			lua_pushinteger( L, WEXITSTATUS( status ) );
 
 			if ( lua_pcall( L, 2, 0, -4 ) )
-				{ exit(-1); }
+			{
+				safeexit(L, -1);
+			}
 
 			lua_pop( L, 1 );
 		}
@@ -2489,7 +2510,7 @@ masterloop(lua_State *L)
 
 			if( lua_pcall( L, 0, 0, -2 ) )
 			{
-				exit( -1 );
+				safeexit( L, -1 );
 			}
 
 			lua_pop( L, 1 );
@@ -2506,7 +2527,7 @@ masterloop(lua_State *L)
 
 			if( lua_pcall( L, 1, 0, -3 ) )
 			{
-				exit( -1 );
+				safeexit(L, -1 );
 			}
 
 			lua_pop( L, 1 );
@@ -2522,7 +2543,7 @@ masterloop(lua_State *L)
 
 		if( lua_pcall( L, 1, 1, -3 ) )
 		{
-			exit( -1 );
+			safeexit(L,  -1 );
 		}
 
 		if( !lua_toboolean( L, -1 ) )
@@ -2540,7 +2561,7 @@ masterloop(lua_State *L)
 				"internal, stack is dirty."
 			);
 			l_stackdump( L );
-			exit( -1 );
+			safeexit(L, -1 );
 		}
 	}
 }
@@ -2922,7 +2943,7 @@ main1( int argc, char *argv[] )
 			);
 			l_traceback(L);
 
-			exit( -1 );
+			safeexit(L, -1 );
 		}
 	}
 
