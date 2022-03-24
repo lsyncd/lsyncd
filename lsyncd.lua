@@ -25,17 +25,7 @@ then
 	lsyncd.terminate( -1 )
 end
 
-lsyncd_version = '2.2.3'
-
-
---
--- Hides the core interface from user scripts.
---
-local _l = lsyncd
-lsyncd = nil
-
-local lsyncd = _l
-_l = nil
+lsyncd_version = '2.3.0-beta1'
 
 
 --
@@ -47,6 +37,120 @@ now       = lsyncd.now
 readdir   = lsyncd.readdir
 
 
+inheritKV = nil
+
+--
+-- Recurvely inherits a source table to a destionation table
+-- copying all keys from source.
+--
+-- All entries with integer keys are inherited as additional
+-- sources for non-verbatim tables
+--
+inherit = function
+(
+	cd,       -- table copy destination
+	cs,       -- table copy source
+	verbatim, -- forced verbatim ( for e.g. 'exitcodes' )
+	ignored   -- table of keys not to copy
+)
+	-- First copies all entries with non-integer keys.
+	--
+	-- Tables are merged; already present keys are not
+	-- overwritten
+	--
+	-- For verbatim tables integer keys are treated like
+	-- non-integer keys
+	for k, v in pairs( cs )
+	do
+		if type(ignored) == 'table' and table.contains(ignored, k)
+		then
+			-- do nothing
+			-- print("ignore x", k)
+		elseif
+			(
+				type( k ) ~= 'number'
+				or verbatim
+				or cs._verbatim == true
+			)
+			and
+			(
+				type( cs ) ~= CountArray
+				and type( cs._merge ) ~= 'table'
+				or cs._merge[ k ] == true
+			)
+		then
+			inheritKV( cd, k, v )
+		end
+	end
+
+	-- recursevely inherits all integer keyed tables
+	-- ( for non-verbatim tables )
+	if cs._verbatim ~= true
+	then
+		for k, v in ipairs( cs )
+		do
+			if type( v ) == 'table'
+			then
+				inherit( cd, v )
+			else
+				cd[ #cd + 1 ] = v
+			end
+		end
+
+	end
+end
+
+
+table.contains = function
+(
+	t, -- array to search in. Only the numeric values are tested
+	needle  -- value to search for
+)
+	for _, v in ipairs(t) do
+		if needle == v then
+			return true
+		end
+	end
+	return false
+end
+
+-- lsyncd.inherit = inherit
+-- print("inherit ")
+
+
+--
+-- Helper to inherit. Inherits one key.
+--
+inheritKV =
+	function(
+		cd,  -- table copy destination
+		k,   -- key
+		v    -- value
+	)
+
+	-- don't merge inheritance controls
+	if k == '_merge' or k == '_verbatim' then return end
+
+	local dtype = type( cd [ k ] )
+
+	if type( v ) == 'table'
+	then
+		if dtype == 'nil'
+		then
+			cd[ k ] = { }
+			inherit( cd[ k ], v, k == 'exitcodes' )
+		elseif
+			dtype == 'table' and
+			v._merge ~= false
+		then
+			inherit( cd[ k ], v, k == 'exitcodes' )
+		end
+	elseif dtype == 'nil'
+	then
+		cd[ k ] = v
+	end
+end
+
 --
 -- Coping globals to ensure userscripts cannot change this.
 --
@@ -54,6 +158,8 @@ local log       = log
 local terminate = terminate
 local now       = now
 local readdir   = readdir
+local inherit   = inherit
+local inheritKV   = inheritKV
 
 --
 -- Predeclarations.
@@ -75,6 +181,7 @@ local settingsCheckgauge =
 	logfile        = true,
 	pidfile        = true,
 	nodaemon	   = true,
+	onepass 	   = true,
 	statusFile     = true,
 	statusInterval = true,
 	logfacility    = true,
@@ -200,6 +307,10 @@ local CountArray = ( function
 		t,  -- table being accessed
 		k   -- key used to access
 	)
+		if k == '_merge' or k == '_verbatim'
+		then
+			return nil
+		end
 		if type( k ) ~= 'number'
 		then
 			error( 'Key "' .. k .. '" invalid for CountArray', 2 )
@@ -990,6 +1101,7 @@ local Combiner = ( function
 	-- The new delay replaces the old one if it's a file.
 	--
 	local function logReplace
+
 	(
 		d1, -- old delay
 		d2  -- new delay
@@ -1793,6 +1905,20 @@ local InletFactory = ( function
 			-- TODO give a readonly handler only.
 			return sync.config
 		end,
+
+		--
+		-- Returns the sync for this Inlet
+		--
+		getSync = function( sync )
+			return sync
+		end,
+
+		--
+		-- Substitutes parameters in arguments
+		--
+		getSubstitutionData = function( sync, event, data)
+			return sync.getSubstitutionData(sync, event, data)
+		end,
 	}
 
 	--
@@ -2307,11 +2433,11 @@ local Sync = ( function
 			end
 		end
 	end
-	
-	
+
+
 	--
 	-- Returns true if the relative path is excluded or filtered
-	-- 
+	--
 	local function testFilter
 	(
 		self,   -- the Sync
@@ -2365,7 +2491,9 @@ local Sync = ( function
 		local delay = self.processes[ pid ]
 
 		-- not a child of this sync?
-		if not delay then return end
+		if not delay then
+			return false
+		end
 
 		if delay.status
 		then
@@ -2400,6 +2528,9 @@ local Sync = ( function
 					' = ',
 					exitcode
 				)
+				-- sets the initDone after the first success
+				self.initDone = true
+
 			else
 				-- sets the delay on wait again
 				local alarm = self.config.delay
@@ -2447,6 +2578,8 @@ local Sync = ( function
 		end
 
 		self.processes[ pid ] = nil
+		-- we handled this process
+		return true
 	end
 
 	--
@@ -2803,6 +2936,18 @@ local Sync = ( function
 				timestamp,
 			' )'
 		)
+		if self.disabled
+		then
+			return
+		end
+
+		-- tunnel configured but not up
+		if self.config.tunnel and
+		   self.config.tunnel:isReady() == false then
+			log('Tunnel', 'Tunnel for Sync ', self.config.name, ' not ready. Blocking events')
+			self.config.tunnel:blockSync(self)
+			return
+		end
 
 		if self.processes:size( ) >= self.config.maxProcesses
 		then
@@ -2976,6 +3121,16 @@ local Sync = ( function
 	end
 
 	--
+	-- Returns substitude data for event
+	--
+	local function getSubstitutionData(self, event, data)
+		if self.config.tunnel then
+			data = self.config.tunnel:getSubstitutionData(event, data)
+		end
+		return data
+	end
+
+	--
 	-- Creates a new Sync.
 	--
 	local function new
@@ -2991,6 +3146,9 @@ local Sync = ( function
 			processes = CountArray.new( ),
 			excludes = Excludes.new( ),
 			filters = nil,
+			initDone = false,
+			disabled = false,
+			tunnelBlock = nil,
 
 			-- functions
 			addBlanketDelay = addBlanketDelay,
@@ -3007,6 +3165,7 @@ local Sync = ( function
 			removeDelay     = removeDelay,
 			rmExclude       = rmExclude,
 			statusReport    = statusReport,
+			getSubstitutionData = getSubstitutionData,
 		}
 
 		s.inlet = InletFactory.newInlet( s )
@@ -3086,6 +3245,625 @@ end )( )
 
 
 --
+-- Basic Tunnel provider.
+--
+Tunnel = (function()
+
+	Tunnel = {}
+
+	local TUNNEL_CMD_TYPES = {
+		CMD = 1,
+		CHK = 2
+	}
+
+	local TUNNEL_STATUS = {
+		UNKNOWN = 0,
+		DOWN = 1,
+		DISABLED = 2,
+		CONNECTING = 3,
+		UP = 4,
+		RETRY_TIMEOUT = 5,
+		UP_RETRY_TIMEOUT = 6,
+	}
+
+	local TUNNEL_MODES = {
+		COMMAND = "command",
+		POOL = "pool",
+	}
+
+	local TUNNEL_DISTRIBUTION = {
+		ROUNDROBIN = "rr",
+	}
+
+	local TUNNEL_SUBSTITIONS = {
+		"localhost",
+		"localport"
+	}
+
+	local nextTunnelName = 1
+
+	Tunnel.defaults = {
+		mode = TUNNEL_MODES.COMMAND,
+		parallel = 1,
+		distribution = TUNNEL_DISTRIBUTION.ROUNDROBIN,
+		command = nil,
+		checkCommand = nil,
+		checkExitCodes = {0},
+		checkMaxFailed = 5,
+		retryDelay = 10,
+		readyDelay = 5,
+		localhost = 'localhost',
+	}
+	-- export constants
+	Tunnel.TUNNEL_CMD_TYPES = TUNNEL_CMD_TYPES
+	Tunnel.TUNNEL_STATUS = TUNNEL_STATUS
+	Tunnel.TUNNEL_MODES = TUNNEL_MODES
+	Tunnel.TUNNEL_DISTRIBUTION = TUNNEL_DISTRIBUTION
+	Tunnel.TUNNEL_SUBSTITIONS = TUNNEL_SUBSTITIONS
+
+	function Tunnel.new(
+		options
+	)
+		local rv = {
+			processes = CountArray.new( ),
+			blocks = {},
+			ready = false,
+			retryCount = 0,
+			status = TUNNEL_STATUS.DOWN,
+			alarm = false,
+			rrCounter = 0,
+		}
+		-- provides a default name if needed
+		if options.name == nil
+		then
+			options.name = 'Tunnel' .. nextTunnelName
+		end
+
+		nextTunnelName = nextTunnelName + 1
+
+		inherit(options, Tunnel.defaults)
+
+		rv.options = options
+
+		inherit(rv, Tunnel)
+
+		--setmetatable(rv, Tunnel)
+		-- self.__index = self
+
+		return rv
+	end
+
+	function Tunnel.statusToText(status)
+		for n, i in pairs(TUNNEL_STATUS) do
+			if status == i then
+				return n
+			end
+		end
+		return TUNNEL_STATUS.UNKNOWN
+	end
+
+	-- Returns the status of tunnel as text
+	function Tunnel:statusText()
+		return Tunnel.statusToText(self.status)
+	end
+
+	--
+	-- Returns next alarm
+	--
+	function Tunnel:getAlarm()
+		return self.alarm
+	end
+
+	--
+	-- User supplied function to check if tunnel is up
+	function Tunnel:check()
+		return true
+	end
+
+	function Tunnel:isReady()
+		return self.status == TUNNEL_STATUS.UP or
+			   self.status == TUNNEL_STATUS.UP_RETRY_TIMEOUT
+	end
+
+	function Tunnel:setStatus(status)
+		log('Tunnel',self.options.name,': status change: ',
+			self:statusText(), " -> ", Tunnel.statusToText(status))
+		self.status = status
+	end
+
+	--
+	-- Returns the number of processes currently running
+	--
+	function Tunnel:countProcs(timestamp)
+		local run = 0
+		local starting = 0
+		local dead = 0
+		if timestamp == nil then
+			timestamp = now()
+		end
+
+		for pid, pd in self.processes:walk() do
+			if pd.type == TUNNEL_CMD_TYPES.CMD then
+				-- process needs to run for at least some time
+				if lsyncd.kill(pid, 0) ~= 0 then
+					dead = dead + 1
+				elseif (pd.started + self.options.readyDelay) > timestamp then
+					starting = starting + 1
+				else
+					pd.ready = true
+					run = run + 1
+				end
+			end
+		end
+
+		return run, starting, dead
+	end
+
+	--
+	-- Check if the tunnel is up
+	function Tunnel:invoke(timestamp)
+		-- lsyncd.kill()
+		if self:check() == false then
+			-- check failed, consider tunnel broken
+			self:setStatus(TUNNEL_STATUS.DOWN)
+		end
+
+		if self.status == TUNNEL_STATUS.RETRY_TIMEOUT then
+			if self.alarm <= timestamp then
+				log(
+					'Tunnel',
+					'Retry setup ', self.options.name
+				)
+				self:start()
+				return
+			else
+				-- timeout not yet reached
+				self.alarm = now() + 1
+				return
+			end
+		elseif self.status == TUNNEL_STATUS.DOWN then
+			self:start()
+			return
+		elseif self.status == TUNNEL_STATUS.DISABLED then
+			self.alarm = false
+			return
+		end
+
+		local parallel = self.options.parallel
+		local run, starting, dead = self:countProcs(timestamp)
+
+		-- check if enough child processes are running
+		if self.status == TUNNEL_STATUS.CONNECTING then
+			if run > 0 then
+				log(
+					'Tunnel',
+					'Setup of tunnel ', self.options.name, ' sucessfull'
+				)
+				self:setStatus(TUNNEL_STATUS.UP)
+				self:unblockSyncs()
+			end
+		elseif self.status == TUNNEL_STATUS.UP and run == 0 then
+			-- no good process running, degrade
+			log(
+				'Tunnel',
+				'Tunnel ', self.options.name, ' changed to CONNECTING'
+			)
+			self:setStatus(TUNNEL_STATUS.CONNECTING)
+		end
+
+		local spawned = 0
+		-- start more processes if necesarry
+		while run + starting + spawned  < self.options.parallel do
+			self:spawn()
+			spawned = spawned + 1
+		end
+
+		-- trigger next delay
+		if starting + spawned == 0 then
+			self.alarm = false
+		else
+			self.alarm = now() + 1
+		end
+	end
+
+	--
+	-- Check if Sync is already blocked by Tunnel
+	function Tunnel:getBlockerForSync(
+		sync
+	)
+		for _, eblock in ipairs(self.blocks) do
+			if eblock.sync == sync then
+				return eblock
+			end
+		end
+		return nil
+	end
+
+	--
+	-- Create a block on the sync until the tunnel reaches ready state
+	function Tunnel:blockSync(
+		sync
+	)
+		local block = self:getBlockerForSync(sync)
+
+		if block then
+			-- delay the block by another second
+			block:wait( now( ) + 1 )
+			return
+		end
+
+		local block = sync:addBlanketDelay()
+		sync.tunnelBlock = block
+
+		table.insert (self.blocks, block)
+		-- set the new delay to be a block for existing delays
+		for _, eblock in sync.delays:qpairs() do
+			if eblock ~= block then
+				eblock:blockedBy(block)
+			end
+		end
+		-- delay tunnel check by 1 second
+		block:wait( now( ) + 1 )
+	end
+
+	--
+	-- Create a block on the sync until the tunnel reaches ready state
+	function Tunnel:unblockSyncs()
+		for i,blk in ipairs(self.blocks) do
+			blk.sync:removeDelay(blk)
+			blk.sync.tunnelBlock = nil
+		end
+		self.blocks = {}
+	end
+
+	--
+	-- Spawn a single tunnel program
+	--
+	function Tunnel:spawn()
+		local opts = {
+			type = TUNNEL_CMD_TYPES.CMD,
+			started = now(),
+			localhost = self.options.localhost,
+			ready = false,
+		}
+		local cmd = self.options.command
+
+		if self.options.mode == TUNNEL_MODES.POOL then
+			opts.localport = lsyncd.get_free_port()
+		end
+		cmd = substitudeCommands(cmd, opts)
+
+		if #cmd < 1 then
+			log('Error',
+			'',
+			self.options
+			)
+			error( 'start tunnel of mode command with empty command', 2 )
+			-- FIXME: add line which tunnel was called
+			return false
+		end
+		local bin = cmd[1]
+		-- for _,v in ipairs(cmd) do
+		-- 	if type( v ) ~= 'string' then
+		-- 		error( 'tunnel command must be a list of strings', 2 )
+		-- 	end
+		-- end
+		log(
+			'Info',
+			'Start tunnel command ',
+			cmd
+		)
+		local pid = lsyncd.exec(bin, table.unpack(cmd, 2))
+		--local pid = spawn(bin, table.unpack(self.options.command, 2))
+		if pid and pid > 0 then
+			self.processes[pid] = opts
+			self.retryCount = 0
+			self.alarm = now() + 1
+		else
+			self.alarm = now() + self.options.retryDelay
+			if self.status == TUNNEL_STATUS.UP then
+				self:setStatus(TUNNEL_STATUS.UP_RETRY_TIMEOUT)
+			else
+				self:setStatus(TUNNEL_STATUS.RETRY_TIMEOUT)
+			end
+		end
+	end
+
+	function Tunnel:start()
+		if self.status == TUNNEL_STATUS.UP or
+		   self.status == TUNNEL_STATUS.CONNECTING then
+			return
+		end
+
+		if self.options.mode == TUNNEL_MODES.COMMAND or
+		   self.options.mode == TUNNEL_MODES.POOL then
+
+			self:setStatus(TUNNEL_STATUS.CONNECTING)
+			self:invoke(now())
+		else
+			error('unknown tunnel mode:' .. self.options.mode)
+			self:setStatus(TUNNEL_STATUS.DISABLED)
+		end
+	end
+
+	--
+	-- collect pids of exited child processes. Restart the tunnel if necessary
+	---
+	function Tunnel:collect (
+		pid,
+		exitcode
+	)
+		local proc = self.processes[pid]
+
+		if proc == nil then
+			return false
+		end
+		log('Debug',
+			"collect tunnel event. pid: ", pid," exitcode: ", exitcode)
+		local run, starting, dead = self:countProcs()
+		-- cases in which the tunnel command is handled
+		if proc.type == TUNNEL_CMD_TYPES.CMD then
+			if self.status == TUNNEL_STATUS.CONNECTING then
+				log(
+					'Warning',
+					'Starting tunnel failed.',
+					self.options.name
+				)
+				self:setStatus(TUNNEL_STATUS.RETRY_TIMEOUT)
+				self.alarm = now() + self.options.retryDelay
+			else
+				log(
+						'Info',
+						'Tunnel died. Will Restarting',
+						self.options.name
+				)
+
+				if run == 0 then
+					self:setStatus(TUNNEL_STATUS.DOWN)
+				end
+				self.alarm = true
+			end
+		-- cases in which the check function has executed a program
+		elseif proc.type == TUNNEL_CMD_TYPES.CHK then
+			local good = false
+			if type(self.options.checkExitCodes) == 'table' then
+
+				for _,i in iwalk(self.options.checkExitCodes) do
+					if exitcode == i then
+						good = true
+					end
+				end
+			else
+				if self.options.checkExitCodes == exitcode then
+					good = true
+				end
+			end
+			if good then
+				if self.isReady() == false then
+					log(
+					'Info',
+					self.options.name,
+					' Tunnel setup complete '
+					)
+				end
+				self:setStatus(TUNNEL_STATUS.UP)
+				self.checksFailed = 0
+			else
+				if self.ready  then
+					log(
+					'Tunnel',
+					self.options.name
+					' Check failed.'
+					)
+					self.checksFailed = self.checksFailed + 1
+					if self.checksFailed > self.options.checkMaxFailed then
+						self:kill()
+					end
+				end
+				self:setStatus(TUNNEL_STATUS.DOWN)
+			end
+		end
+		self.processes[pid] = nil
+	end
+
+	--
+	-- Stops all tunnel processes
+	--
+	function Tunnel:kill ()
+		log('Tunnel', 'Shutdown tunnel ', self.options.name)
+		for pid, pr in self.processes:walk() do
+			if pr.type == TUNNEL_CMD_TYPES.CMD then
+				log('Tunnel','Kill process ', pid)
+				lsyncd.kill(pid, 9)
+			end
+		end
+		self:setStatus(TUNNEL_STATUS.DISABLED)
+	end
+
+	function Tunnel:isReady ()
+		return self.status == TUNNEL_STATUS.UP
+	end
+
+	--
+	-- Fills/changes the opts table with additional values
+	-- for the transfer to be started
+	--
+	function Tunnel:getSubstitutionData(event, opts)
+		local useProc, useProcLast = nil, nil
+		if self.options.mode == TUNNEL_MODES.POOL then
+			if self.options.distribution == TUNNEL_DISTRIBUTION.ROUNDROBIN then
+				local i = 0
+				for pid, proc in self.processes:walk() do
+					if proc.ready == true then
+						useProcLast = proc
+						if (i % self.processes:size()) == self.rrCounter then
+							useProc = proc
+							self.rrCounter = self.rrCounter + 1
+						end
+					end
+				end
+				if useProc == nil then
+					self.rrCounter = 0
+					useProc = useProcLast
+				end
+			else
+				log('Tunnel', 'Unknown distribution mode: ', self.options.distribution)
+				os.exit(1)
+			end
+		end
+		if useProc then
+			for k,v in pairs(self.TUNNEL_SUBSTITIONS) do
+				if useProc[v] ~= nil then
+					opts[v] = useProc[v]
+				end
+			end
+		end
+		return opts
+	end
+
+	--
+	-- Writes a status report about this tunnel
+	--
+	function Tunnel:statusReport(f)
+		f:write( 'Tunnel: name=', self.options.name, ' status=', self:statusText(), '\n' )
+
+		f:write( 'Running processes: ', self.processes:size( ), '\n')
+
+		for pid, prc in self.processes:walk( )
+		do
+		    f:write("  pid=", pid, " type=", prc.type, " started="..prc.started, '\n')
+		end
+
+		f:write( '\n' )
+	end
+
+	return Tunnel
+
+end)() -- Tunnel scope
+
+--
+-- Tunnels - a singleton
+--
+-- Tunnels maintains all configured tunnels.
+--
+local Tunnels = ( function
+	( )
+		--
+		-- the list of all tunnels
+		--
+		local tunnelList = Array.new( )
+
+		--
+		-- Returns sync at listpos i
+		--
+		local function get
+		( i )
+			return tunnelList[ i ];
+		end
+
+		--
+		-- Adds a new tunnel.
+		--
+		local function add
+		(
+			tunnel
+		)
+			table.insert( tunnelList, tunnel )
+
+			return tunnel
+		end
+
+		--
+		-- Allows a for-loop to walk through all syncs.
+		--
+		local function iwalk
+		( )
+			return ipairs( tunnelList )
+		end
+
+		--
+		-- Returns the number of syncs.
+		--
+		local size = function
+		( )
+			return #tunnelList
+		end
+
+		local nextCycle = false
+		--
+		-- Cycle through all tunnels and call their invoke function
+		--
+		local function invoke(timestamp)
+			for _,tunnel in ipairs( tunnelList )
+			do
+				tunnel:invoke(timestamp)
+			end
+			nextCycle = now() + 5
+		end
+
+		--
+		-- returns the next alarm
+		--
+		local function getAlarm()
+			local rv = nextCycle
+			for _, tunnel in ipairs( tunnelList ) do
+				local ta = tunnel:getAlarm()
+				if ta ~= false
+				   and ta < rv then
+					rv = ta
+				end
+			end
+
+			return rv
+		end
+
+		--
+		-- closes all tunnels
+		--
+		local function killAll()
+			local rv = true
+			for _, tunnel in ipairs( tunnelList ) do
+				local ta = tunnel:kill()
+				if ta ~= true then
+					rv = false
+				end
+			end
+
+			return rv
+		end
+
+		--
+		-- Public interface
+		--
+		return {
+			add = add,
+			get = get,
+			iwalk = iwalk,
+			size = size,
+			invoke = invoke,
+			getAlarm = getAlarm,
+			killAll = killAll,
+			statusReport = statusReport
+		}
+	end )( )
+
+
+--
+-- create a new tunnel from the passed options and registers the tunnel
+tunnel = function (options)
+	log(
+		'Debug',
+		'create tunnel:', options
+	)
+	local rv = Tunnel.new(options)
+	Tunnels.add(rv)
+
+	return rv
+
+end
+
+
+--
 -- Syncs - a singleton
 --
 -- Syncs maintains all configured syncs.
@@ -3134,100 +3912,6 @@ local Syncs = ( function
 		return syncsList[ i ];
 	end
 
-	--
-	-- Helper function for inherit
-	-- defined below
-	--
-	local inheritKV
-
-	--
-	-- Recurvely inherits a source table to a destionation table
-	-- copying all keys from source.
-	--
-	-- All entries with integer keys are inherited as additional
-	-- sources for non-verbatim tables
-	--
-	local function inherit
-	(
-		cd,       -- table copy destination
-		cs,       -- table copy source
-		verbatim  -- forced verbatim ( for e.g. 'exitcodes' )
-	)
-		-- First copies all entries with non-integer keys.
-		--
-		-- Tables are merged; already present keys are not
-		-- overwritten
-		--
-		-- For verbatim tables integer keys are treated like
-		-- non-integer keys
-		for k, v in pairs( cs )
-		do
-			if
-				(
-					type( k ) ~= 'number'
-					or verbatim
-					or cs._verbatim == true
-				)
-				and
-				(
-					type( cs._merge ) ~= 'table'
-					or cs._merge[ k ] == true
-				)
-			then
-				inheritKV( cd, k, v )
-			end
-		end
-
-		-- recursevely inherits all integer keyed tables
-		-- ( for non-verbatim tables )
-		if cs._verbatim ~= true
-		then
-			for k, v in ipairs( cs )
-			do
-				if type( v ) == 'table'
-				then
-					inherit( cd, v )
-				else
-					cd[ #cd + 1 ] = v
-				end
-			end
-
-		end
-	end
-
-	--
-	-- Helper to inherit. Inherits one key.
-	--
-	inheritKV =
-		function(
-			cd,  -- table copy destination
-			k,   -- key
-			v    -- value
-		)
-
-		-- don't merge inheritance controls
-		if k == '_merge' or k == '_verbatim' then return end
-
-		local dtype = type( cd [ k ] )
-
-		if type( v ) == 'table'
-		then
-			if dtype == 'nil'
-			then
-				cd[ k ] = { }
-				inherit( cd[ k ], v, k == 'exitcodes' )
-			elseif
-				dtype == 'table' and
-				v._merge ~= false
-			then
-				inherit( cd[ k ], v, k == 'exitcodes' )
-			end
-		elseif dtype == 'nil'
-		then
-			cd[ k ] = v
-		end
-	end
-
 
 	--
 	-- Adds a new sync.
@@ -3255,12 +3939,17 @@ local Syncs = ( function
 
 		config = { }
 
-		inherit( config, uconfig )
+		-- inherit the config but do not deep copy the tunnel object
+		-- the tunnel object is a reference to a object that might be shared
+		inherit( config, uconfig, nil, {"tunnel"} )
 
 		--
 		-- last and least defaults are inherited
 		--
 		inherit( config, default )
+
+		-- copy references
+		config.tunnel = uconfig.tunnel
 
 		local inheritSettings = {
 			'delay',
@@ -3476,6 +4165,29 @@ function splitQuotedString
         print("Missing matching quote for "..buf)
     end
     return rv
+end
+
+function substitudeCommands(cmd, data)
+	assert(type(data) == "table")
+	local getData = function(arg)
+		local rv = data[arg]
+		if rv ~= nil then
+			return rv
+		else
+			return ""
+		end
+	end
+	if type(cmd) == "string" then
+		return string.gsub(cmd, "%${(%w+)}", getData)
+	elseif type(cmd) == "table" then
+		local rv = {}
+		for i, v in ipairs(cmd) do
+			rv[i] = string.gsub(v, "%${(%w+)}", getData)
+		end
+		return rv
+	else
+		log("Error", "Unsupported type in replacCommand")
+	end
 end
 
 --
@@ -4349,6 +5061,13 @@ local StatusFile = ( function
 			f:write( '\n' )
 		end
 
+		for i, t in Tunnels.iwalk( )
+		do
+			t:statusReport( f )
+
+			f:write( '\n' )
+		end
+
 		Inotify.statusReport( f )
 
 		f:close( )
@@ -4519,17 +5238,27 @@ function runner.collectProcess
 	pid,       -- process id
 	exitcode   -- exitcode
 )
-	processCount = processCount - 1
+	for _, s in Syncs.iwalk( )
+	do
+		if s:collect( pid, exitcode ) then
+			processCount = processCount - 1
+			break
+		end
+	end
+
+	for _, s in Tunnels.iwalk( )
+	do
+		if s:collect( pid, exitcode ) then
+			break
+		end
+	end
 
 	if processCount < 0
 	then
 		error( 'negative number of processes!' )
 	end
 
-	for _, s in Syncs.iwalk( )
-	do
-		if s:collect( pid, exitcode ) then return end
-	end
+
 end
 
 --
@@ -4566,6 +5295,7 @@ function runner.cycle(
 
 			return true
 		else
+			Tunnels.killAll()
 			return false
 		end
 	end
@@ -4573,6 +5303,31 @@ function runner.cycle(
 	if lsyncdStatus ~= 'run'
 	then
 		error( 'runner.cycle() called while not running!' )
+	end
+
+	-- check and start tunnels
+	if not uSettings.maxProcesses
+	or processCount < uSettings.maxProcesses
+	then
+		Tunnels.invoke( timestamp )
+	end
+
+	if uSettings.onepass
+	then
+		local allDone = true
+		for i, s in Syncs.iwalk( )
+		do
+			if s.initDone == true
+			then
+				s.disabled = true
+			else
+				allDone = false
+			end
+		end
+		if allDone and processCount == 0 then
+			log( 'Info', 'onepass active and all syncs finished. Exiting successfully')
+			os.exit(0)
+		end
 	end
 
 	--
@@ -4643,6 +5398,7 @@ OPTIONS:
   -log    [Category]  Turns on logging for a debug category
   -logfile FILE       Writes log to FILE (DEFAULT: uses syslog)
   -nodaemon           Does not detach and logs to stdout/stderr
+  -onepass            Sync once and exit
   -pidfile FILE       Writes Lsyncds PID into FILE
   -runner FILE        Loads Lsyncds lua part from FILE
   -script FILE        Script to load before execting runner (ADVANCED)
@@ -4757,6 +5513,15 @@ function runner.configure( args, monitors )
 			function
 			( )
 				clSettings.nodaemon = true
+			end
+		},
+
+		onepass =
+		{
+			0,
+			function
+			( )
+				clSettings.onepass = true
 			end
 		},
 
@@ -5065,7 +5830,7 @@ function runner.initialize( firstTime )
 	-- makes sure the user gave Lsyncd anything to do
 	if Syncs.size() == 0
 	then
-		log( 'Error', 'Nothing to watch!' ) 
+		log( 'Error', 'Nothing to watch!' )
 
 		os.exit( -1 )
 	end
@@ -5183,6 +5948,8 @@ function runner.getAlarm
 			'at global process limit.'
 		)
 	end
+	-- checks for tunnel alarm
+	checkAlarm( Tunnels.getAlarm( ) )
 
 	-- checks if a statusfile write has been delayed
 	checkAlarm( StatusFile.getAlarm( ) )
@@ -5261,6 +6028,19 @@ function runner.term
 
 	lsyncdStatus = 'fade'
 
+end
+
+--
+-- Called by core on a term signal.
+--
+function runner.teardown
+	(
+		exitCode  -- exitcode that will be returned
+	)
+	-- ensure we will all stray tunnels when we hard exit
+	Tunnels.killAll()
+
+	return exitCode
 end
 
 --============================================================================
@@ -5387,7 +6167,7 @@ function spawnShell
 	command,   -- the shell command
 	...        -- additonal arguments
 )
-	return spawn( agent, '/bin/sh', '-c', command, '/bin/sh', ... )
+	return spawn( agent, 'sh', '-c', command, 'sh', ... )
 end
 
 

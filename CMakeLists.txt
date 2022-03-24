@@ -1,7 +1,7 @@
 # preamble
 project( Lsyncd )
 cmake_minimum_required( VERSION 3.10 )
-set( LSYNCD_VERSION 2.2.3 )
+set( LSYNCD_VERSION 2.3.0-beta1 )
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/" )
 
 
@@ -118,6 +118,6 @@ add_executable( lsyncd ${LSYNCD_SRC} )
 target_link_libraries( lsyncd ${LUA_LIBRARIES} )
 
 install( TARGETS lsyncd RUNTIME DESTINATION bin )
-install( FILES doc/manpage/lsyncd.1 DESTINATION man )
+install( FILES doc/manpage/lsyncd.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 COMPONENT man )
 install( DIRECTORY examples DESTINATION doc )
 

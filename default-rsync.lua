@@ -63,6 +63,7 @@ rsync.checkgauge = {
 		copy_links        =  true,
 		copy_unsafe_links =  true,
 		cvs_exclude       =  true,
+		delete_excluded   =  true,
 		dry_run           =  true,
 		executability     =  true,
 		existing          =  true,
@@ -127,6 +128,9 @@ rsync.action = function
 
 	-- gets all events ready for syncing
 	local elist = inlet.getEvents( eventNotInitBlank )
+
+	local substitudes = inlet.getSubstitutionData(elist, {})
+	local target = substitudeCommands(config.target, substitudes)
 
 	-- gets the list of paths for the event list
 	-- deletes create multi match patterns
@@ -236,7 +240,7 @@ rsync.action = function
 		'--include-from=-',
 		'--exclude=*',
 		config.source,
-		config.target
+		target
 	)
 end
 
@@ -317,7 +321,7 @@ rsync.init = function
 
 	local filters = inlet.hasFilters( ) and inlet.getFilters( )
 
-	local delete   = nil
+	local delete   = {}
 
 	local target   = config.target
 
@@ -331,10 +335,18 @@ rsync.init = function
 		target = config.host .. ':' .. config.targetdir
 	end
 
+	local substitudes = inlet.getSubstitutionData(event, {})
+	target = substitudeCommands(target, substitudes)
+
 	if config.delete == true
 	or config.delete == 'startup'
 	then
 		delete = { '--delete', '--ignore-errors' }
+	end
+
+	if config.rsync.delete_excluded == true
+	then
+		table.insert( delete, '--delete-excluded' )
 	end
 
 	if not filters and #excludes == 0

@@ -19,6 +19,8 @@
 
 #define SYSLOG_NAMES 1
 
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/times.h>
@@ -45,6 +47,11 @@
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
+
+#if defined(LUA_VERSION_NUM) && LUA_VERSION_NUM >= 504
+#define lua_objlen lua_rawlen
+#endif
+
 
 /*
 | The Lua part of Lsyncd
@@ -133,6 +140,22 @@ int pidfile_fd = 0;
 | The kernel's clock ticks per second.
 */
 static long clocks_per_sec;
+
+
+/*
+| Dummy variable of which it's address is used as
+| the cores index in the lua registry to
+| the lua runners function table in the lua registry.
+*/
+static int runner;
+
+
+/*
+| Dummy variable of which it's address is used as
+| the cores index n the lua registry to
+| the lua runners error handler.
+*/
+static int callError;
 
 
 /**
@@ -438,6 +461,40 @@ printlogf0(lua_State *L,
 }
 
 
+/*
+ | Print a traceback of the error
+ */
+static int l_traceback (lua_State *L) {
+	// runner.callError
+    lua_getglobal(L, "debug");
+    lua_getfield(L, -1, "traceback");
+    lua_pushvalue(L, 1);
+    lua_pushinteger(L, 2);
+    lua_call(L, 2, 1);
+	printlogf( L, "traceback", "%s", lua_tostring(L, -1) );
+    return 1;
+}
+
+/*
+ | Call runners terminate function and exit with given exit code
+ */
+static void safeexit (lua_State *L, int exitcode) {
+	// load_runner_func(L, "teardown");
+	// pushes the function
+	lua_pushlightuserdata( L, (void *) &runner );
+	lua_gettable( L, LUA_REGISTRYINDEX );
+	lua_pushstring( L, "teardown" );
+	lua_gettable( L, -2 );
+	lua_remove( L, -2 );
+	lua_pushinteger(L, exitcode);
+    lua_call(L, 2, 1);
+	if (lua_isinteger(L, -1)) {
+		exitcode = luaL_checkinteger(L, -1);
+	}
+    exit(exitcode);
+}
+
+
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
 (       Simple memory management            )
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
@@ -605,23 +662,6 @@ pipe_tidy( struct observance * observance )
 (           Helper Routines                 )
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
-
-/*
-| Dummy variable of which it's address is used as
-| the cores index in the lua registry to
-| the lua runners function table in the lua registry.
-*/
-static int runner;
-
-
-/*
-| Dummy variable of which it's address is used as
-| the cores index n the lua registry to
-| the lua runners error handler.
-*/
-static int callError;
-
-
 /*
 | Sets the close-on-exit flag of a file descriptor.
 */
@@ -697,7 +737,7 @@ write_pidfile
 			pidfile
 		);
 
-		exit( -1 );
+		safeexit(L, -1 );
 	}
 
 	int rc = lockf( pidfile_fd, F_TLOCK, 0 );
@@ -710,7 +750,7 @@ write_pidfile
 			pidfile
 		);
 
-		exit( -1 );
+		safeexit(L, -1 );
 	}
 
 	snprintf( buf, sizeof( buf ), "%i\n", getpid( ) );
@@ -918,7 +958,7 @@ user_obs_ready(
 	// calls the user function
 	if( lua_pcall( L, 1, 0, -3 ) )
 	{
-		exit( -1 );
+		safeexit(L, -1 );
 	}
 
 	lua_pop( L, 2 );
@@ -954,7 +994,7 @@ user_obs_writey(
 	// calls the user function
 	if( lua_pcall( L, 1, 0, -3 ) )
 	{
-		exit(-1);
+		safeexit(L, -1);
 	}
 
 	lua_pop( L, 2 );
@@ -1077,6 +1117,82 @@ l_now(lua_State *L)
 	*j = times( dummy_tms );
 	return 1;
 }
+
+/*
+| Sends a signal to proceess pid
+|
+| Params on Lua stack:
+|     1: pid
+|     2: signal
+|
+| Returns on Lua stack:
+|     return value of kill
+*/
+static int
+l_kill( lua_State *L )
+{
+	pid_t pid = luaL_checkinteger( L, 1 );
+	int sig = luaL_checkinteger( L, 2 );
+
+	int rv = kill(pid, sig );
+
+	lua_pushinteger( L, rv );
+
+	return 1;
+}
+
+/*
+| Returns a free port of host
+|
+| Params on Lua stack:
+|    (not yet) 1: hostname or ip for bind
+|
+| Returns on Lua stack:
+|    return integer of free port
+|
+*/
+static int
+l_free_port(lua_State *L) {
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
+	if(sock < 0) {
+		printf("error opening socket\n");
+		goto error;
+	}
+
+	struct sockaddr_in serv_addr;
+	memset((char *) &serv_addr, 0, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = INADDR_ANY;
+	serv_addr.sin_port = 0;
+	if (bind(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+		if(errno == EADDRINUSE) {
+			printf("the port is not available. already to other process\n");
+			goto error;
+		} else {
+			printf("could not bind to process (%d) %s\n", errno, strerror(errno));
+			goto error;
+		}
+	}
+
+	socklen_t len = sizeof(serv_addr);
+	if (getsockname(sock, (struct sockaddr *)&serv_addr, &len) == -1) {
+		goto error;
+	}
+
+	lua_pushinteger(L, ntohs(serv_addr.sin_port));
+
+	if (close (sock) < 0 ) {
+		printf("did not close: %s\n", strerror(errno));
+		lua_pop        ( L,  1 );
+		goto error;
+	}
+
+	return 1;
+error:
+	lua_pushnil(L);
+	return 1;
+}
+
 
 
 /*
@@ -1203,7 +1319,7 @@ l_exec( lua_State *L )
 				"in spawn(), expected a string after pipe '<'"
 			);
 
-			exit( -1 );
+			safeexit(L, -1 );
 		}
 
 		pipe_text = lua_tolstring( L, 3, &pipe_len );
@@ -1215,7 +1331,7 @@ l_exec( lua_State *L )
 			{
 				logstring( "Error", "cannot create a pipe!" );
 
-				exit( -1 );
+				safeexit(L, -1 );
 			}
 
 			// always closes the write end for child processes
@@ -1839,6 +1955,8 @@ static const luaL_Reg lsyncdlib[] =
 	{ "exec",           l_exec          },
 	{ "log",            l_log           },
 	{ "now",            l_now           },
+	{ "kill",           l_kill          },
+	{ "get_free_port",  l_free_port     },
 	{ "nonobserve_fd",  l_nonobserve_fd },
 	{ "observe_fd",     l_observe_fd    },
 	{ "readdir",        l_readdir       },
@@ -1861,7 +1979,7 @@ l_jiffies_add( lua_State *L )
 	if( p1 && p2 )
 	{
 		logstring( "Error", "Cannot add two timestamps!" );
-		exit( -1 );
+		safeexit(L, -1 );
 	}
 
 	{
@@ -1881,6 +1999,33 @@ l_jiffies_add( lua_State *L )
 	}
 }
 
+/*
+| Adds a number in seconds to a jiffy timestamp.
+*/
+static int
+l_jiffies_concat( lua_State *L )
+{
+	char buf[1024];
+	clock_t *p1 = ( clock_t * ) lua_touserdata( L, 1 );
+	clock_t *p2 = ( clock_t * ) lua_touserdata( L, 2 );
+
+	if( p1 && p2 )
+	{
+		logstring( "Error", "Cannot add two timestamps!" );
+		safeexit(L, -1 );
+	}
+
+	{
+		if (p1) {
+			snprintf( buf, sizeof(buf), "%Lf", (long double)(*p1));
+			lua_pushfstring(L, "%s%s", &buf, luaL_checkstring( L, 2));
+		} else {
+			snprintf( buf, sizeof(buf), "%Lf", (long double)(*p2));
+			lua_pushfstring(L, "%s%s", luaL_checkstring( L, 1), &buf);
+		}
+		return 1;
+	}
+}
 
 /*
 | Subracts two jiffy timestamps resulting in a number in seconds
@@ -1986,6 +2131,9 @@ register_lsyncd( lua_State *L )
 
 	lua_pushcfunction( L, l_jiffies_eq );
 	lua_setfield( L, mt, "__eq" );
+
+	lua_pushcfunction( L, l_jiffies_concat );
+	lua_setfield( L, mt, "__concat" );
 
 	lua_pop( L, 1 ); // pop(mt)
 
@@ -2162,7 +2310,7 @@ masterloop(lua_State *L)
 
 		if( lua_pcall( L, 0, 1, -2 ) )
 		{
-			exit( -1 );
+			safeexit(L, -1 );
 		}
 
 		if( lua_type( L, -1 ) == LUA_TBOOLEAN)
@@ -2348,7 +2496,9 @@ masterloop(lua_State *L)
 			lua_pushinteger( L, WEXITSTATUS( status ) );
 
 			if ( lua_pcall( L, 2, 0, -4 ) )
-				{ exit(-1); }
+			{
+				safeexit(L, -1);
+			}
 
 			lua_pop( L, 1 );
 		}
@@ -2360,7 +2510,7 @@ masterloop(lua_State *L)
 
 			if( lua_pcall( L, 0, 0, -2 ) )
 			{
-				exit( -1 );
+				safeexit( L, -1 );
 			}
 
 			lua_pop( L, 1 );
@@ -2377,7 +2527,7 @@ masterloop(lua_State *L)
 
 			if( lua_pcall( L, 1, 0, -3 ) )
 			{
-				exit( -1 );
+				safeexit(L, -1 );
 			}
 
 			lua_pop( L, 1 );
@@ -2393,7 +2543,7 @@ masterloop(lua_State *L)
 
 		if( lua_pcall( L, 1, 1, -3 ) )
 		{
-			exit( -1 );
+			safeexit(L,  -1 );
 		}
 
 		if( !lua_toboolean( L, -1 ) )
@@ -2411,7 +2561,7 @@ masterloop(lua_State *L)
 				"internal, stack is dirty."
 			);
 			l_stackdump( L );
-			exit( -1 );
+			safeexit(L, -1 );
 		}
 	}
 }
@@ -2791,8 +2941,9 @@ main1( int argc, char *argv[] )
 				lsyncd_config_file,
 				lua_tostring( L, -1 )
 			);
+			l_traceback(L);
 
-			exit( -1 );
+			safeexit(L, -1 );
 		}
 	}
 
