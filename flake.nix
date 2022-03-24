@@ -117,9 +117,9 @@
 
           buildTypes = { 
             lua5_1 = [pkgs.lua5_1 pkgs.lua51Packages.luaposix (buildExtensions pkgs.lua51Packages)];
-            lua5_2 = [pkgs.lua5_2 pkgs.lua52Packages.luaposix (buildExtensions pkgs.lua51Packages)];
-            lua5_3 = [pkgs.lua5_3 pkgs.lua53Packages.luaposix (buildExtensions pkgs.lua51Packages)];
-            lua5_4 = [pkgs.lua5_3 (luaposix35 mylua5_4) (buildExtensions mylua5_4)];
+            lua5_2 = [pkgs.lua5_2 pkgs.lua52Packages.luaposix (buildExtensions pkgs.lua52Packages)];
+            lua5_3 = [pkgs.lua5_3 pkgs.lua53Packages.luaposix (buildExtensions pkgs.lua53Packages)];
+            lua5_4 = [pkgs.lua5_4 (luaposix35 mylua5_4) (buildExtensions mylua5_4.pkgs)];
           };
         in
         let
