@@ -38,6 +38,7 @@ default.checkgauge = {
 	action        =  true,
 	checkgauge    =  true,
 	collect       =  true,
+	crontab       =  true,
 	delay         =  true,
 	exitcodes     =  true,
 	init          =  true,

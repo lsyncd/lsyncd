@@ -1945,25 +1945,26 @@ l_nonobserve_fd( lua_State *L )
 	return 0;
 }
 
-
+static int l_jiffies_fromseconds(lua_State *L);
 /*
 | The Lsnycd's core library
 */
 static const luaL_Reg lsyncdlib[] =
-{
-	{ "configure",      l_configure     },
-	{ "exec",           l_exec          },
-	{ "log",            l_log           },
-	{ "now",            l_now           },
-	{ "kill",           l_kill          },
-	{ "get_free_port",  l_free_port     },
-	{ "nonobserve_fd",  l_nonobserve_fd },
-	{ "observe_fd",     l_observe_fd    },
-	{ "readdir",        l_readdir       },
-	{ "realdir",        l_realdir       },
-	{ "stackdump",      l_stackdump     },
-	{ "terminate",      l_terminate     },
-	{ NULL,             NULL            }
+{  
+	{ "configure",            l_configure     },
+	{ "exec",                 l_exec          },
+	{ "log",                  l_log           },
+	{ "now",                  l_now           },
+	{ "jiffies_from_seconds", l_jiffies_fromseconds},
+	{ "kill",                 l_kill          },
+	{ "get_free_port",        l_free_port     },
+	{ "nonobserve_fd",        l_nonobserve_fd },
+	{ "observe_fd",           l_observe_fd    },
+	{ "readdir",              l_readdir       },
+	{ "realdir",              l_realdir       },
+	{ "stackdump",            l_stackdump     },
+	{ "terminate",            l_terminate     },
+	{ NULL,                   NULL            }
 };
 
 
@@ -2103,6 +2104,53 @@ l_jiffies_le(lua_State *L)
 	return 1;
 }
 
+/*
+| Converts a jiffies to a number
+*/
+static int
+l_jiffies_tonumber(lua_State *L)
+{
+	clock_t a1 = ( *( clock_t * ) luaL_checkudata( L, 1, "Lsyncd.jiffies" ) );
+
+	lua_pushinteger( L, a1 * clocks_per_sec);
+	return 1;
+}
+
+/*
+| Converts a jiffies to a number
+*/
+static int
+l_jiffies_fromseconds(lua_State *L)
+{
+	lua_Integer a1 = luaL_checkinteger(L, 1);
+
+	clock_t *r  = (clock_t *) lua_newuserdata( L, sizeof( clock_t ) );
+	luaL_getmetatable( L, "Lsyncd.jiffies" );
+	lua_setmetatable( L, -2 );
+
+	*r = a1 * clocks_per_sec;
+
+	return 1;
+}
+
+/*
+| Converts a jiffies to a number
+*/
+static int
+l_jiffies_index(lua_State *L)
+{
+	clock_t a1 = ( *( clock_t * ) luaL_checkudata( L, 1, "Lsyncd.jiffies" ) );
+	const char *a2 = luaL_checkstring(L, 2);
+
+	printf("in index %s %d\n", a2, a1);
+
+	if (!strcmp(a2, "seconds")) {
+		lua_pushinteger( L, a1 / clocks_per_sec);
+		return 1;
+	}
+	return 0;
+}
+
 
 /*
 | Registers the Lsyncd's core library.
@@ -2134,6 +2182,9 @@ register_lsyncd( lua_State *L )
 
 	lua_pushcfunction( L, l_jiffies_concat );
 	lua_setfield( L, mt, "__concat" );
+
+	lua_pushcfunction( L, l_jiffies_index );
+	lua_setfield( L, mt, "__index" );
 
 	lua_pop( L, 1 ); // pop(mt)
 
