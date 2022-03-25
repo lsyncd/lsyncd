@@ -172,6 +172,18 @@ local Monitors
 --
 local processCount = 0
 
+local crontab = nil
+
+local function loadCrontab()
+	local ok, mod = pcall(require, "lua-crontab")
+	if ok then
+		-- print update crontab
+		crontab = mod
+		return true
+	end
+	return false
+
+end
 
 --
 -- All valid entries in a settings{} call.
@@ -2835,6 +2847,26 @@ local Sync = ( function
 		recurse( )
 	end
 
+	local function updateNextCronAlarm(self, timestamp)
+		if timestamp == nil then
+			timestamp = now()
+		end
+
+		print(type(now()))
+		local nalarm = type(self.nextCronAlarm) == "userdata" and self.nextCronAlarm.seconds or nil
+		for i, c in ipairs(self.cron) do
+			local na = c:get_next_occurrence(timestamp.seconds)
+			print("na", timestamp.seconds, na)
+			if nalarm == nil or nalarm > na then
+				nalarm = na
+			end
+		end
+		print("calculated next cron:", nalarm)
+		if nalarm ~= nil then
+			self.nextCronAlarm = lsyncd.jiffies_from_seconds(nalarm)
+		end
+	end
+
 	--
 	-- Returns the soonest alarm for this Sync.
 	--
@@ -2847,6 +2879,12 @@ local Sync = ( function
 			return false
 		end
 
+		local rv = false
+
+		if self.cron ~= nil and self.nextCronAlarm == false then
+			updateNextCronAlarm(self)
+		end
+
 		-- first checks if more processes could be spawned
 		if self.processes:size( ) < self.config.maxProcesses
 		then
@@ -2855,13 +2893,21 @@ local Sync = ( function
 			do
 				if d.status == 'wait'
 				then
-					return d.alarm
+					if rv == false or d.alarm < rv then
+						rv = d.alarm
+					end
 				end
 			end
 		end
+		if rv == false and self.nextCronAlarm ~= false then
+			rv = self.nextCronAlarm
+		elseif rv == true then
+		elseif self.nextCronAlarm ~= false and self.nextCronAlarm < rv then
+			rv = self.nextCronAlarm
+		end
 
 		-- nothing to spawn
-		return false
+		return rv
 	end
 
 	--
@@ -2953,6 +2999,14 @@ local Sync = ( function
 		then
 			-- no new processes
 			return
+		end
+
+		if self.nextCronAlarm ~= false and self.nextCronAlarm < timestamp then
+			-- time fo a full sync
+			log('Info', 'Crontab triggered full sync')
+			-- TODO
+			
+			updateNextCronAlarm(self, timestamp)
 		end
 
 		for _, d in self.delays:qpairs( )
@@ -3149,6 +3203,8 @@ local Sync = ( function
 			initDone = false,
 			disabled = false,
 			tunnelBlock = nil,
+			cron = nil,
+			nextCronAlarm = false,
 
 			-- functions
 			addBlanketDelay = addBlanketDelay,
@@ -3232,6 +3288,34 @@ local Sync = ( function
 		if config.excludeFrom
 		then
 			s.excludes:loadFile( config.excludeFrom )
+		end
+
+		if config.crontab and loadCrontab() == false then
+			error("Sync ", config.name, " uses a crontab, but lua-crontab dependency is not available")
+		elseif config.crontab then
+			local cdata = {}
+			for i, v in ipairs( config.crontab ) do
+				local ok, cd = pcall(crontab.make_raw_cron_data_from_string, v)
+				if ok then
+					print ('getter')
+					local props = crontab.make_cron_properties(cd)
+					local getter = crontab.make_next_occurrence_getter(props)
+					print(getter)
+					for k, v in pairs( getter ) do
+						print(k,v)
+					end
+					table.insert( cdata, getter )
+				else
+					error("Crontab rule ", i, " is not valid: ", cd, " . Rule: ", v)
+				end
+
+			end
+			-- local ok, cron = pcall(crontab.make_crontab, cdata)
+			if #cdata then
+				s.cron = cdata
+			else
+				error("Can't parse crontab data: "..cron, 2)
+			end
 		end
 
 		return s
