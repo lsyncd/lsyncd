@@ -3427,7 +3427,7 @@ Tunnel = (function()
 			ready = false,
 			retryCount = 0,
 			status = TUNNEL_STATUS.DOWN,
-			alarm = false,
+			alarm = true,
 			rrCounter = 0,
 		}
 		-- provides a default name if needed
@@ -3906,7 +3906,7 @@ local Tunnels = ( function
 			return #tunnelList
 		end
 
-		local nextCycle = false
+		local nextCycle = true
 		--
 		-- Cycle through all tunnels and call their invoke function
 		--
@@ -3915,7 +3915,11 @@ local Tunnels = ( function
 			do
 				tunnel:invoke(timestamp)
 			end
-			nextCycle = now() + 5
+			if size() > 0 then
+				nextCycle = now() + 5
+			else
+				nextCycle = false
+			end
 		end
 
 		--
