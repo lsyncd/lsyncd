@@ -2142,10 +2142,11 @@ l_jiffies_index(lua_State *L)
 	clock_t a1 = ( *( clock_t * ) luaL_checkudata( L, 1, "Lsyncd.jiffies" ) );
 	const char *a2 = luaL_checkstring(L, 2);
 
-	printf("in index %s %d\n", a2, a1);
-
 	if (!strcmp(a2, "seconds")) {
 		lua_pushinteger( L, a1 / clocks_per_sec);
+		return 1;
+	} else if (!strcmp(a2, "string")) {
+		lua_pushfstring (L, "%d", a1 / clocks_per_sec);
 		return 1;
 	}
 	return 0;
