@@ -6024,13 +6024,15 @@ function runner.getAlarm
 	if lsyncdStatus ~= 'run' then return false end
 
 	local alarm = false
+	local alarmSource = ""
 
 	--
 	-- Checks if 'a' is sooner than the 'alarm' up-value.
 	--
 	local function checkAlarm
 	(
-		a  -- alarm time
+		a,  -- alarm time
+		src -- name of subsystem
 	)
 		if a == nil then error( 'got nil alarm' ) end
 
@@ -6045,6 +6047,7 @@ function runner.getAlarm
 		if not alarm or a < alarm
 		then
 			alarm = a
+			alarmSource = src
 		end
 	end
 
@@ -6052,12 +6055,13 @@ function runner.getAlarm
 	-- checks all syncs for their earliest alarm,
 	-- but only if the global process limit is not yet reached.
 	--
+
 	if not uSettings.maxProcesses
 	or processCount < uSettings.maxProcesses
 	then
 		for _, s in Syncs.iwalk( )
 		do
-			checkAlarm( s:getAlarm( ) )
+			checkAlarm( s:getAlarm( ), s.config.name )
 		end
 	else
 		log(
@@ -6066,15 +6070,13 @@ function runner.getAlarm
 		)
 	end
 	-- checks for tunnel alarm
-	checkAlarm( Tunnels.getAlarm( ) )
+	checkAlarm( Tunnels.getAlarm( ), "Tunnels" )
 
 	-- checks if a statusfile write has been delayed
-	checkAlarm( StatusFile.getAlarm( ) )
-
+	checkAlarm( StatusFile.getAlarm( ), "StatusFile" )
 	-- checks for an userAlarm
-	checkAlarm( UserAlarms.getAlarm( ) )
-
-	log( 'Alarm', 'runner.getAlarm returns: ', alarm )
+	checkAlarm( UserAlarms.getAlarm( ), "UserAlarms" )
+	log( 'Alarm', 'runner.getAlarm returns: ', alarm, " Source:", alarmSource )
 
 	return alarm
 end
