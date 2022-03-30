@@ -151,6 +151,13 @@ inheritKV =
 	end
 end
 
+function alarm2string(a)
+	if type(a) == 'userdata' then
+		return a.string
+	end
+	return tostring( a )
+end
+
 --
 -- Coping globals to ensure userscripts cannot change this.
 --
@@ -850,6 +857,20 @@ local Delay = ( function
 	end
 
 	--
+	-- Returns a debug string of the delay
+	--
+	local function debug(self, deep)
+		local rv = "<Delay "..self.status.." dpos:"..self.dpos.." type:"..self.etype.." alarm:"..alarm2string(self.alarm).." blocked:"..(self.blocks and #self.blocks or 0).." path:"..self.path
+		if deep and self.blocks then
+			for k,v in ipairs(self.blocks) do
+				rv = rv.."\n  blocked: "..v:debug(false)
+			end
+		end
+		rv = rv..">"
+		return rv
+	end
+
+	--
 	-- Creates a new delay.
 	--
 	local function new
@@ -868,6 +889,7 @@ local Delay = ( function
 				blockedBy = blockedBy,
 				setActive = setActive,
 				wait = wait,
+				debug = debug,
 				[ k_nt ] =
 					{
 						etype = etype,
@@ -3175,6 +3197,16 @@ local Sync = ( function
 	end
 
 	--
+	-- Returns a debug string describing the Sync
+	--
+	local function debug
+	(
+		self
+	)
+		local rv = "<Sync "..self.config.name.." delays:"..self.delays:size( ).."> "
+		return rv
+	end
+	--
 	-- Returns substitude data for event
 	--
 	local function getSubstitutionData(self, event, data)
@@ -3214,6 +3246,7 @@ local Sync = ( function
 			collect         = collect,
 			concerns        = concerns,
 			delay           = delay,
+			debug           = debug,
 			getAlarm        = getAlarm,
 			getDelays       = getDelays,
 			getNextDelay    = getNextDelay,
