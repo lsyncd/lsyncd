@@ -1006,6 +1006,11 @@ local Combiner = ( function
 			return 'stack'
 		end
 
+		-- A full sync does not affect us
+		if d1.etype == 'Full' or d2.etype == 'Full' then
+			return nil
+		end
+
 		-- two normal events
 		if d1.etype ~= 'Move' and d2.etype ~= 'Move'
 		then
@@ -3027,7 +3032,7 @@ local Sync = ( function
 			-- time fo a full sync
 			log('Info', 'Crontab triggered full sync')
 			-- TODO
-			
+			self:delay("Full", timestamp, "/", nil)
 			updateNextCronAlarm(self, timestamp)
 		end
 
@@ -4144,6 +4149,7 @@ local Syncs = ( function
 		and not config.onModify
 		and not config.onDelete
 		and not config.onMove
+		and not config.onFull
 		then
 			local info = debug.getinfo( 3, 'Sl' )
 

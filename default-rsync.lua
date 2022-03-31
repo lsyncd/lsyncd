@@ -313,6 +313,16 @@ rsync.init = function
 (
 	event
 )
+	return rsync.full(event)
+end
+
+--
+-- Triggers a full sync event
+--
+rsync.full = function
+	(
+		event
+	)
 	local config   = event.config
 
 	local inlet    = event.inlet

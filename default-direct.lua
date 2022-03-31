@@ -129,7 +129,16 @@ direct.action = function(inlet)
 			event.targetPath,
 			event2.targetPath
 		)
+	elseif event.etype == 'Full' then
+		local tp = event.targetPath
 
+		-- extra security check
+		if tp == '' or tp == '/' or not tp then
+			error('Refusing to erase your harddisk!')
+		end
+
+		-- trigger full sync function
+		direct.full(event)
 	else
 		log('Warn', 'ignored an event of type "',event.etype, '"')
 		inlet.discardEvent(event)
@@ -176,6 +185,12 @@ end
 -- (currently) identical to default rsync.
 --
 direct.init = default.rsync.init
+
+--
+-- Spawns the recursive startup sync
+-- (currently) identical to default rsync.
+--
+direct.full = default.rsync.full
 
 --
 -- Checks the configuration.
