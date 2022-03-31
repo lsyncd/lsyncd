@@ -2880,7 +2880,7 @@ local Sync = ( function
 		end
 
 		print(type(now()))
-		local nalarm = type(self.nextCronAlarm) == "userdata" and self.nextCronAlarm.seconds or nil
+		local nalarm = nil
 		for i, c in ipairs(self.cron) do
 			local na = c:get_next_occurrence(timestamp.seconds)
 			print("na", timestamp.seconds, na)
