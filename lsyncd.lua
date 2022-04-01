@@ -3934,8 +3934,8 @@ local Tunnels = ( function
 			local rv = nextCycle
 			for _, tunnel in ipairs( tunnelList ) do
 				local ta = tunnel:getAlarm()
-				if ta ~= false
-				   and ta < rv then
+				if ta == true or (type(ta) == "userdata"
+				   and ta < rv) then
 					rv = ta
 				end
 			end
