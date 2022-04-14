@@ -1213,6 +1213,7 @@ l_exec( lua_State *L )
 {
 	// the binary to call
 	const char *binary = luaL_checkstring(L, 1);
+	l_stackdump(L);
 
 	// number of arguments
 	int argc = lua_gettop( L ) - 1;
@@ -1321,7 +1322,7 @@ l_exec( lua_State *L )
 
 			safeexit(L, -1 );
 		}
-
+		printf("JOJOJO\n");
 		pipe_text = lua_tolstring( L, 3, &pipe_len );
 
 		if( strlen( pipe_text ) > 0 )
@@ -1406,6 +1407,7 @@ l_exec( lua_State *L )
 		exit( -1 );
 	}
 
+	printf("has pipetext %d %d\n", pipe_text ? strlen(pipe_text) : 0 , pipe_len);
 	if( pipe_text )
 	{
 		int len;
@@ -1945,6 +1947,28 @@ l_nonobserve_fd( lua_State *L )
 	return 0;
 }
 
+/*
+| Returns file size of given path or nil on error
+|
+| Params on Lua stack:
+|     1:  path of filename
+*/
+extern int
+l_file_size( lua_State *L )
+{
+	struct stat sb;
+	const char *filename = luaL_checkstring( L, 1 );
+
+	if (stat(filename, &sb) == -1) {
+		lua_pushnil(L);
+		return 1;
+	}
+	lua_pushinteger(L, (long long) sb.st_size);
+
+	return 1;
+}
+
+
 static int l_jiffies_fromseconds(lua_State *L);
 /*
 | The Lsnycd's core library
@@ -1964,6 +1988,7 @@ static const luaL_Reg lsyncdlib[] =
 	{ "realdir",              l_realdir       },
 	{ "stackdump",            l_stackdump     },
 	{ "terminate",            l_terminate     },
+	{ "get_file_size",  	  l_file_size     },
 	{ NULL,                   NULL            }
 };
 
