@@ -232,6 +232,11 @@ local uSettings = { }
 local settingsSafe
 
 
+-- Access to process counter
+lsyncd.get_process_info = function()
+	return processCount, uSettings.maxProcesses
+end
+
 --============================================================================
 -- Lsyncd Prototypes
 --============================================================================
@@ -1545,7 +1550,7 @@ local InletFactory = ( function
 		end,
 
 		--
-		-- Returns the relative dir/file appended to the target
+		-- Returns the absolute dir/file appended to the target
 		-- including a trailing slash for dirs.
 		--
 		targetPath = function
@@ -1661,7 +1666,20 @@ local InletFactory = ( function
 
 			return result
 
-		end
+		end,
+
+		--
+		-- Returns the size of the eventlist
+		--
+		size = function( elist )
+			local dlist = e2d[ elist ]
+
+			if not dlist then
+				return 0
+			else
+				return #dlist
+			end
+		end,
 	}
 
 	--
