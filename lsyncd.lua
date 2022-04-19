@@ -37,8 +37,11 @@ now       = lsyncd.now
 readdir   = lsyncd.readdir
 
 
-inheritKV = nil
+local inherit = nil
+local inheritKV = nil
+local CountArray = nil
 
+--
 --
 -- Recurvely inherits a source table to a destionation table
 -- copying all keys from source.
@@ -189,7 +192,6 @@ local function loadCrontab()
 		return true
 	end
 	return false
-
 end
 
 --
@@ -311,7 +313,7 @@ end )( )
 -- since Lua's # operator does not work on tables whose key values are not
 -- strictly linear.
 --
-local CountArray = ( function
+CountArray = ( function
 ( )
 	--
 	-- Metatable
