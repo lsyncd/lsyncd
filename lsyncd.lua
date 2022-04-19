@@ -2933,26 +2933,34 @@ local Sync = ( function
 		end
 
 		-- first checks if more processes could be spawned
-		if self.processes:size( ) < self.config.maxProcesses
+		if self.processes:size( ) > self.config.maxProcesses
 		then
-			-- finds the nearest delay waiting to be spawned
-			for _, d in self.delays:qpairs( )
-			do
-				if d.status == 'wait'
-				then
-					if rv == false or d.alarm < rv then
+			return false
+		end
+
+		-- finds the nearest delay waiting to be spawned
+		for _, d in self.delays:qpairs( )
+		do
+			print("alarm", alarm2string(d.alarm), type(d.alarm))
+			if d.status == 'wait'
+			then
+				if type(d.alarm) == "boolean" and d.alarm == true then
+					return true
+				end
+				if type(d.alarm) == "userdata" then
+					if rv == false or
+						d.alarm < rv then
 						rv = d.alarm
 					end
 				end
 			end
 		end
+
 		if rv == false and self.nextCronAlarm ~= false then
 			rv = self.nextCronAlarm
-		elseif rv == true then
 		elseif self.nextCronAlarm ~= false and self.nextCronAlarm < rv then
 			rv = self.nextCronAlarm
 		end
-
 		-- nothing to spawn
 		return rv
 	end
