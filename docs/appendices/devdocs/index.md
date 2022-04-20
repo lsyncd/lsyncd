@@ -31,11 +31,11 @@ MyClass = (function()
 end)()
 ```
 
-In plain interpretation this creates a global variable called "MyClass". It defines an unnamed function with internal variables and subfunctions. This functions returns a table of all functions that should be visible from the outside. Then the unnamed function is immediately called on the global definition of "MyClass" and the public interface table stored in "MyClass". {{{MyClass.new()}}} is then used to create objects of this class. Or if it is a "Singelton", it has no new function, but other functions, that would be considered "static" in an object oriented language.
+In plain interpretation this creates a global variable called "MyClass". It defines an unnamed function with internal variables and subfunctions. This functions returns a table of all functions that should be visible from the outside. Then the unnamed function is immediately called on the global definition of "MyClass" and the public interface table stored in "MyClass". `MyClass.new()` is then used to create objects of this class. Or if it is a "Singelton", it has no new function, but other functions, that would be considered "static" in an object oriented language.
 
 Lua has developed a culture for personal adaption - "power patches". To not throw a stick into any package maintainer Lsyncd uses standard from the stock Lua (5.1).
 
-One note about the style of sync{} configs. As you can see in Layer 4 configuration the configuration is selected by merely adding the configuration table as parameter. In the implementation it does nothing else than to take any value with a number as key and which has a table as value and copy all of its key/value entries that are not there already. This even works recursively if that config again imports another config. 
+One note about the style of sync{} configs. As you can see in Layer 4 configuration the configuration is selected by merely adding the configuration table as parameter. In the implementation it does nothing else than to take any value with a number as key and which has a table as value and copy all of its key/value entries that are not there already. This even works recursively if that config again imports another config.
 
 Why Lua and not ...?
 --------------------

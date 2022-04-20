@@ -70,6 +70,10 @@
 
             src = ./.;
 
+            buildPhase = ''
+              make all docs-html
+            '';
+
             buildInputs = defaultDeps ++ luaPackages;
           });
           mkDev = packages: pkgs.mkShell {
