@@ -92,7 +92,8 @@ add_custom_target( manpage
 # the html documention
 add_custom_target( docs-html
 	COMMAND ${CMAKE_COMMAND} -E echo "Generate html documentation"
-	COMMAND jekyll build -s ${CMAKE_SOURCE_DIR}/docs/ -d html
+	COMMAND env JEKYLL_ENV=local jekyll build -d ${CMAKE_CURRENT_BINARY_DIR}/html
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/docs
 	DEPENDS ${CMAKE_SOURCE_DIR}/docs
 )
 

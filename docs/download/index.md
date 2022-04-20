@@ -2,12 +2,12 @@
 layout: default
 title: "Download"
 ---
-Release 2.1.6 (current)
+Release 2.1.7 (current)
 =======================
-Source Tar Ball: [release-2.1.6.tar.gz](https://github.com/axkibe/lsyncd/archive/release-2.1.6.tar.gz)
+Source Tar Ball: [release-2.1.7.tar.gz](https://github.com/lsyncd/lsyncd/archive/release-2.1.7.tar.gz)
 
 HEAD Development
 ================
 {% highlight shell %}
-git clone https://github.com/axkibe/lsyncd.git
+git clone https://github.com/lsyncd/lsyncd.git
 {% endhighlight %}

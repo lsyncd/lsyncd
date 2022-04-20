@@ -1,4 +1,20 @@
-<!DOCTYPE html>
+{% if jekyll.environment == "local"
+%}{% assign suffix = 'index.html'
+%}{% else
+%}{% assign suffix = ''
+%}{% endif
+%}{% assign base = ''
+%}{% assign depth = page.url | split: '/' | size
+%}{% if depth <= 1
+%}{% assign base = '.'
+%}{% elsif depth == 2
+%}{% assign base = '..'
+%}{% elsif depth == 3
+%}{% assign base = '../..'
+%}{% elsif depth == 4
+%}{% assign base = '../../..'
+%}{% endif
+%}<!DOCTYPE html>
 <html>
 <head>
   {% if page.url != "/" %}
@@ -7,8 +23,8 @@
   <title>{{ page.title }}</title>
   {% endif %}
   <!-- link to main stylesheet -->
-  <link rel="stylesheet" type="text/css" href="{{ site.url }}/css/main.css">
-  <link rel="stylesheet" type="text/css" href="{{ site.url }}/css/syntax.css">
+  <link rel="stylesheet" type="text/css" href="{{ base }}/css/main.css">
+  <link rel="stylesheet" type="text/css" href="{{ base }}/css/syntax.css">
 </head>
 <body>
   <div id="pillar">
@@ -31,16 +47,16 @@
        {% else %}
          {% assign title = p.title %}
        {% endif %}
-       <li><a {% if doc_url == page.url or doc_url == tab %}class="current"{% endif %} href="{{ site.url | append: p.url }}">{{ title }}</a></li>
+       <li><a {% if doc_url == page.url or doc_url == tab %}class="current"{% endif %} href="{{ base| append: p.url | append: suffix }}">{{ title }}</a></li>
      {% endfor %}
      </ul>
     {% endfor %}
     <div id="menufooter"></div>
   </div>
-  <div id="ribbonwrap"><a href="https://github.com/axkibe/lsyncd" id="ribbon"></a></div>
+  <div id="ribbonwrap"><a href="https://github.com/lsyncd/lsyncd" id="ribbon"></a></div>
   </nav>
   <div id="container">
-  <a href="https://github.com/axkibe/lsyncd/edit/gh-pages{{ page.url }}index.md" id="improvethis"></a>
+  <a href="https://github.com/lsyncd/lsyncd/edit/master/docs{{ page.url }}index.md" id="improvethis"></a>
   <h1>{{ page.title }}</h1>
   {{ content }}
 
