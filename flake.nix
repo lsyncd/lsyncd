@@ -22,6 +22,7 @@
             rsync
             openssh
             curl
+            jekyll
           ];
           version = builtins.elemAt
             (builtins.match ''.*set\(.LSYNCD_VERSION ([0-9\.]*).*''

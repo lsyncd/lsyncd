@@ -85,9 +85,17 @@ add_custom_command( OUTPUT defaults.out
 # the manpage
 add_custom_target( manpage
 	COMMAND ${CMAKE_COMMAND} -E echo "Updating the manpage"
-	COMMAND a2x --format=manpage doc/manpage/lsyncd.1.txt
-	DEPENDS doc/manpage/lsyncd.1.txt
+	COMMAND a2x --format=manpage docs/manpage/lsyncd.1.txt
+	DEPENDS docs/manpage/lsyncd.1.txt
 )
+
+# the html documention
+add_custom_target( docs-html
+	COMMAND ${CMAKE_COMMAND} -E echo "Generate html documentation"
+	COMMAND jekyll build -s ${CMAKE_SOURCE_DIR}/docs/ -d html
+	DEPENDS ${CMAKE_SOURCE_DIR}/docs
+)
+
 
 # create_symlink( ${CMAKE_SOURCE_DIR}/tests tests)
 ADD_CUSTOM_TARGET(prepare_tests ALL
@@ -118,6 +126,6 @@ add_executable( lsyncd ${LSYNCD_SRC} )
 target_link_libraries( lsyncd ${LUA_LIBRARIES} )
 
 install( TARGETS lsyncd RUNTIME DESTINATION bin )
-install( FILES doc/manpage/lsyncd.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 COMPONENT man )
+install( FILES docs/manpage/lsyncd.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 COMPONENT man )
 install( DIRECTORY examples DESTINATION doc )
-
+install( DIRECTORY html DESTINATION doc OPTIONAL)

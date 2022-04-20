@@ -23,3 +23,6 @@ defaults.c
 runner.c
 result
 tests/ssh
+
+# docs cache
+.jekyll-cache
