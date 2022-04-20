@@ -2,9 +2,9 @@
 layout: default
 title: "Download"
 ---
-Release 2.1.7 (current)
+Current Release
 =======================
-Source Tar Ball: [release-2.1.7.tar.gz](https://github.com/lsyncd/lsyncd/archive/release-2.1.7.tar.gz)
+All releases are on the [releases page](https://github.com/lsyncd/lsyncd/releases)
 
 HEAD Development
 ================
