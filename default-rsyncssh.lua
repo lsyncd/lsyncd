@@ -154,198 +154,42 @@ rsyncssh.action = function
 	-- deletes create multi match patterns
 	local paths = elist.getPaths( )
 
-	--
-	-- Replaces what rsync would consider filter rules by literals
-	--
-	local function sub( p )
-		if not p then return end
-
-		return p:
-			gsub( '%?', '\\?' ):
-			gsub( '%*', '\\*' ):
-			gsub( '%[', '\\[' ):
-			gsub( '%]', '\\]' )
-	end
-
-	--
-	-- Gets the list of paths for the event list
-	--
-	-- Deletes create multi match patterns
-	--
-	local paths = elist.getPaths(
-		function( etype, path1, path2 )
-			if string.byte( path1, -1 ) == 47 and etype == 'Delete' then
-				return sub( path1 )..'***', sub( path2 )
-			else
-				return sub( path1 ), sub( path2 )
-			end
-		end
-	)
-
-	-- stores all filters by integer index
-	local filterI = { }
-
-	-- stores all filters with path index
-	local filterP = { }
-
-	-- adds one path to the filter
-	local function addToFilter( path )
-		if filterP[ path ] then return end
-
-		filterP[ path ] = true
-
-		table.insert( filterI, path )
-	end
-
-	-- adds a path to the filter.
-	--
-	-- rsync needs to have entries for all steps in the path,
-	-- so the file for example d1/d2/d3/f1 needs following filters:
-	-- 'd1/', 'd1/d2/', 'd1/d2/d3/' and 'd1/d2/d3/f1'
-	for _, path in ipairs( paths )
+	-- removes trailing slashes from dirs.
+	for k, v in ipairs( paths )
 	do
-		if path and path ~= ''
+		if string.byte( v, -1 ) == 47
 		then
-			addToFilter(path)
-
-			local pp = string.match( path, '^(.*/)[^/]+/?' )
-
-			while pp
-			do
-				addToFilter(pp)
-				pp = string.match( pp, '^(.*/)[^/]+/?' )
-			end
-
+			paths[ k ] = string.sub( v, 1, -2 )
 		end
-
 	end
 
 	log(
 		'Normal',
-		'Calling rsync with filter-list of new/modified files/dirs\n',
-		table.concat( filterI, '\n' )
+		'Rsyncing list\n',
+		table.concat( paths, '\n' )
 	)
-
-	local config = inlet.getConfig( )
 
 	local delete = nil
 
-	if config.delete == true or config.delete == 'running'
+	if config.delete == true
+	or config.delete == 'running'
 	then
-		delete = { '--delete', '--ignore-errors' }
+		delete = { '--delete-missing-args', '--ignore-errors', '--no-implied-dirs' }
 	end
 
 	spawn(
 		elist,
 		config.rsync.binary,
-		'<', table.concat( filterI, '\000' ),
+		'<', table.concat( paths, '\000' ),
 		config.rsync._computed,
-		'-r',
 		delete,
 		'--force',
 		'--from0',
-		'--include-from=-',
-		'--exclude=*',
+		'--files-from=-',
 		config.source,
 		config.host .. ':' .. config.targetdir
 	)
 end
-
-
-----
----- NOTE: This optimized version can be used once
-----       https://bugzilla.samba.org/show_bug.cgi?id=12569
-----       is fixed.
-----
---
--- Spawns rsync for a list of events
---
---rsyncssh.action = function
---(
---	inlet
---)
---	local config = inlet.getConfig( )
---
---	local event, event2 = inlet.getEvent( )
---
---	-- makes move local on target host
---	-- if the move fails, it deletes the source
---	if event.etype == 'Move'
---	then
---		local path1 = config.targetdir .. event.path
---
---		local path2 = config.targetdir .. event2.path
---
---		path1 = "'" .. path1:gsub ('\'', '\'"\'"\'') .. "'"
---		path2 = "'" .. path2:gsub ('\'', '\'"\'"\'') .. "'"
---
---		log(
---			'Normal',
---			'Moving ',
---			event.path,
---			' -> ',
---			event2.path
---		)
---
---		spawn(
---			event,
---			config.ssh.binary,
---			config.ssh._computed,
---			config.host,
---			'mv',
---			path1,
---			path2,
---			'||', 'rm', '-rf',
---			path1
---		)
---
---		return
---	end
---
---	-- otherwise a rsync is spawned
---	local elist = inlet.getEvents( eventNotInitBlankMove )
---
---	-- gets the list of paths for the event list
---	-- deletes create multi match patterns
---	local paths = elist.getPaths( )
---
---	-- removes trailing slashes from dirs.
---	for k, v in ipairs( paths )
---	do
---		if string.byte( v, -1 ) == 47
---		then
---			paths[ k ] = string.sub( v, 1, -2 )
---		end
---	end
---
---	log(
---		'Normal',
---		'Rsyncing list\n',
---		table.concat( paths, '\n' )
---	)
---
---	local delete = nil
---
---	if config.delete == true
---	or config.delete == 'running'
---	then
---		delete = { '--delete-missing-args', '--ignore-errors' }
---	end
---
---	spawn(
---		elist,
---		config.rsync.binary,
---		'<', table.concat( paths, '\000' ),
---		config.rsync._computed,
---		delete,
---		'--force',
---		'--from0',
---		'--files-from=-',
---		config.source,
---		config.host .. ':' .. config.targetdir
---	)
---end
-
 
 --
 -- Called when collecting a finished child process

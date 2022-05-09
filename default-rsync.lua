@@ -133,174 +133,42 @@ rsync.action = function
 	-- deletes create multi match patterns
 	local paths = elist.getPaths( )
 
-	--
-	-- Replaces what rsync would consider filter rules by literals
-	--
-	local function sub
-	(
-		p  -- pattern
-	)
-		if not p then return end
-
-		return p:
-			gsub( '%?', '\\?' ):
-			gsub( '%*', '\\*' ):
-			gsub( '%[', '\\[' ):
-			gsub( '%]', '\\]' )
-	end
-
-	--
-	-- Gets the list of paths for the event list
-	--
-	-- Deletes create multi match patterns
-	--
-	local paths = elist.getPaths(
-		function
-		(
-			etype,  -- event type
-			path1,  -- path
-			path2   -- path to for move events
-		)
-			if string.byte( path1, -1 ) == 47 and etype == 'Delete'
-			then
-				return sub( path1 )..'***', sub( path2 )
-			else
-				return sub( path1 ), sub( path2 )
-			end
-		end
-	)
-
-	-- stores all filters by integer index
-	local filterI = { }
-
-	-- stores all filters with path index
-	local filterP = { }
-
-	-- adds one path to the filter
-	local function addToFilter
-	(
-		path
-	)
-		if filterP[ path ] then return end
-
-		filterP[ path ] = true
-
-		table.insert( filterI, path )
-	end
-
-	-- adds a path to the filter.
-	--
-	-- rsync needs to have entries for all steps in the path,
-	-- so the file for example d1/d2/d3/f1 needs following filters:
-	-- 'd1/', 'd1/d2/', 'd1/d2/d3/' and 'd1/d2/d3/f1'
-	for _, path in ipairs( paths )
+	-- removes trailing slashes from dirs.
+	for k, v in ipairs( paths )
 	do
-		if path and path ~= ''
+		if string.byte( v, -1 ) == 47
 		then
-			addToFilter( path )
-
-			local pp = string.match( path, '^(.*/)[^/]+/?' )
-
-			while pp
-			do
-				addToFilter( pp )
-
-				pp = string.match( pp, '^(.*/)[^/]+/?' )
-			end
+			paths[ k ] = string.sub( v, 1, -2 )
 		end
 	end
 
 	log(
 		'Normal',
 		'Calling rsync with filter-list of new/modified files/dirs\n',
-		table.concat( filterI, '\n' )
+		table.concat( paths, '\n' )
 	)
-
-	local config = inlet.getConfig( )
 
 	local delete = nil
 
-	if config.delete == true or config.delete == 'running'
+	if config.delete == true
+	or config.delete == 'running'
 	then
-		delete = { '--delete', '--ignore-errors' }
+		delete = { '--delete-missing-args', '--ignore-errors', '--no-implied-dirs' }
 	end
 
 	spawn(
 		elist,
 		config.rsync.binary,
-		'<', table.concat( filterI, '\000' ),
+		'<', table.concat( paths, '\000' ),
 		config.rsync._computed,
-		'-r',
 		delete,
 		'--force',
 		'--from0',
-		'--include-from=-',
-		'--exclude=*',
+		'--files-from=-',
 		config.source,
 		config.target
 	)
 end
-
-
-----
----- NOTE: This optimized version can be used once
-----       https://bugzilla.samba.org/show_bug.cgi?id=12569
-----       is fixed.
-----
----- Spawns rsync for a list of events
-----
----- Exclusions are already handled by not having
----- events for them.
-----
---rsync.action = function
---(
---	inlet
---)
---	local config = inlet.getConfig( )
---
---	-- gets all events ready for syncing
---	local elist = inlet.getEvents( eventNotInitBlank )
---
---	-- gets the list of paths for the event list
---	-- deletes create multi match patterns
---	local paths = elist.getPaths( )
---
---	-- removes trailing slashes from dirs.
---	for k, v in ipairs( paths )
---	do
---		if string.byte( v, -1 ) == 47
---		then
---			paths[ k ] = string.sub( v, 1, -2 )
---		end
---	end
---
---	log(
---		'Normal',
---		'Calling rsync with filter-list of new/modified files/dirs\n',
---		table.concat( paths, '\n' )
---	)
---
---	local delete = nil
---
---	if config.delete == true
---	or config.delete == 'running'
---	then
---		delete = { '--delete-missing-args', '--ignore-errors' }
---	end
---
---	spawn(
---		elist,
---		config.rsync.binary,
---		'<', table.concat( paths, '\000' ),
---		config.rsync._computed,
---		delete,
---		'--force',
---		'--from0',
---		'--files-from=-',
---		config.source,
---		config.target
---	)
---end
 
 
 --
