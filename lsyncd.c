@@ -489,7 +489,7 @@ static void safeexit (lua_State *L, int exitcode) {
 	lua_pushinteger(L, exitcode);
     lua_call(L, 2, 1);
 	if (lua_isnumber(L, -1)) {
-		exitcode = luaL_checkint(L, -1);
+		exitcode = luaL_checkinteger(L, -1);
 	}
     exit(exitcode);
 }
@@ -1138,8 +1138,8 @@ l_now(lua_State *L)
 static int
 l_kill( lua_State *L )
 {
-	pid_t pid = luaL_checkint( L, 1 );
-	int sig = luaL_checkint( L, 2 );
+	pid_t pid = luaL_checkinteger( L, 1 );
+	int sig = luaL_checkinteger( L, 2 );
 
 	int rv = kill(pid, sig );
 
@@ -1699,7 +1699,7 @@ l_readdir( lua_State *L )
 int
 l_terminate( lua_State *L )
 {
-	int exitcode = luaL_checkint( L, 1 );
+	int exitcode = luaL_checkinteger( L, 1 );
 
 	exit( exitcode );
 
