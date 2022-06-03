@@ -1,5 +1,8 @@
-2018-03-09: 2.4.0
-    enhancement: add nix flake support
+2021-03-09: 2.3.0
+    add: nix flake support
+	add: support for tunnel commands
+	add: support for batchSizeLimit
+	add: -onepass option
     change: support relative executable paths
 
 2018-03-09: 2.2.3

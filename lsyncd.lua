@@ -4616,7 +4616,7 @@ local function splitPath
 	end
 end
 
-function splitQuotedString
+local function splitQuotedString
     (
         text
     )
@@ -4644,6 +4644,8 @@ function splitQuotedString
     end
     return rv
 end
+
+lsyncd.splitQuotedString = splitQuotedString
 
 function substitudeCommands(cmd, data)
 	assert(type(data) == "table")
