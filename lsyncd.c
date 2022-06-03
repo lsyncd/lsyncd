@@ -755,9 +755,16 @@ write_pidfile
 
 	snprintf( buf, sizeof( buf ), "%i\n", getpid( ) );
 
-	write( pidfile_fd, buf, strlen( buf ) );
+	if (write( pidfile_fd, buf, strlen( buf ) ) != strlen(buf)) {
+		printlogf(
+			L, "Error",
+			"Cannot write pidfile; '%s'",
+			pidfile
+		);
 
-	//fclose( f );
+		safeexit(L, -1 );
+	}
+
 }
 
 
