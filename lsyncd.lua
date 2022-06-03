@@ -4649,24 +4649,30 @@ lsyncd.splitQuotedString = splitQuotedString
 
 function substitudeCommands(cmd, data)
 	assert(type(data) == "table")
-	local getData = function(arg)
-		local rv = data[arg]
-		if rv ~= nil then
-			return rv
-		else
-			return ""
-		end
-	end
+
 	if type(cmd) == "string" then
-		return string.gsub(cmd, "%${(%w+)}", getData)
+		local rv = cmd
+		for key,value in pairs(data) do
+			local getData = function()
+				return tostring(value)
+			end
+			rv = string.gsub(rv, "%^("..key..")", getData)
+		end
+		return rv
 	elseif type(cmd) == "table" then
 		local rv = {}
 		for i, v in ipairs(cmd) do
-			rv[i] = string.gsub(v, "%${(%w+)}", getData)
+			rv[i] = v
+			for key, value in pairs(data) do
+				local getData = function()
+					return tostring(value)
+				end
+				rv[i] = string.gsub(rv[i], "%^("..key..")", getData)
+			end
 		end
 		return rv
 	else
-		log("Error", "Unsupported type in replacCommand")
+		log("Error", "Unsupported type in substitudeCommands")
 	end
 end
 
