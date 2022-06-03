@@ -1329,7 +1329,6 @@ l_exec( lua_State *L )
 
 			safeexit(L, -1 );
 		}
-		printf("JOJOJO\n");
 		pipe_text = lua_tolstring( L, 3, &pipe_len );
 
 		if( strlen( pipe_text ) > 0 )
@@ -1414,7 +1413,6 @@ l_exec( lua_State *L )
 		exit( -1 );
 	}
 
-	printf("has pipetext %d %d\n", pipe_text ? strlen(pipe_text) : 0 , pipe_len);
 	if( pipe_text )
 	{
 		int len;

@@ -2920,16 +2920,13 @@ local Sync = ( function
 			timestamp = now()
 		end
 
-		print(type(now()))
 		local nalarm = nil
 		for i, c in ipairs(self.cron) do
 			local na = c:get_next_occurrence(timestamp.seconds)
-			print("na", timestamp.seconds, na)
 			if nalarm == nil or nalarm > na then
 				nalarm = na
 			end
 		end
-		print("calculated next cron:", nalarm)
 		if nalarm ~= nil then
 			self.nextCronAlarm = lsyncd.jiffies_from_seconds(nalarm)
 		end
@@ -2962,7 +2959,6 @@ local Sync = ( function
 		-- finds the nearest delay waiting to be spawned
 		for _, d in self.delays:qpairs( )
 		do
-			print("alarm", alarm2string(d.alarm), type(d.alarm))
 			if d.status == 'wait'
 			then
 				if type(d.alarm) == "boolean" and d.alarm == true then
@@ -3378,22 +3374,18 @@ local Sync = ( function
 		end
 
 		if config.crontab and loadCrontab() == false then
-			error("Sync ", config.name, " uses a crontab, but lua-crontab dependency is not available")
+			error("Sync ".. config.name.." uses a crontab, but lua-crontab dependency is not available", 0)
 		elseif config.crontab then
 			local cdata = {}
 			for i, v in ipairs( config.crontab ) do
 				local ok, cd = pcall(crontab.make_raw_cron_data_from_string, v)
 				if ok then
-					print ('getter')
 					local props = crontab.make_cron_properties(cd)
 					local getter = crontab.make_next_occurrence_getter(props)
-					print(getter)
-					for k, v in pairs( getter ) do
-						print(k,v)
-					end
+
 					table.insert( cdata, getter )
 				else
-					error("Crontab rule ", i, " is not valid: ", cd, " . Rule: ", v)
+					error("Sync: "..config.name.." - crontab rule ".. i .." is not valid: ".. cd.. " . Rule: ".. v, 0)
 				end
 
 			end
@@ -3401,7 +3393,7 @@ local Sync = ( function
 			if #cdata then
 				s.cron = cdata
 			else
-				error("Can't parse crontab data: "..cron, 2)
+				error("Can't parse crontab data: "..cron, 0)
 			end
 		end
 
