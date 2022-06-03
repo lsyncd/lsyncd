@@ -40,6 +40,7 @@ Following settings are shared between all defaults:
 | Name            | Description      |
 |-----------------|------------------|
 | source          | Source directory |
+| crontab         | See section `Periodic Full-Sync`|
 
 
 
@@ -693,4 +694,35 @@ Once the tunnel is UP, a full transfer is initiated. Subsequent transfers are th
 ### Notes on Poolmode
 
 * Pool mode only works with `rsync` backend, since there is no way to prevent multiple transfers to the same file in a relieable way, the rsync backend only supports `maxProcesses = 1` which renders pool mode useless. Since the remote side rsync daemon can prevent file trashing, the rsync backend is safe.
+
+
+## Periodic Full-Sync
+
+*New in: 2.3.0*
+
+It is possible to trigger a full sync command from within lsync with the crontab feature. This requires that [lua-crontab](https://github.com/logiceditor-com/lua-crontab) is installed on the system. The crontab configuration accepts a list of `crontab` patterns to which a full sync will be triggered.
+
+```lua
+sync {
+    ...
+    crontab = {
+            -- does a full sync once a day at 3:00:01
+            "1 0 3 * * *",
+    },
+    ...
+}
+```
+
+### Field destination
+
+Each field is seperated by `" "` and can contain multiple values seperated by `,`.
+
+ |    FIELD     |     VALUES      | SPECIAL CHARACTERS |
+ |--------------|-----------------|--------------------|
+ | Seconds      | 0-59            |       , - *        |
+ | Minutes      | 0-59            |       , - *        |
+ | Hours        | 0-23            |       , - *        |
+ | Day of month | 1-31            |       , - *        |
+ | Month        | 1-12 or JAN-DEC |       , - *        |
+ | Day of week  | 0-6 or SUN-SAT  |       , - *        |
 

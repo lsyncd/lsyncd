@@ -3,6 +3,7 @@
 	add: support for tunnel commands
 	add: support for batchSizeLimit
 	add: -onepass option
+	add: crontab support
     change: support relative executable paths
 
 2018-03-09: 2.2.3
