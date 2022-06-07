@@ -14,6 +14,5 @@ jobs:
     steps:
       - uses: actions/checkout@v2.4.0
       - uses: cachix/install-nix-action@v15
-      - run: |
-          chmod og-rw ~
-          nix develop .#${{ matrix.version }} --command ./tests/ci-run.sh
+      - run: chmod og-rw ~
+      - run: nix develop .#${{ matrix.version }} --command ./tests/ci-run.sh
