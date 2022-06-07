@@ -25,7 +25,7 @@ then
 	lsyncd.terminate( -1 )
 end
 
-lsyncd_version = '2.3.0-beta1'
+lsyncd_version = '2.3.0'
 
 -- compatibility with 5.1
 if table.unpack == nil then
