@@ -115,7 +115,7 @@ cwriteln( 'waiting for Lsyncd to remove destination' )
 
 posix.sleep( 5 )
 
-_, result, code = os.execute( 'diff -urN ' .. srcdir .. ' ' .. trgdir )
+result, code = execute( 'diff -urN ' .. srcdir .. ' ' .. trgdir )
 
 if result ~= 'exit' or code ~= 0
 then

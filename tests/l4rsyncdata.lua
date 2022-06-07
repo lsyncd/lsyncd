@@ -60,7 +60,7 @@ cwriteln( 'Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode)
 posix.sleep( 1 )
 
 cwriteln( '* differences:' )
-_, result, code = os.execute( 'diff -urN ' .. srcdir .. ' ' .. trgdir )
+result, code = execute( 'diff -urN ' .. srcdir .. ' ' .. trgdir )
 
 if result == 'exit'
 then

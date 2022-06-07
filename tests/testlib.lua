@@ -9,6 +9,11 @@ local c1='\027[47;34m'
 
 local c0='\027[0m'
 
+-- compatibility with 5.1
+if table.unpack == nil then
+	table.unpack = unpack
+end
+
 --
 -- Writes colorized.
 --
@@ -16,6 +21,23 @@ function cwriteln
 (...)
 	io.write( c1, '++ ', ... )
 	io.write( c0, '\n' )
+end
+
+local lver = string.gmatch(_VERSION, "Lua (%d).(%d)")
+_LUA_VERSION_MAJOR, _LUA_VERSION_MINOR = lver()
+_LUA_VERSION_MAJOR   = tonumber(_LUA_VERSION_MAJOR)
+_LUA_VERSION_MINOR  = tonumber(_LUA_VERSION_MINOR)
+
+-- Compatibility execute function
+function execute(...)
+	if _LUA_VERSION_MAJOR <= 5 and
+	   _LUA_VERSION_MINOR < 2 then
+		local rv = os.execute(...)
+		return "exit", rv
+	else
+		local ok, why, code = os.execute(...)
+		return why, code
+	end
 end
 
 --

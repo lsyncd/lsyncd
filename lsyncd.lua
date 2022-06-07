@@ -27,6 +27,15 @@ end
 
 lsyncd_version = '2.3.0-beta1'
 
+-- compatibility with 5.1
+if table.unpack == nil then
+	table.unpack = unpack
+end
+
+local lver = string.gmatch(_VERSION, "%w (%d).(%d)")
+local _LUA_VERSION_MAJOR, _LUA_VERSION_MINOR = lver()
+_LUA_VERSION_MAJOR   = tonumber(_LUA_VERSION_MAJOR)
+_LUA_VERSION_MINOR  = tonumber(_LUA_VERSION_MINOR)
 
 --
 -- Shortcuts (which user is supposed to be able to use them as well)
@@ -6043,8 +6052,12 @@ function runner.initialize( firstTime )
 			if type(config[fn]) == 'string'
 			then
 				local ft = functionWriter.translate( config[ fn ] )
-
-				config[ fn ] = assert( load( 'return '..ft ) )( )
+				if _LUA_VERSION_MAJOR <= 5 and _LUA_VERSION_MINOR < 2 then
+					-- lua 5.1 and older
+					config[ fn ] = assert( loadstring( 'return '..ft ) )( )
+				else
+					config[ fn ] = assert( load( 'return '..ft ) )( )
+				end
 			end
 		end
 	end

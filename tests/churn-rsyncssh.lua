@@ -47,7 +47,7 @@ local _, exitmsg, lexitcode = posix.wait( lpid )
 
 cwriteln( 'Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode )
 
-_, result, code = os.execute( 'diff -r ' .. srcdir .. ' ' .. trgdir )
+result, code = execute( 'diff -r ' .. srcdir .. ' ' .. trgdir )
 
 if result == 'exit'
 then
