@@ -215,11 +215,15 @@ local processCount = 0
 local crontab = nil
 
 local function loadCrontab()
-	local ok, mod = pcall(require, "lua-crontab")
-	if ok then
-		-- print update crontab
-		crontab = mod
-		return true
+	local names = {"crontab.crontab", "crontab", "lua-crontab"}
+	for _,lname in ipairs(names) do
+		local ok, mod = pcall(require, lname)
+		if ok then
+			-- print update crontab
+			log('Debug', "Using crontab: "..lname)
+			crontab = mod
+			return true
+		end
 	end
 	return false
 end
