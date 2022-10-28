@@ -5565,7 +5565,9 @@ end
 --
 function runner.help( )
 	io.stdout:write(
+'lsyncd version: ' .. lsyncd_version ..
 [[
+
 
 USAGE:
   runs a config file:
@@ -5866,6 +5868,9 @@ function runner.configure( args, monitors )
 
 		i = i + 1
 	end
+
+	log( 'Debug', 'lsyncd version: '.. lsyncd_version .. ' starting.' )
+	log( 'Debug', 'module search path: '.. package.path)
 
 	if clSettings.scripts then
 		for _, file in ipairs(clSettings.scripts) do
