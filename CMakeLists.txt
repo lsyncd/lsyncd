@@ -1,7 +1,13 @@
 # preamble
 project( Lsyncd )
 cmake_minimum_required( VERSION 3.5 )
-set( LSYNCD_VERSION 2.3.0 )
+
+# extract version
+file(STRINGS "lsyncd.lua" LSYNCD_VERSION_RAW REGEX "lsyncd_version = '.*'")
+string(REGEX REPLACE "lsyncd_version = \'(.*)\'"
+       "\\1" LSYNCD_VERSION
+       ${LSYNCD_VERSION_RAW})
+
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/" )
 
 
