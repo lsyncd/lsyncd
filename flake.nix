@@ -25,9 +25,9 @@
             jekyll
           ];
           version = builtins.elemAt
-            (builtins.match ''.*set\(.LSYNCD_VERSION ([0-9\.]*).*''
-              (builtins.substring 0 500
-                (builtins.readFile ./CMakeLists.txt))) 0;
+            (builtins.match ''.*lsyncd_version = '([0-9\.]*)'.*''
+              (builtins.substring 0 1200
+                (builtins.readFile ./lsyncd.lua))) 0;
           # mylua5_4 = pkgs.lua5_4.override({
           #   packageOverrides =  luaself: luaprev: {
           #     luarocks = luaprev.luarocks-3_7;
