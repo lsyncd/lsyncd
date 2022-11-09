@@ -52,11 +52,18 @@ readdir   = lsyncd.readdir
 function dump(tbl, indent)
 	if not indent then indent = 0 end
 	for k, v in pairs(tbl) do
-	  formatting = string.rep("  ", indent) .. k .. ": "
+	  if type(k) ~= "string" then
+	  	k = tostring(k)
+	  end
+	  local formatting = string.rep("  ", indent) .. k .. ": "
 	  if type(v) == "table" then
 		print(formatting)
-		dump(v, indent+1)
-	  elseif type(v) == 'boolean' then
+		if indent > 3 then
+			print("dump: Already 3 deep, skip")
+		else
+			dump(v, indent+1)
+		end
+	  elseif type(v) ~= 'string' then
 		print(formatting .. tostring(v))
 	  else
 		print(formatting .. v)
