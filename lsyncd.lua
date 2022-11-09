@@ -2509,15 +2509,17 @@ local Sync = ( function
 		return self.excludes:add( pattern )
 	end
 
+	--
+	-- Appends a filter line to the Sync
+	--
 	local function appendFilter
 	(
 		self,
-		rule,
-		pattern
+		line
 	)
 		if not self.filters then self.filters = Filters.new( ) end
 
-		return self.filters:append( rule, pattern )
+		return self.filters:append( line )
 	end
 
 	--
