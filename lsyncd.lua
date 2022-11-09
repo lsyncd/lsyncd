@@ -578,31 +578,30 @@ Queue = ( function
 			error( 'Removing nonexisting item in Queue', 2 )
 		end
 
-		nt[ pos ] = nil
-
 		-- if removing first or last element,
 		-- the queue limits are adjusted.
 		if pos == nt.first
 		then
-			local last = nt.last
-
-			while nt[ pos ] == nil and pos <= last
-			do
-				pos = pos + 1
-			end
-
-			nt.first = pos
-
+			nt[ pos ] = nil
+			nt.first = pos + 1
 		elseif pos == nt.last
 		then
+			nt[ pos ] = nil
+			nt.last = nt.last - 1
+		else
 			local first = nt.first
+			local last = nt.first
 
-			while nt[ pos ] == nil and pos >= first
-			do
-				pos = pos - 1
+			local i = pos
+
+			while i < last do
+				if i == pos then
+					nt[ i ] = nt[ i + 1 ]
+					i = i + 1
+				end
+				i = i + 1
 			end
-
-			nt.last = pos
+			nt.last = last - 1
 		end
 
 		-- reset the indizies if the queue is empty
@@ -614,6 +613,28 @@ Queue = ( function
 		end
 
 		nt.size = nt.size - 1
+	end
+
+	--
+	-- Injects a value in front of the Queue.
+	--
+	local function inject
+	(
+		self,  -- the queue
+		value    -- position to remove
+	)
+		local nt = self[ k_nt ]
+
+		local pos = nt.last
+		while pos >= nt.first
+		do
+			nt[pos + 1] = nt[pos]
+			pos = pos - 1
+		end
+
+		nt[nt.first] = value
+		nt.size = nt.size + 1
+		nt.last = nt.last + 1
 	end
 
 	--
@@ -721,6 +742,7 @@ Queue = ( function
 			first = first,
 			last = last,
 			push = push,
+			inject = inject,
 			qpairs = qpairs,
 			qpairsReverse = qpairsReverse,
 			remove = remove,
