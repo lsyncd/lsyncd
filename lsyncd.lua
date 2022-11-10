@@ -25,30 +25,36 @@ then
 	lsyncd.terminate( -1 )
 end
 
+---@diagnostic disable-next-line: lowercase-global
 lsyncd_version = '2.3.1'
 
 -- compatibility with 5.1
 if table.unpack == nil then
+	--- @diagnostic disable-next-line deprecated
 	table.unpack = unpack
 end
 
-local lver = string.gmatch(_VERSION, "%w (%d).(%d)")
-local _LUA_VERSION_MAJOR, _LUA_VERSION_MINOR = lver()
+local _LUA_VERSION_MAJOR, _LUA_VERSION_MINOR = string.gmatch(
+	_VERSION, "%w (%d).(%d)")()
+---@type any
 _LUA_VERSION_MAJOR   = tonumber(_LUA_VERSION_MAJOR)
 _LUA_VERSION_MINOR  = tonumber(_LUA_VERSION_MINOR)
 
 --
 -- Shortcuts (which user is supposed to be able to use them as well)
 --
+---@diagnostic disable: lowercase-global
 log       = lsyncd.log
 terminate = lsyncd.terminate
 now       = lsyncd.now
 readdir   = lsyncd.readdir
 
+---@diagnostic enable: lowercase-global
 --
 -- Debug helper. Prints contents of `tbl`, with indentation.
 -- `indent` sets the initial level of indentation.
 --
+---@diagnostic disable-next-line: lowercase-global
 function dump(tbl, indent)
 	if not indent then indent = 0 end
 	for k, v in pairs(tbl) do
@@ -191,7 +197,7 @@ inheritKV =
 	end
 end
 
-function alarm2string(a)
+local function alarm2string(a)
 	if type(a) == 'userdata' then
 		return a.string
 	end
@@ -2222,13 +2228,13 @@ local Excludes = ( function
 		self,  -- self
 		file   -- filename to load from
 	)
-		f, err = io.open( file )
+		local f, err = io.open( file )
 
 		if not f
 		then
 			log( 'Error', 'Cannot open exclude file "', file,'": ', err )
 
-			terminate( -1 )
+			return terminate( -1 )
 		end
 
 	    for line in f:lines()
@@ -2398,13 +2404,13 @@ local Filters = ( function
 		self,  -- self
 		file   -- filename to load from
 	)
-		f, err = io.open( file )
+		local f, err = io.open( file )
 
 		if not f
 		then
 			log( 'Error', 'Cannot open filter file "', file, '": ', err )
 
-			terminate( -1 )
+			return terminate( -1 )
 		end
 
 	    for line in f:lines( )
@@ -3437,7 +3443,7 @@ local Sync = ( function
 			if #cdata then
 				s.cron = cdata
 			else
-				error("Can't parse crontab data: "..cron, 0)
+				error("Can't parse crontab data: "..cdata, 0)
 			end
 		end
 
@@ -3458,7 +3464,7 @@ local functionWriter = ( function( )
 	--
 	-- All variables known to layer 3 configs.
 	--
-	transVars = {
+	local transVars = {
 		{ '%^pathname',          'event.pathname',        1 },
 		{ '%^pathdir',           'event.pathdir',         1 },
 		{ '%^path',              'event.path',            1 },
@@ -4062,6 +4068,7 @@ Tunnel = (function()
 			'Start tunnel command ',
 			cmd
 		)
+		--- @diagnostic disable-next-line: param-type-mismatch
 		local pid = lsyncd.exec(bin, table.unpack(cmd, 2))
 		--local pid = spawn(bin, table.unpack(self.options.command, 2))
 		if pid and pid > 0 then
@@ -4137,7 +4144,7 @@ Tunnel = (function()
 			local good = false
 			if type(self.options.checkExitCodes) == 'table' then
 
-				for _,i in iwalk(self.options.checkExitCodes) do
+				for _,i in ipairs(self.options.checkExitCodes) do
 					if exitcode == i then
 						good = true
 					end
@@ -4148,7 +4155,7 @@ Tunnel = (function()
 				end
 			end
 			if good then
-				if self.isReady() == false then
+				if self:isReady() == false then
 					log(
 					'Info',
 					self.options.name,
@@ -4297,7 +4304,7 @@ local Tunnels = ( function
 		( )
 			return #tunnelList
 		end
-
+		--- @type any
 		local nextCycle = true
 		--
 		-- Cycle through all tunnels and call their invoke function
@@ -4355,14 +4362,14 @@ local Tunnels = ( function
 			size = size,
 			invoke = invoke,
 			getAlarm = getAlarm,
-			killAll = killAll,
-			statusReport = statusReport
+			killAll = killAll
 		}
 	end )( )
 
 
 --
 -- create a new tunnel from the passed options and registers the tunnel
+--- @diagnostic disable-next-line: lowercase-global
 tunnel = function (options)
 	log(
 		'Debug',
@@ -4656,7 +4663,7 @@ local function splitQuotedString
     (
         text
     )
-    local spat, epat, buf, quoted = [=[^(['"])]=], [=[(['"])$]=]
+    local spat, epat, buf, quoted = [=[^(['"])]=], [=[(['"])$]=], nil, nil
     local rv = {}
     for str in text:gmatch("%S+") do
         local squoted = str:match(spat)
@@ -4683,6 +4690,7 @@ end
 
 lsyncd.splitQuotedString = splitQuotedString
 
+--- @diagnostic disable-next-line: lowercase-global
 function substitudeCommands(cmd, data)
 	assert(type(data) == "table")
 
@@ -4891,6 +4899,7 @@ local Inotify = ( function
 		end
 
 		-- looks up the watch descriptor id
+		--- @type any
 		local path = wdpaths[ wd ]
 
 		if path
@@ -4898,6 +4907,7 @@ local Inotify = ( function
 			path = path..filename
 		end
 
+		--- @type any
 		local path2 = wd2 and wdpaths[ wd2 ]
 
 		if path2 and filename2
@@ -5598,7 +5608,7 @@ end
 -- Called by core if '-help' or '--help' is in
 -- the arguments.
 --
-function runner.help( )
+function runner.help(_arg0)
 	io.stdout:write(
 'lsyncd version: ' .. lsyncd_version ..
 [[
@@ -6094,6 +6104,7 @@ function runner.initialize( firstTime )
 				local ft = functionWriter.translate( config[ fn ] )
 				if _LUA_VERSION_MAJOR <= 5 and _LUA_VERSION_MINOR < 2 then
 					-- lua 5.1 and older
+					--- @diagnostic disable-next-line deprecated
 					config[ fn ] = assert( loadstring( 'return '..ft ) )( )
 				else
 					config[ fn ] = assert( load( 'return '..ft ) )( )
@@ -6289,6 +6300,7 @@ end
 --
 -- Returns an Inlet to that sync.
 --
+--- @diagnostic disable-next-line: lowercase-global
 function sync
 (
 	opts
@@ -6305,6 +6317,7 @@ end
 --
 -- Spawns a new child process.
 --
+--- @diagnostic disable-next-line: lowercase-global
 function spawn(
 	agent,  -- the reason why a process is spawned.
 	        -- a delay or delay list for a sync
@@ -6398,6 +6411,7 @@ end
 --
 -- Spawns a child process using the default shell.
 --
+--- @diagnostic disable-next-line: lowercase-global
 function spawnShell
 (
 	agent,     -- the delay(list) to spawn the command for
@@ -6411,6 +6425,7 @@ end
 --
 -- Observes a filedescriptor.
 --
+--- @diagnostic disable-next-line: lowercase-global
 function observefd
 (
 	fd,     -- file descriptor
@@ -6424,6 +6439,7 @@ end
 --
 -- Stops observeing a filedescriptor.
 --
+--- @diagnostic disable-next-line: lowercase-global
 function nonobservefd
 (
 	fd      -- file descriptor
@@ -6438,6 +6454,7 @@ end
 -- Use now() to receive current timestamp
 -- add seconds with '+' to it
 --
+--- @diagnostic disable-next-line: lowercase-global
 alarm = UserAlarms.alarm
 
 
@@ -6470,6 +6487,7 @@ end
 --
 -- The settings call
 --
+--- @diagnostic disable-next-line: lowercase-global
 function settings
 (
 	a1  -- a string for getting a setting
