@@ -1751,6 +1751,19 @@ local InletFactory = ( function
 				return #dlist
 			end
 		end,
+
+		--
+		-- Returns the list of events
+		--
+		getList = function( elist )
+			local dlist = e2d[ elist ]
+
+			if not dlist then
+				return {}
+			else
+				return dlist
+			end
+		end,
 	}
 
 	--
@@ -1977,6 +1990,19 @@ local InletFactory = ( function
 			sync -- the sync of the inlet
 		)
 			return d2e( sync:addBlanketDelay( ) )
+		end,
+
+				--
+		-- Creates a blanketEvent that blocks everything
+		-- and is blocked by everything.
+		--
+		createFullEvent = function
+		(
+			sync, -- the sync of the inlet
+			path -- path for the full event
+		)
+			-- return d2e( sync:delay("Full", timestamp, path, nil) )
+			return d2e( sync:addFullDelay(path) )
 		end,
 
 		--
@@ -2860,7 +2886,7 @@ local Sync = ( function
 		-- new delay
 		local nd = Delay.new( etype, self, alarm, path, path2 )
 
-		if nd.etype == 'Init' or nd.etype == 'Blanket'
+		if nd.etype == 'Init' or nd.etype == 'Blanket' or nd.etype == 'Full'
 		then
 			-- always stack init or blanket events on the last event
 			log(
@@ -3126,8 +3152,7 @@ local Sync = ( function
 		if self.nextCronAlarm ~= false and self.nextCronAlarm < timestamp then
 			-- time fo a full sync
 			log('Info', 'Crontab triggered full sync')
-			-- TODO
-			self:delay("Full", timestamp, "/", nil)
+			self.inlet.createFullEvent("/")
 			updateNextCronAlarm(self, timestamp)
 		end
 
@@ -3156,11 +3181,12 @@ local Sync = ( function
 			if d.status == 'wait'
 			then
 				-- found a waiting delay
-				if d.etype ~= 'Init'
-				then
-					self.config.action( self.inlet )
-				else
+				if d.etype == 'Init' then
 					self.config.init( InletFactory.d2e( d ) )
+				elseif d.etype == 'Full' and self.config.full then
+					self.config.full( InletFactory.d2e( d ) )
+				else
+					self.config.action( self.inlet )
 				end
 
 				if self.processes:size( ) >= self.config.maxProcesses
@@ -3210,6 +3236,21 @@ local Sync = ( function
 		self
 	)
 		local newd = Delay.new( 'Blanket', self, true, '' )
+
+		newd.dpos = self.delays:push( newd )
+
+		return newd
+	end
+
+	--
+	-- Adds an full delay that will initiate a full transfer.
+	--
+	local function addFullDelay
+		(
+			self,
+			path
+		)
+		local newd = Delay.new( 'Full', self, true, path )
 
 		newd.dpos = self.delays:push( newd )
 
@@ -3340,6 +3381,7 @@ local Sync = ( function
 
 			-- functions
 			addBlanketDelay = addBlanketDelay,
+			addFullDelay    = addFullDelay,
 			addExclude      = addExclude,
 			addInitDelay    = addInitDelay,
 			appendFilter    = appendFilter,

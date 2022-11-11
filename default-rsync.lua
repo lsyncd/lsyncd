@@ -246,7 +246,7 @@ local getBatchSize =
 	if event.status == 'active' then
 		return false
 	end
-	if event.etype == 'Init' or event.etype == 'Blanket' then
+	if event.etype == 'Init' or event.etype == 'Blanket' or event.etype == 'Full' then
 		return false
 	end
 	-- moves and deletes go always into batch
@@ -274,6 +274,9 @@ rsync.action = function
 	else
 		-- spawn all files under the size limit/deletes/moves in batch mode
 		local eventInBatch = function(event)
+			if event.etype == "Full" then
+				return false
+			end
 			local size = getBatchSize(event)
 			if type(size) == "boolean" then
 				return size
@@ -290,6 +293,9 @@ rsync.action = function
 		local single_returned = false
 		-- grab all events for seperate transfers
 		local eventNoBatch = function(event)
+			if event.etype == "Full" then
+				return false
+			end
 			local size = getBatchSize(event)
 			if type(size) ~= "number" or size == nil then
 				return false
@@ -303,10 +309,11 @@ rsync.action = function
 			end
 			return false
 		end
+		local extralist = inlet.getEvents(eventInBatch)
 
-		local elist = inlet.getEvents(eventInBatch)
-		if elist.size() > 0 then
-			run_action(inlet, elist)
+		-- get all batched events
+		if extralist.size() > 0 then
+			run_action(inlet, extralist)
 		end
 
 		while true do
@@ -450,7 +457,7 @@ rsync.full = function
 		-- starts rsync without any filters or excludes
 		log(
 			'Normal',
-			'recursive startup rsync: ',
+			'recursive full rsync: ',
 			config.source,
 			' -> ',
 			target
@@ -474,7 +481,7 @@ rsync.full = function
 
 		log(
 			'Normal',
-			'recursive startup rsync: ',
+			'recursive full rsync: ',
 			config.source,
 			' -> ',
 			target,
@@ -500,7 +507,7 @@ rsync.full = function
 
 		log(
 			'Normal',
-			'recursive startup rsync: ',
+			'recursive full rsync: ',
 			config.source,
 			' -> ',
 			target,

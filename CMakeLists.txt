@@ -115,6 +115,7 @@ add_custom_target( tests
 	COMMAND echo "  * have lua-posix installed"
 	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/setup.lua
 	COMMAND ${CMAKE_BINARY_DIR}/lsyncd -log all -script ${CMAKE_SOURCE_DIR}/tests/utils_test.lua
+	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/cron-rsync.lua
 	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/schedule.lua
 	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/l4rsyncdata.lua
 	COMMAND ${LUA_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/filter-rsync.lua
