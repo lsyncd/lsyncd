@@ -21,15 +21,16 @@ require("socket")
 
 -- For demo reasons, do not detach
 settings.nodaemon = true
-hostname = "irc.freenode.org"
+local hostname = "irc.freenode.org"
 --hostname = "127.0.0.1"
-port = 6667
-nick = "lbot01"
-chan = "##lfile01"
+local port = 6667
+local nick = "lbot01"
+local chan = "##lfile01"
 
 -- this blocks until the connection is established
 -- for once lets say this ok since Lsyncd didnt yet actually
 -- start.
+--- @diagnostic disable-next-line: undefined-global
 local ircSocket, err = socket.connect(hostname, port)
 if not ircSocket then
 	log("Error", "Cannot connect to IRC: ", err)

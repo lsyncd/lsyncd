@@ -19,7 +19,7 @@ then
 end
 cwriteln( 'starting Lsyncd' )
 
-logs = { }
+local logs = { }
 local pid =
 	spawn(
 		'./lsyncd',
@@ -55,12 +55,12 @@ posix.sleep( 10 )
 cwriteln( '* killing Lsyncd' )
 
 posix.kill( pid )
-local _, exitmsg, lexitcode = posix.wait(lpid)
+local _, exitmsg, lexitcode = posix.wait(pid)
 cwriteln( 'Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode)
 posix.sleep( 1 )
 
 cwriteln( '* differences:' )
-result, code = execute( 'diff -urN ' .. srcdir .. ' ' .. trgdir )
+local result, code = execute( 'diff -urN ' .. srcdir .. ' ' .. trgdir )
 
 if result == 'exit'
 then

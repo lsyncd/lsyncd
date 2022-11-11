@@ -43,11 +43,11 @@ cwriteln( 'killing the Lsyncd daemon' )
 
 posix.kill(pid)
 
-local _, exitmsg, lexitcode = posix.wait( lpid )
+local _, exitmsg, lexitcode = posix.wait( pid )
 
 cwriteln( 'Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode )
 
-result, code = execute( 'diff -r ' .. srcdir .. ' ' .. trgdir )
+local result, code = execute( 'diff -r ' .. srcdir .. ' ' .. trgdir )
 
 if result == 'exit'
 then

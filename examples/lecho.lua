@@ -7,7 +7,7 @@
 -----
 -- for testing purposes. just echos what is happening.
 --
-echo = {
+local echo = {
 	maxProcesses = 1,
 	delay = 1,
 	onStartup = "/bin/echo telling about ^source",

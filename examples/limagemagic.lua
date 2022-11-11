@@ -12,7 +12,7 @@
 --
 local formats = { jpg=true, gif=true, png=true,  }
 
-convert = {
+local convert = {
 	delay = 0,
 
 	maxProcesses = 99,

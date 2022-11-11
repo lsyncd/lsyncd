@@ -19,7 +19,7 @@
 --
 -- Author: Daniel Miranda <danielkza2@gmail.com>
 --
-s3 = {}
+local s3 = {}
 
 s3.checkgauge = {
     onCreate  = false,

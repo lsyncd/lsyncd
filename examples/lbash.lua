@@ -15,12 +15,12 @@ settings {
 -- for testing purposes. prefix can be used to slow commands down.
 -- prefix = "sleep 5 && "
 --
-prefix = ""
+local prefix = ""
 
 -----
 -- for testing purposes. uses bash command to hold local dirs in sync.
 --
-bash = {
+local bash = {
 	delay = 0,
 
 	maxProcesses = 1,

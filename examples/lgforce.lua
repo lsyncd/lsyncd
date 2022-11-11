@@ -22,12 +22,12 @@
 ----
 -- forces this group.
 --
-fgroup = "staff"
+local fgroup = "staff"
 
 -----
 -- script for all changes.
 --
-command =
+local command =
 -- checks if the group is the one enforced and sets them if not
 [[
 perm=`stat -c %A ^sourcePathname`
@@ -59,13 +59,13 @@ fi
 -- the carret as first char tells Lsycnd to call a shell altough it
 -- starts with a slash otherwisw
 --
-startup =
+local startup =
 [[^/bin/chgrp -R ]]..fgroup..[[ ^source || /bin/true &&
 /bin/chmod -R g+rw ^source || /bin/true &&
 /usr/bin/find ^source -type d | xargs chmod g+x
 ]]
 
-gforce = {
+local gforce = {
 	maxProcesses = 99,
 	delay        = 1,
 	onStartup    = startup,

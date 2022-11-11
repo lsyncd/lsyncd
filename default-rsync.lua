@@ -592,6 +592,7 @@ rsync.prepare = function
 
 	crsync._computed = { true }
 
+	--- @type any
 	local computed = crsync._computed
 
 	local computedN = 2

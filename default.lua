@@ -13,6 +13,7 @@ then
 	error( 'default already loaded' )
 end
 
+--- @diagnostic disable-next-line: lowercase-global
 default = { }
 
 

@@ -1,3 +1,5 @@
+--- @diagnostic disable: lowercase-global, need-check-nil
+
 -- common testing environment
 posix = require( 'posix' )
 string = require( 'string' )
@@ -11,6 +13,7 @@ local c0='\027[0m'
 
 -- compatibility with 5.1
 if table.unpack == nil then
+	--- @diagnostic disable-next-line: deprecated
 	table.unpack = unpack
 end
 
@@ -46,8 +49,7 @@ end
 -- If environment variable 'SEED' is set,
 -- that one is used seed.
 --
-local seed = os.getenv( 'SEED')  or os.time( )
-
+local seed = tonumber(os.getenv( 'SEED'))  or os.time( )
 math.randomseed( seed )
 
 cwriteln( 'random seed: ', seed )
@@ -60,6 +62,10 @@ cwriteln( 'random seed: ', seed )
 function mktempd
 ( )
 	local f = io.popen( 'mktemp -td ltest.XXX', 'r' )
+
+	if f == nil then
+		return error("can't create testing directory")
+	end
 
 	local s = f:read( '*a' )
 

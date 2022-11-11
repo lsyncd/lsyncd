@@ -132,7 +132,7 @@ cwriteln( 'waiting for Lsyncd to remove destination' )
 
 posix.sleep( 20 )
 
-result, code = execute( 'diff -urN ' .. srcdir .. ' ' .. trgdir )
+local result, code = execute( 'diff -urN ' .. srcdir .. ' ' .. trgdir )
 
 if result ~= 'exit' or code ~= 0
 then
@@ -155,7 +155,7 @@ testfiles( )
 cwriteln( 'killing started Lsyncd' )
 
 posix.kill( pid )
-local _, exitmsg, exitcode = posix.wait( lpid )
+local _, exitmsg, exitcode = posix.wait( pid )
 
 cwriteln( 'Exitcode of Lsyncd = ', exitmsg, ' ', exitcode );
 

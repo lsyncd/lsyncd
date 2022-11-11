@@ -69,7 +69,7 @@ testfile( srcdir..'b' )
 testfile( srcdir..'c' )
 cwriteln( 'killing started Lsyncd' )
 posix.kill( pid )
-local _, exitmsg, lexitcode = posix.wait( lpid )
+local _, exitmsg, lexitcode = posix.wait( pid )
 cwriteln( 'Exitcode of Lsyncd = ', exitmsg, ' ', lexitcode)
 posix.sleep(1);
 
