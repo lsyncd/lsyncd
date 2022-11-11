@@ -103,13 +103,15 @@ add_custom_target( docs-html
 	DEPENDS ${CMAKE_SOURCE_DIR}/docs
 )
 
+add_custom_command(
+    OUTPUT tests
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/tests tests)
 
-# create_symlink( ${CMAKE_SOURCE_DIR}/tests tests)
 ADD_CUSTOM_TARGET(prepare_tests ALL
-                  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/tests tests
+				  DEPENDS tests/
 )
 
-add_custom_target( tests
+add_custom_target( run-tests
 	COMMAND echo "Running the tests"
 	COMMAND echo "Note you are expected to:"
 	COMMAND echo "  * have lua-posix installed"

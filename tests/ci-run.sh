@@ -17,5 +17,5 @@ echo "Build folder: $BUILD_FOLDER"
 cd $BUILD_FOLDER
 cmake $SRC
 make VERBOSE=1
-make tests
+make run-tests
 rm -rf $BUILD_FOLDER
