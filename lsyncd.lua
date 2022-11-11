@@ -6207,7 +6207,7 @@ function runner.getAlarm
 	)
 		if a == nil then error( 'got nil alarm' ) end
 
-		if alarm == true or not a
+		if (type(alarm) == "boolean" and alarm == true) or not a
 		then
 			-- 'alarm' is already immediate or
 			-- a not a new alarm
