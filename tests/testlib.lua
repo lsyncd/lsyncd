@@ -104,7 +104,8 @@ end
 function writefile
 (
 	filename,
-	text
+	text,
+	mode
 )
 	local f = io.open( filename, 'w' )
 
@@ -117,6 +118,10 @@ function writefile
 	f:write( text )
 	f:write( '\n' )
 	f:close( )
+
+	if mode ~= nil then
+		posix.chmod(filename, mode)
+	end
 
 	return true
 end

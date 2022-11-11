@@ -62,6 +62,8 @@ local function writefiles
 	writefile( srcdir .. 'xbx/a', 'xbxa' )
 	posix.mkdir( srcdir .. 'xcx' )
 	writefile( srcdir .. 'xcx/x', 'xcxx' )
+    writefile( srcdir .. 'xda', 'xda', '700' )
+    writefile( srcdir .. 'xdb', 'xdb', '755' )
 end
 
 -- test all files
@@ -72,6 +74,8 @@ local function testfiles
 	testfile( trgdir .. 'yaa', false )
 	testfile( trgdir .. 'xbx/a', false )
 	testfile( trgdir .. 'xcx/x', true )
+	testfile( trgdir .. 'xda', true )
+	testfile( trgdir .. 'xdb', true )
 end
 
 
