@@ -10,7 +10,8 @@ jobs:
       matrix:
         version:
           - lsyncd_lua5_3
-          - lsyncd_lua5_4
+          # broken with lua 5.4.4. luac segfault
+          # - lsyncd_lua5_4
           - lsyncd_lua5_1
     steps:
       - uses: actions/checkout@v2.4.0

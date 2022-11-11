@@ -45,8 +45,8 @@ sync {
                 }
         },
         filter = {
-            '- /ab**',
-            '+ /a**',
+            '- /xb**',
+            '+ /x**',
             '- /**',
         },
 }
@@ -55,13 +55,13 @@ sync {
 -- writes all files
 local function writefiles
 ( )
-	writefile( srcdir .. 'abc', 'abc' )
-	writefile( srcdir .. 'acc', 'acc' )
-	writefile( srcdir .. 'baa', 'baa' )
-	posix.mkdir( srcdir .. 'abx' )
-	writefile( srcdir .. 'abx/a', 'abxa' )
-	posix.mkdir( srcdir .. 'acx' )
-	writefile( srcdir .. 'acx/x', 'acxx' )
+	writefile( srcdir .. 'xbc', 'xbc' )
+	writefile( srcdir .. 'xcc', 'xcc' )
+	writefile( srcdir .. 'yaa', 'yaa' )
+	posix.mkdir( srcdir .. 'xbx' )
+	writefile( srcdir .. 'xbx/a', 'xbxa' )
+	posix.mkdir( srcdir .. 'xcx' )
+	writefile( srcdir .. 'xcx/x', 'xcxx' )
 end
 
 --
@@ -92,11 +92,11 @@ end
 -- test all files
 local function testfiles
 ( )
-	testfile( trgdir .. 'abc', false )
-	testfile( trgdir .. 'acc', true )
-	testfile( trgdir .. 'baa', false )
-	testfile( trgdir .. 'abx/a', false )
-	testfile( trgdir .. 'acx/x', true )
+	testfile( trgdir .. 'xbc', false )
+	testfile( trgdir .. 'xcc', true )
+	testfile( trgdir .. 'yaa', false )
+	testfile( trgdir .. 'xbx/a', false )
+	testfile( trgdir .. 'xcx/x', true )
 end
 
 
