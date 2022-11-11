@@ -10,7 +10,7 @@ lsyncd
 AdditionalInfo.txt
 config.h
 Makefile
-build/
+build*/
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake

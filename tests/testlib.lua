@@ -674,3 +674,27 @@ function isTableEqual(o1, o2, ignore_mt)
     return true
 end
 
+--
+-- Tests if the filename exists
+-- fails if this is different to expect.
+--
+function testfile
+	(
+		filename,
+		expect
+	)
+	local stat, err = posix.stat( filename )
+
+	if stat and not expect
+	then
+		cwriteln( 'failure: ', filename, ' should be filtered')
+
+		os.exit( 1 )
+	end
+
+	if not stat and expect
+	then
+		cwriteln( 'failure: ', filename, ' should not be filtered' )
+		os.exit( 1 )
+	end
+end

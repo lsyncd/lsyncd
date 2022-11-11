@@ -64,31 +64,6 @@ local function writefiles
 	writefile( srcdir .. 'xcx/x', 'xcxx' )
 end
 
---
--- Tests if the filename exists
--- fails if this is different to expect.
---
-local function testfile
-(
-	filename,
-	expect
-)
-	local stat, err = posix.stat( filename )
-
-	if stat and not expect
-	then
-		cwriteln( 'failure: ', filename, ' should be filtered')
-
-		os.exit( 1 )
-	end
-
-	if not stat and expect
-	then
-		cwriteln( 'failure: ', filename, ' should not be filtered' )
-		os.exit( 1 )
-	end
-end
-
 -- test all files
 local function testfiles
 ( )
@@ -148,7 +123,7 @@ writefiles( )
 
 cwriteln( 'waiting for Lsyncd to transmit changes' )
 
-posix.sleep( 5 )
+posix.sleep( 20 )
 
 testfiles( )
 
