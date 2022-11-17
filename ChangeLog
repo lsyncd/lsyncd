@@ -1,7 +1,7 @@
-2021-11-17: 2.3.1
+2022-11-17: 2.3.1
     change: multiple bugfixes, style fixes
 
-2021-03-09: 2.3.0
+2022-03-09: 2.3.0
     add: nix flake support
 	add: support for tunnel commands
 	add: support for batchSizeLimit
