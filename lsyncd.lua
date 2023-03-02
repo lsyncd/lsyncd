@@ -5682,7 +5682,7 @@ OPTIONS:
   -pidfile FILE       Writes Lsyncds PID into FILE
   -runner FILE        Loads Lsyncds lua part from FILE
   -script FILE        Script to load before execting runner (ADVANCED)
-  -sshopts			  Additional ssh command options when using rsyncssh
+  -sshopts            Additional ssh command options when using rsyncssh
   -version            Prints versions and exits
 
 LICENSE:

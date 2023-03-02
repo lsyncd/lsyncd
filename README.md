@@ -16,8 +16,8 @@ When to use
 -----------
 Lsyncd is designed to synchronize a local directory tree with low profile of expected changes to a remote mirror. Lsyncd is especially useful to sync data from a secure area to a not-so-secure area.
 
-2-Way synchronization
----------------------
+2-way/bidirection synchronization
+---------------------------------
 It is not possible to use lsyncd to synchronize for example `folder1` with `folder2` and vice versa. Only one source to one target. Two way synchronization is a very hard problem that needs specialized tools.
 Imagine you start writing a very large file to `folder1`, lsyncd will start synchronizing this file to `folder2`, which might be on a different machine. The lsyncd on that machine will see a new file, and try to synchronize it back to `folder1`. If at the same time, you change bytes in this file, those changes will be overwritten with old data. Using lsyncd in such a way might work in practice, but data corruption is easily possible if you write into files afterwards.
 `git-annex` is a good way to do this, if you don't mind working with git repositories. It stores each change as a revision that can be rolled back.
