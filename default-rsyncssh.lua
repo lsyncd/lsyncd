@@ -102,6 +102,41 @@ local replaceRsyncFilter =
 end
 
 
+---
+--- Check if _extra arguments are of correct form
+---
+local checkSSH = function (args)
+	local SINGLES = "46AaCfGgKkMNnqsTtVvXxYy"
+	local needs_more = true
+	local is_data = false
+	local rv = true
+	for index, value in ipairs(args) do
+		if is_data == false then
+			if string.sub(value, 1, 1) ~= "-" then
+				log('Warn', "_extra argument does not start with -")
+				rv = false
+			end
+			needs_more = true
+		end
+		for i = 1, #SINGLES do
+			if string.sub(SINGLES, i, i) == string.sub(value, 2, 2) then
+				needs_more = false
+				break
+			end
+		end
+		if needs_more == false then
+			is_data = false
+		else
+			is_data = true
+		end
+	end
+	if needs_more == true then
+		log('Warn', "passend argument requires more arguments")
+		rv = false
+	end
+	return rv
+end
+
 --
 -- Spawns rsync for a list of events
 --
@@ -548,6 +583,9 @@ rsyncssh.prepare = function
 
 	if cssh._extra
 	then
+		if checkSSH(cssh._extra) == false then
+			log( 'Warn', 'The ssh._extra parameter is a list of arguments, ensure it is written correctly')
+		end
 		for k, v in ipairs( cssh._extra )
 		do
 			computed[ computedN ] = v
