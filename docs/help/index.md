@@ -5,7 +5,7 @@ short: "Help"
 ---
 Discussion Group
 ----------------
-There is a [discussion group to all things related Lsyncd](https://groups.google.com/forum/#!forum/lsyncd/join)
+There is a [discussion group to all things related Lsyncd](https://github.com/lsyncd/lsyncd/discussions)
 
 Issues
 ------
