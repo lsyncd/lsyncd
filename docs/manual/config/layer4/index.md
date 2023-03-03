@@ -219,6 +219,13 @@ Below is a table of options for the ```rsync``` parameter. Please have a look at
 </td><td> (Lsyncd >= 2.2.0)
 </td></tr>
 
+<tr><td> filter
+</td><td> =
+</td><td> TABLE of STRINGS
+</td><td>
+</td><td> (Lsyncd >= 2.2.3)
+</td></tr>   
+   
  <tr><td> group
 </td><td> =
 </td><td> BOOL
