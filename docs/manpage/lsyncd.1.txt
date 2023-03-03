@@ -41,7 +41,7 @@ Fine-grained customization can be achieved through the CONFIG-FILE.  Custom
 action configs can even be written from scratch in cascading layers ranging
 from shell scripts to code written in the LUA(1) language.  This way simplicity
 can be balanced with powerfulness.  See the online manual for details on the
-CONFIG-FILE https://axkibe.github.io/lsyncd/manual/config/file/ .
+CONFIG-FILE https://lsyncd.github.io/lsyncd/manual/config/file/ .
 
 Note that under normal configuration Lsyncd will delete pre-existing files in
 the target directories that are not present in the respective source directory.
@@ -69,6 +69,9 @@ OPTIONS
 *-nodaemon*::
 	Lsyncd will not detach from the invoker and log as well to stdout/err.
 
+*-onepass*::
+	Sync once and exit
+
 *-pidfile* 'FILE'::
 	Lsyncd will write its process ID in 'FILE'.
 
@@ -89,7 +92,7 @@ EXIT STATUS
 
 SEE ALSO
 --------
-Online Manual: https://axkibe.github.io/lsyncd/
+Online Manual: https://lsyncd.github.io/lsyncd/
 
 VERSION
 ------
@@ -98,6 +101,7 @@ This man page is for lsyncd(1) version 2.2.0
 AUTHOR
 ------
 Axel Kittenberger, <axkibe@gmail.com> 2010-2017
+Daniel Poelzleithner, <poelzleithner@b1-systems.de> 2021-2023
 
 COPYING
 -------

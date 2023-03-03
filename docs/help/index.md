@@ -9,7 +9,7 @@ There is a [discussion group to all things related Lsyncd](https://groups.google
 
 Issues
 ------
-For cases Lsyncd is missbehaving there are [Issues](https://github.com/axkibe/lsyncd/issues) on Github.
+For cases Lsyncd is missbehaving there are [Issues](https://github.com/lsyncd/lsyncd/issues) on Github.
 
 Please check:
 
@@ -19,4 +19,4 @@ Please check:
 
 Source & Improvement
 --------------------
-[Fork Lsyncd at Github](https://github.com/axkibe/lsyncd)
+[Fork Lsyncd at Github](https://github.com/lsyncd/lsyncd)

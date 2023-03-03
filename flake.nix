@@ -15,14 +15,17 @@
               allowBroken = true;
             };}); #.legacyPackages.${system};
           defaultDeps = with pkgs; [
-            gcc
-            cmake
-            gnumake
             glib
             rsync
             openssh
+          ];
+          nativeDeps = with pkgs; [
             curl
+            asciidoc
             jekyll
+            gcc
+            cmake
+            gnumake
           ];
           version = builtins.elemAt
             (builtins.match ''.*lsyncd_version = '([0-9\.]*)'.*''
@@ -138,10 +141,11 @@
             src = ./.;
 
             buildPhase = ''
-              make all docs-html
+              make all manpage docs-html
             '';
 
             buildInputs = defaultDeps ++ luaPackages;
+            nativeBuildInputs = nativeDeps;
           });
           mkDev = extras: pkgs.mkShell {
             propagatedBuildInputs = defaultDeps ++ extras;
