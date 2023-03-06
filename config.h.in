@@ -3,7 +3,11 @@
 
 /* File event notification mechanims available */
 #cmakedefine WITH_INOTIFY 1
+#cmakedefine WITH_KQUEUE 1
 #cmakedefine WITH_FSEVENTS 1
+
+/* fork with fd table shared */
+#cmakedefine HAS_RFORK 1
 
 /* OS */
 #cmakedefine LSYNCD_TARGET_APPLE 1
