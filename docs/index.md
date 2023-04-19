@@ -7,7 +7,7 @@ Description
 -----------
 Lsyncd uses a filesystem event interface (inotify or fsevents) to watch for changes to local files and directories.  Lsyncd collates these events for several seconds and then spawns one or more processes to synchronize the changes to a remote filesystem.  The default synchronization method is [rsync](http://rsync.samba.org/).  Thus, Lsyncd is a light-weight live mirror solution.  Lsyncd is comparatively easy to install and does not require new filesystems or block devices.  Lysncd does not hamper local filesystem performance.
 
-As an alternative to rsync, Lsyncd can also push changes via rsync+ssh.  Rsync+ssh allows for much more efficient synchronization when a file or direcotry is renamed or moved to a new location in the local tree.  (In contrast, plain rsync performs a move by deleting the old file and then retransmitting the whole file.)
+As an alternative to rsync, Lsyncd can also push changes via rsync+ssh.  Rsync+ssh allows for much more efficient synchronization when a file or directory is renamed or moved to a new location in the local tree.  (In contrast, plain rsync performs a move by deleting the old file and then retransmitting the whole file.)
 
 Fine-grained customization can be achieved through the config file.  Custom action configs can even be written from scratch in cascading layers ranging from shell scripts to code written in the [Lua language](http://www.lua.org/). Thus, simple, powerful and flexible configurations are possible.
 
@@ -21,11 +21,11 @@ Lsyncd is designed to synchronize a slowly changing local directory tree to a re
 
 Other synchronization tools
 ------------------------
-[DRBD](http://www.drbd.org) operates on block device level. This makes it useful for synchronizing systems that are under heavy load. Lsyncd on the other hand does not require you to change block devices and/or mount points, allows you to change uid/gid of the transferred files, separates the receiver through the one-way nature of rsync. DRBD is likely the better option if you are syncing databases.
+[DRBD](http://www.drbd.org) operates on block device level. This makes it useful for synchronizing systems that are under heavy load. Lsyncd on the other hand does not require you to change block devices and/or mount points, allows you to change uid/gid of the transferred files, and separates the receiver through the one-way nature of rsync. DRBD is likely the better option if you are syncing databases.
 
 [GlusterFS](http://www.gluster.org) and [BindFS](http://bindfs.org/) use a FUSE-Filesystem to interject kernel/userspace filesystem events.
 
-[Mirror](https://github.com/stephenh/mirror) is an asynchronous synchronisation tool that takes use of the inotify notifications much like Lsyncd. The main differences are: it is developed specifically for master-master use, thus running on a daemon on both systems, uses its own transportation layer instead of rsync and is Java instead of Lsyncd's C core with Lua scripting.
+[Mirror](https://github.com/stephenh/mirror) is an asynchronous synchronization tool that makes use of the inotify notifications much like Lsyncd. The main differences are: it is developed specifically for master-master use, thus running on a daemon on both systems, uses its own transportation layer instead of rsync and is Java instead of Lsyncd's C core with Lua scripting.
 
 Lsyncd usage examples
 ---------------------
