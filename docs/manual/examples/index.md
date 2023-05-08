@@ -6,14 +6,16 @@ Layer 4 Examples
 ----------------
 
 bash sync:
-<pre>
+
+{% highlight lua %}
 sync{bash, source="/home/lonewolf/teste1", target="/home/lonewolf/teste2"}
-</pre>
+{% endhighlight %}
 
 rsyncssh option:
 
-<pre>
-sync{default.rsyncssh,
+{% highlight lua %}
+sync{
+        default.rsyncssh,
         source="/var/www/live_site_resources",
         host="192.168.129.90",
         targetdir="/var/www/live_site_resources",
@@ -25,7 +27,7 @@ sync{default.rsyncssh,
                 _extra = {"--bwlimit=50000"},
         }
 }
-</pre>
+{% endhighlight %}
 
 Layer 3 Examples
 ----------------

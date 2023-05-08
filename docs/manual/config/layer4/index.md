@@ -72,6 +72,7 @@ sync {
 {% endhighlight %}
 
 Additional settings:
+
 | Name            | Description |
 |-----------------|-------------|
 | batchSizeLimit  | Files larger then this limit should not be batched into on transfer. Only makes sense with processes > 1 which prevents rsyncssh |
@@ -627,7 +628,6 @@ Tunnels
 Lsyncd is able to start and manage external programs to provide a tunnel for data transfer.
 Additionally it can spawn multiple connections and load-balance connections among them. A tunnel is created through the `tunnel` function.
 
-```
 {% highlight lua %}
 sync {
     default.rsync,
@@ -638,7 +638,6 @@ sync {
     source    = "/home/user/src/",
 }
 {% endhighlight %}
-```
 
 You can then set the shell for the tunnel user to `/bin/false` and configure the rsyncd server side appropriately.
 
