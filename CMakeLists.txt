@@ -134,7 +134,7 @@ add_custom_target( run-tests
 
 # compiling and linking it all together
 add_executable( lsyncd ${LSYNCD_SRC} )
-target_link_libraries( lsyncd ${LUA_LIBRARIES} )
+target_link_libraries( lsyncd ${LUA_LIBRARIES} ${CMAKE_DL_LIBS} )
 
 install( TARGETS lsyncd RUNTIME DESTINATION bin )
 install( FILES ${CMAKE_CURRENT_BINARY_DIR}/man/lsyncd.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 COMPONENT man )
