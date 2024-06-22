@@ -89,11 +89,11 @@ add_custom_command( OUTPUT defaults.out
 )
 
 # the manpage
-add_custom_target( manpage
+add_custom_target( manpage ALL
 	COMMAND ${CMAKE_COMMAND} -E echo "Updating the manpage"
 	COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/man
 	COMMAND a2x --format=manpage ${PROJECT_SOURCE_DIR}/docs/manpage/lsyncd.1.txt -D ${CMAKE_CURRENT_BINARY_DIR}/man
-	DEPENDS docs/manpage/lsyncd.1.txt
+	DEPENDS ${CMAKE_SOURCE_DIR}/docs/manpage/lsyncd.1.txt
 )
 
 # the html documention
