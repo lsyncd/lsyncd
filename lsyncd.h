@@ -30,8 +30,13 @@
 #define LUA_USE_APICHECK 1
 #include <lua.h>
 
+#if LUA_VERSION_NUM < 502
+#define lua_rawlen lua_objlen
+#endif
+
 #define LSYNCD_LIBNAME "lsyncd"
 #define LSYNCD_INOTIFYLIBNAME "inotify"
+#define LSYNCD_KQUEUELIBNAME "kqueue"
 
 /*
 | Workaround to register a library for different lua versions.
@@ -164,6 +169,15 @@ extern void nonobserve_fd(int fd);
 #ifdef WITH_INOTIFY
 extern void register_inotify(lua_State *L);
 extern void open_inotify(lua_State *L);
+#endif
+
+/*
+ * kqueue
+ */
+#ifdef WITH_KQUEUE
+extern void register_kqueue(lua_State *L);
+extern void open_kqueue(lua_State *L);
+extern void kqueue_after_fork(lua_State *L);
 #endif
 
 /*

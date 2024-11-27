@@ -66,8 +66,10 @@ extern size_t defaults_size;
 | Makes sure there is one file system monitor.
 */
 #ifndef WITH_INOTIFY
+#ifndef WITH_KQUEUE
 #ifndef WITH_FSEVENTS
 #	error "needing at least one notification system. please rerun cmake"
+#endif
 #endif
 #endif
 
@@ -78,6 +80,10 @@ static char *monitors[] = {
 
 #ifdef WITH_INOTIFY
 	"inotify",
+#endif
+
+#ifdef WITH_KQUEUE
+	"kqueue",
 #endif
 
 #ifdef WITH_FSEVENTS
@@ -99,7 +105,6 @@ struct settings settings = {
 	.log_level    = LOG_NOTICE,
 	.nodaemon     = false,
 };
-
 
 /*
 | True when Lsyncd daemonized itself.
@@ -415,8 +420,8 @@ logstring0(
 		{
 			fprintf(
 				stderr,
-				"Cannot open logfile [%s]!\n",
-				settings.log_file
+				"Cannot open logfile [%s]! (%s)\n",
+				settings.log_file, strerror(errno)
 			);
 
 			exit( -1 );
@@ -1261,13 +1266,13 @@ l_exec( lua_State *L )
 		{
 			int tlen;
 			int it;
-			lua_checkstack( L, lua_gettop( L ) + lua_objlen( L, i ) + 1 );
+			lua_checkstack( L, lua_gettop( L ) + lua_rawlen( L, i ) + 1 );
 
 			// moves table to top of stack
 			lua_pushvalue( L, i );
 			lua_remove( L, i );
 			argc--;
-			tlen = lua_objlen( L, -1 );
+			tlen = lua_rawlen( L, -1 );
 
 			for( it = 1; it <= tlen; it++ )
 			{
@@ -2228,6 +2233,15 @@ register_lsyncd( lua_State *L )
 
 #endif
 
+#ifdef WITH_KQUEUE
+
+	lua_getglobal( L, LSYNCD_LIBNAME );
+	register_kqueue( L );
+	lua_setfield( L, -2, LSYNCD_KQUEUELIBNAME );
+	lua_pop( L, 1 );
+
+#endif
+
 	if( lua_gettop( L ) )
 	{
 		logstring(
@@ -2287,7 +2301,11 @@ daemonize(
 {
 	pid_t pid, sid;
 
+#ifdef HAS_RFORK
+	pid = rfork( RFPROC );
+#else
 	pid = fork( );
+#endif
 
 	if( pid < 0 )
 	{
@@ -2310,6 +2328,7 @@ daemonize(
 	{
 		write_pidfile( L, pidfile );
 	}
+
 
 	// detaches the new process from the parent process
 	sid = setsid( );
@@ -2363,6 +2382,10 @@ daemonize(
 	}
 
 	is_daemon = true;
+
+#ifdef WITH_KQUEUE
+	kqueue_after_fork( L );
+#endif
 }
 
 
@@ -3031,6 +3054,10 @@ main1( int argc, char *argv[] )
 
 #ifdef WITH_INOTIFY
 	open_inotify( L );
+#endif
+
+#ifdef WITH_KQUEUE
+	open_kqueue( L );
 #endif
 
 #ifdef WITH_FSEVENTS

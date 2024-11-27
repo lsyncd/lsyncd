@@ -15,18 +15,30 @@ set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/" )
 find_package( Lua REQUIRED )
 include_directories ( ${LUA_INCLUDE_DIR} )
 
+# FreeBSD needs this
+IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+	add_definitions(-D__BSD_VISIBLE)
+ENDIF()
 
 # setting Lsyncd sources
 set( LSYNCD_SRC lsyncd.c runner.c defaults.c )
 
+include( CheckSymbolExists )
+# fork with fd table shared
+check_symbol_exists( rfork "unistd.h" HAS_RFORK )
 
 # selecting the file notification mechanisms to compile against
 option( WITH_INOTIFY "Compile with inotify file notifications (Linux)" ON )
-option( WITH_FSEVENTS "Compile with inotify file notifications (OSX)" OFF )
+option( WITH_KQUEUE "Compile with kqueue file notifications (OSX, BSD)" OFF )
+option( WITH_FSEVENTS "Compile with /dev/fsevents notifications (OSX)" OFF )
 
 if( WITH_INOTIFY )
 	set( LSYNCD_SRC ${LSYNCD_SRC} inotify.c )
 endif( WITH_INOTIFY )
+
+if( WITH_KQUEUE )
+	set( LSYNCD_SRC ${LSYNCD_SRC} kqueue.c )
+endif( WITH_KQUEUE )
 
 if( WITH_FSEVENTS )
 	set( LSYNCD_SRC ${LSYNCD_SRC} fsevents.c )
