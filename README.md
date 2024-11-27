@@ -1,5 +1,8 @@
 Lsyncd -- Live Syncing (Mirror) Daemon
 ======================================
+
+Needs new maintainer. Up for adoption
+
 Description
 -----------
 Lsyncd watches a local directory trees event monitor interface (inotify or fsevents). It aggregates and combines events for a few seconds and then spawns one (or more) process(es) to synchronize the changes. By default this is [rsync](http://rsync.samba.org/).  Lsyncd is thus a light-weight live mirror solution that is comparatively easy to install not requiring new filesystems or block devices and does not hamper local filesystem performance.
